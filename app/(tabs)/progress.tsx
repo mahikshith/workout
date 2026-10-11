@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
@@ -61,7 +62,7 @@ export default function Progress() {
           <Row>
             <Stat label="Workouts" value={sessions.length} />
             <Stat label="This month" value={thisMonth} />
-            <Stat label="Streak" value={`${streak(sessions)}🔥`} color={c.accent} />
+            <Stat label="Streak" value={streak(sessions)} color={c.accent} />
           </Row>
         </Card>
       </Rise>
@@ -141,7 +142,8 @@ export default function Progress() {
             <T v="label">Top lifts · est. 1RM</T>
             {records.map(([id, v], i) => (
               <Row key={id} style={{ justifyContent: 'space-between' }}>
-                <T v="h3" style={{ flex: 1 }} numberOfLines={1}>{i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : '    '}{byId[id]?.name}</T>
+                <T v="num" color={i === 0 ? c.accent : i < 3 ? c.text : c.dim} style={{ fontSize: 18, lineHeight: 22, width: 20 }}>{i + 1}</T>
+                <T v="h3" style={{ flex: 1 }} numberOfLines={1}>{byId[id]?.name}</T>
                 <T v="h3" color={c.accent}>{Math.round(v)} kg</T>
               </Row>
             ))}
@@ -157,7 +159,7 @@ export default function Progress() {
             <Card key={ss.id} style={{ flexDirection: 'row', alignItems: 'center', padding: 14 }}>
               <View style={{ flex: 1 }}>
                 <T v="h3">{ss.title}</T>
-                <T v="small">{new Date(ss.startedAt).toDateString()} · {ss.place === 'home' ? '🏠' : '🏋️'}</T>
+                <Row gap={6}><T v="small">{new Date(ss.startedAt).toDateString()}</T><Ionicons name={ss.place === 'home' ? 'home' : 'barbell'} size={12} color={c.muted} /></Row>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <T v="h3">{doneSets(ss)} sets</T>

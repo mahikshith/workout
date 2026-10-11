@@ -19,7 +19,7 @@ const x = (id: string, sets: number, reps: string, rest = 90): Slot => ({ id, se
 export const plans: Plan[] = [
   {
     id: 'full-body-gym', name: 'Full Body Foundations', tagline: 'Three days a week. Learn the big lifts.',
-    place: 'gym', level: 'beginner', tags: ['build muscle', 'stay fit', 'get stronger'], color: '#C6FF3D',
+    place: 'gym', level: 'beginner', tags: ['build muscle', 'stay fit', 'get stronger'], color: '#C5F04A',
     days: [
       { name: 'Full Body A', focus: 'Squat · Push · Pull', slots: [
         x('Goblet_Squat', 3, '10'), x('Dumbbell_Bench_Press', 3, '10'), x('Seated_Cable_Rows', 3, '12'),
@@ -80,7 +80,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'home-bodyweight', name: 'Home, No Equipment', tagline: 'Just you and the floor. Twenty-five minutes.',
-    place: 'home', level: 'beginner', tags: ['stay fit', 'lose fat', 'build muscle'], color: '#C6FF3D',
+    place: 'home', level: 'beginner', tags: ['stay fit', 'lose fat', 'build muscle'], color: '#C5F04A',
     days: [
       { name: 'Home Full Body A', focus: 'Legs · Push · Core', slots: [
         x('Bodyweight_Squat', 3, '15', 60), x('Pushups', 3, '8-12', 60), x('Butt_Lift_Bridge', 3, '15', 45),

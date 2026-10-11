@@ -87,10 +87,14 @@ export function Button({ title, onPress, kind = 'primary', icon, style, disabled
   );
 }
 
-export function Chip({ label, on, onPress, color = c.accent }: { label: string; on?: boolean; onPress?: () => void; color?: string }) {
+export function Chip({ label, icon, on, onPress, color = c.accent }: {
+  label: string; icon?: keyof typeof Ionicons.glyphMap; on?: boolean; onPress?: () => void; color?: string;
+}) {
+  const fg = on ? c.accentInk : c.text;
   return (
     <Tap onPress={onPress} style={[st.chip, on && { backgroundColor: color, borderColor: color }]}>
-      <Text style={{ fontFamily: f.semi, fontSize: 14, color: on ? c.accentInk : c.text }}>{label}</Text>
+      {icon && <Ionicons name={icon} size={16} color={fg} />}
+      <Text style={{ fontFamily: f.semi, fontSize: 14, color: fg }}>{label}</Text>
     </Tap>
   );
 }
@@ -206,7 +210,7 @@ export const Row = ({ children, style, gap = 12 }: { children: ReactNode; style?
 export const st = StyleSheet.create({
   card: { backgroundColor: c.card, borderRadius: r.lg, padding: 18, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   btn: { height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 24 },
-  chip: { paddingHorizontal: 16, height: 40, borderRadius: 20, justifyContent: 'center', backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
+  chip: { paddingHorizontal: 16, height: 40, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
   step: { width: 36, height: 36, borderRadius: 12, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   stepBig: { width: 56, height: 56, borderRadius: 28 },
 });

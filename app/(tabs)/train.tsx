@@ -10,10 +10,10 @@ import { useStore } from '../../src/store';
 import { c, r } from '../../src/theme';
 import { Chip, Rise, Row, Screen, T, Tap } from '../../src/ui';
 
-const BODY = [
-  { m: 'chest', e: '🫁' }, { m: 'shoulders', e: '🤷' }, { m: 'lats', e: '🦅' }, { m: 'biceps', e: '💪' },
-  { m: 'triceps', e: '🔱' }, { m: 'abdominals', e: '🧱' }, { m: 'glutes', e: '🍑' }, { m: 'quadriceps', e: '🦵' },
-  { m: 'hamstrings', e: '🏃' }, { m: 'calves', e: '🦶' }, { m: 'lower back', e: '🧘' }, { m: 'pelvic floor', e: '🌸' },
+const BODY: { m: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { m: 'chest', icon: 'shirt' }, { m: 'shoulders', icon: 'accessibility' }, { m: 'lats', icon: 'body' }, { m: 'biceps', icon: 'barbell' },
+  { m: 'triceps', icon: 'hand-left' }, { m: 'abdominals', icon: 'grid' }, { m: 'glutes', icon: 'fitness' }, { m: 'quadriceps', icon: 'walk' },
+  { m: 'hamstrings', icon: 'flash' }, { m: 'calves', icon: 'footsteps' }, { m: 'lower back', icon: 'shield' }, { m: 'pelvic floor', icon: 'flower' },
 ];
 
 export default function Train() {
@@ -60,7 +60,7 @@ export default function Train() {
         <View style={s.grid}>
           {BODY.map((b) => (
             <Tap key={b.m} onPress={() => router.push({ pathname: '/library', params: { muscle: b.m } })} style={s.muscle}>
-              <T style={{ fontSize: 24 }}>{b.e}</T>
+              <Ionicons name={b.icon} size={22} color={c.accent} />
               <T v="small" color={c.text} numberOfLines={1}>{title(b.m)}</T>
             </Tap>
           ))}
@@ -97,7 +97,7 @@ export default function Train() {
 
 const s = StyleSheet.create({
   current: { marginTop: 18, borderRadius: r.xl, padding: 22, overflow: 'hidden' },
-  dayPill: { backgroundColor: 'rgba(0,0,0,0.75)', paddingHorizontal: 12, height: 30, borderRadius: 15, justifyContent: 'center' },
+  dayPill: { backgroundColor: 'rgba(10,10,11,0.75)', paddingHorizontal: 12, height: 30, borderRadius: 15, justifyContent: 'center' },
   lib: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   libIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

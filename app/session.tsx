@@ -6,7 +6,7 @@ import Animated, { FadeIn, FadeInDown, FadeOut, SlideInDown, SlideOutDown } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fmtTime, isTimed, lastSets } from '../src/calc';
 import { alternatives, byId, title } from '../src/data/exercises';
-import { reschedule } from '../src/notify';
+import { reschedule, restAlert } from '../src/notify';
 import { useStore } from '../src/store';
 import { c, f, r } from '../src/theme';
 import { Button, Demo, haptic, Ring, Row, Stepper, T, Tap, Thumb } from '../src/ui';
@@ -49,11 +49,13 @@ export default function SessionScreen() {
       const allDone = it.sets.every((x, k) => k === j || x.done);
       setRestTotal(it.rest);
       setRestUntil(Date.now() + it.rest * 1000);
+      restAlert(it.rest);
       if (allDone && idx < active!.items.length - 1) setTimeout(() => setIdx(idx + 1), 600);
     }
   }
 
   function end() {
+    restAlert(null);
     const s = finish();
     setSheet(null);
     reschedule(useStore.getState().profile, useStore.getState().sessions);
@@ -141,9 +143,9 @@ export default function SessionScreen() {
             <View style={{ flex: 1, gap: 8 }}>
               <T v="label" color={c.warm}>Resting · breathe</T>
               <Row gap={8}>
-                <Tap onPress={() => setRestUntil(Math.max(Date.now() + 1000, restUntil! - 15000))} style={s.restBtn}><T v="h3">−15</T></Tap>
-                <Tap onPress={() => { setRestUntil(restUntil! + 15000); setRestTotal(restTotal + 15); }} style={s.restBtn}><T v="h3">+15</T></Tap>
-                <Tap onPress={() => setRestUntil(null)} style={[s.restBtn, { backgroundColor: c.warm }]}><T v="h3" color={c.accentInk}>Skip</T></Tap>
+                <Tap onPress={() => { const t = Math.max(Date.now() + 1000, restUntil! - 15000); setRestUntil(t); restAlert((t - Date.now()) / 1000); }} style={s.restBtn}><T v="h3">−15</T></Tap>
+                <Tap onPress={() => { setRestUntil(restUntil! + 15000); setRestTotal(restTotal + 15); restAlert((restUntil! + 15000 - Date.now()) / 1000); }} style={s.restBtn}><T v="h3">+15</T></Tap>
+                <Tap onPress={() => { setRestUntil(null); restAlert(null); }} style={[s.restBtn, { backgroundColor: c.warm }]}><T v="h3" color={c.accentInk}>Skip</T></Tap>
               </Row>
             </View>
           </Animated.View>
@@ -158,7 +160,7 @@ export default function SessionScreen() {
                 <T v="h3">Next</T><Ionicons name="chevron-forward" size={20} color={c.text} />
               </Tap>
             ) : (
-              <Tap onPress={() => setSheet('end')} style={[s.nav, { width: 140, backgroundColor: c.accent }]}><T v="h3" color={c.accentInk}>Finish 🎉</T></Tap>
+              <Tap onPress={() => setSheet('end')} style={[s.nav, { width: 140, flexDirection: 'row', gap: 6, backgroundColor: c.accent }]}><T v="h3" color={c.accentInk}>Finish</T><Ionicons name="checkmark" size={20} color={c.accentInk} /></Tap>
             )}
           </Row>
         )}
@@ -209,7 +211,7 @@ const s = StyleSheet.create({
   set: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 8, borderRadius: 16 },
   setDone: { backgroundColor: '#1C2410' },
   check: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: c.dim, alignItems: 'center', justifyContent: 'center' },
-  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 12, backgroundColor: 'rgba(0,0,0,0.92)', borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 12, backgroundColor: 'rgba(10,10,11,0.92)', borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   nav: { height: 56, width: 56, borderRadius: 28, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   rest: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#1F140C', borderRadius: r.lg, padding: 14 },
   restBtn: { flex: 1, height: 44, borderRadius: 22, backgroundColor: '#3A2614', alignItems: 'center', justifyContent: 'center' },

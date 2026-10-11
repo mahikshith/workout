@@ -85,7 +85,8 @@ export const useStore = create<State>()(
 
       // Exercises the place can't support are swapped for the best available alternative up front.
       start: (day, place, planId) => {
-        const { sessions, profile } = get();
+        const { sessions, profile, active } = get();
+        if (active) return; // an unfinished workout is resumed, never silently replaced
         const gear = profile?.gear ?? [];
         const older = (profile?.age ?? 30) >= 55 || profile?.level === 'beginner';
         const items = day.slots.map((sl) => {
@@ -101,7 +102,7 @@ export const useStore = create<State>()(
         set({ active: { id: uid(), title: day.name, planId, place, startedAt: Date.now(), items } });
       },
       startSingle: (exId, place) =>
-        set((s) => ({
+        set((s) => s.active ? {} : ({
           active: { id: uid(), title: byId[exId].name, place, startedAt: Date.now(), items: [{ exId, target: '10', rest: 90, sets: seedSets(exId, '10', 3, s.sessions) }] },
         })),
       updateSet: (i, j, patch) =>

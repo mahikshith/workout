@@ -10,7 +10,7 @@ const NUDGES = [
   'Rest is done. Time to move.',
 ];
 
-Notifications.setNotificationHandler({
+if (Platform.OS !== 'web') Notifications.setNotificationHandler({
   handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
 });
 
@@ -45,4 +45,16 @@ export async function reschedule(p: Profile | null, sessions: Session[]) {
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: 'nudges' },
       });
   }
+}
+
+// Rest timer alert for when the phone is locked or the app is in the background.
+let restId: string | null = null;
+export async function restAlert(seconds: number | null) {
+  if (Platform.OS === 'web') return;
+  if (restId) { Notifications.cancelScheduledNotificationAsync(restId); restId = null; }
+  if (!seconds || !(await Notifications.getPermissionsAsync()).granted) return;
+  restId = await Notifications.scheduleNotificationAsync({
+    content: { title: 'Rest over', body: 'Next set. Let’s go.' },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.max(1, Math.round(seconds)), channelId: 'nudges' },
+  });
 }

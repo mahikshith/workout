@@ -48,7 +48,7 @@ export default function Summary() {
         <Ionicons name="trophy" size={44} color={c.accentInk} />
       </Animated.View>
       <Rise i={1}><T v="display" style={{ textAlign: 'center', marginTop: 18 }}>Workout done</T></Rise>
-      <Rise i={2}><T v="body" color={c.muted} style={{ textAlign: 'center' }}>{s.title} · {streak(sessions)} session streak 🔥</T></Rise>
+      <Rise i={2}><Row gap={6} style={{ justifyContent: 'center' }}><T v="body" color={c.muted} style={{ textAlign: 'center', flexShrink: 1 }}>{s.title} · {streak(sessions)} session streak</T><Ionicons name="flame" size={16} color={c.warm} /></Row></Rise>
 
       <Rise i={3}>
         <Card style={{ marginTop: 24 }}>

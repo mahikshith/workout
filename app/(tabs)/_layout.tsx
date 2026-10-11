@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useStore } from '../../src/store';
 import { Tap } from '../../src/ui';
 import { c, f } from '../../src/theme';
 
@@ -34,6 +35,8 @@ function Bar({ state, navigation }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
+  const hasProfile = useStore((s) => !!s.profile);
+  if (!hasProfile) return <Redirect href="/onboarding" />;
   return (
     <Tabs tabBar={(p) => <Bar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: c.bg }, animation: 'shift' }}>
       <Tabs.Screen name="index" />

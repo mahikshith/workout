@@ -46,7 +46,7 @@ export default function Today() {
             <T v="display" numberOfLines={1}>{profile.name}</T>
           </View>
           <View style={s.streak}>
-            <T style={{ fontSize: 18 }}>🔥</T>
+            <Ionicons name="flame" size={18} color={c.warm} />
             <T v="h3">{streak}</T>
           </View>
         </Row>
@@ -92,8 +92,8 @@ export default function Today() {
             {day.slots.length > 5 && <T v="small">+{day.slots.length - 5}</T>}
           </Row>
           <Row style={{ marginTop: 18 }} gap={8}>
-            <Chip label="🏋️ Gym" on={place === 'gym'} onPress={() => setPlace('gym')} />
-            <Chip label="🏠 Home" on={place === 'home'} onPress={() => setPlace('home')} />
+            <Chip label="Gym" icon="barbell" on={place === 'gym'} onPress={() => setPlace('gym')} />
+            <Chip label="Home" icon="home" on={place === 'home'} onPress={() => setPlace('home')} />
           </Row>
           {swaps > 0 && (
             <T v="small" color={c.warm} style={{ marginTop: 10 }}>

@@ -39,7 +39,7 @@ export default function Library() {
         {!!q && <Tap onPress={() => setQ('')}><Ionicons name="close-circle" size={18} color={c.muted} /></Tap>}
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 8, paddingVertical: 12 }}>
-        <Chip label="🏠 Home-friendly" on={homeOnly} onPress={() => setHomeOnly(!homeOnly)} color={c.blue} />
+        <Chip label="Home-friendly" icon="home" on={homeOnly} onPress={() => setHomeOnly(!homeOnly)} color={c.blue} />
         {MUSCLES.map((m) => <Chip key={m} label={title(m)} on={muscle === m} onPress={() => setMuscle(muscle === m ? null : m)} />)}
       </ScrollView>
       <FlatList

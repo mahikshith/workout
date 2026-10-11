@@ -67,7 +67,7 @@ export default function Fuel() {
         <View style={s.grid}>
           {foodsFor(profile.diet).map((fd) => (
             <Tap key={fd.name} onPress={() => addMeal({ name: fd.name, kcal: fd.kcal, protein: fd.protein })} style={s.food} scale={0.95}>
-              <T style={{ fontSize: 26 }}>{fd.emoji}</T>
+              <View style={s.foodIcon}><Ionicons name={fd.icon} size={18} color={c.warm} /></View>
               <T v="small" color={c.text} numberOfLines={1}>{fd.name}</T>
               <T v="label">{fd.kcal} kcal · {fd.protein}g</T>
             </Tap>
@@ -118,6 +118,7 @@ const s = StyleSheet.create({
   glass: { width: 22, height: 30, borderRadius: 6, borderWidth: 1.5, borderColor: c.dim },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   food: { width: '31%', flexGrow: 1, padding: 12, borderRadius: r.md, backgroundColor: c.card, gap: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  foodIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: c.warm + '1F', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   input: { height: 48, borderRadius: 14, backgroundColor: c.card2, paddingHorizontal: 14, color: c.text, fontFamily: f.medium, fontSize: 15 },
   meal: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: r.md, backgroundColor: c.card, marginBottom: 8 },
 });
