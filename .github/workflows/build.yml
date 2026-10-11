@@ -29,6 +29,7 @@ jobs:
   web:
     needs: check
     runs-on: ubuntu-latest
+    continue-on-error: true # stays optional until GitHub Pages is switched on in repo settings
     environment: { name: github-pages, url: '${{ steps.deploy.outputs.page_url }}' }
     steps:
       - uses: actions/checkout@v4
