@@ -1,0 +1,70 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm install --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: node scripts/check.mjs
+      - run: node --experimental-strip-types -e "import('./src/calc.ts').then(m => { m.selfCheck(); console.log('calc ok') })"
+
+  web:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: '${{ steps.deploy.outputs.page_url }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm install --no-audit --no-fund
+      - run: npx expo export -p web
+        env: { EXPO_BASE_URL: /workout }
+      - run: cp dist/index.html dist/404.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: dist }
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  android:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm install --no-audit --no-fund
+      - run: npx expo prebuild --platform android --no-install
+      - run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+        working-directory: android
+      - run: cp android/app/build/outputs/apk/release/app-release.apk gym-buddy.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: gym-buddy-apk, path: gym-buddy.apk }
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Gym Buddy (latest build)
+          body: Built from ${{ github.sha }}. Download gym-buddy.apk below and open it on your Android phone.
+          prerelease: true
+          files: gym-buddy.apk
