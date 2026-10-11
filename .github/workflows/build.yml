@@ -21,8 +21,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - run: npm install --no-audit --no-fund
-      - run: npx tsc --noEmit
+      - run: bash scripts/ci.sh npm install --no-audit --no-fund --legacy-peer-deps
+      - run: bash scripts/ci.sh npx tsc --noEmit
       - run: node scripts/check.mjs
       - run: node --experimental-strip-types -e "import('./src/calc.ts').then(m => { m.selfCheck(); console.log('calc ok') })"
 
@@ -34,8 +34,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - run: npm install --no-audit --no-fund
-      - run: npx expo export -p web
+      - run: bash scripts/ci.sh npm install --no-audit --no-fund --legacy-peer-deps
+      - run: bash scripts/ci.sh npx expo export -p web
         env: { EXPO_BASE_URL: /workout }
       - run: cp dist/index.html dist/404.html
       - uses: actions/configure-pages@v5
@@ -54,9 +54,9 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
       - uses: gradle/actions/setup-gradle@v4
-      - run: npm install --no-audit --no-fund
-      - run: npx expo prebuild --platform android --no-install
-      - run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+      - run: bash scripts/ci.sh npm install --no-audit --no-fund --legacy-peer-deps
+      - run: bash scripts/ci.sh npx expo prebuild --platform android --no-install
+      - run: bash ../scripts/ci.sh ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
         working-directory: android
       - run: cp android/app/build/outputs/apk/release/app-release.apk gym-buddy.apk
       - uses: actions/upload-artifact@v4
