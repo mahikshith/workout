@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
-import Animated, { FadeInRight, FadeOutLeft, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInRight, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { recommend } from '../src/coach';
 import { HOME_GEAR, title } from '../src/data/exercises';
@@ -168,7 +168,6 @@ export default function Onboarding() {
   const last = step === steps.length - 1;
   const cur = steps[step];
   const frac = (step + 1) / steps.length;
-  const bar = useAnimatedStyle(() => ({ transform: [{ scaleX: withSpring(frac, { damping: 20 }) }] }));
 
   async function done() {
     const plan = recommend(p);
@@ -183,10 +182,10 @@ export default function Onboarding() {
         {step > 0 ? (
           <Tap onPress={() => setStep(step - 1)} style={s.back}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
         ) : <View style={s.back} />}
-        <View style={s.track}><Animated.View style={[s.fill, bar]} /></View>
+        <View style={s.track}><Animated.View layout={LinearTransition.springify().damping(20)} style={[s.fill, { width: `${frac * 100}%` }]} /></View>
         <T v="small" style={{ width: 40, textAlign: 'right' }}>{step + 1}/{steps.length}</T>
       </Row>
-      <Animated.ScrollView key={step} entering={FadeInRight.springify().damping(20)} exiting={FadeOutLeft.duration(150)}
+      <Animated.ScrollView key={step} entering={FadeInRight.springify().damping(20)}
         contentContainerStyle={{ padding: 20, paddingTop: 36, gap: 10 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {step === 0 && <T v="label" color={c.accent}>Gym Buddy</T>}
         <T v="h1">{cur.q}</T>
@@ -208,6 +207,6 @@ const s = StyleSheet.create({
   optIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   back: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   track: { flex: 1, height: 6, borderRadius: 3, backgroundColor: c.card2, overflow: 'hidden' },
-  fill: { height: 6, width: '100%', borderRadius: 3, backgroundColor: c.accent, transformOrigin: 'left' },
+  fill: { height: 6, borderRadius: 3, backgroundColor: c.accent },
   day: { width: 56, height: 72, borderRadius: 18, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' },
 });
