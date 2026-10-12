@@ -1,14 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useEvent } from 'expo';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { useEffect, type ReactNode } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEffect, useState, type ReactNode } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
 import Animated, {
-  Easing, FadeInDown, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
+  cancelAnimation, Easing, FadeIn, FadeInDown, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { artFrames, frames, type Exercise } from './data/exercises';
+import videos from './data/videos.json';
+import { useStore, type MediaPref } from './store';
 import { c, f, r } from './theme';
 
 export const haptic = (kind: 'light' | 'medium' | 'success' = 'light') => {
@@ -20,7 +24,7 @@ export const haptic = (kind: 'light' | 'medium' | 'success' = 'light') => {
 const APress = Animated.createAnimatedComponent(Pressable);
 
 // Every tappable surface springs down a little and ticks a haptic.
-export function Tap({ onPress, style, children, disabled, scale = 0.96, feedback = 'light' }: {
+export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback = 'light' }: {
   onPress?: () => void; style?: StyleProp<ViewStyle>; children: ReactNode; disabled?: boolean; scale?: number; feedback?: 'light' | 'medium' | 'none';
 }) {
   const s = useSharedValue(1);
@@ -28,8 +32,8 @@ export function Tap({ onPress, style, children, disabled, scale = 0.96, feedback
   return (
     <APress
       disabled={disabled}
-      onPressIn={() => (s.value = withSpring(scale, { damping: 15, stiffness: 400 }))}
-      onPressOut={() => (s.value = withSpring(1, { damping: 12, stiffness: 300 }))}
+      onPressIn={() => (s.value = withTiming(scale, { duration: 120, easing: Easing.out(Easing.quad) }))}
+      onPressOut={() => (s.value = withTiming(1, { duration: 220, easing: Easing.bezier(0.32, 0.72, 0, 1) }))}
       onPress={() => { if (feedback !== 'none') haptic(feedback); onPress?.(); }}
       style={[a, style, disabled && { opacity: 0.4 }]}
       accessibilityRole="button"
@@ -41,13 +45,14 @@ export function Tap({ onPress, style, children, disabled, scale = 0.96, feedback
 
 type V = 'display' | 'h1' | 'h2' | 'h3' | 'body' | 'small' | 'label' | 'num';
 const tv: Record<V, object> = {
-  display: { fontFamily: f.display, fontSize: 44, lineHeight: 50, letterSpacing: 0.5, textTransform: 'uppercase' },
-  h1: { fontFamily: f.display, fontSize: 32, lineHeight: 38, letterSpacing: 0.4, textTransform: 'uppercase' },
-  h2: { fontFamily: f.bold, fontSize: 22, lineHeight: 28 },
-  h3: { fontFamily: f.semi, fontSize: 17, lineHeight: 22 },
+  // The whole type scale. Screens pick a variant; they never set their own font or size.
+  display: { fontFamily: f.display, fontSize: 40, lineHeight: 46, letterSpacing: 0.5, textTransform: 'uppercase' },
+  h1: { fontFamily: f.display, fontSize: 30, lineHeight: 36, letterSpacing: 0.4, textTransform: 'uppercase' },
+  h2: { fontFamily: f.bold, fontSize: 20, lineHeight: 26 },
+  h3: { fontFamily: f.semi, fontSize: 16, lineHeight: 21 },
   body: { fontFamily: f.regular, fontSize: 15, lineHeight: 22 },
   small: { fontFamily: f.medium, fontSize: 13, lineHeight: 18 },
-  label: { fontFamily: f.semi, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase' },
+  label: { fontFamily: f.semi, fontSize: 12, lineHeight: 16, letterSpacing: 1.2, textTransform: 'uppercase' },
   num: { fontFamily: f.display, fontSize: 28, lineHeight: 34 },
 };
 export function T({ v = 'body', color, style, ...p }: TextProps & { v?: V; color?: string }) {
@@ -122,60 +127,99 @@ export function Ring({ size = 120, stroke = 10, progress, color = c.accent, trac
   );
 }
 
-// Line art first (workout-guide), then photos (free-exercise-db); steps-only exercises get a glyph and never hit the photo CDN.
-export function Demo({ ex, height = 240, style }: { ex: Exercise; height?: number; style?: StyleProp<ViewStyle> }) {
-  if (ex.noImages) return <Breath ex={ex} height={height} style={style} />;
-  if (ex.art) return <ArtDemo key={ex.art} slug={ex.art} height={height} style={style} />;
-  if (ex.noPhoto)
-    return (
-      <View style={[{ height, borderRadius: r.lg, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' }, style]}>
-        <Ionicons name="barbell-outline" size={height * 0.3} color={c.muted} />
-      </View>
-    );
-  return <PhotoDemo ex={ex} height={height} style={style} />;
-}
+const VIDEOS: Record<string, { url: string; author: string }> = videos;
+const KINDS: { k: MediaPref; label: string }[] = [{ k: 'drawing', label: 'Drawing' }, { k: 'photo', label: 'Photo' }, { k: 'video', label: 'Video' }];
+export const mediaKinds = (ex: Exercise) =>
+  KINDS.filter(({ k }) => (k === 'drawing' ? !!ex.art : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
+const CREDIT = { drawing: 'Drawing: workout-guide by Bryl Lim, CC BY-SA 4.0, based on Everkinetic', photo: 'Photo: free-exercise-db, public domain' };
+const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 
-// Three poses played 1→2→3→2→1 so the movement reads back and forth: ~600ms per pose, 300ms crossfades.
-function ArtDemo({ slug, height, style }: { slug: string; height: number; style?: StyleProp<ViewStyle> }) {
-  const p = useSharedValue(0);
-  useEffect(() => {
-    const fade = (v: number) => withTiming(v, { duration: 300, easing: Easing.inOut(Easing.ease) });
-    const hold = (v: number) => withTiming(v, { duration: 600 });
-    p.value = withRepeat(withSequence(hold(0), fade(1), hold(1), fade(2), hold(2), fade(1), hold(1), fade(0)), -1);
-  }, []);
+// Drawing (workout-guide), photo (free-exercise-db) or video (wger), whichever exist, with a switch in the corner.
+// The pick is remembered for every exercise. Steps-only exercises get a glyph and never hit the photo CDN.
+export function Demo({ ex, height = 240, style, credit }: { ex: Exercise; height?: number; style?: StyleProp<ViewStyle>; credit?: boolean }) {
+  const pref = useStore((s) => s.mediaPref);
+  const setPref = useStore((s) => s.setMediaPref);
+  const [prev, setPrev] = useState<MediaPref | null>(null); // stays under the new pick while it fades in
+  useEffect(() => { if (!prev) return; const t = setTimeout(() => setPrev(null), 250); return () => clearTimeout(t); }, [prev]);
+  if (ex.noImages) return <Breath ex={ex} height={height} style={style} />;
+  const kinds = mediaKinds(ex);
+  const kind = kinds.find((m) => m.k === pref)?.k ?? kinds[0]?.k;
+  const shown = prev && prev !== kind && kinds.some((m) => m.k === prev) ? [prev, kind] : [kind];
   return (
-    <View style={[{ height, borderRadius: r.lg, backgroundColor: c.card2, overflow: 'hidden' }, style]}>
-      {artFrames(slug).map((uri, i) => <ArtFrame key={uri} uri={uri} i={i} p={p} />)}
+    <View style={style}>
+      <View style={{ height, borderRadius: r.lg, backgroundColor: c.card2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+        {!kind ? <Ionicons name="barbell-outline" size={height * 0.3} color={c.muted} /> : shown.map((k) => (
+          <Animated.View key={ex.id + k} entering={k === kind && shown.length > 1 ? FadeIn.duration(200).easing(EASE) : undefined} style={StyleSheet.absoluteFill}>
+            {k === 'video' ? <Clip uri={VIDEOS[ex.id].url} /> : <Loop uris={k === 'drawing' ? artFrames(ex.art!) : frames(ex.id)} solid={k === 'photo'} />}
+          </Animated.View>
+        ))}
+        {kinds.length > 1 && (
+          <View style={md.switch}>
+            {kinds.map(({ k, label }) => (
+              <Pressable key={k} hitSlop={10} accessibilityRole="button" accessibilityState={{ selected: k === kind }}
+                onPress={() => { if (!kind || k === kind) return; haptic(); setPrev(kind); setPref(k); }}
+                style={[md.opt, k === kind && { backgroundColor: c.accent }]}>
+                <T v="label" color={k === kind ? c.accentInk : c.text}>{label}</T>
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </View>
+      {credit && kind && (
+        <T v="small" color={c.dim} style={{ marginTop: 8, textAlign: 'center' }}>
+          {kind === 'video' ? `Video: ${VIDEOS[ex.id].author}, wger.de, CC BY-SA 4.0` : CREDIT[kind]}
+        </T>
+      )}
     </View>
   );
 }
 
-function ArtFrame({ uri, i, p }: { uri: string; i: number; p: SharedValue<number> }) {
-  const a = useAnimatedStyle(() => ({ opacity: Math.max(0, 1 - Math.abs(p.value - i)) }));
+// Poses played 1→2→3→2→1 (photos 1→2→1): each held 700 ms, 450 ms crossfades. Starts once every frame is cached.
+function Loop({ uris, solid }: { uris: string[]; solid: boolean }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    let live = true;
+    const fade = (v: number) => withTiming(v, { duration: 450, easing: Easing.inOut(Easing.quad) });
+    const hold = (v: number) => withTiming(v, { duration: 700 });
+    const steps = (uris.length > 2 ? [1, 2, 1, 0] : [1, 0]).flatMap((v) => [fade(v), hold(v)]).slice(0, -1);
+    Image.prefetch(uris, 'memory-disk').finally(() => { if (live) p.value = withRepeat(withSequence(hold(0), ...steps), -1); });
+    return () => { live = false; cancelAnimation(p); };
+  }, [uris[0]]);
+  return (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: solid ? c.media : c.card2 }]}>
+      {uris.map((uri, i) => <Frame key={uri} uri={uri} i={i} p={p} solid={solid} />)}
+    </View>
+  );
+}
+
+// Line art is transparent, so frames trade opacity; photos are opaque, so the next one fades in over the last.
+function Frame({ uri, i, p, solid }: { uri: string; i: number; p: SharedValue<number>; solid: boolean }) {
+  const a = useAnimatedStyle(() => ({ opacity: solid ? Math.min(1, Math.max(0, p.value - i + 1)) : Math.max(0, 1 - Math.abs(p.value - i)) }));
+  const inset = solid ? 0 : 12;
   return (
     <Animated.View style={[StyleSheet.absoluteFill, a]}>
-      <Image source={uri} style={{ position: 'absolute', top: 12, bottom: 12, left: 12, right: 12 }} contentFit="contain" cachePolicy="disk" />
+      <Image source={uri} style={{ position: 'absolute', top: inset, bottom: inset, left: inset, right: inset }} contentFit="contain" cachePolicy="memory-disk" />
     </Animated.View>
   );
 }
 
-// The dataset ships a start and an end frame; crossfading them on a loop reads as a demo animation.
-function PhotoDemo({ ex, height, style }: { ex: Exercise; height: number; style?: StyleProp<ViewStyle> }) {
-  const o = useSharedValue(0);
-  useEffect(() => {
-    o.value = withRepeat(withSequence(withTiming(0, { duration: 700 }), withTiming(1, { duration: 500 }), withTiming(1, { duration: 700 }), withTiming(0, { duration: 500 })), -1);
-  }, []);
-  const top = useAnimatedStyle(() => ({ opacity: o.value }));
-  const [a, b] = frames(ex.id);
+// wger videos, transcoded to small muted H.264 by .github/workflows/media.yml. TextureView so it can fade and round its corners.
+function Clip({ uri }: { uri: string }) {
+  const player = useVideoPlayer({ uri, useCaching: true }, (pl) => { pl.loop = true; pl.muted = true; pl.play(); });
+  const { status } = useEvent(player, 'statusChange', { status: player.status });
   return (
-    <View style={[{ height, borderRadius: r.lg, backgroundColor: c.media, overflow: 'hidden' }, style]}>
-      <Image source={a} style={StyleSheet.absoluteFill} contentFit="contain" cachePolicy="disk" transition={200} />
-      <Animated.View style={[StyleSheet.absoluteFill, top]}>
-        <Image source={b} style={StyleSheet.absoluteFill} contentFit="contain" cachePolicy="disk" />
-      </Animated.View>
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }]}>
+      <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls={false} surfaceType="textureView" />
+      {status === 'loading' && <ActivityIndicator color={c.muted} />}
+      {status === 'error' && <T v="small">Video not available right now</T>}
     </View>
   );
 }
+
+const md = StyleSheet.create({
+  switch: { position: 'absolute', top: 10, right: 10, flexDirection: 'row', gap: 2, padding: 3, borderRadius: 16, backgroundColor: 'rgba(10,10,11,0.72)' },
+  opt: { height: 26, paddingHorizontal: 10, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+});
 
 export function Thumb({ ex, size = 56 }: { ex: Exercise; size?: number }) {
   if (ex.noImages)

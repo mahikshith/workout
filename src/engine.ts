@@ -3,8 +3,9 @@
 import type { Ionicons } from '@expo/vector-icons';
 import { cycle, dayKey, postpartumWeek, pregnancyWeek, targets } from './calc';
 import { byId, title, type Exercise } from './data/exercises';
-import { foodsFor } from './data/foods';
+import { proteinPicks } from './data/foods';
 import { planById, type Day } from './data/plans';
+import { quick, type Quick } from './data/quick';
 import type { Meal, Mood, Profile, Session } from './store';
 
 export type EngineInput = {
@@ -76,6 +77,31 @@ export function gate(e: Exercise, p: Profile, sessionsDone: number): Lock {
     };
   }
   return { locked: false };
+}
+
+// Quick sessions in the order that fits this person right now. A desk day gets desk, eye and Kegel breaks in work hours;
+// a standing job gets floor-based recovery; an active job gets mobility; chores at home get short no-space strength.
+// Sessions needing gear the person lacks, or containing moves their safety filters hide, are left out.
+export function quickFor(p: Profile, now = Date.now()): Quick[] {
+  const hour = new Date(now).getHours();
+  const work = hour >= 9 && hour < 18;
+  const sitting = p.lifestyle === 'desk' || p.lifestyle === 'student' || p.lifestyle === 'driving' || p.concerns?.includes('desk');
+  const period = cycle(p)?.phase === 'period';
+  const score = (q: Quick) => {
+    const t = (x: string) => q.tags.includes(x as never);
+    let s = -q.minutes / 10;
+    if (t('period')) s += period ? 50 : -50;
+    if (sitting && work && (t('desk') || t('eyes') || t('pelvic'))) s += 30;
+    if (p.lifestyle === 'standing' && (t('mobility') || t('calm'))) s += 25;
+    if (p.lifestyle === 'active' && t('mobility')) s += 25;
+    if (p.lifestyle === 'home' && (t('strength') || t('core')) && q.minutes <= 15) s += 20;
+    if (hour < 11 && t('morning')) s += 25;
+    if (hour >= 19 && (t('calm') || t('mobility'))) s += 20;
+    return s;
+  };
+  return quick
+    .filter((q) => !q.gear?.some((g) => !p.gear.includes(g)) && q.slots.every((sl) => !byId[sl.id] || !hidden(byId[sl.id], p)))
+    .sort((a, b) => score(b) - score(a));
 }
 
 export const tone = (p: Profile) => (p.concerns?.some((x) => x === 'stressed' || x === 'breakup' || x === 'food') ? 'gentle' : 'playful');
@@ -174,7 +200,7 @@ export function insights(i: EngineInput, now = Date.now()): Insight[] {
   } else {
     const low = lastDays.filter((d) => mealsOn(d).length > 0 && mealsOn(d).reduce((a, m) => a + m.protein, 0) < 0.7 * t.protein).length;
     if (low >= 2) {
-      const best = [...foodsFor(p.diet)].sort((a, b) => b.protein - a.protein).slice(0, 2);
+      const best = proteinPicks(p.diet, 2);
       out.push({ id: 'protein-low', icon: 'nutrition', title: 'Light on protein lately', body: `Try ${best[0].name.toLowerCase()} (${best[0].protein} g) or ${best[1].name.toLowerCase()} (${best[1].protein} g) today.` });
     }
   }
@@ -191,6 +217,16 @@ export function insights(i: EngineInput, now = Date.now()): Insight[] {
   const water = i.water[today] ?? 0;
   if (new Date(now).getHours() >= 15 && water < 0.4 * t.water)
     out.push({ id: 'water-low', icon: 'water', title: 'Sip some water', body: `You're at ${water} of ${t.water} glasses today. A glass now keeps the afternoon slump away.` });
+
+  const life = {
+    desk: { title: 'Sitting most of the day?', body: 'Stand up and move for two minutes every hour. A desk reset or a few Kegels fit between meetings.' },
+    student: { title: 'Long hours of study?', body: 'Every hour, stand up, rest your eyes and roll your shoulders. Your focus comes back faster.' },
+    driving: { title: 'Long drives?', body: 'At each stop, stretch your hips and neck for two minutes. Kegels work even while you drive.' },
+    standing: { title: 'On your feet all day?', body: 'Floor-based moves and calf stretches help tired legs recover. Put your legs up for a few minutes tonight.' },
+    active: { title: 'Your job already moves you', body: 'Keep workouts shorter, focus on strength, and give mobility and sleep real time.' },
+    home: { title: 'Housework counts', body: 'Chores keep you moving. Short strength sessions protect your back for all that lifting and bending.' },
+  }[p.lifestyle ?? ('' as never)];
+  if (life) out.push({ id: `life-${p.lifestyle}`, icon: 'briefcase', ...life });
 
   if (p.concerns?.includes('thyroid')) out.push({ id: 'thyroid', icon: 'medkit', title: 'Steady wins with thyroid', body: 'Strength training and daily walks help most. Your doctor manages medication; we keep calorie cuts small.' });
 

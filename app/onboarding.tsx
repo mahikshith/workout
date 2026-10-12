@@ -9,6 +9,7 @@ import { HOME_GEAR, title } from '../src/data/exercises';
 import { askPermission, reschedule } from '../src/notify';
 import { useStore, type Goal, type Profile } from '../src/store';
 import { c, f, r } from '../src/theme';
+import { ContextFields } from '../src/context';
 import { Button, Row, Stepper, T, Tap } from '../src/ui';
 
 // Equal-width segmented row; every segment is a full 44px tap target.
@@ -34,7 +35,7 @@ const GOALS: { v: Goal; label: string; icon: keyof typeof Ionicons.glyphMap }[] 
   { v: 'get stronger', label: 'Get stronger', icon: 'barbell' },
   { v: 'stay fit', label: 'Stay fit', icon: 'heart' },
 ];
-const STEPS = 4;
+const STEPS = 5;
 const TIMES: [number, string][] = [[-1, 'Off'], [7, '7 am'], [12, 'Noon'], [18, '6 pm'], [20, '8 pm']];
 
 export default function Onboarding() {
@@ -53,6 +54,10 @@ export default function Onboarding() {
     const final = { ...p, name: p.name.trim(), goalWeightKg: existing ? p.goalWeightKg : p.weightKg };
     const plan = recommend(final);
     setProfile(final, existing ? undefined : plan);
+    const st = useStore.getState();
+    if (!existing && ['desk', 'student'].includes(final.lifestyle ?? '') && !st.breaks.on) st.setBreaks({ ...st.breaks, on: true });
+    if (final.reminder.on && !st.reminders.some((x) => x.kind === 'workout'))
+      st.setReminders([...st.reminders, { id: 'setup', kind: 'workout', hour: final.reminder.hour, minute: final.reminder.minute, days: [], on: true }]);
     if (final.reminder.on && (await askPermission())) reschedule(useStore.getState().profile, useStore.getState().sessions);
     router.replace(existing ? '/you' : { pathname: '/plan/[id]', params: { id: plan, welcome: '1' } });
   }
@@ -117,6 +122,10 @@ export default function Onboarding() {
       <Seg<number> value={p.reminder.on ? p.reminder.hour : -1} opts={TIMES}
         onPick={(h) => up({ reminder: h < 0 ? { ...p.reminder, on: false } : { hour: h, minute: 0, on: true } })} />
       <T v="small" style={{ marginTop: 8 }}>A gentle reminder at your training time, plus a heads-up if your streak is at risk. Change any of this later in your profile.</T>
+    </>,
+    <>
+      <T v="h1">Anything we should know?</T>
+      <ContextFields p={p} up={up} />
     </>,
   ];
 

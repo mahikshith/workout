@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fmtTime, isTimed, lastSets } from '../src/calc';
 import { alternatives, byId, title } from '../src/data/exercises';
 import { reschedule, restAlert } from '../src/notify';
+import { gate } from '../src/engine';
 import { Sheet } from '../src/sheet';
 import { useStore } from '../src/store';
 import { c, f, r } from '../src/theme';
@@ -98,7 +99,7 @@ export default function SessionScreen() {
             <T v="h1" style={{ flex: 1 }}>{ex.name}</T>
             <Tap onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: ex.id } })} style={s.icon}><Ionicons name="information" size={20} color={c.text} /></Tap>
           </Row>
-          {it.swappedFrom && <T v="small" color={c.warm}>Swapped in for {byId[it.swappedFrom].name}</T>}
+          {it.swappedFrom && <T v="small" color={c.warm}>Alternative to {byId[it.swappedFrom].name}</T>}
           <T v="small" style={{ marginTop: 4 }}>
             Target {it.sets.length} × {it.target}{prev ? `  ·  Last ${prev.map((p) => (p.weight ? `${p.weight}×${p.reps}` : p.reps)).join(' · ')}` : ''}
           </T>
@@ -106,7 +107,7 @@ export default function SessionScreen() {
           <Demo ex={ex} height={220} style={{ marginTop: 14 }} />
 
           <Row style={{ marginTop: 12 }} gap={10}>
-            <Tap onPress={() => setSheet('swap')} style={s.pill}><Ionicons name="swap-horizontal" size={16} color={c.text} /><T v="small" color={c.text}>Swap exercise</T></Tap>
+            <Tap onPress={() => setSheet('swap')} style={s.pill}><Ionicons name="swap-horizontal" size={16} color={c.text} /><T v="small" color={c.text}>Alternatives</T></Tap>
             <Tap onPress={() => addSet(idx)} style={s.pill}><Ionicons name="add" size={16} color={c.text} /><T v="small" color={c.text}>Add set</T></Tap>
             <Tap onPress={() => router.push({ pathname: '/library', params: { pick: '1' } })} style={s.pill}><Ionicons name="list" size={16} color={c.text} /><T v="small" color={c.text}>Exercise</T></Tap>
           </Row>
@@ -182,10 +183,10 @@ export default function SessionScreen() {
           )}
           {kind === 'swap' && profile && (
             <View style={{ gap: 10 }}>
-              <T v="h2">Swap {ex.name}</T>
+              <T v="h2">Alternatives to {ex.name}</T>
               <T v="small">Best matches for the same muscles, {active.place === 'home' ? 'using what you have at home' : 'at the gym'}.</T>
               <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 8, paddingTop: 6 }}>
-                {alternatives(ex, active.place, profile.gear, 8).map((a) => (
+                {alternatives(ex, active.place, profile.gear, 16).filter((a) => !gate(a, profile, sessions.length).locked).slice(0, 8).map((a) => (
                   <Tap key={a.id} onPress={() => { swap(idx, a.id); setSheet(null); }} style={s.alt} scale={0.98}>
                     <Thumb ex={a} size={52} />
                     <View style={{ flex: 1 }}>

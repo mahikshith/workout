@@ -100,7 +100,7 @@ export default function Progress() {
         </Card>
       </Rise>
 
-      <Rise i={4}>
+      {!(profile.gentle || profile.concerns?.includes('food')) && <Rise i={4}>
         <Card style={{ marginTop: 14 }}>
           <Row style={{ justifyContent: 'space-between' }}>
             <T v="label">Body weight</T>
@@ -118,7 +118,7 @@ export default function Progress() {
             <Button title="Log" onPress={() => logWeight(+kg.toFixed(1))} style={{ height: 44, paddingHorizontal: 22 }} />
           </Row>
         </Card>
-      </Rise>
+      </Rise>}
 
       {splitRows.length > 0 && (
         <Rise i={5}>

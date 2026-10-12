@@ -108,38 +108,138 @@ for (const w of wg) {
 out.push(...added);
 console.log(`workout-guide: ${matched} exercises matched, ${added.length} added`);
 
-// No dataset covers pelvic floor work, so these are written here and shown with a breathing guide instead of frames.
-const pelvic = (id, name, steps, timed) => ({
-  id, name, equipment: 'body only', primary: ['pelvic floor'], secondary: [], level: 'beginner',
-  force: 'static', mechanic: 'isolation', category: 'pelvic floor', steps, timed, noImages: true,
+// No dataset covers these (pelvic floor, eyes, desk breaks, breathing), so they are written here in plain words
+// and shown with a breathing guide instead of frames. Where a dataset exercise already fits (child's pose,
+// shoulder circles, incline push-up, calf raise, neck stretch), the plans use that one instead.
+const own = (category, primary, secondary = [], force = 'static') => (id, name, steps, timed) => ({
+  id, name, equipment: 'body only', primary, secondary, level: 'beginner',
+  force, mechanic: 'isolation', category, steps, timed, noImages: true,
 });
+const pelvic = own('pelvic floor', ['pelvic floor']);
+const eyes = own('eyes', ['eyes']);
 out.push(
   pelvic('Kegel_Long_Hold', 'Kegel Long Hold', [
-    'Lie on your back with knees bent, or sit tall. Breathe normally.',
-    'Gently squeeze and lift the muscles you would use to stop the flow of urine.',
-    'Hold the lift for the count while keeping your belly, thighs and glutes relaxed.',
-    'Release fully and rest for the same time before the next hold.',
+    'Lie on your back with your knees bent, or sit up tall.',
+    'Squeeze the muscles you use to stop peeing, and lift them up a little.',
+    'Hold the squeeze. Keep your belly, bottom and legs soft, and keep breathing.',
+    'Let go all the way. Rest as long as you held.',
   ], { hold: 5, rest: 5 }),
   pelvic('Kegel_Quick_Flick', 'Kegel Quick Flicks', [
-    'Get comfortable lying down or seated.',
-    'Squeeze and lift the pelvic floor quickly, then let go straight away.',
-    'Keep a steady rhythm and keep breathing.',
+    'Lie down or sit in a comfy spot.',
+    'Squeeze the muscles you use to stop peeing, quickly.',
+    'Let go straight away. Squeeze, let go, like a quick blink.',
+    'Keep a steady beat and keep breathing.',
   ], { hold: 1, rest: 1 }),
   pelvic('Kegel_Elevator', 'Kegel Elevator', [
-    'Imagine the pelvic floor as a lift going up three floors.',
-    'Squeeze a little (floor 1), a bit more (floor 2), then fully (floor 3), pausing at each.',
-    'Come down one floor at a time, then relax completely at the bottom.',
+    'Picture a lift going up three floors inside you.',
+    'Squeeze a little and pause. Squeeze more and pause. Squeeze all the way.',
+    'Now let go a bit at a time, one floor at a time.',
+    'At the bottom, let everything go soft.',
   ], { hold: 6, rest: 6 }),
   pelvic('Reverse_Kegel', 'Reverse Kegel (Relax)', [
-    'Breathe in deeply through your nose and let your belly expand.',
-    'As you inhale, gently let the pelvic floor drop and lengthen, like a slow release.',
-    'Exhale and let it return to rest without squeezing.',
+    'Lie or sit comfortably. Let your belly go soft.',
+    'Breathe in slowly through your nose and let your belly fill up.',
+    'As you breathe in, let the muscles down below relax and drop, like starting to pee.',
+    'Breathe out and let them settle. Do not squeeze.',
   ], { hold: 4, rest: 4 }),
-  pelvic('Diaphragmatic_Breathing', '360° Breathing', [
-    'Place one hand on your chest and one on your belly.',
-    'Inhale slowly so your belly and lower ribs expand while the chest stays still.',
-    'Exhale slowly and feel the belly fall. Keep the shoulders soft.',
+  pelvic('Diaphragmatic_Breathing', 'Slow Belly Breathing', [
+    'Sit or lie down. Put one hand on your chest and one on your belly.',
+    'Breathe in slowly through your nose. Your belly hand rises, your chest hand stays still.',
+    'Breathe out slowly. Feel your belly sink. Let your shoulders stay soft.',
   ], { hold: 4, rest: 6 }),
+
+  eyes('Eye_20_20_20', '20-20-20 Eye Break', [
+    'Look away from your screen.',
+    'Find something far away, about 20 feet (6 metres) or more.',
+    'Look at it softly for 20 seconds. Blink as you need.',
+    'Do this about every 20 minutes of screen time.',
+  ], { hold: 20, rest: 5 }),
+  eyes('Eye_Palming', 'Eye Palming', [
+    'Sit back and rest your elbows on the desk.',
+    'Rub your palms together until they feel warm.',
+    'Close your eyes and cup your palms over them. Do not press.',
+    'Breathe slowly and enjoy the dark.',
+  ], { hold: 4, rest: 6 }),
+  eyes('Eye_Near_Far_Focus', 'Near and Far Focus', [
+    'Hold your thumb up at arm\'s length.',
+    'Look at your thumb until it is sharp.',
+    'Now look at something far away until it is sharp.',
+    'Switch slowly between near and far.',
+  ], { hold: 5, rest: 5 }),
+  eyes('Eye_Slow_Blinks', 'Slow Blinks', [
+    'Sit back and relax your face.',
+    'Close your eyes gently, like falling asleep.',
+    'Pause with your eyes closed, then open them slowly.',
+    'Do not squeeze your eyes shut.',
+  ], { hold: 2, rest: 2 }),
+  eyes('Eye_Circles', 'Eye Circles', [
+    'Sit tall and keep your head still.',
+    'Look up, then slowly roll your eyes to the right, down, and left.',
+    'Make a few slow circles, then go the other way.',
+    'Blink and rest your eyes when done.',
+  ]),
+
+  own('desk', ['neck'])('Desk_Neck_Tilt', 'Seated Neck Tilts', [
+    'Sit tall with your feet flat and shoulders relaxed.',
+    'Slowly tip your right ear toward your right shoulder.',
+    'Come back to the middle, then tip to the left.',
+    'Then drop your chin to your chest and lift it back up.',
+  ]),
+  own('desk', ['neck'])('Desk_Chin_Tuck', 'Chin Tucks', [
+    'Sit or stand tall and look straight ahead.',
+    'Slide your chin straight back, making a double chin. Do not tip your head down.',
+    'Hold for a moment. Feel the back of your neck lengthen.',
+    'Let go and repeat.',
+  ], { hold: 3, rest: 3 }),
+  own('desk', ['middle back'], ['abdominals', 'lower back'])('Desk_Seated_Twist', 'Seated Spinal Twist', [
+    'Sit tall near the front of your chair, feet flat on the floor.',
+    'Put your left hand on your right knee and your right hand on the chair back.',
+    'Breathe in and sit tall. Breathe out and gently turn to the right.',
+    'Hold and breathe, then come back slowly and switch sides.',
+  ]),
+  own('desk', ['forearms'])('Desk_Wrist_Stretch', 'Wrist and Finger Stretch', [
+    'Hold your right arm out in front, palm facing away.',
+    'With your left hand, gently pull your right fingers back toward you. Hold.',
+    'Turn your right palm down and gently press the back of the hand toward you. Hold.',
+    'Make a fist, then spread your fingers wide a few times. Switch hands.',
+  ]),
+  own('desk', ['glutes'])('Desk_Figure_Four', 'Seated Figure Four Stretch', [
+    'Sit tall near the front of your chair, feet flat.',
+    'Cross your right ankle over your left knee, making a "4" shape.',
+    'Keep your back straight and lean forward a little until you feel a stretch.',
+    'Hold and breathe, then switch legs.',
+  ]),
+  own('desk', ['quadriceps'], ['abdominals'], 'push')('Desk_Seated_Leg_Raise', 'Seated Leg Raises', [
+    'Sit tall in your chair, feet flat, hands holding the seat.',
+    'Straighten your right leg until it is level with the seat.',
+    'Hold for a moment, then lower it slowly.',
+    'Switch legs each time, or do all reps on one side first.',
+  ], { hold: 3, rest: 2 }),
+
+  own('mobility', ['jaw'])('Jaw_Open_Release', 'Jaw Opening', [
+    'Sit tall and let your shoulders drop.',
+    'Rest the tip of your tongue on the roof of your mouth, behind your top teeth.',
+    'Open your mouth slowly, only as far as is comfortable.',
+    'Hold for a moment, then close slowly. Let your teeth stay apart.',
+  ], { hold: 3, rest: 3 }),
+  own('breathing', ['diaphragm'])('Breath_Box', 'Box Breathing', [
+    'Sit tall and let your shoulders drop.',
+    'Breathe in through your nose for a count of 4.',
+    'Hold your breath for 4. Breathe out slowly for 4.',
+    'Hold empty for 4, then start again.',
+  ], { hold: 4, rest: 4 }),
+  own('mobility', ['glutes'], ['lower back', 'abdominals'], null)('Gentle_Hip_Circles', 'Gentle Hip Circles', [
+    'Stand with your feet a bit wider than your hips, knees soft.',
+    'Put your hands on your hips.',
+    'Slowly draw big circles with your hips, as if using a hula hoop.',
+    'Go one way a few times, then the other way.',
+  ]),
+  own('mobility', ['quadriceps'], ['calves', 'glutes'], null)('March_In_Place', 'March in Place', [
+    'Stand tall with your arms by your sides.',
+    'Lift your right knee, then put the foot down. Then your left knee.',
+    'Swing your arms as you march, like walking.',
+    'Keep a steady pace you can talk at.',
+  ]),
 );
 
 writeFileSync(new URL('../src/data/exercises.json', import.meta.url), JSON.stringify(out));

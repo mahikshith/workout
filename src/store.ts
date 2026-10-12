@@ -24,11 +24,13 @@ export type Profile = {
   diet: Diet;
   reminder: { hour: number; minute: number; on: boolean }; // setup's first reminder; the full list lives in State.reminders
   concerns?: Concern[]; // "What's going on for you right now?" (optional)
+  lifestyle?: Lifestyle; // what a normal day looks like: shapes quick sessions and break nudges
   women?: Women;
   gentle?: boolean; // no-numbers mode: hides calories, weight and BMI
   accent?: AccentId;
 };
 
+export type Lifestyle = 'desk' | 'standing' | 'active' | 'home' | 'driving' | 'student';
 export type Concern = 'stressed' | 'breakup' | 'lose-weight' | 'tone' | 'food' | 'back' | 'knee' | 'desk' | 'thyroid';
 // mode 'cycle': periodStart = first day of the last period. 'pregnant': date = due date. 'postpartum': date = birth date.
 export type Women = { mode: 'none' | 'cycle' | 'pregnant' | 'postpartum'; periodStart?: string; cycleLength?: number; date?: string };
@@ -58,6 +60,7 @@ type State = {
   reminders: Reminder[];
   hydration: Interval;
   breaks: Interval; // desk and eye breaks
+  motivation: Interval; // motivation and tip nudges through the day
   nudges: NudgePrefs;
   supplements: { picked: string[]; taken: Record<string, string[]> }; // taken: dayKey -> names
   dismissed: Record<string, string>; // insight id -> dayKey it was dismissed
@@ -66,6 +69,7 @@ type State = {
   setReminders: (r: Reminder[]) => void;
   setHydration: (h: Interval) => void;
   setBreaks: (b: Interval) => void;
+  setMotivation: (m: Interval) => void;
   setNudges: (n: NudgePrefs) => void;
   pickSupplement: (name: string, on: boolean) => void;
   takeSupplement: (name: string) => void;
@@ -110,6 +114,7 @@ const initial = {
   profile: GUEST, planId: 'full-body-gym', nextDay: 0, sessions: [] as Session[], active: null, weights: [], meals: [] as Meal[], water: {},
   checkins: {}, reminders: [] as Reminder[],
   hydration: { on: false, every: 90, from: 8, to: 21 }, breaks: { on: false, every: 60, from: 10, to: 18 },
+  motivation: { on: true, every: 180, from: 9, to: 21 },
   nudges: { missed: true, streak: true, recap: true, quietFrom: 22, quietTo: 7 },
   supplements: { picked: [] as string[], taken: {} as Record<string, string[]> }, dismissed: {}, mediaPref: 'drawing' as MediaPref,
 };
@@ -204,6 +209,7 @@ export const useStore = create<State>()(
       setReminders: (reminders) => set({ reminders }),
       setHydration: (hydration) => set({ hydration }),
       setBreaks: (breaks) => set({ breaks }),
+      setMotivation: (motivation) => set({ motivation }),
       setNudges: (nudges) => set({ nudges }),
       pickSupplement: (name, on) =>
         set((s) => ({ supplements: { ...s.supplements, picked: on ? [...new Set([...s.supplements.picked, name])] : s.supplements.picked.filter((x) => x !== name) } })),

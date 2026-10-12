@@ -4,10 +4,12 @@ import { useMemo, useState } from 'react';
 import { Dimensions, FlatList, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { available, exercises, MUSCLES, title } from '../src/data/exercises';
+import { gate } from '../src/engine';
 import { useStore } from '../src/store';
 import { c, f, r } from '../src/theme';
 import { Chip, Row, T, Tap, Thumb } from '../src/ui';
 
+const LEVEL = { beginner: 0, intermediate: 1, expert: 2 };
 const TILE = Math.floor((Math.min(Dimensions.get('window').width, 600) - 50) / 2);
 
 // Also mounted as the Exercises tab (tab = true): grid layout, no back button.
@@ -15,6 +17,7 @@ export default function Library({ tab }: { tab?: boolean }) {
   const ins = useSafeAreaInsets();
   const { pick, muscle: m0 } = useLocalSearchParams<{ pick?: string; muscle?: string }>();
   const profile = useStore((s) => s.profile);
+  const done = useStore((s) => s.sessions.length);
   const addItem = useStore((s) => s.addItem);
   const [q, setQ] = useState('');
   const [muscle, setMuscle] = useState<string | null>(m0 ?? null);
@@ -26,7 +29,7 @@ export default function Library({ tab }: { tab?: boolean }) {
       (!muscle || e.primary.includes(muscle)) &&
       (!homeOnly || available(e, 'home', profile?.gear ?? [])) &&
       words.every((w) => e.name.toLowerCase().includes(w) || e.equipment.includes(w)),
-    ).sort((a, b) => Number(!!b.art) - Number(!!a.art)); // animated demos first
+    ).sort((a, b) => Number(!!b.art) - Number(!!a.art) || LEVEL[a.level] - LEVEL[b.level]); // animated demos first, easiest first
   }, [q, muscle, homeOnly, profile]);
 
   return (
@@ -57,15 +60,18 @@ export default function Library({ tab }: { tab?: boolean }) {
         renderItem={({ item: e }) => tab ? (
           <Tap onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: e.id } })} style={s.tile} scale={0.97}>
             <Thumb ex={e} size={TILE} />
+            {gate(e, profile, done).locked && (
+              <View style={s.lock}><Ionicons name="lock-closed" size={12} color={c.text} /></View>
+            )}
             <View style={{ padding: 10, gap: 2 }}>
-              <T v="h3" numberOfLines={2} style={{ fontSize: 14, lineHeight: 18 }}>{e.name}</T>
+              <T v="h3" numberOfLines={2}>{e.name}</T>
               <T v="small" numberOfLines={1}>{title(e.primary[0])} · {title(e.equipment)}</T>
             </View>
           </Tap>
         ) : (
           <Tap
             onPress={() => {
-              if (pick) { addItem(e.id); router.back(); } else router.push({ pathname: '/exercise/[id]', params: { id: e.id } });
+              if (pick && !gate(e, profile, done).locked) { addItem(e.id); router.back(); } else router.push({ pathname: '/exercise/[id]', params: { id: e.id } });
             }}
             style={s.row} scale={0.98}
           >
@@ -86,6 +92,7 @@ const s = StyleSheet.create({
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   search: { marginHorizontal: 20, marginTop: 14, height: 50, borderRadius: 25, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: c.line },
   input: { flex: 1, color: c.text, fontFamily: f.medium, fontSize: 15, height: 50 },
+  lock: { position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(10,10,11,0.75)', alignItems: 'center', justifyContent: 'center' },
   tile: { width: TILE, borderRadius: r.md, backgroundColor: c.card, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.md, backgroundColor: c.card },
 });

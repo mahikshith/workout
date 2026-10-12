@@ -1,0 +1,46 @@
+name: Media
+
+# Turns the wger.de videos listed in src/data/videos.json (CC BY-SA 4.0) into small muted H.264 clips
+# and publishes them as assets of the `media` release, where the app streams them from.
+on:
+  push:
+    branches: [main]
+    paths: [scripts/build-videos.mjs, src/data/videos.json, .github/workflows/media.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: media
+  cancel-in-progress: false
+
+jobs:
+  videos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and transcode
+        run: |
+          mkdir -p media
+          jq -r 'to_entries[] | "\(.key) \(.value.source)"' src/data/videos.json | while read -r id src; do
+            if curl -fsSL --retry 3 -o in.video "$src" &&
+               ffmpeg -nostdin -loglevel error -y -i in.video -an -vf "scale=-2:'2*trunc(min(480,ih)/2)'" \
+                 -c:v libx264 -preset slow -crf 30 -pix_fmt yuv420p -movflags +faststart "media/$id.mp4"; then
+              echo "ok $id $(du -h "media/$id.mp4" | cut -f1)"
+            else
+              echo "::warning::could not make $id from $src"
+              rm -f "media/$id.mp4"
+            fi
+          done
+          rm -f in.video
+          ls media/*.mp4 > /dev/null
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: media
+          name: Exercise videos
+          body: Muted H.264 copies of exercise videos from wger.de (CC BY-SA 4.0, authors listed in src/data/videos.json). Used by the app; not an app build.
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          files: media/*.mp4

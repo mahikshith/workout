@@ -1,9 +1,12 @@
+import { postpartumWeek } from './calc';
 import type { Place } from './data/exercises';
 import { plans } from './data/plans';
 import type { Profile, Session } from './store';
 
 // Gender only shifts the default; every plan stays open to everyone.
 export function recommend(p: Profile): string {
+  const pp = postpartumWeek(p);
+  if (pp !== null && pp < 12) return 'pelvic-floor'; // breathing, pelvic floor and walking come first after birth
   const place: Place = p.place === 'home' ? 'home' : 'gym';
   if (place === 'home') {
     if (p.goal === 'lose fat') return 'fat-burn-home';

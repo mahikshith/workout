@@ -1,0 +1,3892 @@
+{
+  "Goblet_Squat": {
+    "steps": [
+      "Hold one kettlebell or dumbbell upright against your chest.",
+      "Stand with your feet a little wider than your hips, toes slightly out.",
+      "Sit your hips down and back, like sitting into a low chair.",
+      "Go as low as you can with your chest up.",
+      "Push through your whole foot to stand back up."
+    ],
+    "hands": "Cup the weight with both hands under your chin, wrists straight.",
+    "arms": "Keep your elbows tucked in and pointing down.",
+    "legs": "Knees follow your toes; heels stay on the floor.",
+    "back": "Keep your chest up and your back straight, not rounded.",
+    "breathe": "Breathe in as you go down, out as you stand.",
+    "mistake": "Letting your knees cave inward or your heels lift off the floor."
+  },
+  "Dumbbell_Bench_Press": {
+    "steps": [
+      "Sit on a flat bench with a dumbbell on each thigh.",
+      "Lie back and bring the dumbbells up beside your chest.",
+      "Push the dumbbells straight up until your arms are long.",
+      "Lower them slowly back to the sides of your chest."
+    ],
+    "hands": "Palms face your feet, wrists straight and stacked over your elbows.",
+    "arms": "Elbows point out at a slight angle, not straight out to the sides.",
+    "legs": "Feet flat on the floor, a little wider than your hips.",
+    "back": "Head, upper back and bottom stay on the bench.",
+    "breathe": "Breathe in as you lower, out as you push up.",
+    "mistake": "Dropping the weights too fast and bouncing them at the bottom."
+  },
+  "Seated_Cable_Rows": {
+    "steps": [
+      "Sit at the row machine with feet on the footplate, knees slightly bent.",
+      "Lean forward to grab the handle, then sit up tall.",
+      "Pull the handle to your lower belly, squeezing your shoulder blades together.",
+      "Let your arms straighten slowly, keeping your back tall."
+    ],
+    "hands": "Grip the handle firmly, wrists straight, palms facing each other.",
+    "arms": "Keep your elbows close to your sides as you pull.",
+    "legs": "Knees stay slightly bent, feet pressed on the footplate.",
+    "back": "Sit tall with a straight back; do not rock back and forth.",
+    "breathe": "Breathe out as you pull, in as you let go.",
+    "mistake": "Swinging your body back to move the weight instead of using your back."
+  },
+  "Dumbbell_Shoulder_Press": {
+    "steps": [
+      "Sit on a bench with back support, a dumbbell in each hand.",
+      "Lift the dumbbells to shoulder height, palms facing forward.",
+      "Push them straight up until your arms are long.",
+      "Lower them slowly back to shoulder height."
+    ],
+    "hands": "Palms face forward, wrists straight above your elbows.",
+    "arms": "Elbows start just below your hands and a little in front of you.",
+    "legs": "Feet flat on the floor for balance.",
+    "back": "Keep your back against the pad; do not arch.",
+    "breathe": "Breathe out as you push up, in as you lower.",
+    "mistake": "Arching your lower back to push the weight up."
+  },
+  "Plank": {
+    "steps": [
+      "Lie face down, then rest on your forearms and toes.",
+      "Lift your body so it makes one straight line from head to heels.",
+      "Squeeze your belly and bottom to stay straight.",
+      "Hold still and keep breathing."
+    ],
+    "hands": "Hands flat or in loose fists, a little apart.",
+    "arms": "Elbows sit right under your shoulders.",
+    "legs": "Legs straight, feet about hip-width apart.",
+    "back": "Back flat like a table; hips do not sag or poke up.",
+    "breathe": "Breathe slowly and steadily. Do not hold your breath.",
+    "mistake": "Letting your hips sag toward the floor."
+  },
+  "Romanian_Deadlift": {
+    "steps": [
+      "Stand tall holding a barbell in front of your thighs.",
+      "Soften your knees a little.",
+      "Push your hips back and slide the bar down your legs.",
+      "Stop when you feel a stretch in the back of your legs.",
+      "Push your hips forward to stand back up."
+    ],
+    "hands": "Grip the bar just wider than your hips, palms facing you.",
+    "arms": "Arms hang straight; they just hold the bar.",
+    "legs": "Knees slightly bent and stay the same the whole time.",
+    "back": "Keep your back flat and your chest proud. Never round it.",
+    "breathe": "Breathe in as you lower, out as you stand up.",
+    "mistake": "Rounding your back to reach the bar lower."
+  },
+  "Incline_Dumbbell_Press": {
+    "steps": [
+      "Set a bench to a slight incline and sit with dumbbells on your thighs.",
+      "Lie back and bring the dumbbells up beside your upper chest.",
+      "Push the dumbbells up until your arms are long.",
+      "Lower them slowly back to your upper chest."
+    ],
+    "hands": "Palms face forward, wrists straight over your elbows.",
+    "arms": "Elbows angle slightly down and out, not flared wide.",
+    "legs": "Feet flat on the floor.",
+    "back": "Head, upper back and bottom stay on the bench.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Setting the bench too steep so your shoulders do all the work."
+  },
+  "Wide-Grip_Lat_Pulldown": {
+    "steps": [
+      "Sit at the machine with your thighs under the pad.",
+      "Grab the bar wider than your shoulders.",
+      "Lean back a little and pull the bar down to your upper chest.",
+      "Let the bar rise slowly until your arms are straight."
+    ],
+    "hands": "Palms face forward, hands wider than your shoulders, wrists straight.",
+    "arms": "Pull your elbows down toward your sides.",
+    "legs": "Thighs snug under the pad, feet flat.",
+    "back": "Chest up, slight lean back, no swinging.",
+    "breathe": "Breathe out as you pull down, in as you let up.",
+    "mistake": "Pulling the bar behind your neck or swinging your body."
+  },
+  "Dumbbell_Lunges": {
+    "steps": [
+      "Stand tall with a dumbbell in each hand by your sides.",
+      "Take a big step forward with one leg.",
+      "Lower your back knee toward the floor.",
+      "Push through your front heel to step back.",
+      "Switch legs."
+    ],
+    "hands": "Hold the dumbbells at your sides, palms facing in.",
+    "arms": "Arms hang straight and relaxed.",
+    "legs": "Front knee stays over your ankle, not past your toes.",
+    "back": "Keep your body upright, chest up.",
+    "breathe": "Breathe in as you lower, out as you push back.",
+    "mistake": "Letting the front knee wobble inward."
+  },
+  "Dead_Bug": {
+    "steps": [
+      "Lie on your back with arms pointing up to the ceiling.",
+      "Lift your knees so they are bent over your hips.",
+      "Press your lower back gently into the floor.",
+      "Slowly straighten one leg and reach the opposite arm back.",
+      "Bring them back and switch sides."
+    ],
+    "arms": "Arms start straight up, over your shoulders.",
+    "legs": "Knees bent at a right angle, over your hips.",
+    "back": "Lower back stays pressed to the floor the whole time.",
+    "breathe": "Breathe out as you reach, in as you come back.",
+    "mistake": "Letting your lower back arch off the floor."
+  },
+  "Barbell_Bench_Press_-_Medium_Grip": {
+    "steps": [
+      "Lie on a flat bench with your eyes under the bar.",
+      "Grip the bar a little wider than your shoulders and lift it off.",
+      "Lower the bar slowly to the middle of your chest.",
+      "Push it back up until your arms are straight."
+    ],
+    "hands": "Grip just wider than your shoulders, wrists straight, not bent back.",
+    "arms": "Elbows point slightly down, not flared straight out.",
+    "legs": "Feet flat on the floor, pressing down.",
+    "back": "Shoulder blades squeezed together; head and bottom stay on the bench.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Bouncing the bar off your chest."
+  },
+  "Standing_Military_Press": {
+    "steps": [
+      "Hold a barbell at your collarbone, standing with feet hip-width apart.",
+      "Tighten your belly and bottom.",
+      "Push the bar straight up over your head.",
+      "Lower it slowly back to your collarbone."
+    ],
+    "hands": "Grip just wider than your shoulders, wrists straight.",
+    "arms": "Elbows start under the bar and finish straight overhead.",
+    "legs": "Legs straight but not locked, feet hip-width apart.",
+    "back": "Stand tall; do not lean back.",
+    "breathe": "Breathe out as you press, in as you lower.",
+    "mistake": "Leaning back and arching your lower back."
+  },
+  "Side_Lateral_Raise": {
+    "steps": [
+      "Stand tall with a light dumbbell in each hand at your sides.",
+      "Lift your arms out to the sides until they are level with your shoulders.",
+      "Pause for a moment.",
+      "Lower them slowly back down."
+    ],
+    "hands": "Palms face down at the top, wrists straight.",
+    "arms": "Keep a small bend in your elbows.",
+    "legs": "Feet hip-width apart, knees soft.",
+    "back": "Stand tall without swinging.",
+    "breathe": "Breathe out as you lift, in as you lower.",
+    "mistake": "Swinging your body to throw the weights up."
+  },
+  "Triceps_Pushdown": {
+    "steps": [
+      "Stand facing a high cable with a bar attached.",
+      "Hold the bar with your elbows tucked at your sides.",
+      "Push the bar down until your arms are straight.",
+      "Let it come back up slowly to about chest height."
+    ],
+    "hands": "Palms face down, hands about shoulder-width apart, wrists straight.",
+    "arms": "Upper arms stay still by your sides; only forearms move.",
+    "legs": "Feet hip-width apart, knees soft.",
+    "back": "Stand tall with a slight lean forward.",
+    "breathe": "Breathe out as you push down, in as you let up.",
+    "mistake": "Letting your elbows drift forward away from your body."
+  },
+  "Cable_Crossover": {
+    "steps": [
+      "Set both pulleys high and hold one handle in each hand.",
+      "Step forward and lean your body forward a little.",
+      "Bring your hands together in front of your chest in a wide hug.",
+      "Open your arms slowly back out to the sides."
+    ],
+    "hands": "Hold the handles firmly, palms facing down and in.",
+    "arms": "Keep a soft bend in your elbows the whole time.",
+    "legs": "One foot in front of the other for balance.",
+    "back": "Slight forward lean, back straight.",
+    "breathe": "Breathe out as you bring your hands together.",
+    "mistake": "Bending and straightening your elbows like a press."
+  },
+  "Barbell_Deadlift": {
+    "steps": [
+      "Stand with your feet under the bar, hip-width apart.",
+      "Bend your knees and grip the bar just outside your legs.",
+      "Flatten your back and lift your chest.",
+      "Push through your feet and stand up tall with the bar.",
+      "Lower the bar by pushing your hips back, then bending your knees."
+    ],
+    "hands": "Grip just outside your knees, palms facing you.",
+    "arms": "Arms stay straight; they only hold the bar.",
+    "legs": "Shins close to the bar, knees over your toes.",
+    "back": "Keep your back flat from start to finish.",
+    "breathe": "Take a big breath in before you lift.",
+    "mistake": "Rounding your back as you pull the bar off the floor."
+  },
+  "Pullups": {
+    "steps": [
+      "Hang from a bar with your palms facing away.",
+      "Pull your shoulders down away from your ears.",
+      "Pull yourself up until your chin is over the bar.",
+      "Lower yourself slowly until your arms are straight."
+    ],
+    "hands": "Grip a little wider than your shoulders, palms facing away.",
+    "arms": "Pull your elbows down toward your ribs.",
+    "legs": "Legs together, still, or crossed at the ankles.",
+    "back": "Chest lifts toward the bar; avoid swinging.",
+    "breathe": "Breathe out as you pull up, in as you lower.",
+    "mistake": "Kicking and swinging to get your chin over the bar."
+  },
+  "Bent_Over_Barbell_Row": {
+    "steps": [
+      "Hold a barbell and stand with feet hip-width apart.",
+      "Bend your knees a little and lean forward from your hips.",
+      "Let the bar hang below your shoulders.",
+      "Pull the bar to your lower ribs.",
+      "Lower it slowly until your arms are straight."
+    ],
+    "hands": "Grip just wider than your shoulders, palms facing down.",
+    "arms": "Elbows stay close to your body as you pull.",
+    "legs": "Knees slightly bent and steady.",
+    "back": "Back flat and almost level with the floor; head in line.",
+    "breathe": "Breathe out as you pull, in as you lower.",
+    "mistake": "Standing up and jerking the bar instead of staying bent over."
+  },
+  "Face_Pull": {
+    "steps": [
+      "Set a rope on a high cable and hold one end in each hand.",
+      "Step back so your arms are straight in front of you.",
+      "Pull the rope toward your face, spreading your hands apart.",
+      "Squeeze your shoulder blades, then let your arms go forward slowly."
+    ],
+    "hands": "Thumbs point back toward you as you pull.",
+    "arms": "Elbows stay high, about level with your shoulders.",
+    "legs": "Feet hip-width apart, knees soft.",
+    "back": "Stand tall; do not lean back to pull.",
+    "breathe": "Breathe out as you pull, in as you return.",
+    "mistake": "Letting your elbows drop down so it becomes a row."
+  },
+  "Barbell_Curl": {
+    "steps": [
+      "Stand tall holding a barbell, palms facing forward.",
+      "Keep your elbows tucked at your sides.",
+      "Curl the bar up toward your shoulders.",
+      "Lower it slowly until your arms are straight."
+    ],
+    "hands": "Grip about shoulder-width apart, palms up, wrists straight.",
+    "arms": "Upper arms stay still; only your forearms move.",
+    "legs": "Feet hip-width apart, knees soft.",
+    "back": "Stand tall without rocking back.",
+    "breathe": "Breathe out as you curl up, in as you lower.",
+    "mistake": "Swinging your body to lift the bar."
+  },
+  "Hammer_Curls": {
+    "steps": [
+      "Stand tall with a dumbbell in each hand at your sides.",
+      "Turn your palms to face your legs.",
+      "Curl the dumbbells up toward your shoulders.",
+      "Lower them slowly back down."
+    ],
+    "hands": "Palms face each other the whole time, like holding hammers.",
+    "arms": "Elbows stay by your sides and do not move forward.",
+    "legs": "Feet hip-width apart, knees soft.",
+    "back": "Stand tall; no swinging.",
+    "breathe": "Breathe out as you lift, in as you lower.",
+    "mistake": "Letting your elbows swing forward."
+  },
+  "Barbell_Squat": {
+    "steps": [
+      "Set the bar on a rack just below shoulder height.",
+      "Step under it and rest it across your upper back.",
+      "Stand up, step back, and place feet shoulder-width apart.",
+      "Sit your hips down and back as low as you can with good form.",
+      "Push through your feet to stand up."
+    ],
+    "hands": "Grip the bar wider than your shoulders, wrists straight.",
+    "arms": "Elbows point down and slightly back.",
+    "legs": "Knees follow your toes; heels stay down.",
+    "back": "Chest up and back straight the whole time.",
+    "breathe": "Take a big breath before going down. Breathe out at the top.",
+    "mistake": "Letting your knees cave in or your chest drop forward."
+  },
+  "Leg_Press": {
+    "steps": [
+      "Sit in the machine with your back flat against the pad.",
+      "Place your feet shoulder-width apart in the middle of the platform.",
+      "Release the safety handles and straighten your legs.",
+      "Bend your knees slowly to lower the platform.",
+      "Push it back up without locking your knees."
+    ],
+    "hands": "Hold the side handles lightly.",
+    "legs": "Knees in line with your toes; do not lock them at the top.",
+    "back": "Lower back and bottom stay pressed into the seat.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Going so low that your bottom lifts off the seat."
+  },
+  "Lying_Leg_Curls": {
+    "steps": [
+      "Lie face down on the machine with the pad just above your heels.",
+      "Hold the handles.",
+      "Curl your heels up toward your bottom.",
+      "Lower slowly until your legs are almost straight."
+    ],
+    "hands": "Hold the handles firmly.",
+    "legs": "Knees just off the edge of the bench.",
+    "back": "Hips stay down on the bench.",
+    "breathe": "Breathe out as you curl, in as you lower.",
+    "mistake": "Lifting your hips off the bench to swing the weight."
+  },
+  "Leg_Extensions": {
+    "steps": [
+      "Sit on the machine with the pad on your lower shins.",
+      "Hold the side handles.",
+      "Straighten your legs until they are almost locked.",
+      "Lower them slowly back down."
+    ],
+    "hands": "Hold the side handles to keep your body still.",
+    "legs": "Knees line up with the machine's pivot point.",
+    "back": "Sit back against the pad.",
+    "breathe": "Breathe out as you lift, in as you lower.",
+    "mistake": "Kicking the weight up fast and letting it drop."
+  },
+  "Standing_Calf_Raises": {
+    "steps": [
+      "Stand in the machine with the pads on your shoulders.",
+      "Put the balls of your feet on the step, heels hanging off.",
+      "Rise up onto your toes as high as you can.",
+      "Lower your heels slowly below the step."
+    ],
+    "hands": "Hold the handles by your shoulders.",
+    "legs": "Knees straight but soft, not locked.",
+    "back": "Stand tall.",
+    "breathe": "Breathe out as you rise, in as you lower.",
+    "mistake": "Bouncing quickly instead of moving slowly."
+  },
+  "Chin-Up": {
+    "steps": [
+      "Hang from a bar with your palms facing you.",
+      "Pull your shoulders down away from your ears.",
+      "Pull yourself up until your chin is over the bar.",
+      "Lower yourself slowly until your arms are straight."
+    ],
+    "hands": "Palms face you, hands about shoulder-width apart.",
+    "arms": "Elbows stay close to your body.",
+    "legs": "Legs still, together or crossed.",
+    "back": "Body stays straight; no swinging.",
+    "breathe": "Breathe out as you pull up, in as you lower.",
+    "mistake": "Only going halfway down."
+  },
+  "Lying_Triceps_Press": {
+    "steps": [
+      "Lie on a bench holding a bar straight up over your chest.",
+      "Bend your elbows to lower the bar toward your forehead.",
+      "Stop just above your forehead.",
+      "Straighten your arms to push the bar back up."
+    ],
+    "hands": "Grip about shoulder-width apart, palms facing up toward the ceiling.",
+    "arms": "Upper arms stay still and point up; only forearms move.",
+    "legs": "Feet flat on the floor.",
+    "back": "Back and head flat on the bench.",
+    "breathe": "Breathe in as you lower, out as you push up.",
+    "mistake": "Letting your elbows flare out to the sides."
+  },
+  "Dumbbell_Step_Ups": {
+    "steps": [
+      "Stand in front of a sturdy box, a dumbbell in each hand.",
+      "Put your whole right foot on the box.",
+      "Push through your right heel to step up.",
+      "Step down slowly with your left foot, then your right.",
+      "Do all reps, then switch legs."
+    ],
+    "hands": "Hold the dumbbells at your sides, palms facing in.",
+    "arms": "Arms hang straight and still.",
+    "legs": "Front knee stays in line with your toes.",
+    "back": "Stand tall; do not lean far forward.",
+    "breathe": "Breathe out as you step up.",
+    "mistake": "Pushing off the back foot instead of the front leg."
+  },
+  "Seated_Calf_Raise": {
+    "steps": [
+      "Sit on the machine with the pad on your lower thighs.",
+      "Put the balls of your feet on the step, heels off.",
+      "Release the safety and lower your heels slowly.",
+      "Push up onto your toes as high as you can."
+    ],
+    "hands": "Rest your hands on the pad.",
+    "legs": "Knees bent at about a right angle.",
+    "back": "Sit tall.",
+    "breathe": "Breathe out as you push up, in as you lower.",
+    "mistake": "Rushing through tiny bounces instead of full, slow reps."
+  },
+  "Arnold_Dumbbell_Press": {
+    "steps": [
+      "Sit on a bench with back support.",
+      "Hold dumbbells at chest height, palms facing you.",
+      "Press up while turning your palms to face forward.",
+      "Lower and turn your palms back to face you."
+    ],
+    "hands": "Wrists stay straight as your palms turn.",
+    "arms": "Elbows start in front of you and open out as you press.",
+    "legs": "Feet flat on the floor.",
+    "back": "Back against the pad; do not arch.",
+    "breathe": "Breathe out as you press, in as you lower.",
+    "mistake": "Rushing the twist so the weights wobble."
+  },
+  "Dumbbell_Bicep_Curl": {
+    "steps": [
+      "Stand tall with a dumbbell in each hand, palms facing forward.",
+      "Keep your elbows by your sides.",
+      "Curl the dumbbells up toward your shoulders.",
+      "Lower them slowly until your arms are straight."
+    ],
+    "hands": "Palms face up, wrists straight.",
+    "arms": "Upper arms stay still; only your forearms move.",
+    "legs": "Feet hip-width apart, knees soft.",
+    "back": "Stand tall; no rocking.",
+    "breathe": "Breathe out as you curl, in as you lower.",
+    "mistake": "Swinging your body to lift the weights."
+  },
+  "Barbell_Hip_Thrust": {
+    "steps": [
+      "Sit on the floor with your upper back against a bench.",
+      "Roll a padded bar over your hips.",
+      "Plant your feet flat, knees bent.",
+      "Push through your heels to lift your hips until your body is flat.",
+      "Lower your hips slowly."
+    ],
+    "hands": "Hold the bar on your hips to keep it steady.",
+    "legs": "At the top, shins are straight up and down.",
+    "back": "Upper back rests on the bench; ribs stay down.",
+    "breathe": "Breathe out as you lift, in as you lower.",
+    "mistake": "Arching your lower back instead of squeezing your bottom."
+  },
+  "Split_Squat_with_Dumbbells": {
+    "steps": [
+      "Stand in front of a bench, a dumbbell in each hand.",
+      "Rest the top of your back foot on the bench.",
+      "Bend your front knee and lower your body straight down.",
+      "Push through your front heel to come back up.",
+      "Do all reps, then switch legs."
+    ],
+    "hands": "Hold the dumbbells at your sides, palms facing in.",
+    "arms": "Arms hang straight.",
+    "legs": "Front knee follows your toes; back knee drops toward the floor.",
+    "back": "Body stays tall, with a slight lean forward.",
+    "breathe": "Breathe in as you lower, out as you push up.",
+    "mistake": "Standing too close to the bench, so the front knee shoots forward."
+  },
+  "One-Legged_Cable_Kickback": {
+    "steps": [
+      "Strap a cuff to your ankle and attach it to a low cable.",
+      "Face the machine and hold the frame.",
+      "Kick your leg straight back, squeezing your bottom.",
+      "Bring it forward slowly.",
+      "Do all reps, then switch legs."
+    ],
+    "hands": "Hold the machine frame for balance.",
+    "legs": "Standing knee soft; working leg moves back in a slow arc.",
+    "back": "Back stays still; do not arch to kick higher.",
+    "breathe": "Breathe out as you kick back.",
+    "mistake": "Arching your lower back to lift the leg higher."
+  },
+  "Thigh_Abductor": {
+    "steps": [
+      "Sit in the machine with the pads on the outside of your knees.",
+      "Hold the handles.",
+      "Push your legs apart.",
+      "Bring them back together slowly."
+    ],
+    "hands": "Hold the side handles.",
+    "legs": "Push with the outside of your thighs.",
+    "back": "Sit tall against the pad; upper body stays still.",
+    "breathe": "Breathe out as you push apart.",
+    "mistake": "Letting the weight slam back between reps."
+  },
+  "Thigh_Adductor": {
+    "steps": [
+      "Sit in the machine with the pads on the inside of your knees.",
+      "Hold the handles.",
+      "Squeeze your legs together.",
+      "Let them open slowly."
+    ],
+    "hands": "Hold the side handles.",
+    "legs": "Squeeze with your inner thighs.",
+    "back": "Sit tall against the pad; upper body stays still.",
+    "breathe": "Breathe out as you squeeze together.",
+    "mistake": "Jerking the legs together instead of moving smoothly."
+  },
+  "Bodyweight_Squat": {
+    "steps": [
+      "Stand with your feet shoulder-width apart.",
+      "Push your hips back and bend your knees, like sitting in a chair.",
+      "Go as low as is comfortable with your chest up.",
+      "Push through your feet to stand back up."
+    ],
+    "hands": "Hold your hands together at your chest or reach them forward.",
+    "arms": "Arms help you balance.",
+    "legs": "Knees follow your toes; heels stay on the floor.",
+    "back": "Chest up, back straight.",
+    "breathe": "Breathe in as you go down, out as you stand.",
+    "mistake": "Letting your knees fall inward."
+  },
+  "Pushups": {
+    "steps": [
+      "Start on hands and toes, hands a little wider than your shoulders.",
+      "Make your body one straight line from head to heels.",
+      "Bend your elbows to lower your chest toward the floor.",
+      "Push the floor away to come back up."
+    ],
+    "hands": "Hands flat under your shoulders, a little wider, fingers forward.",
+    "arms": "Elbows bend back at an angle, not straight out to the sides.",
+    "legs": "Legs straight, toes tucked under.",
+    "back": "Back flat; hips do not sag or pike up.",
+    "breathe": "Breathe in as you lower, out as you push up.",
+    "mistake": "Letting your hips sag toward the floor."
+  },
+  "Butt_Lift_Bridge": {
+    "steps": [
+      "Lie on your back with knees bent and feet flat.",
+      "Put your arms by your sides.",
+      "Push through your heels and lift your hips.",
+      "Squeeze your bottom at the top for a moment.",
+      "Lower your hips slowly."
+    ],
+    "hands": "Palms flat on the floor by your sides.",
+    "arms": "Arms rest on the floor for balance.",
+    "legs": "Feet hip-width apart, knees pointing up.",
+    "back": "At the top, shoulders to knees make a straight line.",
+    "breathe": "Breathe out as you lift, in as you lower.",
+    "mistake": "Arching your lower back instead of lifting with your bottom."
+  },
+  "Bodyweight_Walking_Lunge": {
+    "steps": [
+      "Stand tall with your hands on your hips.",
+      "Take a big step forward with one leg.",
+      "Lower your back knee until it nearly touches the floor.",
+      "Push through your front heel and step the back foot forward.",
+      "Keep walking forward, switching legs each step."
+    ],
+    "hands": "Rest your hands on your hips.",
+    "legs": "Front knee stays over your foot; back knee drops straight down.",
+    "back": "Stay upright, chest up.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Taking tiny steps so the front knee pushes past your toes."
+  },
+  "Mountain_Climbers": {
+    "steps": [
+      "Start in a push-up position on your hands and toes.",
+      "Bring one knee in toward your chest.",
+      "Switch legs quickly, like running in place.",
+      "Keep going for the time set."
+    ],
+    "hands": "Hands flat under your shoulders, fingers spread.",
+    "arms": "Arms straight and strong.",
+    "legs": "Knees drive in toward your chest one at a time.",
+    "back": "Back flat; keep your hips level with your shoulders.",
+    "breathe": "Breathe quickly but steadily. Do not hold your breath.",
+    "mistake": "Letting your hips bounce up high."
+  },
+  "Step-up_with_Knee_Raise": {
+    "steps": [
+      "Stand facing a sturdy step or bench.",
+      "Put your left foot on top and step up.",
+      "As you stand, lift your right knee up high.",
+      "Step back down the same way.",
+      "Switch legs."
+    ],
+    "arms": "Swing your arms like you are running.",
+    "legs": "Whole foot on the step; knee in line with your toes.",
+    "back": "Stand tall at the top.",
+    "breathe": "Breathe out as you step up.",
+    "mistake": "Pushing off the floor foot instead of the leg on the step."
+  },
+  "Incline_Push-Up": {
+    "steps": [
+      "Place your hands on the edge of a sturdy desk, bench or table.",
+      "Walk your feet back until your body is one straight line.",
+      "Bend your elbows to lower your chest to the edge.",
+      "Push back up until your arms are straight."
+    ],
+    "hands": "Hands a little wider than your shoulders, fingers forward.",
+    "arms": "Elbows bend back at an angle, not straight out.",
+    "legs": "Legs straight, up on your toes.",
+    "back": "Back flat from head to heels; do not bend at the hips.",
+    "breathe": "Breathe in as you lower, out as you push up.",
+    "mistake": "Using something that can slide or tip over."
+  },
+  "Single_Leg_Glute_Bridge": {
+    "steps": [
+      "Lie on your back with knees bent and feet flat.",
+      "Lift one foot and hold that knee toward your chest.",
+      "Push through the heel on the floor to lift your hips.",
+      "Pause at the top, then lower slowly.",
+      "Do all reps, then switch legs."
+    ],
+    "hands": "Palms flat on the floor, or holding the raised knee.",
+    "legs": "Working foot flat and close to your bottom.",
+    "back": "Hips stay level; do not let one side drop.",
+    "breathe": "Breathe out as you lift, in as you lower.",
+    "mistake": "Letting your hips tilt to one side."
+  },
+  "Hyperextensions_With_No_Hyperextension_Bench": {
+    "steps": [
+      "Lie face down on a bench with your hips at the edge.",
+      "Have someone hold your legs down.",
+      "Cross your arms over your chest and let your body hang down.",
+      "Lift your upper body until it is in line with your legs.",
+      "Lower slowly."
+    ],
+    "arms": "Arms crossed over your chest.",
+    "legs": "Legs straight and held down.",
+    "back": "Lift only until your body is straight; do not arch past it.",
+    "breathe": "Breathe out as you lift, in as you lower.",
+    "mistake": "Swinging up fast and arching too far at the top."
+  },
+  "Bench_Dips": {
+    "steps": [
+      "Sit on the edge of a bench and grip the edge beside your hips.",
+      "Slide your bottom off the bench, legs out in front.",
+      "Bend your elbows to lower your body.",
+      "Stop when your elbows are bent at about a right angle.",
+      "Push back up until your arms are straight."
+    ],
+    "hands": "Fingers point forward, hands right beside your hips.",
+    "arms": "Elbows point straight back, not out to the sides.",
+    "legs": "Bend your knees to make it easier; straighten them to make it harder.",
+    "back": "Keep your back close to the bench.",
+    "breathe": "Breathe in as you lower, out as you push up.",
+    "mistake": "Going too low so your shoulders roll forward."
+  },
+  "One-Arm_Dumbbell_Row": {
+    "steps": [
+      "Put your left knee and left hand on a bench.",
+      "Hold a dumbbell in your right hand, arm straight down.",
+      "Pull the dumbbell up to the side of your ribs.",
+      "Lower it slowly until your arm is straight.",
+      "Do all reps, then switch sides."
+    ],
+    "hands": "Palm faces your body, wrist straight.",
+    "arms": "Elbow stays close to your side as you pull.",
+    "legs": "Standing leg slightly bent, foot flat.",
+    "back": "Back flat and level with the floor; do not twist.",
+    "breathe": "Breathe out as you pull, in as you lower.",
+    "mistake": "Twisting your body to swing the weight up."
+  },
+  "Band_Pull_Apart": {
+    "steps": [
+      "Hold a band in front of you at shoulder height, arms straight.",
+      "Pull the band apart by moving your hands out to the sides.",
+      "Squeeze your shoulder blades together.",
+      "Let your hands come back slowly."
+    ],
+    "hands": "Palms face down, hands about shoulder-width apart.",
+    "arms": "Arms stay straight, with a tiny bend in the elbows.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand tall; keep your shoulders down away from your ears.",
+    "breathe": "Breathe out as you pull apart.",
+    "mistake": "Shrugging your shoulders up toward your ears."
+  },
+  "Standing_Dumbbell_Triceps_Extension": {
+    "steps": [
+      "Stand tall holding one dumbbell with both hands.",
+      "Lift it straight up over your head.",
+      "Bend your elbows to lower it behind your head.",
+      "Straighten your arms to lift it back up."
+    ],
+    "hands": "Cup the top end of the dumbbell with both palms.",
+    "arms": "Elbows point up and stay close to your head.",
+    "legs": "Feet shoulder-width apart, knees soft.",
+    "back": "Stand tall; do not arch your back.",
+    "breathe": "Breathe in as you lower, out as you lift.",
+    "mistake": "Letting your elbows flare out wide."
+  },
+  "Stiff-Legged_Dumbbell_Deadlift": {
+    "steps": [
+      "Stand tall with a dumbbell in each hand in front of your thighs.",
+      "Soften your knees a little.",
+      "Push your hips back and lower the dumbbells down your legs.",
+      "Stop when you feel a stretch in the back of your legs.",
+      "Push your hips forward to stand tall."
+    ],
+    "hands": "Palms face your legs.",
+    "arms": "Arms hang straight; the dumbbells stay close to your legs.",
+    "legs": "Knees slightly bent and stay that way.",
+    "back": "Back flat the whole time.",
+    "breathe": "Breathe in as you lower, out as you stand.",
+    "mistake": "Rounding your back to reach lower."
+  },
+  "Hip_Lift_with_Band": {
+    "steps": [
+      "Lie on your back with a band across your hips, fixed on both sides.",
+      "Bend your knees and put your feet flat.",
+      "Push through your heels to lift your hips into the band.",
+      "Pause at the top, then lower slowly."
+    ],
+    "hands": "Hands on the floor or holding the band in place.",
+    "legs": "Feet hip-width apart, knees pointing up.",
+    "back": "Shoulders stay on the floor; do not arch at the top.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Pushing with your lower back instead of your bottom."
+  },
+  "Calf_Raise_On_A_Dumbbell": {
+    "steps": [
+      "Hold on to something sturdy for balance.",
+      "Stand with the balls of one foot on a dumbbell handle.",
+      "Rise up onto your toes as high as you can.",
+      "Lower slowly to feel a stretch in your calf.",
+      "Switch feet."
+    ],
+    "hands": "Hold a wall or rail for balance.",
+    "legs": "Knee straight but soft.",
+    "back": "Stand tall.",
+    "breathe": "Breathe out as you rise.",
+    "mistake": "Going too fast and losing balance."
+  },
+  "Russian_Twist": {
+    "steps": [
+      "Sit on the floor with knees bent and feet down.",
+      "Lean back a little until your belly works.",
+      "Hold your hands together in front of you.",
+      "Turn your shoulders to one side, then the other."
+    ],
+    "hands": "Hands clasped together in front of your chest.",
+    "arms": "Arms move with your shoulders.",
+    "legs": "Knees bent; feet on the floor or tucked under something.",
+    "back": "Back straight, not slumped.",
+    "breathe": "Breathe out as you turn to each side.",
+    "mistake": "Only moving your arms instead of turning your chest."
+  },
+  "Freehand_Jump_Squat": {
+    "steps": [
+      "Stand with your feet shoulder-width apart.",
+      "Squat down with your chest up.",
+      "Jump straight up as high as you can.",
+      "Land softly and go straight into the next squat."
+    ],
+    "arms": "Cross your arms over your chest or swing them up.",
+    "legs": "Land on soft, bent knees that follow your toes.",
+    "back": "Back straight, chest up.",
+    "breathe": "Breathe in as you squat, out as you jump.",
+    "mistake": "Landing with stiff, straight legs."
+  },
+  "Scissors_Jump": {
+    "steps": [
+      "Start in a lunge, one foot forward and both knees bent.",
+      "Jump up and switch your legs in the air.",
+      "Land softly in a lunge with the other foot forward.",
+      "Keep switching."
+    ],
+    "arms": "Swing your arms to help you jump.",
+    "legs": "Front knee over your foot when you land.",
+    "back": "Stay upright.",
+    "breathe": "Breathe out as you jump.",
+    "mistake": "Landing hard with a straight front leg."
+  },
+  "Air_Bike": {
+    "steps": [
+      "Lie on your back with your hands lightly behind your head.",
+      "Lift your shoulders and bring your knees up.",
+      "Bring one elbow toward the opposite knee as the other leg straightens.",
+      "Switch sides like pedaling a bike."
+    ],
+    "hands": "Fingertips lightly touch your head. Do not pull on your neck.",
+    "arms": "Elbows point out to the sides.",
+    "legs": "Pedal slowly; the straight leg stays off the floor.",
+    "back": "Lower back stays pressed to the floor.",
+    "breathe": "Breathe out each time you twist.",
+    "mistake": "Pulling your head forward with your hands."
+  },
+  "Flutter_Kicks": {
+    "steps": [
+      "Lie face down on a bench with your hips at the edge.",
+      "Hold the front of the bench.",
+      "Lift your legs until they are level with your hips.",
+      "Kick your legs up and down in small, quick moves, like swimming."
+    ],
+    "hands": "Hold the front edge of the bench.",
+    "legs": "Legs straight; squeeze your bottom.",
+    "back": "Hips stay on the bench; do not over-arch.",
+    "breathe": "Breathe normally the whole time.",
+    "mistake": "Swinging your legs too high and arching your lower back."
+  },
+  "Leg_Pull-In": {
+    "steps": [
+      "Lie on your back with your legs straight.",
+      "Put your hands by your sides or under your bottom.",
+      "Bend your knees and pull them in toward your chest.",
+      "Straighten your legs back out slowly."
+    ],
+    "hands": "Palms down by your sides.",
+    "legs": "Lower legs stay level with the floor as you pull in.",
+    "back": "Lower back stays on the floor.",
+    "breathe": "Breathe out as you pull in.",
+    "mistake": "Letting your lower back arch as your legs go out."
+  },
+  "Diaphragmatic_Breathing": {
+    "steps": [
+      "Sit or lie down comfortably.",
+      "Put one hand on your chest and one on your belly.",
+      "Breathe in slowly through your nose so your belly rises.",
+      "Breathe out slowly and feel your belly sink."
+    ],
+    "hands": "One hand on your chest, one on your belly.",
+    "back": "Lie flat or sit tall with your shoulders relaxed.",
+    "breathe": "Make the breath out a little longer than the breath in.",
+    "mistake": "Lifting your chest and shoulders instead of your belly."
+  },
+  "Kegel_Long_Hold": {
+    "steps": [
+      "Lie on your back with knees bent, or sit up tall.",
+      "Squeeze the muscles you use to stop peeing.",
+      "Hold the squeeze and keep breathing.",
+      "Let go all the way and rest."
+    ],
+    "hands": "Rest a hand on your belly to check it stays soft.",
+    "legs": "Knees bent and relaxed. Do not squeeze your thighs.",
+    "back": "Lie flat or sit tall. Keep your bottom relaxed.",
+    "breathe": "Keep breathing slowly. Never hold your breath.",
+    "mistake": "Squeezing your bottom or belly instead of the muscles down below."
+  },
+  "Kegel_Quick_Flick": {
+    "steps": [
+      "Lie down or sit in a comfy spot.",
+      "Squeeze the muscles you use to stop peeing, quickly.",
+      "Let go straight away.",
+      "Repeat with a steady beat."
+    ],
+    "hands": "Rest your hands on your belly or thighs.",
+    "legs": "Legs relaxed, knees bent if lying down.",
+    "back": "Back relaxed.",
+    "breathe": "Breathe normally the whole time.",
+    "mistake": "Not letting go fully between squeezes."
+  },
+  "Kegel_Elevator": {
+    "steps": [
+      "Picture a lift going up three floors inside you.",
+      "Squeeze a little and pause. Squeeze more and pause.",
+      "Squeeze all the way to the top floor.",
+      "Let go one floor at a time, then relax fully."
+    ],
+    "hands": "Rest your hands on your belly.",
+    "legs": "Keep your thighs soft.",
+    "back": "Lie flat or sit tall, relaxed.",
+    "breathe": "Breathe gently all the way up and down.",
+    "mistake": "Holding your breath while you squeeze."
+  },
+  "Reverse_Kegel": {
+    "steps": [
+      "Lie or sit comfortably and let your belly go soft.",
+      "Breathe in slowly and let your belly fill up.",
+      "Let the muscles down below relax and drop.",
+      "Breathe out and let them settle. Do not squeeze."
+    ],
+    "hands": "One hand on your belly to feel it rise.",
+    "legs": "Legs relaxed and a little apart.",
+    "back": "Back relaxed on the floor or chair.",
+    "breathe": "Slow breath in through the nose; easy breath out.",
+    "mistake": "Pushing hard, like straining, instead of gently letting go."
+  },
+  "Cat_Stretch": {
+    "steps": [
+      "Get on your hands and knees.",
+      "Pull your belly in and round your back up like a cat.",
+      "Let your head drop down.",
+      "Then let your belly sink and lift your head gently. Repeat slowly."
+    ],
+    "hands": "Hands flat under your shoulders, fingers spread.",
+    "arms": "Arms straight but not locked.",
+    "legs": "Knees under your hips.",
+    "back": "Move your whole back slowly from rounded to gently arched.",
+    "breathe": "Breathe out as you round up, in as you dip.",
+    "mistake": "Rushing through it instead of moving slowly."
+  },
+  "Childs_Pose": {
+    "steps": [
+      "Start on your hands and knees.",
+      "Walk your hands forward a little.",
+      "Sit your bottom back toward your heels.",
+      "Rest your forehead on the floor and relax."
+    ],
+    "hands": "Arms long in front of you, or resting by your feet.",
+    "arms": "Let your arms relax on the floor.",
+    "legs": "Knees together or wide apart, whichever feels better.",
+    "back": "Let your back round and relax.",
+    "breathe": "Breathe slowly into your back.",
+    "mistake": "Forcing your bottom down if your knees hurt. Use a pillow."
+  },
+  "Pelvic_Tilt_Into_Bridge": {
+    "steps": [
+      "Lie on your back with knees bent and feet flat.",
+      "Tuck your tailbone up so your lower back flattens.",
+      "Keep lifting, one bit of your back at a time, into a bridge.",
+      "Lower slowly, one bit at a time."
+    ],
+    "hands": "Palms flat on the floor by your sides.",
+    "legs": "Heels right under your knees.",
+    "back": "Peel your spine up and down slowly, not all at once.",
+    "breathe": "Breathe out as you lift, in as you lower.",
+    "mistake": "Lifting your whole back at once like a plank."
+  },
+  "IT_Band_and_Glute_Stretch": {
+    "steps": [
+      "Lie on your back and loop a band or belt around one foot.",
+      "Keep that leg straight and swing it across your body.",
+      "Gently pull on the band until you feel a stretch.",
+      "Hold, then switch sides."
+    ],
+    "hands": "Hold the band with the hand on the opposite side.",
+    "legs": "Stretching leg straight; other leg rests on the floor.",
+    "back": "Shoulders stay flat on the floor.",
+    "breathe": "Breathe slowly as you hold.",
+    "mistake": "Letting your shoulders lift off the floor."
+  },
+  "Calf_Stretch_Hands_Against_Wall": {
+    "steps": [
+      "Stand facing a wall and put your hands on it.",
+      "Step one foot back.",
+      "Keep the back heel on the floor and lean into the wall.",
+      "Hold, then switch legs."
+    ],
+    "hands": "Hands flat on the wall at shoulder height.",
+    "arms": "Arms slightly bent.",
+    "legs": "Back leg straight, heel down; front knee bent.",
+    "back": "Head, hips and back heel in one line.",
+    "breathe": "Breathe slowly as you hold.",
+    "mistake": "Letting the back heel lift off the floor."
+  },
+  "Desk_Neck_Tilt": {
+    "steps": [
+      "Sit tall with your feet flat and shoulders relaxed.",
+      "Slowly tip your right ear toward your right shoulder.",
+      "Come back to the middle, then tip to the left.",
+      "Then lower your chin to your chest and lift it back up."
+    ],
+    "hands": "Rest your hands on your thighs.",
+    "arms": "Arms relaxed; let your shoulders drop.",
+    "legs": "Feet flat on the floor.",
+    "back": "Sit tall; keep your back away from the chair.",
+    "breathe": "Breathe out as you tilt, in as you come back.",
+    "mistake": "Lifting your shoulder up to meet your ear."
+  },
+  "Desk_Chin_Tuck": {
+    "steps": [
+      "Sit or stand tall and look straight ahead.",
+      "Slide your chin straight back, making a double chin.",
+      "Hold for a moment.",
+      "Let go and repeat."
+    ],
+    "hands": "Rest your hands in your lap.",
+    "legs": "Feet flat on the floor.",
+    "back": "Sit tall; your head moves back, not down.",
+    "breathe": "Breathe normally.",
+    "mistake": "Tipping your head down instead of sliding it straight back."
+  },
+  "Shoulder_Circles": {
+    "steps": [
+      "Sit or stand tall with your arms loose.",
+      "Lift your shoulders up toward your ears.",
+      "Roll them back and down in a slow circle.",
+      "After a few circles, roll the other way."
+    ],
+    "hands": "Hands loose by your sides or resting in your lap.",
+    "arms": "Arms relaxed; only your shoulders move.",
+    "legs": "Feet flat on the floor.",
+    "back": "Sit or stand tall.",
+    "breathe": "Breathe in as shoulders rise, out as they drop.",
+    "mistake": "Rushing through small circles instead of big, slow ones."
+  },
+  "Desk_Seated_Twist": {
+    "steps": [
+      "Sit tall near the front of your chair, feet flat.",
+      "Put your left hand on your right knee.",
+      "Put your right hand on the back of the chair.",
+      "Breathe out and gently turn to the right. Hold.",
+      "Come back slowly and switch sides."
+    ],
+    "hands": "One hand on the opposite knee, the other on the chair back.",
+    "arms": "Use your arms gently; do not yank yourself around.",
+    "legs": "Knees face forward, feet flat on the floor.",
+    "back": "Sit tall first, then twist. Do not slump.",
+    "breathe": "Breathe in to sit tall, out to turn a bit more.",
+    "mistake": "Slumping or forcing the twist with your arms."
+  },
+  "Desk_Wrist_Stretch": {
+    "steps": [
+      "Hold your right arm out in front, palm facing away.",
+      "Gently pull your right fingers back toward you. Hold.",
+      "Turn your palm down and gently press the back of your hand toward you. Hold.",
+      "Make a fist, then spread your fingers wide.",
+      "Switch hands."
+    ],
+    "hands": "Pull gently. You should feel a stretch, not pain.",
+    "arms": "Keep your stretching arm straight at shoulder height.",
+    "back": "Sit tall with your shoulders relaxed.",
+    "breathe": "Breathe slowly as you hold each stretch.",
+    "mistake": "Pulling too hard on your fingers."
+  },
+  "Eye_20_20_20": {
+    "steps": [
+      "Look away from your screen.",
+      "Find something far away, about 20 feet (6 metres) or more.",
+      "Look at it softly for 20 seconds.",
+      "Blink a few times, then go back to work."
+    ],
+    "back": "Sit back in your chair and let your shoulders drop.",
+    "breathe": "Breathe slowly and let your face relax.",
+    "mistake": "Looking at your phone instead of something far away."
+  },
+  "Eye_Palming": {
+    "steps": [
+      "Sit back and rest your elbows on the desk.",
+      "Rub your palms together until they feel warm.",
+      "Close your eyes and cup your palms over them.",
+      "Breathe slowly and enjoy the dark."
+    ],
+    "hands": "Cup your palms over your eyes. Do not press on them.",
+    "arms": "Rest your elbows on the desk so your arms can relax.",
+    "back": "Sit tall and lean slightly forward onto your elbows.",
+    "breathe": "Breathe slowly in through your nose and out.",
+    "mistake": "Pressing on your eyeballs."
+  },
+  "Eye_Near_Far_Focus": {
+    "steps": [
+      "Hold your thumb up at arm's length.",
+      "Look at your thumb until it is sharp.",
+      "Now look at something far away until it is sharp.",
+      "Switch slowly between near and far."
+    ],
+    "hands": "Thumb up, about at eye level.",
+    "arms": "Arm straight out in front of you.",
+    "back": "Sit tall and keep your head still.",
+    "breathe": "Breathe normally and blink when you need to.",
+    "mistake": "Switching too fast before each view gets sharp."
+  },
+  "Eye_Slow_Blinks": {
+    "steps": [
+      "Sit back and relax your face.",
+      "Close your eyes gently, like falling asleep.",
+      "Pause with your eyes closed.",
+      "Open them slowly. Repeat."
+    ],
+    "back": "Sit back with your shoulders relaxed.",
+    "breathe": "Breathe in as you open, out as you close.",
+    "mistake": "Squeezing your eyes shut tightly."
+  },
+  "Jaw_Open_Release": {
+    "steps": [
+      "Sit tall and let your shoulders drop.",
+      "Rest your tongue on the roof of your mouth, behind your top teeth.",
+      "Open your mouth slowly, only as far as is comfortable.",
+      "Hold for a moment, then close slowly."
+    ],
+    "hands": "Rest your hands in your lap, or fingertips lightly on your jaw.",
+    "back": "Sit tall with your head level, chin not poking forward.",
+    "breathe": "Breathe slowly through your nose.",
+    "mistake": "Opening too wide or letting your jaw slide to one side."
+  },
+  "Side_Neck_Stretch": {
+    "steps": [
+      "Sit or stand tall with your shoulders relaxed.",
+      "Slowly tip your right ear toward your right shoulder.",
+      "For more stretch, rest your right hand lightly on your head.",
+      "Hold, then come back up slowly and switch sides."
+    ],
+    "hands": "Use only the weight of your hand. Do not pull hard.",
+    "arms": "Let the other arm hang down to keep that shoulder low.",
+    "back": "Sit or stand tall; do not lean your body.",
+    "breathe": "Breathe slowly and let your shoulder sink.",
+    "mistake": "Lifting your shoulder up toward your ear."
+  },
+  "March_In_Place": {
+    "steps": [
+      "Stand tall with your arms by your sides.",
+      "Lift your right knee, then put the foot down.",
+      "Lift your left knee, then put it down.",
+      "Swing your arms and keep a steady pace."
+    ],
+    "arms": "Swing your arms gently, elbows bent, like walking.",
+    "legs": "Lift your knees to a comfy height, land softly.",
+    "back": "Stand tall with your chest up.",
+    "breathe": "Breathe easily. You should be able to talk.",
+    "mistake": "Slouching and looking down at your feet."
+  },
+  "Arm_Circles": {
+    "steps": [
+      "Stand tall and lift your arms straight out to the sides.",
+      "Make small circles with your arms.",
+      "Slowly make the circles a bit bigger.",
+      "Switch and circle the other way."
+    ],
+    "hands": "Palms face down, fingers long.",
+    "arms": "Arms straight and level with your shoulders.",
+    "legs": "Feet hip-width apart, knees soft.",
+    "back": "Stand tall; keep your shoulders down.",
+    "breathe": "Breathe normally.",
+    "mistake": "Shrugging your shoulders up as your arms get tired."
+  },
+  "Standing_Dumbbell_Press": {
+    "steps": [
+      "Stand with feet shoulder-width apart, a dumbbell in each hand.",
+      "Lift the dumbbells to head height, elbows bent.",
+      "Push them straight up over your head.",
+      "Lower them slowly back to head height."
+    ],
+    "hands": "Palms face forward, wrists straight over your elbows.",
+    "arms": "Elbows start bent at about a right angle.",
+    "legs": "Knees soft; do not bounce with your legs.",
+    "back": "Stand tall; squeeze your belly so you do not lean back.",
+    "breathe": "Breathe out as you press, in as you lower.",
+    "mistake": "Leaning back and arching your lower back."
+  },
+  "Alternate_Heel_Touchers": {
+    "steps": [
+      "Lie on your back with knees bent and feet flat.",
+      "Lift your head and shoulders a little off the floor.",
+      "Reach your right hand toward your right heel.",
+      "Come back to the middle, then reach for your left heel."
+    ],
+    "hands": "Reach your fingertips toward your heels.",
+    "arms": "Arms straight by your sides, just off the floor.",
+    "legs": "Feet flat and a bit wider than your hips.",
+    "back": "Lower back stays on the floor.",
+    "breathe": "Breathe out as you reach to each side.",
+    "mistake": "Pulling your chin into your chest."
+  },
+  "Breath_Box": {
+    "steps": [
+      "Sit tall and let your shoulders drop.",
+      "Breathe in through your nose for a count of 4.",
+      "Hold your breath for 4.",
+      "Breathe out slowly for 4.",
+      "Hold empty for 4, then start again."
+    ],
+    "hands": "Rest your hands on your thighs or belly.",
+    "back": "Sit tall but relaxed.",
+    "breathe": "Count slowly. Make each side of the box even.",
+    "mistake": "Tensing your shoulders during the holds."
+  },
+  "Gentle_Hip_Circles": {
+    "steps": [
+      "Stand with your feet a bit wider than your hips.",
+      "Put your hands on your hips and soften your knees.",
+      "Slowly draw big circles with your hips, like a hula hoop.",
+      "Go one way a few times, then the other way."
+    ],
+    "hands": "Hands rest on your hips.",
+    "legs": "Knees soft, feet flat.",
+    "back": "Upper body stays fairly still while your hips move.",
+    "breathe": "Breathe slowly and steadily.",
+    "mistake": "Moving too fast. Keep it slow and smooth."
+  },
+  "Knee_Across_The_Body": {
+    "steps": [
+      "Lie on your back with your legs straight.",
+      "Bend your left knee and let it fall across to the right.",
+      "Rest your right hand on your left knee.",
+      "Stretch your left arm out and look to the left. Hold.",
+      "Come back slowly and switch sides."
+    ],
+    "hands": "Let your hand rest on your knee. Do not push it down.",
+    "arms": "Free arm stretches out to the side, palm down.",
+    "legs": "Bottom leg straight; top knee only goes as low as is comfy.",
+    "back": "Both shoulders stay on the floor as much as you can.",
+    "breathe": "Breathe slowly and relax a little more each breath out.",
+    "mistake": "Forcing the knee to the floor."
+  },
+  "Hug_Knees_To_Chest": {
+    "steps": [
+      "Lie on your back.",
+      "Bring both knees up toward your chest.",
+      "Hold under your knees with your arms.",
+      "Gently pull your knees closer and hold."
+    ],
+    "hands": "Hold behind your thighs, just under your knees.",
+    "arms": "Arms hold your knees gently; do not yank.",
+    "legs": "Knees bent and close together.",
+    "back": "Let your lower back relax into the floor.",
+    "breathe": "Breathe slowly and let your belly move.",
+    "mistake": "Holding on top of your knees, which presses on the joints."
+  },
+  "Kneeling_Hip_Flexor": {
+    "steps": [
+      "Kneel on a mat, then step your right foot forward.",
+      "Your left knee and the top of your left foot rest on the floor.",
+      "Tuck your bottom under a little.",
+      "Shift your weight forward until you feel a stretch in your left hip.",
+      "Hold, then switch sides."
+    ],
+    "hands": "Hands on your front knee or on your hips.",
+    "legs": "Front knee over your ankle; back knee on a soft mat.",
+    "back": "Stay tall; do not arch your lower back.",
+    "breathe": "Breathe slowly as you hold.",
+    "mistake": "Leaning back and arching instead of tucking your bottom under."
+  },
+  "Eye_Circles": {
+    "steps": [
+      "Sit tall and keep your head still.",
+      "Look up, then slowly roll your eyes right, down and left.",
+      "Make a few slow circles.",
+      "Switch and circle the other way, then blink and rest."
+    ],
+    "back": "Sit tall with your head level and still.",
+    "breathe": "Breathe slowly and keep your face relaxed.",
+    "mistake": "Moving your head instead of just your eyes."
+  },
+  "Desk_Figure_Four": {
+    "steps": [
+      "Sit tall near the front of your chair, feet flat.",
+      "Cross your right ankle over your left knee, like a number 4.",
+      "Keep your back straight and lean forward a little.",
+      "Hold where you feel a stretch, then switch legs."
+    ],
+    "hands": "Rest your hands on your shin and the raised knee.",
+    "legs": "Bottom foot flat; top ankle rests just past the knee.",
+    "back": "Lean forward from your hips with a straight back.",
+    "breathe": "Breathe slowly and relax into the stretch.",
+    "mistake": "Rounding your back to lean further forward."
+  },
+  "Desk_Seated_Leg_Raise": {
+    "steps": [
+      "Sit tall in your chair, feet flat.",
+      "Hold the sides of the seat.",
+      "Straighten your right leg until it is level with the seat.",
+      "Hold for a moment, then lower it slowly.",
+      "Switch legs."
+    ],
+    "hands": "Hold the sides of the seat.",
+    "legs": "Lift the leg until straight; toes point up.",
+    "back": "Sit tall; do not lean back.",
+    "breathe": "Breathe out as you lift, in as you lower.",
+    "mistake": "Leaning back and swinging the leg up."
+  },
+  "Barbell_Incline_Bench_Press_-_Medium_Grip": {
+    "steps": [
+      "Lie on an incline bench with the bar above your eyes.",
+      "Grip the bar a little wider than your shoulders and lift it off.",
+      "Lower it slowly to your upper chest.",
+      "Push it back up until your arms are straight."
+    ],
+    "hands": "Grip just wider than your shoulders, wrists straight.",
+    "arms": "Elbows angle down a little, not flared straight out.",
+    "legs": "Feet flat on the floor.",
+    "back": "Shoulder blades pinched together; head and bottom on the bench.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Bouncing the bar off your chest."
+  },
+  "Barbell_Shrug": {
+    "steps": [
+      "Stand tall holding a barbell in front of your thighs.",
+      "Lift your shoulders straight up toward your ears.",
+      "Hold for a moment.",
+      "Lower your shoulders slowly."
+    ],
+    "hands": "Palms face you, hands a bit wider than shoulders.",
+    "arms": "Arms stay straight; do not bend your elbows.",
+    "legs": "Feet shoulder-width apart, knees soft.",
+    "back": "Stand tall; do not roll your shoulders.",
+    "breathe": "Breathe out as you lift, in as you lower.",
+    "mistake": "Bending your arms to help lift the bar."
+  },
+  "Battling_Ropes": {
+    "steps": [
+      "Hold one rope end in each hand, standing in a half squat.",
+      "Lift one arm up quickly to make a wave.",
+      "As it drops, lift the other arm.",
+      "Keep the waves going fast for the time set."
+    ],
+    "hands": "Grip the rope ends firmly, palms facing each other.",
+    "arms": "Arms move fast from the shoulders, elbows slightly bent.",
+    "legs": "Knees bent, feet shoulder-width apart.",
+    "back": "Chest up, back straight, slight lean forward.",
+    "breathe": "Breathe quickly but steadily.",
+    "mistake": "Standing up straight and using only your arms."
+  },
+  "Bent_Over_Two-Dumbbell_Row": {
+    "steps": [
+      "Hold a dumbbell in each hand.",
+      "Bend your knees a little and lean forward from your hips.",
+      "Let the dumbbells hang below your shoulders.",
+      "Pull them up to your ribs, then lower slowly."
+    ],
+    "hands": "Palms face each other, wrists straight.",
+    "arms": "Elbows stay close to your body as you pull.",
+    "legs": "Knees slightly bent and steady.",
+    "back": "Back flat, nearly level with the floor.",
+    "breathe": "Breathe out as you pull, in as you lower.",
+    "mistake": "Rounding your back or standing up as you pull."
+  },
+  "Bicycling": {
+    "steps": [
+      "Set your seat so your leg is almost straight at the bottom.",
+      "Start pedaling at an easy pace.",
+      "Pick a pace you can keep for the time set.",
+      "Slow down for the last few minutes."
+    ],
+    "hands": "Hold the handlebars lightly, wrists straight.",
+    "arms": "Elbows slightly bent and relaxed.",
+    "legs": "Knees point forward; leg almost straight at the bottom.",
+    "back": "Keep your back long, not hunched.",
+    "breathe": "Breathe steadily. You should be able to talk a little.",
+    "mistake": "Seat too low, so your knees bend too much."
+  },
+  "Bicycling_Stationary": {
+    "steps": [
+      "Set the seat so your leg is almost straight at the bottom.",
+      "Start pedaling easily to warm up.",
+      "Raise the resistance or speed to a pace you can hold.",
+      "Ease off for the last few minutes."
+    ],
+    "hands": "Hold the handlebars lightly.",
+    "arms": "Elbows soft, shoulders relaxed.",
+    "legs": "Knees point forward over your feet.",
+    "back": "Back long; do not slump.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Setting the seat too low."
+  },
+  "Butterfly": {
+    "steps": [
+      "Sit in the machine with your back against the pad.",
+      "Hold the handles out to your sides at chest height.",
+      "Bring your arms together in front of your chest.",
+      "Let them open slowly back out."
+    ],
+    "hands": "Hold the handles lightly, wrists straight.",
+    "arms": "Keep a slight bend in your elbows.",
+    "legs": "Feet flat on the floor.",
+    "back": "Back stays against the pad.",
+    "breathe": "Breathe out as you bring your arms together.",
+    "mistake": "Letting your arms swing too far back."
+  },
+  "Cable_Crunch": {
+    "steps": [
+      "Kneel below a high cable holding a rope.",
+      "Hold the rope beside your head.",
+      "Curl your body down, bringing your elbows toward your knees.",
+      "Uncurl slowly back up."
+    ],
+    "hands": "Hold the rope ends beside your ears.",
+    "arms": "Arms stay still; your belly does the work.",
+    "legs": "Knees on a mat, hip-width apart.",
+    "back": "Round your back as you curl; keep hips still.",
+    "breathe": "Breathe out as you curl down.",
+    "mistake": "Sitting back with your hips instead of curling your belly."
+  },
+  "Cable_Hammer_Curls_-_Rope_Attachment": {
+    "steps": [
+      "Stand facing a low cable with a rope attached.",
+      "Hold the rope with palms facing each other.",
+      "Curl the rope up toward your shoulders.",
+      "Lower it slowly."
+    ],
+    "hands": "Palms face each other, wrists straight.",
+    "arms": "Elbows stay by your sides.",
+    "legs": "Feet hip-width apart, knees soft.",
+    "back": "Stand tall; no swinging.",
+    "breathe": "Breathe out as you curl up.",
+    "mistake": "Letting your elbows move forward."
+  },
+  "Cable_Hip_Adduction": {
+    "steps": [
+      "Attach a cuff to the ankle nearest a low cable.",
+      "Stand side-on and hold the machine for balance.",
+      "Pull that leg across in front of your other leg.",
+      "Let it return slowly.",
+      "Switch legs."
+    ],
+    "hands": "Hold the machine frame.",
+    "legs": "Standing knee soft; working leg stays fairly straight.",
+    "back": "Stand tall; do not lean.",
+    "breathe": "Breathe out as you pull across.",
+    "mistake": "Leaning your body to swing the leg."
+  },
+  "Cable_Rear_Delt_Fly": {
+    "steps": [
+      "Set two cables above head height.",
+      "Cross your arms and hold each cable with the opposite hand.",
+      "Pull your arms back and out wide.",
+      "Return slowly."
+    ],
+    "hands": "Hold the cables with a light grip.",
+    "arms": "Arms nearly straight with a soft elbow.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand tall; do not lean back.",
+    "breathe": "Breathe out as you pull apart.",
+    "mistake": "Using too much weight and shrugging."
+  },
+  "Cable_Rope_Overhead_Triceps_Extension": {
+    "steps": [
+      "Face away from a cable, holding a rope behind your head.",
+      "Step forward and lean a little.",
+      "Straighten your arms forward and up over your head.",
+      "Bend your elbows slowly to bring it back."
+    ],
+    "hands": "Hold the rope ends, palms facing each other.",
+    "arms": "Elbows point forward and stay close to your head.",
+    "legs": "One foot in front of the other.",
+    "back": "Slight lean forward, back straight.",
+    "breathe": "Breathe out as you straighten your arms.",
+    "mistake": "Letting your elbows flare out."
+  },
+  "Calf_Press": {
+    "steps": [
+      "Sit in the machine with the balls of your feet on the platform.",
+      "Straighten your legs to lift the weight a little.",
+      "Push through your toes to press the platform away.",
+      "Let your heels come back slowly."
+    ],
+    "hands": "Hold the handles.",
+    "legs": "Knees nearly straight; only your ankles move.",
+    "back": "Back against the seat.",
+    "breathe": "Breathe out as you press.",
+    "mistake": "Bending your knees to help push."
+  },
+  "Calf_Press_On_The_Leg_Press_Machine": {
+    "steps": [
+      "Sit in the leg press with the balls of your feet on the bottom edge.",
+      "Straighten your legs, knees soft.",
+      "Push through your toes to move the platform.",
+      "Let your heels come back slowly for a stretch."
+    ],
+    "hands": "Hold the handles; keep the safety catches ready.",
+    "legs": "Knees stay straight but not locked.",
+    "back": "Back flat against the seat.",
+    "breathe": "Breathe out as you push.",
+    "mistake": "Letting your feet slip off the platform."
+  },
+  "Close-Grip_Barbell_Bench_Press": {
+    "steps": [
+      "Lie on a flat bench under the bar.",
+      "Grip the bar about shoulder-width apart.",
+      "Lower the bar slowly to your lower chest.",
+      "Push it back up until your arms are straight."
+    ],
+    "hands": "Hands shoulder-width apart, wrists straight.",
+    "arms": "Elbows stay close to your sides.",
+    "legs": "Feet flat on the floor.",
+    "back": "Head, back and bottom stay on the bench.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Gripping so narrow that your wrists bend."
+  },
+  "Close-Grip_Front_Lat_Pulldown": {
+    "steps": [
+      "Sit at the pulldown with your thighs under the pad.",
+      "Grip the bar with hands close together.",
+      "Pull the bar down to your upper chest.",
+      "Let it rise slowly until your arms are straight."
+    ],
+    "hands": "Hands close together, palms facing forward.",
+    "arms": "Pull your elbows down toward your ribs.",
+    "legs": "Thighs under the pad, feet flat.",
+    "back": "Chest up, slight lean back.",
+    "breathe": "Breathe out as you pull down.",
+    "mistake": "Swinging your body to pull the weight."
+  },
+  "Concentration_Curls": {
+    "steps": [
+      "Sit on a bench with a dumbbell in one hand.",
+      "Rest that elbow on the inside of your thigh.",
+      "Curl the dumbbell up toward your shoulder.",
+      "Lower it slowly. Switch arms after your set."
+    ],
+    "hands": "Palm faces up, wrist straight.",
+    "arms": "Upper arm stays pressed against your thigh.",
+    "legs": "Feet wide apart, flat on the floor.",
+    "back": "Lean forward a little with a straight back.",
+    "breathe": "Breathe out as you curl up.",
+    "mistake": "Lifting your elbow off your thigh."
+  },
+  "Crunches": {
+    "steps": [
+      "Lie on your back with knees bent and feet flat.",
+      "Put your hands lightly beside your head or across your chest.",
+      "Curl your head and shoulders up off the floor.",
+      "Lower back down slowly."
+    ],
+    "hands": "Fingertips lightly touch your head. Do not pull.",
+    "arms": "Elbows point out to the sides.",
+    "legs": "Feet flat, hip-width apart.",
+    "back": "Lower back stays on the floor.",
+    "breathe": "Breathe out as you curl up.",
+    "mistake": "Pulling on your neck with your hands."
+  },
+  "Decline_Barbell_Bench_Press": {
+    "steps": [
+      "Lie on a decline bench with your legs hooked in.",
+      "Grip the bar a little wider than your shoulders and lift it off.",
+      "Lower it slowly to your lower chest.",
+      "Push it back up."
+    ],
+    "hands": "Grip just wider than your shoulders, wrists straight.",
+    "arms": "Elbows angle down, not straight out.",
+    "legs": "Legs locked under the pads.",
+    "back": "Back and head stay on the bench.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Lowering the bar too high toward your neck."
+  },
+  "Decline_Dumbbell_Bench_Press": {
+    "steps": [
+      "Lie on a decline bench with your legs hooked in.",
+      "Hold the dumbbells above your chest.",
+      "Lower them slowly to the sides of your lower chest.",
+      "Push them back up."
+    ],
+    "hands": "Palms face your feet, wrists straight.",
+    "arms": "Elbows angle down a little.",
+    "legs": "Legs locked under the pads.",
+    "back": "Back stays on the bench.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Dropping the weights too fast."
+  },
+  "Decline_Push-Up": {
+    "steps": [
+      "Put your feet up on a bench or step.",
+      "Place your hands on the floor under your shoulders.",
+      "Lower your chest toward the floor.",
+      "Push back up."
+    ],
+    "hands": "Hands a bit wider than your shoulders, fingers forward.",
+    "arms": "Elbows bend back at an angle.",
+    "legs": "Legs straight, toes on the bench.",
+    "back": "Body in one straight line; hips do not sag.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Letting your hips drop."
+  },
+  "Dips_-_Triceps_Version": {
+    "steps": [
+      "Hold the dip bars and lift yourself up, arms straight.",
+      "Keep your body upright.",
+      "Bend your elbows to lower your body.",
+      "Push back up until your arms are straight."
+    ],
+    "hands": "Grip the bars firmly, wrists straight.",
+    "arms": "Elbows point back and stay close to your body.",
+    "legs": "Legs hang down or cross at the ankles.",
+    "back": "Stay upright; do not lean far forward.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Going too low so your shoulders hurt."
+  },
+  "Dumbbell_Flyes": {
+    "steps": [
+      "Lie on a flat bench holding dumbbells above your chest.",
+      "Bend your elbows slightly.",
+      "Open your arms out wide in a big arc.",
+      "Bring them back together over your chest."
+    ],
+    "hands": "Palms face each other.",
+    "arms": "Keep the same soft bend in your elbows.",
+    "legs": "Feet flat on the floor.",
+    "back": "Back and head on the bench.",
+    "breathe": "Breathe in as you open, out as you close.",
+    "mistake": "Lowering the arms too far."
+  },
+  "Dumbbell_Shrug": {
+    "steps": [
+      "Stand tall with a dumbbell in each hand.",
+      "Lift your shoulders straight up toward your ears.",
+      "Hold for a moment.",
+      "Lower slowly."
+    ],
+    "hands": "Palms face your legs.",
+    "arms": "Arms stay straight.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand tall.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Rolling your shoulders in circles."
+  },
+  "Dumbbell_Side_Bend": {
+    "steps": [
+      "Stand tall with a dumbbell in one hand.",
+      "Put your other hand on your hip.",
+      "Bend sideways toward the dumbbell.",
+      "Come back up to standing. Switch sides after your set."
+    ],
+    "hands": "Hold the dumbbell at your side, palm facing in.",
+    "arms": "Working arm hangs straight.",
+    "legs": "Feet hip-width apart, knees soft.",
+    "back": "Bend straight to the side, not forward.",
+    "breathe": "Breathe in as you bend, out as you rise.",
+    "mistake": "Leaning forward or twisting."
+  },
+  "EZ-Bar_Curl": {
+    "steps": [
+      "Stand tall holding an EZ bar on the angled grips.",
+      "Keep your elbows at your sides.",
+      "Curl the bar up toward your shoulders.",
+      "Lower it slowly."
+    ],
+    "hands": "Hold the angled part of the bar, palms up.",
+    "arms": "Upper arms stay still.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand tall; no swinging.",
+    "breathe": "Breathe out as you curl up.",
+    "mistake": "Rocking your body to lift the bar."
+  },
+  "EZ-Bar_Skullcrusher": {
+    "steps": [
+      "Lie on a bench holding an EZ bar over your chest.",
+      "Bend your elbows to lower the bar toward your forehead.",
+      "Stop just above your head.",
+      "Straighten your arms to push it back up."
+    ],
+    "hands": "Hold the angled grips, wrists straight.",
+    "arms": "Upper arms point up and stay still.",
+    "legs": "Feet flat on the floor.",
+    "back": "Back and head on the bench.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Letting your elbows drift out wide."
+  },
+  "Front_Cable_Raise": {
+    "steps": [
+      "Stand facing away from a low cable, handle in one hand.",
+      "Start with the handle in front of your thigh.",
+      "Lift your arm straight in front to shoulder height.",
+      "Lower slowly. Switch arms after your set."
+    ],
+    "hands": "Palm faces down at the top.",
+    "arms": "Arm almost straight with a soft elbow.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand still; no swinging.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Lifting higher than your shoulder."
+  },
+  "Front_Dumbbell_Raise": {
+    "steps": [
+      "Stand tall with dumbbells in front of your thighs.",
+      "Lift one or both arms straight in front of you.",
+      "Stop at shoulder height.",
+      "Lower slowly."
+    ],
+    "hands": "Palms face down, wrists straight.",
+    "arms": "Soft bend in your elbows.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand tall; no swinging.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Swinging your body to lift the weights."
+  },
+  "Hack_Squat": {
+    "steps": [
+      "Stand in the machine with your back on the pad.",
+      "Put your feet shoulder-width apart on the platform.",
+      "Release the safety and bend your knees to lower down.",
+      "Push through your feet to stand back up."
+    ],
+    "hands": "Hold the handles by your shoulders.",
+    "legs": "Knees follow your toes.",
+    "back": "Back stays flat against the pad.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Letting your heels lift off the platform."
+  },
+  "Hyperextensions_Back_Extensions": {
+    "steps": [
+      "Lie face down on the back extension bench, ankles under the pads.",
+      "Cross your arms over your chest.",
+      "Bend forward slowly at your hips.",
+      "Lift back up until your body is straight."
+    ],
+    "arms": "Arms crossed over your chest.",
+    "legs": "Legs straight, ankles locked under the pads.",
+    "back": "Back straight; stop when your body forms a line.",
+    "breathe": "Breathe in as you go down, out as you lift.",
+    "mistake": "Arching too far back at the top."
+  },
+  "Inchworm": {
+    "steps": [
+      "Stand tall, then bend over and put your hands on the floor.",
+      "Walk your hands forward until you are in a push-up position.",
+      "Walk your feet in toward your hands.",
+      "Repeat, moving forward."
+    ],
+    "hands": "Hands flat on the floor, small steps.",
+    "arms": "Arms straight.",
+    "legs": "Keep your legs as straight as is comfy; bend knees if needed.",
+    "back": "In the push-up position, keep your back flat.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Letting your hips sag in the push-up position."
+  },
+  "Incline_Dumbbell_Curl": {
+    "steps": [
+      "Sit back on an incline bench with a dumbbell in each hand.",
+      "Let your arms hang straight down.",
+      "Curl the dumbbells up toward your shoulders.",
+      "Lower slowly until your arms are straight."
+    ],
+    "hands": "Palms face forward, wrists straight.",
+    "arms": "Upper arms stay hanging still.",
+    "legs": "Feet flat on the floor.",
+    "back": "Back and head against the bench.",
+    "breathe": "Breathe out as you curl up.",
+    "mistake": "Bringing your elbows forward."
+  },
+  "Inverted_Row": {
+    "steps": [
+      "Set a bar at about waist height.",
+      "Lie under it and grab it a bit wider than your shoulders.",
+      "Keep your body straight with heels on the floor.",
+      "Pull your chest up to the bar, then lower slowly."
+    ],
+    "hands": "Grip a little wider than your shoulders, palms facing away.",
+    "arms": "Pull your elbows back toward your sides.",
+    "legs": "Legs straight; bend your knees to make it easier.",
+    "back": "Body stays straight like a plank.",
+    "breathe": "Breathe out as you pull up.",
+    "mistake": "Letting your hips sag."
+  },
+  "Knee_Hip_Raise_On_Parallel_Bars": {
+    "steps": [
+      "Rest your forearms on the pads with your back against the back pad.",
+      "Let your legs hang down.",
+      "Lift your knees up toward your chest.",
+      "Lower them slowly."
+    ],
+    "hands": "Hold the handles.",
+    "arms": "Forearms rest on the pads, elbows bent.",
+    "legs": "Bend your knees as you lift them.",
+    "back": "Lower back stays pressed into the pad.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Swinging your legs up."
+  },
+  "Leverage_Chest_Press": {
+    "steps": [
+      "Sit in the machine with the handles at chest height.",
+      "Grip the handles.",
+      "Push forward until your arms are almost straight.",
+      "Let the handles come back slowly."
+    ],
+    "hands": "Wrists straight, in line with your forearms.",
+    "arms": "Elbows a little below your shoulders.",
+    "legs": "Feet flat on the floor.",
+    "back": "Back against the pad.",
+    "breathe": "Breathe out as you push.",
+    "mistake": "Locking your elbows hard at the end."
+  },
+  "Leverage_Shoulder_Press": {
+    "steps": [
+      "Sit in the machine with the handles at shoulder height.",
+      "Grip the handles.",
+      "Push them up until your arms are almost straight.",
+      "Lower them slowly."
+    ],
+    "hands": "Wrists straight over your elbows.",
+    "arms": "Elbows start below the handles.",
+    "legs": "Feet flat on the floor.",
+    "back": "Back against the pad; do not arch.",
+    "breathe": "Breathe out as you push up.",
+    "mistake": "Arching your back off the pad."
+  },
+  "Machine_Bench_Press": {
+    "steps": [
+      "Sit in the machine with the handles at chest height.",
+      "Hold the handles.",
+      "Push forward until your arms are straight.",
+      "Return slowly."
+    ],
+    "hands": "Wrists straight.",
+    "arms": "Elbows slightly below your shoulders.",
+    "legs": "Feet flat on the floor.",
+    "back": "Back against the pad.",
+    "breathe": "Breathe out as you push.",
+    "mistake": "Letting the weight crash back."
+  },
+  "Machine_Preacher_Curls": {
+    "steps": [
+      "Sit at the machine with your upper arms on the pad.",
+      "Hold the handles.",
+      "Curl the handles up toward your shoulders.",
+      "Lower slowly until your arms are almost straight."
+    ],
+    "hands": "Palms up, wrists straight.",
+    "arms": "Upper arms stay flat on the pad.",
+    "legs": "Feet flat on the floor.",
+    "back": "Sit tall.",
+    "breathe": "Breathe out as you curl.",
+    "mistake": "Lifting your elbows off the pad."
+  },
+  "Machine_Shoulder_Military_Press": {
+    "steps": [
+      "Sit in the machine with the handles at shoulder height.",
+      "Grip the handles.",
+      "Press up until your arms are almost straight.",
+      "Lower slowly."
+    ],
+    "hands": "Wrists straight over your elbows.",
+    "arms": "Elbows start just below the handles.",
+    "legs": "Feet flat.",
+    "back": "Back against the pad.",
+    "breathe": "Breathe out as you press.",
+    "mistake": "Arching your back."
+  },
+  "Monster_Walk": {
+    "steps": [
+      "Put a band around your ankles and one around your knees.",
+      "Stand with feet shoulder-width apart, knees soft.",
+      "Take short steps forward, left and right.",
+      "Then walk backward to where you started."
+    ],
+    "hands": "Hands on hips or in front of you.",
+    "legs": "Keep tension on the bands; knees push out.",
+    "back": "Stay tall with a slight forward lean.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Letting your knees cave in."
+  },
+  "Pallof_Press": {
+    "steps": [
+      "Stand side-on to a cable at chest height.",
+      "Hold the handle with both hands at your chest.",
+      "Push your arms straight out in front.",
+      "Hold, then bring the handle back to your chest."
+    ],
+    "hands": "Both hands wrapped around the handle.",
+    "arms": "Push straight forward, do not let them drift.",
+    "legs": "Feet hip-width apart, knees slightly bent.",
+    "back": "Do not let the cable twist your body.",
+    "breathe": "Breathe out as you press out.",
+    "mistake": "Letting your body turn toward the cable."
+  },
+  "Palms-Up_Barbell_Wrist_Curl_Over_A_Bench": {
+    "steps": [
+      "Kneel by a bench and rest your forearms on it.",
+      "Hold a light barbell, palms up, wrists over the edge.",
+      "Let the bar roll down toward your fingers.",
+      "Curl your wrists up as high as you can."
+    ],
+    "hands": "Palms face up, hands shoulder-width apart.",
+    "arms": "Forearms stay flat on the bench.",
+    "legs": "Kneel comfortably.",
+    "back": "Lean over the bench with a flat back.",
+    "breathe": "Breathe out as you curl up.",
+    "mistake": "Lifting your forearms off the bench."
+  },
+  "Plie_Dumbbell_Squat": {
+    "steps": [
+      "Hold one dumbbell with both hands, arms hanging down.",
+      "Stand with feet wide and toes pointing out.",
+      "Bend your knees and lower until your thighs are level.",
+      "Push up through your heels."
+    ],
+    "hands": "Hold the top end of the dumbbell with both hands.",
+    "arms": "Arms hang straight.",
+    "legs": "Knees push out in line with your toes.",
+    "back": "Chest up, back straight.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Letting your knees fall inward."
+  },
+  "Plyo_Push-up": {
+    "steps": [
+      "Start in a push-up position.",
+      "Lower your chest toward the floor.",
+      "Push up hard so your hands leave the floor.",
+      "Land softly with bent elbows."
+    ],
+    "hands": "Hands under your shoulders, landing in the same spot.",
+    "arms": "Land with soft elbows, not locked arms.",
+    "legs": "Legs straight; or knees down to make it easier.",
+    "back": "Body stays straight.",
+    "breathe": "Breathe out as you push up.",
+    "mistake": "Landing with straight, locked arms."
+  },
+  "Pull_Through": {
+    "steps": [
+      "Face away from a low cable, holding the rope between your legs.",
+      "Walk forward and stand with feet wide.",
+      "Push your hips back and let the rope pull through your legs.",
+      "Squeeze your bottom and stand up tall."
+    ],
+    "hands": "Hold the rope with both hands between your legs.",
+    "arms": "Arms stay straight; they do not pull.",
+    "legs": "Knees slightly bent.",
+    "back": "Back stays flat as you hinge.",
+    "breathe": "Breathe out as you stand up.",
+    "mistake": "Pulling with your arms instead of your hips."
+  },
+  "Push-Up_Wide": {
+    "steps": [
+      "Start in a push-up position, hands wider than your shoulders.",
+      "Lower your chest toward the floor.",
+      "Push back up."
+    ],
+    "hands": "Hands much wider than your shoulders, fingers forward.",
+    "arms": "Elbows bend out to the sides at an angle.",
+    "legs": "Legs straight, feet together.",
+    "back": "Body in one straight line.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Letting your hips sag."
+  },
+  "Reverse_Barbell_Curl": {
+    "steps": [
+      "Stand tall holding a barbell, palms facing down.",
+      "Keep your elbows at your sides.",
+      "Curl the bar up toward your shoulders.",
+      "Lower it slowly."
+    ],
+    "hands": "Palms face down, wrists straight.",
+    "arms": "Upper arms stay still.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand tall.",
+    "breathe": "Breathe out as you curl.",
+    "mistake": "Letting your wrists bend down."
+  },
+  "Reverse_Crunch": {
+    "steps": [
+      "Lie on your back with arms by your sides.",
+      "Lift your legs so your knees are over your hips.",
+      "Curl your hips off the floor, bringing knees to your chest.",
+      "Lower your hips slowly."
+    ],
+    "hands": "Palms flat on the floor.",
+    "arms": "Arms stay still on the floor.",
+    "legs": "Knees bent, feet together.",
+    "back": "Upper back stays on the floor.",
+    "breathe": "Breathe out as you curl your hips.",
+    "mistake": "Swinging your legs instead of curling."
+  },
+  "Reverse_Machine_Flyes": {
+    "steps": [
+      "Sit facing the pec deck with your chest on the pad.",
+      "Hold the handles in front of you, arms straight.",
+      "Pull your arms back and out to the sides.",
+      "Return slowly."
+    ],
+    "hands": "Palms face each other or down, light grip.",
+    "arms": "Arms almost straight with soft elbows.",
+    "legs": "Feet flat on the floor.",
+    "back": "Chest stays on the pad.",
+    "breathe": "Breathe out as you pull back.",
+    "mistake": "Shrugging your shoulders up."
+  },
+  "Running_Treadmill": {
+    "steps": [
+      "Start the treadmill at a walk to warm up.",
+      "Speed up to an easy run.",
+      "Run at a pace you can keep for the time set.",
+      "Slow to a walk for the last few minutes."
+    ],
+    "hands": "Loose fists, not clenched.",
+    "arms": "Elbows bent, swing your arms forward and back.",
+    "legs": "Land softly under your body, short quick steps.",
+    "back": "Run tall; look ahead, not down.",
+    "breathe": "Breathe steadily and rhythmically.",
+    "mistake": "Holding the handrails while running."
+  },
+  "Scapular_Pull-Up": {
+    "steps": [
+      "Hang from a pull-up bar, arms straight.",
+      "Pull your shoulders down away from your ears.",
+      "Your body lifts a little without bending your arms.",
+      "Pause, then let your shoulders rise slowly."
+    ],
+    "hands": "Palms face away, about shoulder-width apart.",
+    "arms": "Arms stay straight the whole time.",
+    "legs": "Legs hang still.",
+    "back": "Chest lifts slightly as shoulders go down.",
+    "breathe": "Breathe out as you pull your shoulders down.",
+    "mistake": "Bending your elbows to pull up."
+  },
+  "Seated_Dumbbell_Press": {
+    "steps": [
+      "Sit on a bench with back support, dumbbells at your shoulders.",
+      "Turn your palms to face forward.",
+      "Push the dumbbells straight up.",
+      "Lower them slowly to shoulder height."
+    ],
+    "hands": "Palms forward, wrists straight over elbows.",
+    "arms": "Elbows a little in front of your body.",
+    "legs": "Feet flat on the floor.",
+    "back": "Back against the pad; do not arch.",
+    "breathe": "Breathe out as you press.",
+    "mistake": "Arching your back off the bench."
+  },
+  "Seated_Leg_Curl": {
+    "steps": [
+      "Sit in the machine with the pad behind your lower legs.",
+      "Lower the thigh pad onto your legs.",
+      "Pull your heels down and back under the seat.",
+      "Let your legs straighten slowly."
+    ],
+    "hands": "Hold the handles.",
+    "legs": "Knees line up with the machine's pivot.",
+    "back": "Sit back against the pad.",
+    "breathe": "Breathe out as you curl.",
+    "mistake": "Letting the weight snap back."
+  },
+  "Seated_Palm-Up_Barbell_Wrist_Curl": {
+    "steps": [
+      "Sit on a bench holding a light barbell, palms up.",
+      "Rest your forearms on your thighs, wrists past your knees.",
+      "Let the bar roll down toward your fingers.",
+      "Curl your wrists up as high as you can."
+    ],
+    "hands": "Palms face up, hands about shoulder-width apart.",
+    "arms": "Forearms stay flat on your thighs.",
+    "legs": "Feet flat, knees bent.",
+    "back": "Lean forward a little with a flat back.",
+    "breathe": "Breathe out as you curl up.",
+    "mistake": "Lifting your forearms to help."
+  },
+  "Side_Bridge": {
+    "steps": [
+      "Lie on your side with your elbow under your shoulder.",
+      "Stack your feet or stagger them.",
+      "Lift your hips so your body is a straight line.",
+      "Hold, then switch sides."
+    ],
+    "hands": "Bottom hand flat on the floor; top hand on your hip.",
+    "arms": "Bottom elbow right under your shoulder.",
+    "legs": "Legs straight; bend the bottom knee to make it easier.",
+    "back": "Head, hips and feet in one line.",
+    "breathe": "Breathe steadily while you hold.",
+    "mistake": "Letting your hips sag toward the floor."
+  },
+  "Single-Leg_High_Box_Squat": {
+    "steps": [
+      "Stand in front of a high box with a band or rope to hold.",
+      "Step onto the box with one foot.",
+      "Stand up fully, letting the other leg hang.",
+      "Step down slowly. Do all reps, then switch legs."
+    ],
+    "hands": "Hold the band or rope for balance.",
+    "legs": "Working knee follows your toes.",
+    "back": "Stand tall at the top.",
+    "breathe": "Breathe out as you step up.",
+    "mistake": "Pushing off the floor with the back foot."
+  },
+  "Smith_Machine_Bench_Press": {
+    "steps": [
+      "Lie on a bench under the Smith machine bar.",
+      "Grip the bar a little wider than your shoulders and unhook it.",
+      "Lower it slowly to your mid-chest.",
+      "Push it back up and re-hook when done."
+    ],
+    "hands": "Grip just wider than shoulders, wrists straight.",
+    "arms": "Elbows angle down, not flared wide.",
+    "legs": "Feet flat on the floor.",
+    "back": "Head, back and bottom on the bench.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Setting the bench so the bar lands on your neck."
+  },
+  "Smith_Machine_Squat": {
+    "steps": [
+      "Stand under the Smith bar with it across your upper back.",
+      "Feet shoulder-width apart, slightly in front of the bar.",
+      "Unhook the bar and sit your hips down.",
+      "Push up through your feet."
+    ],
+    "hands": "Grip the bar wider than your shoulders.",
+    "legs": "Knees follow your toes; heels stay down.",
+    "back": "Chest up, back straight.",
+    "breathe": "Breathe in going down, out coming up.",
+    "mistake": "Feet too far under the bar, so knees shoot forward."
+  },
+  "Smith_Machine_Stiff-Legged_Deadlift": {
+    "steps": [
+      "Stand holding the Smith bar at your thighs.",
+      "Soften your knees a little.",
+      "Push your hips back and lower the bar down your legs.",
+      "Stand back up by pushing your hips forward."
+    ],
+    "hands": "Grip just wider than your hips, palms facing you.",
+    "arms": "Arms hang straight.",
+    "legs": "Knees slightly bent and stay that way.",
+    "back": "Back stays flat.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Rounding your back at the bottom."
+  },
+  "Smith_Single-Leg_Split_Squat": {
+    "steps": [
+      "Put the Smith bar across your upper back.",
+      "Rest your back foot on a bench behind you.",
+      "Bend your front knee to lower straight down.",
+      "Push up through your front heel. Switch legs after your set."
+    ],
+    "hands": "Grip the bar wider than your shoulders.",
+    "legs": "Front knee follows your toes.",
+    "back": "Stay upright.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Front foot too close to the bench."
+  },
+  "Spider_Curl": {
+    "steps": [
+      "Lie chest-down on the angled side of a preacher bench.",
+      "Let your arms hang straight down holding the bar.",
+      "Curl the bar up toward your face.",
+      "Lower it slowly."
+    ],
+    "hands": "Palms up, about shoulder-width apart.",
+    "arms": "Upper arms hang straight down and stay still.",
+    "legs": "Feet on the floor for support.",
+    "back": "Chest stays on the pad.",
+    "breathe": "Breathe out as you curl.",
+    "mistake": "Swinging the bar up."
+  },
+  "Squats_-_With_Bands": {
+    "steps": [
+      "Stand on the middle of a band, feet shoulder-width apart.",
+      "Hold the band ends at your shoulders.",
+      "Sit your hips down into a squat.",
+      "Push up through your feet."
+    ],
+    "hands": "Hold the band at shoulder height, palms forward.",
+    "arms": "Elbows bent, held in front.",
+    "legs": "Knees follow your toes.",
+    "back": "Chest up, back straight.",
+    "breathe": "Breathe in going down, out coming up.",
+    "mistake": "Letting your knees cave in."
+  },
+  "Standing_Biceps_Cable_Curl": {
+    "steps": [
+      "Stand facing a low cable with a straight bar.",
+      "Hold the bar, palms up, elbows at your sides.",
+      "Curl the bar up toward your shoulders.",
+      "Lower it slowly."
+    ],
+    "hands": "Palms up, wrists straight.",
+    "arms": "Elbows stay pinned to your sides.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand tall.",
+    "breathe": "Breathe out as you curl.",
+    "mistake": "Leaning back to pull the weight."
+  },
+  "Standing_Cable_Wood_Chop": {
+    "steps": [
+      "Stand side-on to a high cable, holding the handle with both hands.",
+      "Pull the handle down and across your body to the opposite knee.",
+      "Turn your shoulders and hips as you pull.",
+      "Return slowly. Switch sides after your set."
+    ],
+    "hands": "Both hands on the handle.",
+    "arms": "Arms stay fairly straight.",
+    "legs": "Feet shoulder-width apart; pivot your back foot.",
+    "back": "Keep your back long as you twist.",
+    "breathe": "Breathe out as you chop down.",
+    "mistake": "Pulling only with your arms instead of turning."
+  },
+  "Standing_One-Arm_Dumbbell_Triceps_Extension": {
+    "steps": [
+      "Stand tall and lift a dumbbell over your head in one hand.",
+      "Bend your elbow to lower it behind your head.",
+      "Straighten your arm to lift it back up.",
+      "Switch arms after your set."
+    ],
+    "hands": "Palm faces forward or in, wrist straight.",
+    "arms": "Elbow points up and stays near your head.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand tall; do not arch.",
+    "breathe": "Breathe in as you lower, out as you lift.",
+    "mistake": "Letting your elbow drift out to the side."
+  },
+  "Straight-Arm_Pulldown": {
+    "steps": [
+      "Stand facing a high cable and hold the bar.",
+      "Step back and lean forward a little, arms straight.",
+      "Push the bar down to your thighs in an arc.",
+      "Let it rise slowly to head height."
+    ],
+    "hands": "Palms down, hands shoulder-width apart.",
+    "arms": "Arms stay straight with a soft elbow.",
+    "legs": "Knees slightly bent.",
+    "back": "Back flat, slight lean forward.",
+    "breathe": "Breathe out as you push down.",
+    "mistake": "Bending your elbows like a pushdown."
+  },
+  "Superman": {
+    "steps": [
+      "Lie face down with your arms stretched out in front.",
+      "Lift your arms, chest and legs off the floor.",
+      "Hold for a moment.",
+      "Lower slowly."
+    ],
+    "hands": "Palms face down or toward each other.",
+    "arms": "Arms straight, reaching forward.",
+    "legs": "Legs straight, lifting from your hips.",
+    "back": "Lift gently; look at the floor to keep your neck long.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Throwing your head back."
+  },
+  "Trap_Bar_Deadlift": {
+    "steps": [
+      "Stand inside a trap bar, feet hip-width apart.",
+      "Bend down and grab the handles.",
+      "Flatten your back and lift your chest.",
+      "Push through your feet to stand up tall.",
+      "Lower the bar the same way."
+    ],
+    "hands": "Grip the middle of each handle.",
+    "arms": "Arms straight by your sides.",
+    "legs": "Knees bend more than a regular deadlift.",
+    "back": "Back flat the whole time.",
+    "breathe": "Take a big breath in before you lift.",
+    "mistake": "Rounding your back at the start."
+  },
+  "Tricep_Dumbbell_Kickback": {
+    "steps": [
+      "Lean forward with one hand and knee on a bench.",
+      "Hold a dumbbell with your elbow bent at your side.",
+      "Straighten your arm back.",
+      "Bend it slowly back down. Switch arms after your set."
+    ],
+    "hands": "Palm faces your body.",
+    "arms": "Upper arm stays still, level with your body.",
+    "legs": "Standing leg slightly bent.",
+    "back": "Back flat.",
+    "breathe": "Breathe out as you straighten your arm.",
+    "mistake": "Swinging the weight instead of keeping the elbow still."
+  },
+  "Triceps_Overhead_Extension_with_Rope": {
+    "steps": [
+      "Face away from a cable, holding a rope behind your head.",
+      "Step forward into a split stance.",
+      "Straighten your arms forward and up.",
+      "Bend your elbows slowly to return."
+    ],
+    "hands": "Hold the rope ends, palms facing each other.",
+    "arms": "Elbows stay close to your head.",
+    "legs": "One foot in front for balance.",
+    "back": "Slight forward lean, back straight.",
+    "breathe": "Breathe out as you straighten.",
+    "mistake": "Letting your elbows flare out."
+  },
+  "Triceps_Pushdown_-_Rope_Attachment": {
+    "steps": [
+      "Stand facing a high cable with a rope attached.",
+      "Hold the rope with elbows tucked at your sides.",
+      "Push down and spread the rope ends apart at the bottom.",
+      "Let it rise slowly to chest height."
+    ],
+    "hands": "Palms face each other, thumbs up.",
+    "arms": "Upper arms stay still; only forearms move.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand tall with a slight lean forward.",
+    "breathe": "Breathe out as you push down.",
+    "mistake": "Letting your elbows move forward."
+  },
+  "Upright_Barbell_Row": {
+    "steps": [
+      "Stand tall holding a barbell in front of your thighs.",
+      "Pull the bar straight up close to your body.",
+      "Stop at about chest height.",
+      "Lower it slowly."
+    ],
+    "hands": "Palms face you, hands about shoulder-width apart.",
+    "arms": "Elbows lead and stay higher than your hands.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand tall.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Pulling the bar too high if it pinches your shoulders."
+  },
+  "Walking_Treadmill": {
+    "steps": [
+      "Step on and start the treadmill slowly.",
+      "Speed up to a brisk walk.",
+      "Raise the incline a little if you want it harder.",
+      "Slow down for the last few minutes."
+    ],
+    "arms": "Swing your arms naturally.",
+    "legs": "Step heel to toe at a brisk pace.",
+    "back": "Walk tall and look ahead.",
+    "breathe": "Breathe steadily. You should be able to talk.",
+    "mistake": "Leaning on the handrails."
+  },
+  "Weighted_Crunches": {
+    "steps": [
+      "Lie on your back, knees bent, holding a weight on your chest.",
+      "Curl your shoulders off the floor.",
+      "Pause at the top.",
+      "Lower slowly."
+    ],
+    "hands": "Hold the weight against your chest.",
+    "arms": "Arms wrap the weight close to you.",
+    "legs": "Feet flat, knees bent.",
+    "back": "Lower back stays on the floor.",
+    "breathe": "Breathe out as you curl up.",
+    "mistake": "Jerking up with your neck."
+  },
+  "wg_weighted-push-up": {
+    "steps": [
+      "Have a partner place a weight plate on your upper back.",
+      "Start in a push-up position.",
+      "Lower your chest toward the floor.",
+      "Push back up."
+    ],
+    "hands": "Hands under your shoulders, a bit wider.",
+    "arms": "Elbows bend back at an angle.",
+    "legs": "Legs straight.",
+    "back": "Body straight so the weight stays put.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Adding weight before normal push-ups feel easy."
+  },
+  "wg_cable-lateral-raise": {
+    "steps": [
+      "Stand side-on to a low cable, handle in the far hand.",
+      "Lift your arm out to the side to shoulder height.",
+      "Pause for a moment.",
+      "Lower slowly. Switch sides after your set."
+    ],
+    "hands": "Palm faces down at the top.",
+    "arms": "Soft bend in your elbow.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand tall; do not lean away.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Shrugging your shoulder up."
+  },
+  "wg_rear-delt-fly": {
+    "steps": [
+      "Hold light dumbbells and lean forward from your hips.",
+      "Let the dumbbells hang under your chest.",
+      "Lift your arms out to the sides.",
+      "Lower slowly."
+    ],
+    "hands": "Palms face each other.",
+    "arms": "Soft bend in your elbows.",
+    "legs": "Knees slightly bent.",
+    "back": "Back flat, nearly level with the floor.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Swinging the weights up with your body."
+  },
+  "wg_t-bar-row": {
+    "steps": [
+      "Stand over the T-bar with feet shoulder-width apart.",
+      "Bend your knees and lean forward with a flat back.",
+      "Pull the handles to your chest.",
+      "Lower slowly."
+    ],
+    "hands": "Grip the handles firmly.",
+    "arms": "Elbows stay close to your body.",
+    "legs": "Knees bent and steady.",
+    "back": "Back flat; chest up.",
+    "breathe": "Breathe out as you pull.",
+    "mistake": "Standing up as you pull."
+  },
+  "wg_chest-supported-row": {
+    "steps": [
+      "Lie chest-down on the pad.",
+      "Hold the handles with arms straight.",
+      "Pull the handles back toward your ribs.",
+      "Return slowly."
+    ],
+    "hands": "Grip the handles, wrists straight.",
+    "arms": "Elbows close to your body.",
+    "legs": "Feet on the floor or footrest.",
+    "back": "Chest stays on the pad.",
+    "breathe": "Breathe out as you pull.",
+    "mistake": "Lifting your chest off the pad."
+  },
+  "wg_machine-row": {
+    "steps": [
+      "Sit with your chest against the pad.",
+      "Hold the handles with arms straight.",
+      "Pull the handles back, squeezing your shoulder blades.",
+      "Return slowly."
+    ],
+    "hands": "Grip the handles, wrists straight.",
+    "arms": "Elbows move straight back.",
+    "legs": "Feet flat.",
+    "back": "Sit tall; chest on the pad.",
+    "breathe": "Breathe out as you pull.",
+    "mistake": "Leaning back to pull the weight."
+  },
+  "wg_lat-pulldown": {
+    "steps": [
+      "Sit at the machine with your thighs under the pad.",
+      "Grip the bar a little wider than your shoulders.",
+      "Pull the bar down to your upper chest.",
+      "Let it rise slowly."
+    ],
+    "hands": "Palms face forward, wrists straight.",
+    "arms": "Pull your elbows down to your sides.",
+    "legs": "Thighs under the pad.",
+    "back": "Chest up, slight lean back.",
+    "breathe": "Breathe out as you pull down.",
+    "mistake": "Swinging back and forth."
+  },
+  "wg_assisted-pull-up": {
+    "steps": [
+      "Kneel or stand on the machine's pad and grab the handles.",
+      "Hang with your arms straight.",
+      "Pull yourself up until your chin passes the handles.",
+      "Lower slowly."
+    ],
+    "hands": "Palms face away, a bit wider than shoulders.",
+    "arms": "Pull your elbows down to your ribs.",
+    "legs": "Knees on the pad.",
+    "back": "Chest up; do not swing.",
+    "breathe": "Breathe out as you pull up.",
+    "mistake": "Not going all the way down."
+  },
+  "wg_walking-lunge": {
+    "steps": [
+      "Stand tall with a dumbbell in each hand.",
+      "Step forward and lower your back knee toward the floor.",
+      "Push up and bring your back foot forward into the next step.",
+      "Keep walking, switching legs."
+    ],
+    "hands": "Dumbbells at your sides, palms in.",
+    "arms": "Arms hang straight.",
+    "legs": "Front knee over your foot.",
+    "back": "Stay upright.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Steps too short, so the knee goes past the toes."
+  },
+  "wg_leg-curl": {
+    "steps": [
+      "Set up in the leg curl machine with the pad above your heels.",
+      "Hold the handles.",
+      "Curl your heels toward your bottom.",
+      "Return slowly."
+    ],
+    "hands": "Hold the handles.",
+    "legs": "Knees line up with the pivot.",
+    "back": "Hips stay down on the pad.",
+    "breathe": "Breathe out as you curl.",
+    "mistake": "Letting the weight drop fast."
+  },
+  "wg_assisted-dip": {
+    "steps": [
+      "Kneel on the pad and grip the dip handles.",
+      "Push up until your arms are straight.",
+      "Bend your elbows to lower your body.",
+      "Push back up."
+    ],
+    "hands": "Grip the handles, wrists straight.",
+    "arms": "Elbows point back.",
+    "legs": "Knees on the pad.",
+    "back": "Stay upright.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Going so low your shoulders hurt."
+  },
+  "wg_landmine-press": {
+    "steps": [
+      "Hold the end of a landmine bar at your shoulder.",
+      "Stand with feet hip-width apart.",
+      "Press the bar up and forward until your arm is straight.",
+      "Lower it slowly. Switch arms after your set."
+    ],
+    "hands": "Hold the end of the bar, wrist straight.",
+    "arms": "Elbow starts tucked in front of your body.",
+    "legs": "Knees soft.",
+    "back": "Stand tall; do not lean back.",
+    "breathe": "Breathe out as you press.",
+    "mistake": "Twisting your body to push."
+  },
+  "wg_weighted-dip": {
+    "steps": [
+      "Wear a dip belt with a weight attached.",
+      "Hold the dip bars and lift yourself up.",
+      "Bend your elbows to lower your body.",
+      "Push back up."
+    ],
+    "hands": "Grip the bars firmly.",
+    "arms": "Elbows point back.",
+    "legs": "Legs hang still.",
+    "back": "Slight lean forward.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Adding weight before bodyweight dips feel easy."
+  },
+  "wg_machine-lateral-raise": {
+    "steps": [
+      "Sit in the machine with the pads against your arms.",
+      "Lift your arms out to the sides.",
+      "Stop at shoulder height.",
+      "Lower slowly."
+    ],
+    "hands": "Light grip on the handles.",
+    "arms": "Push with your elbows against the pads.",
+    "legs": "Feet flat.",
+    "back": "Sit tall.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Shrugging your shoulders."
+  },
+  "wg_bent-over-rear-delt-raise": {
+    "steps": [
+      "Hold light dumbbells and lean forward from your hips.",
+      "Let them hang under your shoulders.",
+      "Raise your arms out to the sides.",
+      "Lower slowly."
+    ],
+    "hands": "Palms face each other.",
+    "arms": "Soft bend in your elbows.",
+    "legs": "Knees slightly bent.",
+    "back": "Back flat.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Using momentum to swing the weights."
+  },
+  "wg_pendlay-row": {
+    "steps": [
+      "Stand over a barbell and lean forward until your back is flat.",
+      "Grip the bar a bit wider than your shoulders.",
+      "Pull the bar from the floor to your lower chest.",
+      "Lower it back to the floor each rep."
+    ],
+    "hands": "Palms face down.",
+    "arms": "Elbows drive back.",
+    "legs": "Knees bent.",
+    "back": "Back flat and level with the floor.",
+    "breathe": "Breathe out as you pull.",
+    "mistake": "Standing up as you pull."
+  },
+  "wg_meadows-row": {
+    "steps": [
+      "Stand side-on to the end of a landmine bar.",
+      "Lean forward and grip the bar end with one hand.",
+      "Pull it up toward your hip.",
+      "Lower slowly. Switch sides after your set."
+    ],
+    "hands": "Overhand grip on the thick end of the bar.",
+    "arms": "Elbow pulls up and back.",
+    "legs": "Staggered stance, front knee bent.",
+    "back": "Back flat.",
+    "breathe": "Breathe out as you pull.",
+    "mistake": "Twisting your body to lift."
+  },
+  "wg_neutral-grip-pull-up": {
+    "steps": [
+      "Hang from parallel handles, palms facing each other.",
+      "Pull your shoulders down.",
+      "Pull up until your chin is over the handles.",
+      "Lower slowly."
+    ],
+    "hands": "Palms face each other.",
+    "arms": "Elbows pull down toward your ribs.",
+    "legs": "Legs still.",
+    "back": "No swinging.",
+    "breathe": "Breathe out as you pull up.",
+    "mistake": "Kicking your legs to get up."
+  },
+  "wg_assisted-chin-up": {
+    "steps": [
+      "Kneel on the assist pad and grab the bar, palms facing you.",
+      "Hang with your arms straight.",
+      "Pull up until your chin is over the bar.",
+      "Lower slowly."
+    ],
+    "hands": "Palms face you, shoulder-width apart.",
+    "arms": "Elbows close to your body.",
+    "legs": "Knees on the pad.",
+    "back": "Body stays still.",
+    "breathe": "Breathe out as you pull up.",
+    "mistake": "Dropping down fast."
+  },
+  "wg_weighted-chin-up": {
+    "steps": [
+      "Wear a dip belt with a weight, or hold a dumbbell between your feet.",
+      "Hang from the bar, palms facing you.",
+      "Pull up until your chin is over the bar.",
+      "Lower slowly."
+    ],
+    "hands": "Palms face you.",
+    "arms": "Elbows close to your body.",
+    "legs": "Legs still.",
+    "back": "No swinging.",
+    "breathe": "Breathe out as you pull up.",
+    "mistake": "Adding weight before bodyweight chin-ups feel easy."
+  },
+  "wg_belt-squat": {
+    "steps": [
+      "Clip the belt around your hips and stand on the platform.",
+      "Feet shoulder-width apart.",
+      "Sit down into a squat.",
+      "Push up through your feet."
+    ],
+    "hands": "Hold the handles lightly for balance.",
+    "legs": "Knees follow your toes.",
+    "back": "Chest up.",
+    "breathe": "Breathe in going down, out coming up.",
+    "mistake": "Letting your knees cave in."
+  },
+  "wg_split-squat": {
+    "steps": [
+      "Stand in a long stride, a dumbbell in each hand.",
+      "Lower your back knee toward the floor.",
+      "Push up through your front heel.",
+      "Do all reps, then switch legs."
+    ],
+    "hands": "Dumbbells at your sides.",
+    "arms": "Arms hang straight.",
+    "legs": "Front knee over your ankle; feet stay in place.",
+    "back": "Stay upright.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Stance too short."
+  },
+  "wg_dumbbell-glute-bridge": {
+    "steps": [
+      "Lie on your back, knees bent, with a dumbbell on your hips.",
+      "Push through your heels to lift your hips.",
+      "Squeeze your bottom at the top.",
+      "Lower slowly."
+    ],
+    "hands": "Hold the dumbbell steady on your hips.",
+    "legs": "Feet flat, hip-width apart.",
+    "back": "Do not arch at the top.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Pushing with your lower back."
+  },
+  "wg_dumbbell-hip-thrust": {
+    "steps": [
+      "Sit with your upper back against a bench, dumbbell on your hips.",
+      "Plant your feet flat.",
+      "Push through your heels to lift your hips level.",
+      "Lower slowly."
+    ],
+    "hands": "Hold the dumbbell on your hips.",
+    "legs": "Shins straight up and down at the top.",
+    "back": "Upper back on the bench; ribs down.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Arching your back at the top."
+  },
+  "wg_smith-machine-hip-thrust": {
+    "steps": [
+      "Sit against a bench with the padded Smith bar over your hips.",
+      "Plant your feet flat.",
+      "Push up through your heels until your hips are level.",
+      "Lower slowly."
+    ],
+    "hands": "Hold the bar to keep it steady.",
+    "legs": "Shins straight up and down at the top.",
+    "back": "Upper back on the bench.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Arching your back at the top."
+  },
+  "wg_kettlebell-romanian-deadlift": {
+    "steps": [
+      "Stand tall holding a kettlebell in front of your thighs.",
+      "Soften your knees.",
+      "Push your hips back and lower the kettlebell down your legs.",
+      "Stand back up by pushing your hips forward."
+    ],
+    "hands": "Both hands on the handle.",
+    "arms": "Arms hang straight.",
+    "legs": "Knees slightly bent.",
+    "back": "Back flat.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Rounding your back."
+  },
+  "wg_machine-glute-kickback": {
+    "steps": [
+      "Set up in the machine with one foot on the platform.",
+      "Hold the handles.",
+      "Push your leg back and up.",
+      "Return slowly. Switch legs after your set."
+    ],
+    "hands": "Hold the handles.",
+    "legs": "Push through your heel.",
+    "back": "Do not arch your lower back.",
+    "breathe": "Breathe out as you push.",
+    "mistake": "Arching your back to push higher."
+  },
+  "wg_cable-standing-hip-abduction": {
+    "steps": [
+      "Attach a cuff to your outside ankle at a low cable.",
+      "Stand side-on and hold the machine.",
+      "Lift that leg out to the side.",
+      "Return slowly. Switch legs after your set."
+    ],
+    "hands": "Hold the frame for balance.",
+    "legs": "Working leg straight; toes point forward.",
+    "back": "Stand tall; do not lean.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Leaning your body to lift higher."
+  },
+  "wg_smith-machine-reverse-lunge": {
+    "steps": [
+      "Put the Smith bar across your upper back.",
+      "Step one foot back.",
+      "Lower your back knee toward the floor.",
+      "Push through your front heel to step back. Switch legs."
+    ],
+    "hands": "Grip the bar wider than your shoulders.",
+    "legs": "Front knee over your ankle.",
+    "back": "Stay upright.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Stepping back too short."
+  },
+  "wg_smith-machine-split-squat": {
+    "steps": [
+      "Put the Smith bar across your upper back.",
+      "Stand in a long stride.",
+      "Lower your back knee straight down.",
+      "Push up through your front heel. Switch legs after your set."
+    ],
+    "hands": "Grip the bar wider than your shoulders.",
+    "legs": "Front knee follows your toes.",
+    "back": "Stay upright.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Stance too short."
+  },
+  "wg_heel-elevated-goblet-squat": {
+    "steps": [
+      "Stand with your heels on a small plate or wedge.",
+      "Hold a dumbbell upright at your chest.",
+      "Sit straight down into a deep squat.",
+      "Push up through your feet."
+    ],
+    "hands": "Cup the dumbbell at your chest.",
+    "arms": "Elbows tucked down.",
+    "legs": "Knees travel forward over your toes.",
+    "back": "Chest up, back straight.",
+    "breathe": "Breathe in going down, out coming up.",
+    "mistake": "Letting your chest fall forward."
+  },
+  "wg_dumbbell-sumo-deadlift": {
+    "steps": [
+      "Stand with feet wide, toes out.",
+      "Hold one dumbbell between your legs with both hands.",
+      "Bend your knees and hips to lower it toward the floor.",
+      "Stand back up tall."
+    ],
+    "hands": "Both hands on the dumbbell handle.",
+    "arms": "Arms hang straight.",
+    "legs": "Knees push out over your toes.",
+    "back": "Back flat, chest up.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Rounding your back at the bottom."
+  },
+  "wg_front-foot-elevated-split-squat": {
+    "steps": [
+      "Put your front foot on a low step, holding dumbbells.",
+      "Step the back foot behind you into a long stride.",
+      "Lower your back knee toward the floor.",
+      "Push up through your front heel. Switch legs after your set."
+    ],
+    "hands": "Dumbbells at your sides.",
+    "legs": "Front knee follows your toes.",
+    "back": "Stay upright.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Using a step that is too high."
+  },
+  "wg_deficit-reverse-lunge": {
+    "steps": [
+      "Stand on a low step holding dumbbells.",
+      "Step one foot back off the step.",
+      "Lower your back knee toward the floor.",
+      "Push through your front heel to step back up. Switch legs."
+    ],
+    "hands": "Dumbbells at your sides.",
+    "legs": "Front knee over your ankle.",
+    "back": "Stay upright.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Losing balance by rushing."
+  },
+  "wg_dumbbell-lateral-lunge": {
+    "steps": [
+      "Stand tall holding a dumbbell at your chest.",
+      "Take a big step out to one side.",
+      "Bend that knee and sit your hips back.",
+      "Push back to the middle. Switch sides."
+    ],
+    "hands": "Hold the dumbbell at your chest.",
+    "legs": "Bent knee follows your toes; other leg straight.",
+    "back": "Chest up, back flat.",
+    "breathe": "Breathe in as you lower, out as you push back.",
+    "mistake": "Letting the bent knee cave in."
+  },
+  "wg_dumbbell-curtsy-lunge": {
+    "steps": [
+      "Stand tall with dumbbells at your sides.",
+      "Step one foot back and across behind the other.",
+      "Lower both knees.",
+      "Push up and return. Switch sides."
+    ],
+    "hands": "Dumbbells at your sides.",
+    "legs": "Front knee stays over your foot.",
+    "back": "Stay upright; hips face forward.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Twisting your hips too much."
+  },
+  "wg_landmine-squat": {
+    "steps": [
+      "Hold the end of a landmine bar at your chest.",
+      "Stand with feet shoulder-width apart.",
+      "Sit down into a squat.",
+      "Push up through your feet."
+    ],
+    "hands": "Hold the bar end with both hands at your chest.",
+    "arms": "Elbows tucked down.",
+    "legs": "Knees follow your toes.",
+    "back": "Chest up.",
+    "breathe": "Breathe in going down, out coming up.",
+    "mistake": "Letting your heels lift."
+  },
+  "wg_landmine-romanian-deadlift": {
+    "steps": [
+      "Stand over the end of a landmine bar, holding it with both hands.",
+      "Soften your knees.",
+      "Push your hips back and lower the bar.",
+      "Stand back up by pushing your hips forward."
+    ],
+    "hands": "Both hands around the bar end.",
+    "arms": "Arms hang straight.",
+    "legs": "Knees slightly bent.",
+    "back": "Back flat.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Rounding your back."
+  },
+  "wg_kettlebell-swing": {
+    "steps": [
+      "Stand with feet a bit wider than hips, kettlebell in front.",
+      "Hinge at your hips and swing it back between your legs.",
+      "Snap your hips forward to swing it to chest height.",
+      "Let it swing back down and repeat."
+    ],
+    "hands": "Both hands on the handle, firm grip.",
+    "arms": "Arms stay straight and loose; your hips do the work.",
+    "legs": "Knees slightly bent.",
+    "back": "Back flat as you hinge.",
+    "breathe": "Breathe out as the bell swings up.",
+    "mistake": "Squatting and lifting with your arms."
+  },
+  "wg_glute-focused-back-extension": {
+    "steps": [
+      "Set up on a back extension bench, feet turned out.",
+      "Round your upper back slightly.",
+      "Lower your body by bending at the hips.",
+      "Squeeze your bottom to lift back up."
+    ],
+    "arms": "Arms crossed on your chest.",
+    "legs": "Feet turned out a little.",
+    "back": "Stop when your body is straight; do not over-arch.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Lifting with your lower back instead of your bottom."
+  },
+  "wg_wall-sit": {
+    "steps": [
+      "Stand with your back against a wall.",
+      "Walk your feet forward and slide down.",
+      "Stop when your thighs are about level with the floor.",
+      "Hold still."
+    ],
+    "hands": "Hands on your thighs or by your sides, not pushing.",
+    "legs": "Knees over your ankles.",
+    "back": "Whole back flat against the wall.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Knees pushing past your toes."
+  },
+  "wg_single-dumbbell-skullcrusher": {
+    "steps": [
+      "Lie on a bench holding one dumbbell over your chest with both hands.",
+      "Bend your elbows to lower it behind your head.",
+      "Straighten your arms to lift it back.",
+      "Keep your upper arms still."
+    ],
+    "hands": "Both hands cup one end of the dumbbell.",
+    "arms": "Upper arms point up.",
+    "legs": "Feet flat.",
+    "back": "Back on the bench.",
+    "breathe": "Breathe in as you lower, out as you lift.",
+    "mistake": "Elbows flaring out."
+  },
+  "wg_wrist-extension": {
+    "steps": [
+      "Sit with your forearm on your thigh, palm down.",
+      "Hold a light dumbbell with your wrist past your knee.",
+      "Lift the back of your hand up.",
+      "Lower slowly. Switch hands after your set."
+    ],
+    "hands": "Palm faces down.",
+    "arms": "Forearm stays flat on your thigh.",
+    "legs": "Feet flat.",
+    "back": "Sit tall.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Using a weight that is too heavy."
+  },
+  "wg_bird-dog": {
+    "steps": [
+      "Get on your hands and knees.",
+      "Reach one arm forward and the opposite leg back.",
+      "Hold for a moment.",
+      "Bring them back and switch sides."
+    ],
+    "hands": "Hands under your shoulders.",
+    "arms": "Reaching arm straight, level with your body.",
+    "legs": "Knees under your hips; back leg straight.",
+    "back": "Back flat like a table; hips stay level.",
+    "breathe": "Breathe out as you reach.",
+    "mistake": "Lifting the leg too high and arching."
+  },
+  "wg_half-kneeling-pallof-press": {
+    "steps": [
+      "Kneel on one knee side-on to a cable at chest height.",
+      "Hold the handle at your chest with both hands.",
+      "Press your arms straight out.",
+      "Hold, then bring it back."
+    ],
+    "hands": "Both hands on the handle.",
+    "arms": "Push straight forward.",
+    "legs": "Knee nearest the cable down.",
+    "back": "Tall; do not twist.",
+    "breathe": "Breathe out as you press.",
+    "mistake": "Letting the cable turn your body."
+  },
+  "wg_cable-pallof-hold": {
+    "steps": [
+      "Stand side-on to a cable at chest height.",
+      "Hold the handle with arms straight in front.",
+      "Hold still and do not let the cable turn you.",
+      "Switch sides."
+    ],
+    "hands": "Both hands on the handle.",
+    "arms": "Arms straight in front of your chest.",
+    "legs": "Feet hip-width apart, knees soft.",
+    "back": "Stand tall and still.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Twisting toward the cable."
+  },
+  "wg_hanging-knee-raise": {
+    "steps": [
+      "Hang from a pull-up bar.",
+      "Lift your knees up toward your chest.",
+      "Lower them slowly.",
+      "Keep your body from swinging."
+    ],
+    "hands": "Grip the bar shoulder-width.",
+    "arms": "Arms straight, shoulders active.",
+    "legs": "Knees bent as you lift.",
+    "back": "Curl your hips slightly at the top.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Swinging to get the knees up."
+  },
+  "wg_decline-sit-up": {
+    "steps": [
+      "Lie on a decline bench with your feet hooked.",
+      "Cross your arms on your chest.",
+      "Sit up toward your knees.",
+      "Lower slowly."
+    ],
+    "arms": "Arms crossed on your chest.",
+    "legs": "Feet hooked under the pads.",
+    "back": "Curl up smoothly.",
+    "breathe": "Breathe out as you sit up.",
+    "mistake": "Pulling on your neck."
+  },
+  "wg_weighted-russian-twist": {
+    "steps": [
+      "Sit with knees bent, holding a dumbbell at your chest.",
+      "Lean back a little.",
+      "Turn your shoulders to one side.",
+      "Turn to the other side."
+    ],
+    "hands": "Hold the dumbbell with both hands.",
+    "arms": "Arms close to your chest.",
+    "legs": "Feet on the floor or lifted.",
+    "back": "Back straight, not slumped.",
+    "breathe": "Breathe out as you turn.",
+    "mistake": "Only moving your arms."
+  },
+  "wg_swimming": {
+    "steps": [
+      "Warm up with a few easy lengths.",
+      "Swim at a steady pace you can keep.",
+      "Rest at the wall when you need to.",
+      "Finish with an easy length or two."
+    ],
+    "arms": "Long, smooth strokes.",
+    "legs": "Kick from your hips, not your knees.",
+    "back": "Body long and flat in the water.",
+    "breathe": "Breathe out underwater, in when you turn your head.",
+    "mistake": "Holding your breath underwater."
+  },
+  "wg_assault-bike": {
+    "steps": [
+      "Set the seat so your leg is almost straight at the bottom.",
+      "Push and pull the handles while you pedal.",
+      "Go easy to warm up, then work harder.",
+      "Ease off at the end."
+    ],
+    "hands": "Hold the handles firmly.",
+    "arms": "Push and pull with your arms.",
+    "legs": "Pedal with your whole foot.",
+    "back": "Sit tall.",
+    "breathe": "Breathe hard but steady.",
+    "mistake": "Starting too fast and fading early."
+  },
+  "wg_skierg": {
+    "steps": [
+      "Stand facing the SkiErg and grab both handles up high.",
+      "Pull the handles down while bending at your hips and knees.",
+      "Finish with your hands by your thighs.",
+      "Stand back up and reach high again."
+    ],
+    "hands": "Grip the handles firmly.",
+    "arms": "Arms pull down close to your body.",
+    "legs": "Knees bend a little each pull.",
+    "back": "Back flat as you hinge.",
+    "breathe": "Breathe out as you pull down.",
+    "mistake": "Pulling only with your arms."
+  },
+  "wg_hiking": {
+    "steps": [
+      "Wear good shoes and bring water.",
+      "Start slowly on the trail.",
+      "Take shorter steps going uphill and downhill.",
+      "Keep a pace you can talk at."
+    ],
+    "arms": "Swing your arms; use poles if you have them.",
+    "legs": "Bend your knees going downhill.",
+    "back": "Stand tall; lean slightly into hills.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Going too fast downhill."
+  },
+  "wg_treadmill-incline-walk": {
+    "steps": [
+      "Start walking slowly on the treadmill.",
+      "Raise the incline a step at a time.",
+      "Walk at a brisk pace you can keep.",
+      "Lower the incline and slow down at the end."
+    ],
+    "arms": "Swing your arms naturally.",
+    "legs": "Full steps, heel to toe.",
+    "back": "Walk tall; do not lean forward.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Holding the handrails."
+  },
+  "wg_knee-push-up": {
+    "steps": [
+      "Kneel and place your hands on the floor, a bit wider than your shoulders.",
+      "Walk your hands forward until your body is straight from head to knees.",
+      "Lower your chest toward the floor.",
+      "Push back up."
+    ],
+    "hands": "Hands under your shoulders, fingers forward.",
+    "arms": "Elbows bend back at an angle.",
+    "legs": "Knees on a soft mat, feet can lift.",
+    "back": "Straight line from head to knees; do not bend at hips.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Sticking your bottom up in the air."
+  },
+  "wg_pike-push-up": {
+    "steps": [
+      "Start in a push-up position, then walk your feet in.",
+      "Lift your hips high so your body makes an upside-down V.",
+      "Bend your elbows to lower your head toward the floor.",
+      "Push back up."
+    ],
+    "hands": "Hands shoulder-width apart, fingers spread.",
+    "arms": "Elbows bend back, not out wide.",
+    "legs": "Legs as straight as is comfy.",
+    "back": "Hips stay high; back straight.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Letting your hips drop so it becomes a normal push-up."
+  },
+  "wg_feet-elevated-pike-push-up": {
+    "steps": [
+      "Put your feet on a bench and hands on the floor.",
+      "Walk your hands back until your hips are high above them.",
+      "Lower your head toward the floor.",
+      "Push back up."
+    ],
+    "hands": "Hands shoulder-width apart.",
+    "arms": "Elbows bend back.",
+    "legs": "Feet on the bench, knees straight or slightly bent.",
+    "back": "Hips stay stacked above your shoulders.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Trying this before regular pike push-ups feel easy."
+  },
+  "wg_archer-push-up": {
+    "steps": [
+      "Start in a push-up with hands very wide.",
+      "Lower your body toward one hand, bending that arm.",
+      "Keep the other arm straight out to the side.",
+      "Push back up and switch sides."
+    ],
+    "hands": "Hands much wider than your shoulders.",
+    "arms": "One arm bends; the other stays straight.",
+    "legs": "Legs straight, feet a bit apart.",
+    "back": "Body straight.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Letting your hips sag."
+  },
+  "wg_typewriter-push-up": {
+    "steps": [
+      "Start in a wide push-up position.",
+      "Lower your chest to the floor.",
+      "Shift your body across to one hand, then the other.",
+      "Push back up."
+    ],
+    "hands": "Hands wide.",
+    "arms": "Bend one arm while the other straightens.",
+    "legs": "Legs straight.",
+    "back": "Body stays low and straight as you shift.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Lifting your hips while shifting."
+  },
+  "wg_hindu-push-up": {
+    "steps": [
+      "Start with hips high in an upside-down V.",
+      "Bend your elbows and swoop your chest down near the floor.",
+      "Push up into a gentle back bend, looking forward.",
+      "Push your hips back up to the start."
+    ],
+    "hands": "Hands shoulder-width apart.",
+    "arms": "Elbows bend back close to your body.",
+    "legs": "Legs straight, feet wide.",
+    "back": "Move smoothly from high hips to a gentle arch.",
+    "breathe": "Breathe out as you swoop through.",
+    "mistake": "Rushing so the movement gets jerky."
+  },
+  "wg_scapular-push-up": {
+    "steps": [
+      "Start in a push-up position, arms straight.",
+      "Let your chest sink so your shoulder blades come together.",
+      "Push the floor away so your upper back rounds a little.",
+      "Repeat slowly."
+    ],
+    "hands": "Hands under your shoulders.",
+    "arms": "Arms stay straight the whole time.",
+    "legs": "Legs straight; or knees down.",
+    "back": "Body straight; only your shoulder blades move.",
+    "breathe": "Breathe out as you push away.",
+    "mistake": "Bending your elbows."
+  },
+  "wg_push-up-shoulder-tap": {
+    "steps": [
+      "Start in a push-up position.",
+      "Lift one hand and tap the opposite shoulder.",
+      "Put it down and tap with the other hand.",
+      "Add a push-up between taps if you like."
+    ],
+    "hands": "Hands under your shoulders.",
+    "arms": "Support arm stays straight.",
+    "legs": "Feet wider apart for balance.",
+    "back": "Keep your hips still and level.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Rocking your hips side to side."
+  },
+  "wg_wall-push-up": {
+    "steps": [
+      "Stand an arm's length from a wall.",
+      "Put your hands flat on the wall at shoulder height.",
+      "Bend your elbows to bring your chest toward the wall.",
+      "Push back to the start."
+    ],
+    "hands": "Hands a bit wider than your shoulders, fingers up.",
+    "arms": "Elbows bend back at an angle.",
+    "legs": "Feet together, on your toes as you lean.",
+    "back": "Body straight from head to heels.",
+    "breathe": "Breathe in as you lean in, out as you push.",
+    "mistake": "Bending at the hips instead of keeping straight."
+  },
+  "wg_wall-walk": {
+    "steps": [
+      "Start in a push-up with your feet against a wall.",
+      "Walk your feet up the wall as you walk your hands back.",
+      "Go only as high as you can control.",
+      "Walk back down slowly."
+    ],
+    "hands": "Hands shoulder-width apart, fingers spread.",
+    "arms": "Arms straight and strong.",
+    "legs": "Legs straight as you walk up.",
+    "back": "Squeeze your belly so your back stays straight.",
+    "breathe": "Breathe steadily; do not hold it.",
+    "mistake": "Going higher than you can safely control."
+  },
+  "wg_wall-handstand-push-up": {
+    "steps": [
+      "Kick up into a handstand with your heels on a wall.",
+      "Lower your head slowly toward the floor.",
+      "Push back up until your arms are straight.",
+      "Come down carefully."
+    ],
+    "hands": "Hands shoulder-width apart, fingers spread.",
+    "arms": "Elbows bend back, not out wide.",
+    "legs": "Heels rest on the wall.",
+    "back": "Squeeze your belly; avoid a big arch.",
+    "breathe": "Breathe out as you push up.",
+    "mistake": "Trying this before you can hold a wall handstand."
+  },
+  "wg_chair-dip": {
+    "steps": [
+      "Sit on the edge of a sturdy chair and grip the front edge.",
+      "Slide your bottom off the seat.",
+      "Bend your elbows to lower your body.",
+      "Push back up."
+    ],
+    "hands": "Fingers point forward, hands beside your hips.",
+    "arms": "Elbows point straight back.",
+    "legs": "Knees bent, feet flat; straighter legs make it harder.",
+    "back": "Keep your back close to the chair.",
+    "breathe": "Breathe in as you lower, out as you push.",
+    "mistake": "Using a chair that rolls or slides."
+  },
+  "wg_doorway-row": {
+    "steps": [
+      "Stand in a doorway and grip both sides of the frame.",
+      "Lean back with your arms straight.",
+      "Pull your chest toward the doorway.",
+      "Lower back slowly."
+    ],
+    "hands": "Grip the frame firmly at chest height.",
+    "arms": "Elbows pull back close to your sides.",
+    "legs": "Feet close to the door; walk them in to make it harder.",
+    "back": "Body straight from head to heels.",
+    "breathe": "Breathe out as you pull in.",
+    "mistake": "Letting your hips sag back."
+  },
+  "wg_towel-row": {
+    "steps": [
+      "Loop a towel around a sturdy post or door handle.",
+      "Hold both ends and lean back, arms straight.",
+      "Pull your chest toward your hands.",
+      "Lower back slowly."
+    ],
+    "hands": "Grip the towel ends tightly.",
+    "arms": "Elbows pull back by your sides.",
+    "legs": "Feet planted; knees soft.",
+    "back": "Body straight.",
+    "breathe": "Breathe out as you pull.",
+    "mistake": "Using something that can move or come loose."
+  },
+  "wg_prone-y-raise": {
+    "steps": [
+      "Lie face down with your arms overhead in a Y shape.",
+      "Lift your arms off the floor.",
+      "Hold for a moment.",
+      "Lower slowly."
+    ],
+    "hands": "Thumbs point up toward the ceiling.",
+    "arms": "Arms straight in a wide Y.",
+    "legs": "Legs relaxed on the floor.",
+    "back": "Forehead down; lift with your upper back, not your neck.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Lifting your head and straining your neck."
+  },
+  "wg_prone-t-raise": {
+    "steps": [
+      "Lie face down with your arms straight out to the sides.",
+      "Lift your arms off the floor.",
+      "Squeeze your shoulder blades together.",
+      "Lower slowly."
+    ],
+    "hands": "Thumbs point up.",
+    "arms": "Arms straight, making a T.",
+    "legs": "Legs relaxed.",
+    "back": "Forehead down; keep your neck long.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Shrugging your shoulders up."
+  },
+  "wg_superman-hold": {
+    "steps": [
+      "Lie face down with your arms straight in front.",
+      "Lift your arms, chest and legs off the floor.",
+      "Hold still.",
+      "Lower slowly."
+    ],
+    "arms": "Arms straight, reaching forward.",
+    "legs": "Legs straight, squeeze your bottom.",
+    "back": "Lift gently; look at the floor.",
+    "breathe": "Keep breathing during the hold.",
+    "mistake": "Holding your breath."
+  },
+  "wg_reverse-snow-angel": {
+    "steps": [
+      "Lie face down, arms by your sides, palms down.",
+      "Lift your arms just off the floor.",
+      "Sweep them out and up over your head.",
+      "Sweep them back to your sides."
+    ],
+    "hands": "Palms face the floor.",
+    "arms": "Arms straight, hovering just off the floor.",
+    "legs": "Legs relaxed.",
+    "back": "Forehead down; neck long.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Letting your arms drop to the floor."
+  },
+  "wg_dead-hang": {
+    "steps": [
+      "Grab a pull-up bar with both hands.",
+      "Lift your feet and hang with straight arms.",
+      "Relax your body and hold.",
+      "Step down carefully."
+    ],
+    "hands": "Palms face away, shoulder-width apart.",
+    "arms": "Arms fully straight.",
+    "legs": "Legs hang straight down.",
+    "back": "Body still; let it stretch long.",
+    "breathe": "Breathe slowly.",
+    "mistake": "Dropping off suddenly instead of stepping down."
+  },
+  "wg_active-hang": {
+    "steps": [
+      "Hang from a pull-up bar with straight arms.",
+      "Pull your shoulders down away from your ears.",
+      "Hold that position.",
+      "Step down carefully."
+    ],
+    "hands": "Palms face away, shoulder-width apart.",
+    "arms": "Arms stay straight.",
+    "legs": "Legs still.",
+    "back": "Chest lifted slightly.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Bending your elbows."
+  },
+  "wg_negative-pull-up": {
+    "steps": [
+      "Use a box to get your chin over the bar.",
+      "Hold the top position.",
+      "Lower yourself as slowly as you can.",
+      "Step back onto the box and repeat."
+    ],
+    "hands": "Palms face away.",
+    "arms": "Straighten your arms slowly.",
+    "legs": "Legs still.",
+    "back": "No swinging.",
+    "breathe": "Breathe steadily as you lower.",
+    "mistake": "Dropping down too fast."
+  },
+  "wg_commando-pull-up": {
+    "steps": [
+      "Stand under the bar, side-on, hands one in front of the other.",
+      "Pull up, moving your head to one side of the bar.",
+      "Lower slowly.",
+      "Next rep, go to the other side."
+    ],
+    "hands": "Hands close together, palms facing each other.",
+    "arms": "Pull your elbows down.",
+    "legs": "Legs still.",
+    "back": "Body stays still.",
+    "breathe": "Breathe out as you pull up.",
+    "mistake": "Swinging your body."
+  },
+  "wg_l-sit-pull-up": {
+    "steps": [
+      "Hang from the bar.",
+      "Lift your legs straight out in front, making an L.",
+      "Pull up while holding your legs up.",
+      "Lower slowly."
+    ],
+    "hands": "Palms face away.",
+    "arms": "Pull your elbows down.",
+    "legs": "Legs straight and level with your hips.",
+    "back": "Belly tight.",
+    "breathe": "Breathe out as you pull.",
+    "mistake": "Letting your legs drop."
+  },
+  "wg_towel-pull-up": {
+    "steps": [
+      "Hang two towels over a pull-up bar.",
+      "Grip one towel in each hand.",
+      "Pull up as high as you can.",
+      "Lower slowly."
+    ],
+    "hands": "Squeeze the towels tightly.",
+    "arms": "Pull your elbows down.",
+    "legs": "Legs still.",
+    "back": "No swinging.",
+    "breathe": "Breathe out as you pull.",
+    "mistake": "Losing your grip; build up slowly."
+  },
+  "wg_pistol-squat": {
+    "steps": [
+      "Stand on one leg with the other leg out in front.",
+      "Reach your arms forward.",
+      "Squat down slowly on one leg.",
+      "Push back up. Switch legs."
+    ],
+    "arms": "Arms reach forward to balance.",
+    "legs": "Standing knee follows your toes; heel stays down.",
+    "back": "Chest up as much as you can.",
+    "breathe": "Breathe in going down, out coming up.",
+    "mistake": "Letting the knee cave in."
+  },
+  "wg_assisted-pistol-squat": {
+    "steps": [
+      "Hold a doorframe, pole or strap.",
+      "Stand on one leg with the other out in front.",
+      "Squat down on one leg, using your hands for help.",
+      "Push back up. Switch legs."
+    ],
+    "hands": "Hold the support just enough to balance.",
+    "legs": "Standing knee follows your toes.",
+    "back": "Chest up.",
+    "breathe": "Breathe in going down, out coming up.",
+    "mistake": "Pulling hard with your arms."
+  },
+  "wg_shrimp-squat": {
+    "steps": [
+      "Stand on one leg and hold the other foot behind you.",
+      "Bend your standing knee to lower your back knee to the floor.",
+      "Touch lightly, then stand back up.",
+      "Switch legs."
+    ],
+    "hands": "One hand holds your back foot; the other reaches forward.",
+    "legs": "Standing knee follows your toes.",
+    "back": "Lean forward slightly.",
+    "breathe": "Breathe in going down, out coming up.",
+    "mistake": "Dropping down hard onto the knee."
+  },
+  "wg_cossack-squat": {
+    "steps": [
+      "Stand with your feet very wide.",
+      "Shift your weight and squat down over one leg.",
+      "Keep the other leg straight, toes up.",
+      "Push back up and switch sides."
+    ],
+    "hands": "Hands together in front for balance.",
+    "legs": "Bent knee follows your toes; heel down.",
+    "back": "Chest up.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Lifting the heel of the bent leg."
+  },
+  "wg_sissy-squat": {
+    "steps": [
+      "Hold a support and stand on your toes.",
+      "Lean back as you bend your knees forward.",
+      "Lower as far as you can control.",
+      "Push back up."
+    ],
+    "hands": "Hold a sturdy support.",
+    "legs": "Knees go forward; heels stay lifted.",
+    "back": "Body straight from knees to head.",
+    "breathe": "Breathe in going down, out coming up.",
+    "mistake": "Going lower than your knees can handle."
+  },
+  "wg_forward-lunge": {
+    "steps": [
+      "Stand tall with your feet together.",
+      "Step forward with one leg.",
+      "Lower your back knee toward the floor.",
+      "Push back to standing. Switch legs."
+    ],
+    "hands": "Hands on your hips.",
+    "legs": "Front knee over your ankle.",
+    "back": "Stay upright.",
+    "breathe": "Breathe in as you lower, out as you push back.",
+    "mistake": "Letting the front knee wobble in."
+  },
+  "wg_lateral-lunge": {
+    "steps": [
+      "Stand tall with your feet together.",
+      "Take a big step out to one side.",
+      "Bend that knee and push your hips back.",
+      "Push back to the middle. Switch sides."
+    ],
+    "hands": "Hands together at your chest.",
+    "legs": "Bent knee follows your toes; other leg straight.",
+    "back": "Chest up.",
+    "breathe": "Breathe in as you lower, out as you push back.",
+    "mistake": "Letting the bent knee cave inward."
+  },
+  "wg_curtsy-lunge": {
+    "steps": [
+      "Stand tall with your feet hip-width apart.",
+      "Step one foot behind and across the other.",
+      "Lower both knees.",
+      "Push back up. Switch sides."
+    ],
+    "hands": "Hands on your hips.",
+    "legs": "Front knee stays over your foot.",
+    "back": "Stay upright; hips face forward.",
+    "breathe": "Breathe in as you lower, out as you rise.",
+    "mistake": "Twisting your hips."
+  },
+  "wg_skater-squat": {
+    "steps": [
+      "Stand on one leg with the other bent behind you.",
+      "Reach your arms forward.",
+      "Lower your back knee toward the floor.",
+      "Push back up. Switch legs."
+    ],
+    "arms": "Arms forward for balance.",
+    "legs": "Standing knee follows your toes.",
+    "back": "Lean slightly forward with a flat back.",
+    "breathe": "Breathe in going down, out coming up.",
+    "mistake": "Knee caving in."
+  },
+  "wg_step-down": {
+    "steps": [
+      "Stand on a step on one leg.",
+      "Slowly bend that knee and lower the other heel toward the floor.",
+      "Tap the floor lightly.",
+      "Push back up. Switch legs."
+    ],
+    "hands": "Hands on your hips or a wall.",
+    "legs": "Standing knee stays in line with your toes.",
+    "back": "Stand tall.",
+    "breathe": "Breathe in going down, out coming up.",
+    "mistake": "Dropping fast instead of lowering slowly."
+  },
+  "wg_calf-raise": {
+    "steps": [
+      "Stand tall, holding a desk, wall or chair for balance.",
+      "Rise up onto your toes as high as you can.",
+      "Pause at the top.",
+      "Lower your heels slowly."
+    ],
+    "hands": "Rest your hands lightly on the desk or wall.",
+    "legs": "Knees straight but soft.",
+    "back": "Stand tall; do not lean.",
+    "breathe": "Breathe out as you rise.",
+    "mistake": "Bouncing quickly instead of moving slowly."
+  },
+  "wg_single-leg-calf-raise": {
+    "steps": [
+      "Stand on one foot, holding a wall for balance.",
+      "Rise up onto your toes.",
+      "Lower slowly.",
+      "Switch feet."
+    ],
+    "hands": "Hold a wall lightly.",
+    "legs": "Standing knee soft.",
+    "back": "Stand tall.",
+    "breathe": "Breathe out as you rise.",
+    "mistake": "Rolling onto the outside of your foot."
+  },
+  "wg_glute-bridge-march": {
+    "steps": [
+      "Lie on your back and lift your hips into a bridge.",
+      "Lift one foot a little off the floor.",
+      "Put it down and lift the other.",
+      "Keep your hips high and level."
+    ],
+    "hands": "Palms flat by your sides.",
+    "legs": "Lift each knee toward your chest.",
+    "back": "Hips stay level; do not let them drop.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Hips dropping or tilting as you lift a foot."
+  },
+  "wg_frog-pump": {
+    "steps": [
+      "Lie on your back with the soles of your feet together.",
+      "Let your knees fall out to the sides.",
+      "Push through your feet to lift your hips.",
+      "Lower slowly."
+    ],
+    "hands": "Palms flat by your sides.",
+    "legs": "Feet together, knees wide.",
+    "back": "Do not arch at the top.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Arching your lower back."
+  },
+  "wg_donkey-kick": {
+    "steps": [
+      "Get on your hands and knees.",
+      "Keep one knee bent and lift that foot up toward the ceiling.",
+      "Squeeze your bottom at the top.",
+      "Lower. Switch legs after your set."
+    ],
+    "hands": "Hands under your shoulders.",
+    "arms": "Arms straight.",
+    "legs": "Working knee stays bent at a right angle.",
+    "back": "Back flat; do not arch.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Arching your back to lift higher."
+  },
+  "wg_fire-hydrant": {
+    "steps": [
+      "Get on your hands and knees.",
+      "Lift one bent knee out to the side.",
+      "Pause at the top.",
+      "Lower. Switch legs after your set."
+    ],
+    "hands": "Hands under your shoulders.",
+    "legs": "Knee stays bent.",
+    "back": "Back flat; do not lean away.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Shifting your body to lift the knee."
+  },
+  "wg_clamshell": {
+    "steps": [
+      "Lie on your side with knees bent and feet together.",
+      "Keep your feet touching.",
+      "Lift your top knee up like a clam opening.",
+      "Lower slowly. Switch sides after your set."
+    ],
+    "hands": "Rest your head on your bottom arm; top hand on your hip.",
+    "legs": "Feet stay together.",
+    "back": "Do not roll your hips back.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Rolling your hips backward."
+  },
+  "wg_hip-airplane": {
+    "steps": [
+      "Stand on one leg and lean forward until your body is level.",
+      "Hold a support if needed.",
+      "Slowly rotate your hips open, then closed.",
+      "Switch legs."
+    ],
+    "hands": "Hold a support lightly.",
+    "legs": "Standing knee soft.",
+    "back": "Back flat.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Rushing and losing balance."
+  },
+  "wg_side-lying-hip-abduction": {
+    "steps": [
+      "Lie on your side with your legs straight.",
+      "Lift your top leg up.",
+      "Pause.",
+      "Lower slowly. Switch sides after your set."
+    ],
+    "hands": "Rest your head on your arm.",
+    "legs": "Top leg straight, toes facing forward.",
+    "back": "Hips stacked; do not roll back.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Rolling back and lifting with the front of your hip."
+  },
+  "wg_side-lying-leg-raise": {
+    "steps": [
+      "Lie on your side, legs straight and stacked.",
+      "Lift your top leg toward the ceiling.",
+      "Lower it slowly.",
+      "Switch sides after your set."
+    ],
+    "hands": "Rest your head on your arm; top hand in front.",
+    "legs": "Leg straight, toes forward.",
+    "back": "Stay on your side.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Swinging the leg."
+  },
+  "wg_lying-hamstring-walkout": {
+    "steps": [
+      "Lie on your back and lift your hips into a bridge.",
+      "Walk your heels away from you in small steps.",
+      "Walk them back in.",
+      "Keep your hips up."
+    ],
+    "hands": "Palms flat by your sides.",
+    "legs": "Small heel steps.",
+    "back": "Hips stay lifted.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Letting your hips drop."
+  },
+  "wg_towel-hamstring-curl": {
+    "steps": [
+      "Lie on a smooth floor with heels on a towel.",
+      "Lift your hips into a bridge.",
+      "Slide your heels out straight.",
+      "Pull them back in."
+    ],
+    "hands": "Palms flat by your sides.",
+    "legs": "Heels press into the towel.",
+    "back": "Hips stay up.",
+    "breathe": "Breathe out as you pull in.",
+    "mistake": "Letting your hips sag."
+  },
+  "wg_stability-ball-hamstring-curl": {
+    "steps": [
+      "Lie on your back with your heels on a ball.",
+      "Lift your hips.",
+      "Roll the ball in toward your bottom.",
+      "Roll it back out."
+    ],
+    "hands": "Arms out to the sides, palms down.",
+    "legs": "Heels on the ball.",
+    "back": "Hips stay up.",
+    "breathe": "Breathe out as you roll in.",
+    "mistake": "Letting your hips drop."
+  },
+  "wg_banded-glute-bridge": {
+    "steps": [
+      "Put a band around your legs just above your knees.",
+      "Lie on your back with knees bent.",
+      "Push your knees out and lift your hips.",
+      "Lower slowly."
+    ],
+    "hands": "Palms flat by your sides.",
+    "legs": "Knees press out against the band.",
+    "back": "Do not arch.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Letting your knees cave in."
+  },
+  "wg_banded-hip-thrust": {
+    "steps": [
+      "Sit against a bench with a band above your knees.",
+      "Plant your feet.",
+      "Push your knees out and lift your hips level.",
+      "Lower slowly."
+    ],
+    "hands": "Hands on the bench or your hips.",
+    "legs": "Knees press out against the band.",
+    "back": "Upper back on the bench; ribs down.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Arching your back at the top."
+  },
+  "wg_banded-frog-pump": {
+    "steps": [
+      "Lie on your back with a band above your knees.",
+      "Put the soles of your feet together.",
+      "Lift your hips.",
+      "Lower slowly."
+    ],
+    "hands": "Palms flat by your sides.",
+    "legs": "Knees wide against the band.",
+    "back": "Do not arch.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Arching your back."
+  },
+  "wg_banded-clamshell": {
+    "steps": [
+      "Put a band above your knees and lie on your side.",
+      "Bend your knees, feet together.",
+      "Lift your top knee against the band.",
+      "Lower slowly. Switch sides after your set."
+    ],
+    "hands": "Head on your arm, top hand on your hip.",
+    "legs": "Feet stay together.",
+    "back": "Do not roll back.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Rolling your hips back."
+  },
+  "wg_banded-lateral-walk": {
+    "steps": [
+      "Put a band around your legs above the knees or at the ankles.",
+      "Bend your knees a little.",
+      "Step sideways, keeping the band tight.",
+      "Walk back the other way."
+    ],
+    "hands": "Hands on your hips.",
+    "legs": "Knees push out; feet never touch.",
+    "back": "Chest up.",
+    "breathe": "Breathe steadily.",
+    "mistake": "Letting your feet come together."
+  },
+  "wg_banded-donkey-kick": {
+    "steps": [
+      "Get on hands and knees with a band around your feet.",
+      "Keep your knee bent and push one foot up.",
+      "Squeeze your bottom.",
+      "Lower. Switch legs after your set."
+    ],
+    "hands": "Hands under your shoulders.",
+    "legs": "Working knee bent.",
+    "back": "Back flat.",
+    "breathe": "Breathe out as you push.",
+    "mistake": "Arching your back."
+  },
+  "wg_banded-fire-hydrant": {
+    "steps": [
+      "Get on hands and knees with a band above your knees.",
+      "Lift one bent knee out to the side.",
+      "Pause.",
+      "Lower. Switch legs after your set."
+    ],
+    "hands": "Hands under your shoulders.",
+    "legs": "Knee stays bent.",
+    "back": "Back flat.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Leaning your body away."
+  },
+  "wg_banded-kickback": {
+    "steps": [
+      "Loop a band around your ankles, holding a wall for balance.",
+      "Kick one leg straight back.",
+      "Squeeze your bottom.",
+      "Return slowly. Switch legs after your set."
+    ],
+    "hands": "Hold a wall or chair.",
+    "legs": "Standing knee soft.",
+    "back": "Do not arch.",
+    "breathe": "Breathe out as you kick.",
+    "mistake": "Arching your lower back."
+  },
+  "wg_banded-standing-hip-abduction": {
+    "steps": [
+      "Loop a band around your ankles and hold a wall.",
+      "Lift one leg out to the side.",
+      "Pause.",
+      "Return slowly. Switch legs after your set."
+    ],
+    "hands": "Hold a wall or chair.",
+    "legs": "Working leg straight, toes forward.",
+    "back": "Stand tall; do not lean.",
+    "breathe": "Breathe out as you lift.",
+    "mistake": "Leaning to the side."
+  },
+  "wg_banded-seated-hip-abduction": {
+    "steps": [
+      "Sit on a bench with a band above your knees.",
+      "Feet flat, knees together.",
+      "Push your knees apart.",
+      "Return slowly."
+    ],
+    "hands": "Hands on the bench beside you.",
+    "legs": "Push out with your knees.",
+    "back": "Sit tall or lean slightly forward.",
+    "breathe": "Breathe out as you push.",
+    "mistake": "Letting the band snap back."
+  },
+  "wg_banded-face-pull": {
+    "steps": [
+      "Fix a band at head height and hold both ends.",
+      "Step back, arms straight.",
+      "Pull toward your face, elbows high.",
+      "Return slowly."
+    ],
+    "hands": "Thumbs point back toward you.",
+    "arms": "Elbows high and wide.",
+    "legs": "Feet hip-width apart.",
+    "back": "Stand tall.",
+    "breathe": "Breathe out as you pull.",
+    "mistake": "Elbows dropping down."
+  },
+  "wg_banded-row": {
+    "steps": [
+      "Fix a band at chest height and hold both ends.",
+      "Step back until the band is tight.",
+      "Pull your hands to your ribs.",
+      "Return slowly."
+    ],
+    "hands": "Palms face each other.",
+    "arms": "Elbows close to your sides.",
+    "legs": "Feet hip-width apart, knees soft.",
+    "back": "Stand tall.",
+    "breathe": "Breathe out as you pull.",
+    "mistake": "Leaning back to pull."
+  },
+  "wg_banded-lat-pulldown": {
+    "steps": [
+      "Fix a band high above you.",
+      "Kneel or sit and hold the ends, arms up.",
+      "Pull your elbows down to your sides.",
+      "Return slowly."
+    ],
+    "hands": "Grip the band ends firmly.",
+    "arms": "Pull your elbows down and back.",
+    "legs": "Kneel or sit steady.",
+    "back": "Chest up.",
+    "breathe": "Breathe out as you pull down.",
+    "mistake": "Shrugging your shoulders."
+  },
+  "wg_banded-pallof-press": {
+    "steps": [
+      "Fix a band at chest height and stand side-on.",
+      "Hold the band at your chest.",
+      "Press your arms straight out.",
+      "Hold, then return. Switch sides."
+    ],
+    "hands": "Both hands on the band.",
+    "arms": "Press straight forward.",
+    "legs": "Feet hip-width apart.",
+    "back": "Do not twist.",
+    "breathe": "Breathe out as you press.",
+    "mistake": "Letting the band turn you."
+  },
+  "wg_banded-woodchop": {
+    "steps": [
+      "Fix a band high and stand side-on.",
+      "Hold it with both hands above your shoulder.",
+      "Pull down and across your body.",
+      "Return slowly. Switch sides after your set."
+    ],
+    "hands": "Both hands on the band.",
+    "arms": "Arms stay fairly straight.",
+    "legs": "Pivot your back foot.",
+    "back": "Turn from your middle.",
+    "breathe": "Breathe out as you chop.",
+    "mistake": "Pulling with just your arms."
+  },
+  "wg_banded-dead-bug": {
+    "steps": [
+      "Lie on your back holding a band fixed behind your head.",
+      "Lift your knees over your hips, arms straight up.",
+      "Straighten one leg toward the floor.",
+      "Bring it back and switch legs."
+    ],
+    "hands": "Hold the band above your chest.",
+    "arms": "Arms straight up.",
+    "legs": "Knees bent at a right angle.",
+    "back": "Lower back pressed to the floor.",
+    "breathe": "Breathe out as you reach.",
+    "mistake": "Letting your back arch."
+  }
+}
