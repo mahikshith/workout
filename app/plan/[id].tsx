@@ -26,7 +26,7 @@ export default function PlanDetail() {
   const goal = goalWeeks(profile);
   const setPlan = useStore((s) => s.setPlan);
   const sessions = useStore((s) => s.sessions);
-  const today = doneToday(sessions), week = doneThisWeek(sessions);
+  const today = doneToday(sessions), doneWeek = doneThisWeek(sessions);
   const [wk, setWk] = useState(0);
   if (!plan) return null;
   const isCurrent = plan.id === planId;
@@ -114,7 +114,7 @@ export default function PlanDetail() {
               </View>
               <View style={{ alignItems: 'flex-end', gap: 4 }}>
                 <T v="label" color={c.accent}>Day {i + 1}</T>
-                {isCurrent && week.has(`${plan.id}:${i}`) && <Row gap={4}><Ionicons name="checkmark-circle" size={16} color={c.ok} /><T v="small" color={c.ok}>Done this week</T></Row>}
+                {isCurrent && doneWeek.has(`${plan.id}:${i}`) && <Row gap={4}><Ionicons name="checkmark-circle" size={16} color={c.ok} /><T v="small" color={c.ok}>Done this week</T></Row>}
               </View>
             </Row>
             <View style={{ gap: 10, marginTop: 14 }}>
