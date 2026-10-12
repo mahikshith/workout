@@ -128,7 +128,9 @@ export default function Fuel() {
                         <Ionicons name="restaurant-outline" size={14} color={c.accent} />
                         <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1, flexShrink: 1 }}>{rc.name}</T>
                         {!gentle && <T v="small" numberOfLines={1}>{perServing(rc).kcal} kcal</T>}
-                        <Ionicons name="chevron-forward" size={14} color={c.dim} />
+                        {today.some((m) => m.name === rc.name || m.name.startsWith(rc.name + ' ('))
+                          ? <Ionicons name="checkmark-circle" size={16} color={c.accent} />
+                          : <Ionicons name="chevron-forward" size={14} color={c.dim} />}
                       </Tap>
                     ))}
                   </View>

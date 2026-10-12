@@ -69,7 +69,7 @@ export default function Onboarding() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bg, paddingTop: ins.top + 8 }}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 140, gap: 14 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 140, gap: 14 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeIn.duration(300)} style={{ gap: 6 }}>
           <T v="label" color={c.accent}>Gym Buddy</T>
           <T v="h1">{existing ? 'Your profile' : 'Set up your plan'}</T>
@@ -162,5 +162,5 @@ const s = StyleSheet.create({
   pill: { paddingHorizontal: 16, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   section: { gap: 10, padding: 18, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-  bar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 12, backgroundColor: 'rgba(10,10,11,0.94)', borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  bar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingTop: 12, backgroundColor: 'rgba(10,10,11,0.94)', borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
 });

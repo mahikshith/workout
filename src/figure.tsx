@@ -28,7 +28,7 @@ const BODY = { near: ['url(#__N)', '#9A9AA2'], far: ['url(#__F)', '#5A5A62'] } a
 const GEAR = { fill: '#36363D', stroke: '#8E8E93' };
 const BAND = '#64D2FF';
 
-export function Figure({ pose, primary, secondary, height }: { pose: Pose; primary: string[]; secondary: string[]; height: number }) {
+export function Figure({ pose, primary, secondary, height, width }: { pose: Pose; primary: string[]; secondary: string[]; height: number; width?: number }) {
   const still = useReducedMotion();
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const front = pose.view === 'front';
@@ -88,16 +88,17 @@ export function Figure({ pose, primary, secondary, height }: { pose: Pose; prima
     return { keys: ks, main };
   }, [pose, front]);
 
-  // the angle label is placed once, at the key position
+  // The angle of the main working joint (the pose's guide joint, else the joint that moves most) is labelled once, at the key position.
   const label = useMemo(() => {
-    const j = pose.guide?.joint;
+    const j = (pose.guide?.joint ?? (moving.main && moving.main in NB ? moving.main : undefined)) as keyof typeof NB | undefined;
     if (!j) return null;
-    const o = solve(pose, b, pose.guide?.at ?? 1);
+    const key = pose.guide?.at ?? 1;
+    const o = solve(pose, b, key);
     const [na, nb] = NB[j];
     const a1 = angle(o[j], o[na]), a2 = angle(o[j], o[nb]);
     const d = ((a2 - a1 + 540) % 360) - 180;
-    return { pos: at(o[j], a1 + d / 2, 18), deg: Math.round(Math.abs(d)) };
-  }, [pose, b]);
+    return { j: j as Key, key, pos: at(o[j], a1 + d / 2, 18), deg: Math.round(Math.abs(d)) };
+  }, [pose, b, moving.main]);
 
   const tone = (s: 0 | 1) => (front || s === 0 ? BODY.near : BODY.far);
   const segs = (list: Seg[]) => list.map((s) => (
@@ -113,7 +114,7 @@ export function Figure({ pose, primary, secondary, height }: { pose: Pose; prima
   const flat = pose.ground !== 'hang' && pose.ground !== 'mat';
 
   return (
-    <Svg width="100%" height={height} viewBox={box.join(' ')} preserveAspectRatio="xMidYMid meet">
+    <Svg width={width ?? '100%'} height={height} viewBox={box.join(' ')} preserveAspectRatio="xMidYMid meet">
       <Defs>
         <LinearGradient id={uid + 'N'} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor="#404047" />
@@ -130,6 +131,7 @@ export function Figure({ pose, primary, secondary, height }: { pose: Pose; prima
       </Defs>
       {flat && <Line x1={box[0] - 400} x2={box[0] + box[2] + 400} y1={0.4} y2={0.4} stroke={c.line} strokeWidth={0.9} />}
       {flat && <Shadow fr={fr} fill={`url(#${uid}S)`} />}
+      {flat && <Balance fr={fr} top={box[1]} />}
       <Scenery pose={pose} b={b} top={box[1]} />
       {front ? (
         <>
@@ -152,8 +154,8 @@ export function Figure({ pose, primary, secondary, height }: { pose: Pose; prima
         </>
       )}
       {moving.keys.map((k) => <Joint key={k} fr={fr} k={k} main={k === moving.main} color={acc} />)}
-      {label && pose.guide?.joint && (
-        <Arc fr={fr} j={pose.guide.joint} at={pose.guide.at ?? 1} color={acc}>
+      {label && (
+        <Arc fr={fr} j={label.j} at={label.key} color={acc}>
           <SvgText x={label.pos[0]} y={label.pos[1] + 2.4} fontSize={7} fontFamily={f.semi} fill={acc} textAnchor="middle">{`${label.deg}°`}</SvgText>
         </Arc>
       )}
@@ -228,6 +230,30 @@ function Arc({ fr, j, at: key, color, children }: { fr: FV; j: Key; at: number; 
       <APath animatedProps={wedge} fill={color} fillOpacity={0.16} stroke={color} strokeWidth={0.8} />
       {children}
     </AG>
+  );
+}
+
+// Balance line: a vertical through the body's centre of mass (head, trunk and limbs weighted roughly by mass)
+// with a dot at the centre itself. Over the feet means balanced; the floor line is the horizontal axis.
+function Balance({ fr, top }: { fr: FV; top: number }) {
+  const W: [Key, number][] = [['head', 0.08], ['neck', 0.2], ['pelvis', 0.32], ['kn0', 0.1], ['kn1', 0.1], ['el0', 0.05], ['el1', 0.05], ['an0', 0.05], ['an1', 0.05]];
+  const line = useAnimatedProps(() => {
+    const o = fr.value.o;
+    let x = 0;
+    for (const [k, w] of W) x += o[k][0] * w;
+    return { d: `M${x.toFixed(1)},0L${x.toFixed(1)},${(top + 4).toFixed(1)}` };
+  });
+  const dot = useAnimatedProps(() => {
+    const o = fr.value.o;
+    let x = 0, y = 0;
+    for (const [k, w] of W) { x += o[k][0] * w; y += o[k][1] * w; }
+    return { d: circ([x, y], 1.6) };
+  });
+  return (
+    <>
+      <APath animatedProps={line} stroke="#8E8E93" strokeOpacity={0.35} strokeWidth={0.6} strokeDasharray="1.5 2.5" />
+      <APath animatedProps={dot} fill="#8E8E93" fillOpacity={0.8} />
+    </>
   );
 }
 

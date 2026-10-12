@@ -557,8 +557,135 @@ export const POSES: Record<string, Pose> = {
 
 export const hasPose = (id: string) => id in POSES;
 
+// Every other exercise borrows the closest hand-made pose by movement pattern (name first, then main muscle),
+// with the prop swapped to its equipment. `matched` lets the screen say it shows the movement pattern.
+type Ex = { id: string; name: string; category: string; equipment: string; primary: string[] };
+const PROP: Record<string, Pose['prop']> = { barbell: 'barbell', 'e-z curl bar': 'barbell', dumbbell: 'dumbbell', kettlebells: 'kettlebell' };
+const withProp = (p: Pose, eq: string): Pose => {
+  if (p.prop === 'bar' || p.prop === 'band') return p;
+  const want = PROP[eq];
+  if (want) return { ...p, prop: want };
+  return eq === 'body only' || eq === 'machine' ? { ...p, prop: 'none', one: false } : p;
+};
+const P = POSES;
+function pattern(e: Ex): Pose {
+  const n = e.name.toLowerCase(), m = e.primary[0], eq = e.equipment, has = (re: RegExp) => re.test(n);
+  const byEq = (bar: Pose, db: Pose, kb: Pose, bw: Pose) => (eq === 'barbell' || eq === 'e-z curl bar' ? bar : eq === 'dumbbell' ? db : eq === 'kettlebells' ? kb : bw);
+  if (e.category === 'stretching' || has(/stretch/)) {
+    if (m === 'hamstrings') return P['wg_hamstring-stretch'];
+    if (m === 'calves') return P.Calf_Stretch_Hands_Against_Wall;
+    if (m === 'quadriceps') return P.Kneeling_Hip_Flexor;
+    if (m === 'neck' || m === 'traps') return P.Side_Neck_Stretch;
+    if (m === 'lats' || m === 'middle back') return P.Childs_Pose;
+    if (m === 'abdominals') return P.Cat_Stretch;
+    if (['chest', 'shoulders', 'biceps', 'triceps', 'forearms'].includes(m)) return { ...P.Band_Pull_Apart, prop: 'none', pace: 'hold' };
+    return P.Knee_Across_The_Body;
+  }
+  if (e.category === 'cardio' || has(/\b(running|jogging|jog|sprints?|treadmill)\b/)) {
+    if (has(/bike|cycl/)) return P.Bicycling_Stationary;
+    if (has(/row/)) return P.Rowing_Stationary;
+    if (has(/jump|jack|rope|skip/)) return P['wg_jumping-jack'];
+    if (has(/ellip|stair|step|climb/)) return P.Elliptical_Trainer;
+    if (has(/walk/)) return P.Walking_Treadmill;
+    return P.Running_Treadmill;
+  }
+  if (has(/burpee/)) return P.wg_burpee;
+  if (has(/mountain climber/)) return P.Mountain_Climbers;
+  if (has(/\bjacks?\b/)) return P['wg_jumping-jack'];
+  if (has(/chin-?up/)) return P['Chin-Up'];
+  if (has(/pull-?up|muscle.?up/)) return P.Pullups;
+  if (has(/pull-?down/)) return has(/straight/) ? P['Straight-Arm_Pulldown'] : P['Wide-Grip_Lat_Pulldown'];
+  if (has(/face pull/)) return P.Face_Pull;
+  if (has(/upright row/)) return P.Upright_Barbell_Row;
+  if (has(/inverted row/)) return P.Inverted_Row;
+  if (has(/\brows?\b|rowing/))
+    return has(/one.arm|single|alternat/) ? P['One-Arm_Dumbbell_Row'] : eq === 'cable' || has(/seated|cable/) ? P.Seated_Cable_Rows
+      : byEq(P.Bent_Over_Barbell_Row, P['Bent_Over_Two-Dumbbell_Row'], P['Bent_Over_Two-Dumbbell_Row'], P['wg_doorway-row']);
+  if (has(/shrug/)) return P.Barbell_Shrug;
+  if (has(/swing/)) return P['wg_kettlebell-swing'];
+  if (has(/jerk|push press/)) return P.Standing_Military_Press;
+  if (has(/clean|snatch/)) return P.Barbell_Deadlift;
+  if (has(/good morning/)) return P.Good_Morning;
+  if (has(/superman/)) return P.Superman;
+  if (has(/hyperextension|back extension/)) return P.Hyperextensions_With_No_Hyperextension_Bench;
+  if (has(/romanian|stiff|rdl/)) return P.Romanian_Deadlift;
+  if (has(/deadlift|rack pull/)) return has(/sumo/) ? P.Sumo_Deadlift : P.Barbell_Deadlift;
+  if (has(/hip thrust/)) return P.Barbell_Hip_Thrust;
+  if (has(/bridge|glute lift|hip lift/)) return has(/single|one/) ? P.Single_Leg_Glute_Bridge : P.Butt_Lift_Bridge;
+  if (has(/kickback/)) return m === 'triceps' ? P.Tricep_Dumbbell_Kickback : P['One-Legged_Cable_Kickback'];
+  if (has(/abduct/)) return P.Thigh_Abductor;
+  if (has(/adduct/)) return P.Thigh_Adductor;
+  if (has(/leg press|sled/)) return P.Leg_Press;
+  if (has(/leg extension/)) return P.Leg_Extensions;
+  if (has(/leg curl|hamstring curl/)) return has(/seated/) ? P.Seated_Leg_Curl : P.Lying_Leg_Curls;
+  if (has(/calf|calves|toe raise/)) return has(/seated/) ? P.Seated_Calf_Raise : P.Standing_Calf_Raises;
+  if (has(/jump|\bhops?\b|\bbound/)) return has(/lunge|split|scissor/) ? P.Scissors_Jump : has(/box/) ? P.Front_Box_Jump : P.Freehand_Jump_Squat;
+  if (has(/lunge|split squat/)) return byEq(P.Barbell_Lunge, P.Dumbbell_Lunges, P.Dumbbell_Lunges, P.Bodyweight_Walking_Lunge);
+  if (has(/step.?up/)) return byEq(P.Barbell_Step_Ups, P.Dumbbell_Step_Ups, P.Dumbbell_Step_Ups, P['Step-up_with_Knee_Raise']);
+  if (has(/hack/)) return P.Hack_Squat;
+  if (has(/front squat/)) return P.Front_Squat_Clean_Grip;
+  if (has(/wall sit/)) return P['wg_wall-sit'];
+  if (has(/squat/)) return has(/plie|sumo/) ? P.Plie_Dumbbell_Squat : byEq(P.Barbell_Squat, P.Dumbbell_Squat, P.Goblet_Squat, P.Bodyweight_Squat);
+  if (has(/\bfly|flye|crossover|pec deck/)) return has(/reverse|rear/) ? P.Reverse_Machine_Flyes : eq === 'cable' || has(/cable|crossover/) ? P.Cable_Crossover : P.Dumbbell_Flyes;
+  if (has(/push.?up/)) return has(/incline/) ? P['Incline_Push-Up'] : has(/knee/) ? P['wg_knee-push-up'] : P.Pushups;
+  if (has(/\bdips?\b/)) return has(/bench/) ? P.Bench_Dips : P['Dips_-_Chest_Version'];
+  if (m === 'triceps' && has(/triceps? press/) && !has(/lying|decline|bench/)) return P.Standing_Dumbbell_Triceps_Extension;
+  if (has(/skull|lying triceps|french press|lying .*extension/)) return P.Lying_Triceps_Press;
+  if (has(/push-?down|pressdown/)) return P.Triceps_Pushdown;
+  if (m === 'triceps' && has(/extension/)) return eq === 'cable' ? P.Triceps_Overhead_Extension_with_Rope : P.Standing_Dumbbell_Triceps_Extension;
+  if (has(/bench press|floor press|chest press|board press/) || (m === 'chest' && has(/press/)))
+    return has(/close|narrow/) ? P['Close-Grip_Barbell_Bench_Press'] : has(/incline/) ? P.Incline_Dumbbell_Press
+      : byEq(P['Barbell_Bench_Press_-_Medium_Grip'], P.Dumbbell_Bench_Press, P.Dumbbell_Bench_Press, P['Barbell_Bench_Press_-_Medium_Grip']);
+  if (has(/arnold/)) return P.Arnold_Dumbbell_Press;
+  if (has(/lateral.*raise|side raise|deltoid raise/)) return P.Side_Lateral_Raise;
+  if (has(/front .*raise|front raise/)) return P.Front_Dumbbell_Raise;
+  if (has(/rear delt|reverse fly|pull.?apart/)) return P.Band_Pull_Apart;
+  if (has(/press/) && (m === 'shoulders' || m === 'triceps')) return eq === 'barbell' ? P.Standing_Military_Press : P.Dumbbell_Shoulder_Press;
+  if (has(/preacher/)) return P.Preacher_Curl;
+  if (has(/concentration/)) return P.Concentration_Curls;
+  if (has(/curl/) && m !== 'hamstrings') return has(/incline/) ? P.Incline_Dumbbell_Curl : byEq(P.Barbell_Curl, P.Dumbbell_Bicep_Curl, P.Dumbbell_Bicep_Curl, P.Barbell_Curl);
+  if (has(/carry|walk|yoke|farmer/)) return P.Farmers_Walk;
+  if (has(/plank|hollow/)) return P.Plank;
+  if (has(/twist|russian|woodchop|rotation/)) return P.Russian_Twist;
+  if (has(/flutter|scissor/)) return P.Flutter_Kicks;
+  if (has(/bicycle|air bike/)) return P.Air_Bike;
+  if (has(/hanging/)) return P.Hanging_Leg_Raise;
+  if (has(/reverse crunch/)) return P.Reverse_Crunch;
+  if (has(/leg raise|knee raise|knee tuck|leg lift|jackknife|v-up|pike/)) return P['Leg_Pull-In'];
+  if (has(/sit.?up/)) return P['Sit-Up'];
+  if (has(/crunch|toe touch/)) return P.Crunches;
+  if (has(/bird.?dog|quadruped/)) return P['wg_bird-dog'];
+  if (has(/crawl/)) return P['wg_bear-crawl'];
+  if (has(/circle/)) return P.Arm_Circles;
+  switch (m) {
+    case 'quadriceps': return byEq(P.Barbell_Squat, P.Dumbbell_Squat, P.Goblet_Squat, P.Bodyweight_Squat);
+    case 'hamstrings': return P.Romanian_Deadlift;
+    case 'glutes': return P.Butt_Lift_Bridge;
+    case 'calves': return P.Standing_Calf_Raises;
+    case 'adductors': return P.Thigh_Adductor;
+    case 'abductors': return P.Thigh_Abductor;
+    case 'chest': return eq === 'body only' ? P.Pushups : byEq(P['Barbell_Bench_Press_-_Medium_Grip'], P.Dumbbell_Bench_Press, P.Dumbbell_Bench_Press, P.Dumbbell_Flyes);
+    case 'shoulders': return eq === 'barbell' ? P.Standing_Military_Press : P.Dumbbell_Shoulder_Press;
+    case 'lats': return eq === 'body only' || eq === 'pull-up bar' ? P.Pullups : P['Wide-Grip_Lat_Pulldown'];
+    case 'middle back': return P.Bent_Over_Barbell_Row;
+    case 'lower back': return P.Superman;
+    case 'traps': return P.Barbell_Shrug;
+    case 'biceps': case 'forearms': return P.Barbell_Curl;
+    case 'triceps': return P.Triceps_Pushdown;
+    case 'abdominals': return P.Crunches;
+    case 'neck': return P.Side_Neck_Stretch;
+    default: return P.Bodyweight_Squat;
+  }
+}
+const matchedCache: Record<string, Pose> = {};
+export function poseFor(e: Ex): { pose: Pose; matched: boolean } {
+  if (P[e.id]) return { pose: P[e.id], matched: false };
+  return { pose: (matchedCache[e.id] ??= withProp(pattern(e), e.equipment)), matched: true };
+}
+
 // Every pose has all its angles, in sane ranges; locked poses can reach their pinned hands or feet all the way through.
-export function selfCheck() {
+export function selfCheck(byId: Record<string, Ex & { noImages?: boolean }> = {}) {
+  for (const e of Object.values(byId)) if (!e.noImages && !poseFor(e).pose?.start) throw new Error('poses: no pattern for ' + e.id);
   const RANGE: Record<string, [number, number]> = {
     spine: [-180, 180], neck: [-45, 45], curve: [-30, 30], shrug: [0, 8],
     // joint limits (side-view projections; kneeling feet lie flat behind, so the ankle goes to 90)

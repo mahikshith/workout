@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { doneThisWeek, doneToday } from '../../src/calc';
 import { byId } from '../../src/data/exercises';
 import { perWeek, planById } from '../../src/data/plans';
 import { program, WEEKDAYS } from '../../src/data/program';
@@ -24,6 +25,8 @@ export default function PlanDetail() {
   const name = profile.name;
   const goal = goalWeeks(profile);
   const setPlan = useStore((s) => s.setPlan);
+  const sessions = useStore((s) => s.sessions);
+  const today = doneToday(sessions), week = doneThisWeek(sessions);
   const [wk, setWk] = useState(0);
   if (!plan) return null;
   const isCurrent = plan.id === planId;
@@ -42,6 +45,12 @@ export default function PlanDetail() {
           {welcome ? `Your plan is ready${name ? `, ${name}` : ''}` : `${plan.category} · ${plan.level} · ${plan.place === 'any' ? 'anywhere' : plan.place}`}
         </T>
         <T v="display" style={{ marginTop: 6 }}>{plan.name}</T>
+        {isCurrent && !welcome && (
+          <Row gap={6} style={[s.current, { backgroundColor: c.accent }]}>
+            <Ionicons name="checkmark-circle" size={16} color={c.accentInk} />
+            <T v="label" color={c.accentInk}>Your current plan</T>
+          </Row>
+        )}
         <T v="body" color={c.muted}>{plan.tagline}</T>
         {welcome && <T v="small" style={{ marginTop: 10 }}>Picked from your goal, place, experience and schedule. You can switch plans anytime in Plans.</T>}
         {welcome && (
@@ -103,17 +112,20 @@ export default function PlanDetail() {
                 <T v="h2">{d.name}</T>
                 <T v="small">{d.focus}</T>
               </View>
-              <T v="label" color={c.accent}>Day {i + 1}</T>
+              <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                <T v="label" color={c.accent}>Day {i + 1}</T>
+                {isCurrent && week.has(`${plan.id}:${i}`) && <Row gap={4}><Ionicons name="checkmark-circle" size={16} color={c.ok} /><T v="small" color={c.ok}>Done this week</T></Row>}
+              </View>
             </Row>
             <View style={{ gap: 10, marginTop: 14 }}>
               {d.slots.map((sl) => (
                 <Tap key={sl.id} onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: sl.id } })} style={s.slot} scale={0.98}>
                   <Thumb ex={byId[sl.id]} size={44} />
                   <View style={{ flex: 1 }}>
-                    <T v="h3" numberOfLines={1}>{byId[sl.id].name}</T>
-                    <T v="small">{rest(sl.rest)}</T>
+                    <T v="h3" numberOfLines={1} color={today.has(sl.id) ? c.muted : c.text}>{byId[sl.id].name}</T>
+                    <T v="small">{today.has(sl.id) ? 'Logged today' : rest(sl.rest)}</T>
                   </View>
-                  <T v="small" color={c.text}>{sl.sets} × {sl.reps}</T>
+                  {today.has(sl.id) ? <Ionicons name="checkmark-circle" size={24} color={c.ok} /> : <T v="small" color={c.text}>{sl.sets} × {sl.reps}</T>}
                 </Tap>
               ))}
             </View>
@@ -157,6 +169,7 @@ export default function PlanDetail() {
 }
 
 const s = StyleSheet.create({
+  current: { alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 12, height: 30, borderRadius: 15 },
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   slot: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: r.sm },
   day: { flex: 1, height: 56, borderRadius: r.sm, alignItems: 'center', justifyContent: 'center', gap: 2 },

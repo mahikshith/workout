@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEvent } from 'expo';
-import { Image } from 'expo-image';
+import { Image, type ImageProps } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -10,8 +10,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
-import { artFrames, frames, type Exercise } from './data/exercises';
-import { POSES, hasPose } from './data/poses';
+import { artFrames, frames, MEDIA, origin, type Exercise } from './data/exercises';
+import { poseFor } from './data/poses';
 import { Figure } from './figure';
 import videos from './data/videos.json';
 import { useStore, type MediaPref } from './store';
@@ -50,11 +50,11 @@ const tv: Record<V, object> = {
   // The whole type scale. Screens pick a variant; they never set their own font or size.
   display: { fontFamily: f.display, fontSize: 40, lineHeight: 46, letterSpacing: 0.5, textTransform: 'uppercase' },
   h1: { fontFamily: f.display, fontSize: 30, lineHeight: 36, letterSpacing: 0.4, textTransform: 'uppercase' },
-  h2: { fontFamily: f.bold, fontSize: 20, lineHeight: 26 },
-  h3: { fontFamily: f.semi, fontSize: 16, lineHeight: 21 },
-  body: { fontFamily: f.regular, fontSize: 15, lineHeight: 22 },
-  small: { fontFamily: f.medium, fontSize: 13, lineHeight: 18 },
-  label: { fontFamily: f.semi, fontSize: 12, lineHeight: 16, letterSpacing: 1.2, textTransform: 'uppercase' },
+  h2: { fontFamily: f.bold, fontSize: 22, lineHeight: 28 },
+  h3: { fontFamily: f.semi, fontSize: 17, lineHeight: 23 },
+  body: { fontFamily: f.regular, fontSize: 16, lineHeight: 23 },
+  small: { fontFamily: f.medium, fontSize: 14, lineHeight: 19 },
+  label: { fontFamily: f.semi, fontSize: 13, lineHeight: 17, letterSpacing: 1.2, textTransform: 'uppercase' },
   num: { fontFamily: f.display, fontSize: 28, lineHeight: 34 },
 };
 export function T({ v = 'body', color, style, ...p }: TextProps & { v?: V; color?: string }) {
@@ -65,7 +65,7 @@ export function T({ v = 'body', color, style, ...p }: TextProps & { v?: V; color
 
 export function Screen({ children, scroll = true, pad = true }: { children: ReactNode; scroll?: boolean; pad?: boolean }) {
   const ins = useSafeAreaInsets();
-  const style = { paddingTop: ins.top + 12, paddingHorizontal: pad ? 20 : 0, paddingBottom: ins.bottom + 120 };
+  const style = { paddingTop: ins.top + 12, paddingHorizontal: pad ? 12 : 0, paddingBottom: ins.bottom + 120 };
   if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg }, style]}>{children}</View>;
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={style} showsVerticalScrollIndicator={false}>
@@ -133,31 +133,41 @@ export function Ring({ size = 120, stroke = 10, progress, color = c.accent, trac
 const VIDEOS: Record<string, { url: string; author: string }> = videos;
 const KINDS: { k: MediaPref; label: string }[] = [{ k: 'animated', label: 'Animated' }, { k: 'drawing', label: 'Drawing' }, { k: 'photo', label: 'Photo' }, { k: 'video', label: 'Video' }];
 export const mediaKinds = (ex: Exercise) =>
-  KINDS.filter(({ k }) => (k === 'animated' ? hasPose(ex.id) : k === 'drawing' ? !!ex.art : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
+  KINDS.filter(({ k }) => (k === 'animated' ? !ex.noImages : k === 'drawing' ? !!ex.art : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
 const CREDIT = { drawing: 'Drawing: workout-guide by Bryl Lim, CC BY-SA 4.0, based on Everkinetic', photo: 'Photo: free-exercise-db, public domain' };
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
+const NAME: Record<MediaPref, string> = { animated: 'Animation', drawing: 'Drawing', photo: 'Photo', video: 'Video' };
 
-// Drawing (workout-guide), photo (free-exercise-db) or video (wger), whichever exist, with a switch in the corner.
-// The pick is remembered for every exercise. Steps-only exercises get a glyph and never hit the photo CDN.
+// Animated figure, drawing (workout-guide), photo (free-exercise-db) or video (wger), with a switch in the corner.
+// The pick is remembered for every exercise. If a picture or video can't load, the pane quietly falls back to the
+// next kind (usually the animated figure, which needs no network) and says so; a failure never blanks the pane.
 export function Demo({ ex, height = 240, style, credit }: { ex: Exercise; height?: number; style?: StyleProp<ViewStyle>; credit?: boolean }) {
   const pref = useStore((s) => s.mediaPref);
   const setPref = useStore((s) => s.setMediaPref);
+  const [w, setW] = useState(0);
+  const [failed, setFailed] = useState<MediaPref[]>([]);
   const [prev, setPrev] = useState<MediaPref | null>(null); // stays under the new pick while it fades in
+  useEffect(() => setFailed([]), [ex.id]);
   useEffect(() => { if (!prev) return; const t = setTimeout(() => setPrev(null), 250); return () => clearTimeout(t); }, [prev]);
   if (ex.noImages) return <Breath ex={ex} height={height} style={style} />;
-  const kinds = mediaKinds(ex);
+  const kinds = mediaKinds(ex).filter((m) => !failed.includes(m.k));
   const kind = kinds.find((m) => m.k === pref)?.k ?? kinds[0]?.k;
+  const missed = pref !== kind && failed.includes(pref) ? pref : null;
   const shown = prev && prev !== kind && kinds.some((m) => m.k === prev) ? [prev, kind] : [kind];
+  const fail = (k: MediaPref) => setFailed((f) => (f.includes(k) ? f : [...f, k]));
+  const { pose, matched } = poseFor(ex);
   return (
     <View style={style}>
-      <View style={{ height, borderRadius: r.lg, backgroundColor: c.card2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+      <View onLayout={(e) => setW(Math.round(e.nativeEvent.layout.width))}
+        style={{ height, borderRadius: r.lg, backgroundColor: c.card2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
         {!kind ? <Ionicons name="barbell-outline" size={height * 0.3} color={c.muted} /> : shown.map((k) => (
           <Animated.View key={ex.id + k} entering={k === kind && shown.length > 1 ? FadeIn.duration(200).easing(EASE) : undefined} style={StyleSheet.absoluteFill}>
             {k === 'animated' ? (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2 }]}>
-                <Figure pose={POSES[ex.id]} primary={ex.primary} secondary={ex.secondary} height={height} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' }]}>
+                {w > 0 && <Figure pose={pose} primary={ex.primary} secondary={ex.secondary} height={height} width={w} />}
               </View>
-            ) : k === 'video' ? <Clip uri={VIDEOS[ex.id].url} /> : <Loop uris={k === 'drawing' ? artFrames(ex.art!) : frames(ex.id)} solid={k === 'photo'} />}
+            ) : k === 'video' ? <Clip id={ex.id} onFail={() => fail('video')} />
+              : <Loop uris={k === 'drawing' ? artFrames(ex.art!) : frames(ex.id)} solid={k === 'photo'} onFail={() => fail(k)} />}
           </Animated.View>
         ))}
         {kinds.length > 1 && (
@@ -171,55 +181,87 @@ export function Demo({ ex, height = 240, style, credit }: { ex: Exercise; height
             ))}
           </View>
         )}
+        {missed && kind && (
+          <View style={md.note}><T v="small" color={c.text}>{`${NAME[missed]} didn’t load, so here’s the ${NAME[kind].toLowerCase()}.`}</T></View>
+        )}
       </View>
-      {credit && kind && kind !== 'animated' && (
+      {credit && kind && (
         <T v="small" color={c.dim} style={{ marginTop: 8, textAlign: 'center' }}>
-          {kind === 'video' ? `Video: ${VIDEOS[ex.id].author}, wger.de, CC BY-SA 4.0` : CREDIT[kind]}
+          {kind === 'animated'
+            ? matched ? 'The figure shows the movement pattern. Follow the steps below for the exact form.' : 'Dots mark the moving joints, the arc is the joint angle at the key point, and the dashed line is what to keep straight.'
+            : kind === 'video' ? `Video: ${VIDEOS[ex.id].author}, wger.de, CC BY-SA 4.0` : CREDIT[kind]}
         </T>
       )}
     </View>
   );
 }
 
-// Poses played 1→2→3→2→1 (photos 1→2→1): each held 700 ms, 450 ms crossfades. Starts once every frame is cached.
-function Loop({ uris, solid }: { uris: string[]; solid: boolean }) {
-  const p = useSharedValue(0);
+// An image from our mirror; if the mirror fails it retries the original host once, then reports the error.
+function Pic({ uri, onLoad, onError, ...p }: { uri: string; onLoad?: () => void; onError?: () => void } & Omit<ImageProps, 'source' | 'onLoad' | 'onError'>) {
+  const [src, setSrc] = useState(uri);
+  useEffect(() => setSrc(uri), [uri]);
+  return <Image {...p} source={src} onLoad={onLoad} onError={() => { const o = origin(src); if (o) setSrc(o); else onError?.(); }} />;
+}
+
+// Poses played 1→2→3→2→1 (photos 1→2→1): each held 700 ms, 450 ms crossfades. Only frames that actually loaded
+// take part, so a missing frame can never cover the others; if none load, the pane falls back.
+function Loop({ uris, solid, onFail }: { uris: string[]; solid: boolean; onFail: () => void }) {
+  const [st, setSt] = useState<('ok' | 'bad' | undefined)[]>([]);
+  const mark = (i: number, v: 'ok' | 'bad') => setSt((s) => { if (s[i]) return s; const n = [...s]; n[i] = v; return n; });
   useEffect(() => {
-    let live = true;
+    setSt([]);
+    const t = setTimeout(() => setSt((s) => uris.map((_, i) => s[i] ?? 'bad')), 12000); // slow network: give up on stragglers
+    return () => clearTimeout(t);
+  }, [uris[0]]);
+  const good = uris.map((_, i) => i).filter((i) => st[i] === 'ok');
+  const settled = uris.every((_, i) => st[i]);
+  useEffect(() => { if (settled && !good.length) onFail(); }, [settled, good.length]);
+  const p = useSharedValue(0);
+  const n = settled ? good.length : 0;
+  useEffect(() => {
+    cancelAnimation(p); p.value = 0;
+    if (n < 2) return;
     const fade = (v: number) => withTiming(v, { duration: 450, easing: Easing.inOut(Easing.quad) });
     const hold = (v: number) => withTiming(v, { duration: 700 });
-    const steps = (uris.length > 2 ? [1, 2, 1, 0] : [1, 0]).flatMap((v) => [fade(v), hold(v)]).slice(0, -1);
-    Image.prefetch(uris, 'memory-disk').finally(() => { if (live) p.value = withRepeat(withSequence(hold(0), ...steps), -1); });
-    return () => { live = false; cancelAnimation(p); };
-  }, [uris[0]]);
+    const steps = (n > 2 ? [1, 2, 1, 0] : [1, 0]).flatMap((v) => [fade(v), hold(v)]).slice(0, -1);
+    p.value = withRepeat(withSequence(hold(0), ...steps), -1);
+    return () => cancelAnimation(p);
+  }, [n, uris[0]]);
   return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: solid ? c.media : c.card2 }]}>
-      {uris.map((uri, i) => <Frame key={uri} uri={uri} i={i} p={p} solid={solid} />)}
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: solid ? c.media : c.card2, alignItems: 'center', justifyContent: 'center' }]}>
+      {!good.length && <ActivityIndicator color={c.muted} />}
+      {uris.map((uri, i) => <Frame key={uri} uri={uri} slot={good.indexOf(i)} p={p} solid={solid} onLoad={() => mark(i, 'ok')} onError={() => mark(i, 'bad')} />)}
     </View>
   );
 }
 
-// Every frame sits on an opaque background and fades in over the last one, so mid-blend the white outlines mix
-// evenly instead of stacking up and looking thicker (what trading opacity on transparent line art did).
-function Frame({ uri, i, p, solid }: { uri: string; i: number; p: SharedValue<number>; solid: boolean }) {
-  const a = useAnimatedStyle(() => ({ opacity: i === 0 ? 1 : Math.min(1, Math.max(0, p.value - i + 1)) }));
+// Every shown frame sits on an opaque background and fades in over the last one, so mid-blend the outlines mix
+// evenly instead of stacking up and looking thicker. Frames still loading (slot -1) stay invisible.
+function Frame({ uri, slot, p, solid, onLoad, onError }: { uri: string; slot: number; p: SharedValue<number>; solid: boolean; onLoad: () => void; onError: () => void }) {
+  const a = useAnimatedStyle(() => ({ opacity: slot < 0 ? 0 : slot === 0 ? 1 : Math.min(1, Math.max(0, p.value - slot + 1)) }));
   const inset = solid ? 0 : 12;
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: solid ? c.media : c.card2 }, a]}>
-      <Image source={uri} style={{ position: 'absolute', top: inset, bottom: inset, left: inset, right: inset }} contentFit="contain" cachePolicy="memory-disk" />
+    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: solid ? c.media : c.card2 }, a]} pointerEvents="none">
+      <Pic uri={uri} onLoad={onLoad} onError={onError} style={{ position: 'absolute', top: inset, bottom: inset, left: inset, right: inset }} contentFit="contain" contentPosition="center" cachePolicy="memory-disk" />
     </Animated.View>
   );
 }
 
-// wger videos, transcoded to small muted H.264 by .github/workflows/media.yml. TextureView so it can fade and round its corners.
-function Clip({ uri }: { uri: string }) {
+// wger videos, transcoded to small muted H.264 by .github/workflows/media.yml and mirrored to our Pages site;
+// falls back to the release download, then to the next media kind.
+function Clip({ id, onFail }: { id: string; onFail: () => void }) {
+  const [i, setI] = useState(0);
+  const uris = [`${MEDIA}video/${id}.mp4`, VIDEOS[id].url];
+  return <ClipView key={i} uri={uris[i]} onError={() => (i === 0 ? setI(1) : onFail())} />;
+}
+function ClipView({ uri, onError }: { uri: string; onError: () => void }) {
   const player = useVideoPlayer({ uri, useCaching: true }, (pl) => { pl.loop = true; pl.muted = true; pl.play(); });
   const { status } = useEvent(player, 'statusChange', { status: player.status });
+  useEffect(() => { if (status === 'error') onError(); if (status === 'readyToPlay') player.play(); }, [status]);
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }]}>
       <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls={false} surfaceType="textureView" />
-      {status === 'loading' && <ActivityIndicator color={c.muted} />}
-      {status === 'error' && <T v="small">Video not available right now</T>}
+      {status !== 'readyToPlay' && <ActivityIndicator color={c.muted} />}
     </View>
   );
 }
@@ -227,24 +269,28 @@ function Clip({ uri }: { uri: string }) {
 const md = StyleSheet.create({
   switch: { position: 'absolute', top: 10, right: 10, flexDirection: 'row', gap: 2, padding: 3, borderRadius: 16, backgroundColor: 'rgba(10,10,11,0.72)' },
   opt: { height: 26, paddingHorizontal: 10, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  note: { position: 'absolute', left: 10, bottom: 10, right: 10, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: 'rgba(10,10,11,0.72)' },
 });
 
+// List thumbnails: first drawing or photo frame; an icon if neither loads, so a bad network never leaves holes.
 export function Thumb({ ex, size = 56 }: { ex: Exercise; size?: number }) {
+  const [bad, setBad] = useState(false);
+  useEffect(() => setBad(false), [ex.id]);
   if (ex.noImages)
     return (
       <View style={{ width: size, height: size, borderRadius: 14, backgroundColor: '#251B33', alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name="pulse" size={size * 0.45} color="#BF8CFF" />
       </View>
     );
-  if (ex.art)
-    return <Image source={artFrames(ex.art)[0]} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.card2 }} contentFit="contain" cachePolicy="disk" transition={150} />;
-  if (ex.noPhoto)
+  if (bad || (!ex.art && ex.noPhoto))
     return (
       <View style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name="barbell-outline" size={size * 0.45} color={c.muted} />
       </View>
     );
-  return <Image source={frames(ex.id)[0]} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.media }} contentFit="cover" cachePolicy="disk" transition={150} />;
+  return ex.art
+    ? <Pic uri={artFrames(ex.art)[0]} onError={() => setBad(true)} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.card2 }} contentFit="contain" cachePolicy="disk" transition={150} />
+    : <Pic uri={frames(ex.id)[0]} onError={() => setBad(true)} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.media }} contentFit="cover" cachePolicy="disk" transition={150} />;
 }
 
 // Drills without pictures (pelvic floor, breathing, eyes, desk): a circle that grows for the hold and shrinks for the rest.
@@ -304,7 +350,7 @@ export const Row = ({ children, style, gap = 12 }: { children: ReactNode; style?
 );
 
 export const st = StyleSheet.create({
-  card: { backgroundColor: c.card, borderRadius: r.lg, padding: 18, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  card: { backgroundColor: c.card, borderRadius: r.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   btn: { height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 24 },
   chip: { paddingHorizontal: 16, height: 40, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
   step: { width: 30, height: 34, borderRadius: 10, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },

@@ -50,7 +50,7 @@ export default function Summary() {
   const mins = Math.max(1, Math.round(((s.endedAt ?? Date.now()) - s.startedAt) / 60000));
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ flexGrow: 1, paddingTop: ins.top + 24, paddingHorizontal: 20, paddingBottom: ins.bottom + 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ flexGrow: 1, paddingTop: ins.top + 24, paddingHorizontal: 12, paddingBottom: ins.bottom + 16 }}>
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {Array.from({ length: 36 }, (_, i) => <Confetti key={i} i={i} />)}
       </View>

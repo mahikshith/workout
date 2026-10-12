@@ -11,7 +11,14 @@ import { c, equip, f, r } from '../src/theme';
 import { Card, Chip, Row, T, Tap, Thumb } from '../src/ui';
 
 const LEVELS = ['beginner', 'intermediate', 'expert'] as const;
-const BLOCK = Math.floor((Math.min(Dimensions.get('window').width, 600) - 60) / 3);
+const BLOCK = Math.floor((Math.min(Dimensions.get('window').width, 600) - 24 - 20) / 3); // 12 px gutters, two 10 px gaps
+// The muscle grid reads top to bottom like a body: upper body, core, lower body, then everything else.
+const REGIONS: { label: string; ids: string[] }[] = [
+  { label: 'Upper body', ids: ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'neck'] },
+  { label: 'Core', ids: ['abs'] },
+  { label: 'Lower body', ids: ['glutes', 'quads', 'hamstrings', 'calves', 'hips'] },
+  { label: 'More', ids: ['mobility', 'cardio', 'pelvic', 'desk'] },
+];
 type Where = 'gym' | 'home' | 'office';
 const WHERE: { k: Where; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { k: 'gym', label: 'Gym', icon: 'barbell' }, { k: 'home', label: 'Home', icon: 'home' }, { k: 'office', label: 'Office', icon: 'briefcase' },
@@ -60,12 +67,12 @@ export default function Library({ tab }: { tab?: boolean }) {
     if (pick && !gate(e, profile, done).locked) { addItem(e.id); router.back(); }
     else router.push({ pathname: '/exercise/[id]', params: { id: e.id } });
   };
-  const pad = { paddingHorizontal: 20, paddingBottom: ins.bottom + (tab ? 110 : 40) };
+  const pad = { paddingHorizontal: 12, paddingBottom: ins.bottom + (tab ? 110 : 40) };
   const heading = g ? (fo && fo !== ALL ? `${g.label}: ${fo}` : g.label) : pick ? 'Add exercise' : 'Exercises';
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: ins.top + 8 }}>
-      <Row style={{ paddingHorizontal: 20 }}>
+      <Row style={{ paddingHorizontal: 12 }}>
         {(g || !tab) && <Tap onPress={up} style={s.icon}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>}
         <T v={tab && !g ? 'display' : g ? 'h2' : 'h1'} style={{ flex: 1 }} numberOfLines={1}>{heading}</T>
         <T v="small">{words.length || fo ? list.length : inG.length}</T>
@@ -75,7 +82,7 @@ export default function Library({ tab }: { tab?: boolean }) {
         <TextInput value={q} onChangeText={setQ} placeholder="Search squat, dumbbell, plank…" placeholderTextColor={c.dim} style={s.input} />
         {!!q && <Tap onPress={() => setQ('')}><Ionicons name="close-circle" size={18} color={c.muted} /></Tap>}
       </View>
-      <Row style={{ paddingHorizontal: 20, paddingVertical: 12, flexWrap: 'wrap' }} gap={8}>
+      <Row style={{ paddingHorizontal: 12, paddingVertical: 12, flexWrap: 'wrap' }} gap={8}>
         {WHERE.map((w) => <Chip key={w.k} label={w.label} icon={w.icon} on={where === w.k} onPress={() => setWhere(w.k)} />)}
         {bare && <Chip label="No equipment" icon="close" on color={c.ok} onPress={() => setBare(false)} />}
       </Row>
@@ -95,12 +102,19 @@ export default function Library({ tab }: { tab?: boolean }) {
           ListEmptyComponent={<T v="small" style={{ marginTop: 12 }}>Nothing here for this place yet. Try Gym.</T>}
         />
       ) : !g ? (
-        <ScrollView contentContainerStyle={[pad, { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }]} showsVerticalScrollIndicator={false}>
-          {GROUPS.map((x, i) => (
-            <Tap key={x.id} disabled={!counts[i]} onPress={() => { setGid(x.id); setFocus(null); }} style={s.block}>
-              <T v="h3" numberOfLines={2}>{x.label}</T>
-              <T v="small">{counts[i]} moves</T>
-            </Tap>
+        <ScrollView contentContainerStyle={pad} showsVerticalScrollIndicator={false}>
+          {REGIONS.map((reg) => (
+            <View key={reg.label}>
+              <T v="h3" style={{ marginTop: 6, marginBottom: 10 }}>{reg.label}</T>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+                {GROUPS.map((x, i) => reg.ids.includes(x.id) && (
+                  <Tap key={x.id} disabled={!counts[i]} onPress={() => { setGid(x.id); setFocus(null); }} style={s.block}>
+                    <T v="h3" numberOfLines={2}>{x.label}</T>
+                    <T v="small" color={c.accent}>{counts[i]} moves</T>
+                  </Tap>
+                ))}
+              </View>
+            </View>
           ))}
         </ScrollView>
       ) : (
@@ -165,7 +179,7 @@ function ExRow({ e, focus, locked, pick, onPress }: { e: Exercise; focus?: strin
 
 const s = StyleSheet.create({
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
-  search: { marginHorizontal: 20, marginTop: 14, height: 50, borderRadius: 25, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: c.line },
+  search: { marginHorizontal: 12, marginTop: 14, height: 50, borderRadius: 25, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: c.line },
   input: { flex: 1, color: c.text, fontFamily: f.medium, fontSize: 15, height: 50 },
   block: { width: BLOCK, minHeight: 88, padding: 12, borderRadius: r.md, backgroundColor: c.card, justifyContent: 'space-between', borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   focus: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: r.md, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },

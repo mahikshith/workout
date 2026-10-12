@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { BackHandler, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { BackHandler, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { Easing, FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dayKey } from '../src/calc';
 import { foodsFor, type Food } from '../src/data/foods';
 import { GROUPS, groupFor, perServing, recipeById, recipesFor, totals, type Recipe } from '../src/data/recipes';
+import { swapFor } from '../src/data/swaps';
 import { useStore, type MealSlot } from '../src/store';
 import { c, f } from '../src/theme';
 import { Button, Card, Row, Stepper, T, Tap } from '../src/ui';
@@ -61,8 +62,11 @@ export default function AddFood() {
     setForm(EMPTY);
   };
   const per = open && perServing(open);
+  const todays = meals.filter((m) => m.day === dayKey());
+  const logged = (x: Recipe) => todays.find((m) => m.name === x.name || m.name.startsWith(x.name + ' ('));
+  const already = open ? logged(open) : undefined;
   const logRecipe = () => {
-    if (!open || !per) return;
+    if (!open || !per || already) return;
     addMeal({ name: serv === 1 ? open.name : `${open.name} (${plural(serv)})`, kcal: Math.round(per.kcal * serv), protein: Math.round(per.protein * serv), slot });
     if (recipe) router.back(); else setOpen(null);
   };
@@ -76,7 +80,7 @@ export default function AddFood() {
           <T v="body" numberOfLines={1}>{x.name}</T>
           <T v="small" numberOfLines={1}>{gentle ? `${x.minutes} min` : `${x.minutes} min · ${p.kcal} kcal · ${p.protein} g protein`}</T>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={c.dim} />
+        {logged(x) ? <Ionicons name="checkmark-circle" size={22} color={c.accent} /> : <Ionicons name="chevron-forward" size={18} color={c.dim} />}
       </Tap>
     );
   };
@@ -96,13 +100,17 @@ export default function AddFood() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={{ paddingTop: ins.top + 12, paddingHorizontal: 20 }}>
+      <View style={{ paddingTop: ins.top + 12, paddingHorizontal: 12 }}>
         <Row style={{ justifyContent: 'space-between' }}>
           <Tap onPress={back} style={s.round}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
           <T v="label" numberOfLines={1} style={{ flexShrink: 1 }}>{open ? 'Recipe' : `Add to ${meal}`}</T>
           <View style={{ width: 40 }} />
         </Row>
 
+      </View>
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 24 }}
+        keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Card style={{ marginTop: 14, padding: 14 }}>
           <T v="small" numberOfLines={1}>{NAMES[slot]} so far today</T>
           {gentle ? (
@@ -129,10 +137,6 @@ export default function AddFood() {
           <TextInput value={q} onChangeText={setQ} placeholder={tab === 'Recipes' ? 'Search recipes' : 'Search foods'} maxLength={40}
             placeholderTextColor={c.dim} style={[s.input, { marginTop: 12 }]} />
         )}
-      </View>
-
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: ins.bottom + 24 }}
-        keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {open && per ? (
           <Animated.View key={open.id} entering={fade()}>
             <T v="h2" style={{ marginTop: 8 }}>{open.name}</T>
@@ -164,6 +168,7 @@ export default function AddFood() {
                 <View style={{ flex: 1 }}>
                   <T v="body" numberOfLines={2}>{n}</T>
                   {(!gentle || !weighed(amount)) && <T v="small" numberOfLines={1}>{amount}</T>}
+                  {swapFor(n) && <T v="small" color={c.blue} style={{ marginTop: 2 }}>Swap: {swapFor(n)}</T>}
                 </View>
                 {!gentle && (
                   <View style={{ alignItems: 'flex-end', gap: 4 }}>
@@ -187,6 +192,17 @@ export default function AddFood() {
                 <T v="body" style={{ flex: 1 }}>{x}</T>
               </Row>
             ))}
+            <Card style={{ marginTop: 20, gap: 10 }}>
+              <T v="h3">Want more detail?</T>
+              <T v="small">These steps cover the basics. For a fuller walkthrough, look up “{open.name}” online or watch someone make it.</T>
+              <Row gap={10}>
+                <Button title="Search recipe" icon="search" kind="ghost" style={{ flex: 1, height: 46, paddingHorizontal: 10 }}
+                  onPress={() => Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(open.name + ' recipe')}`)} />
+                <Button title="Watch video" icon="logo-youtube" kind="ghost" style={{ flex: 1, height: 46, paddingHorizontal: 10 }}
+                  onPress={() => Linking.openURL(`https://www.youtube.com/results?search_query=${encodeURIComponent('how to make ' + open.name)}`)} />
+              </Row>
+              <T v="small" color={c.dim}>Allergic to something? Each ingredient above shows a swap where one makes sense.</T>
+            </Card>
           </Animated.View>
         ) : tab === 'Recipes' ? (
           <Animated.View key="recipes" entering={fade()}>
@@ -229,10 +245,17 @@ export default function AddFood() {
           <T v="small" numberOfLines={1} style={{ marginBottom: 8 }}>
             {gentle ? `You eat ${plural(serv)}` : `${plural(serv)}: ${Math.round(per.kcal * serv)} kcal · ${Math.round(per.protein * serv)} g protein`}
           </T>
-          <Row>
-            <Stepper value={serv} onChange={setServ} step={0.5} min={0.5} />
-            <Button title={`Add to ${meal}`} icon="add" onPress={logRecipe} style={{ flex: 1, height: 52, paddingHorizontal: 12 }} />
-          </Row>
+          {already ? (
+            <Row>
+              <Row gap={6} style={{ flex: 1 }}><Ionicons name="checkmark-circle" size={20} color={c.accent} /><T v="small" color={c.text} style={{ flex: 1 }}>{`Logged today${already.slot ? ` at ${NAMES[already.slot].toLowerCase()}` : ''}`}</T></Row>
+              <Button title="Remove" icon="trash-outline" kind="ghost" onPress={() => removeMeal(already.id)} style={{ height: 48, paddingHorizontal: 16 }} />
+            </Row>
+          ) : (
+            <Row>
+              <Stepper value={serv} onChange={setServ} step={0.5} min={0.5} />
+              <Button title={`Add to ${meal}`} icon="add" onPress={logRecipe} style={{ flex: 1, height: 52, paddingHorizontal: 12 }} />
+            </Row>
+          )}
         </Animated.View>
       )}
     </KeyboardAvoidingView>
@@ -249,5 +272,5 @@ const s = StyleSheet.create({
   ing: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line },
   pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   num: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: -1 },
-  foot: { paddingHorizontal: 20, paddingTop: 12, backgroundColor: c.card, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
+  foot: { paddingHorizontal: 12, paddingTop: 12, backgroundColor: c.card, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
 });

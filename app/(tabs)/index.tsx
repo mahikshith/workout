@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import Animated, { Easing, FadeIn } from 'react-native-reanimated';
-import { cycle, dayKey, postpartumWeek, pregnancyWeek, streak as calcStreak, targets } from '../../src/calc';
+import { cycle, dayKey, doneToday, postpartumWeek, pregnancyWeek, streak as calcStreak, targets } from '../../src/calc';
 import { greeting } from '../../src/coach';
 import { available, byId, exercises, title, type Place } from '../../src/data/exercises';
 import { challenge, level } from '../../src/data/badges';
@@ -50,6 +50,7 @@ export default function Today() {
   const water = st.water[today] ?? 0;
   const trainedToday = sessions.some((s) => dayKey(s.startedAt) === today);
   const trained = new Set(sessions.map((s) => dayKey(s.startedAt)));
+  const done = doneToday(sessions);
   const monday = new Date(); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
   const desk = quickById.desk;
   const day = place === 'office' && desk ? asDay(desk) : sug.day;
@@ -265,8 +266,10 @@ export default function Today() {
             {day.slots.map((sl, i) => (
               <Tap key={sl.id + i} onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: sl.id } })} style={s.row} scale={0.99}>
                 <Thumb ex={byId[sl.id]} size={40} />
-                <T v="body" style={{ flex: 1 }} numberOfLines={1}>{byId[sl.id]?.name}</T>
-                <T v="small" color={c.text}>{sl.sets} × {sl.reps}</T>
+                <T v="body" style={{ flex: 1 }} numberOfLines={1} color={done.has(sl.id) ? c.muted : c.text}>{byId[sl.id]?.name}</T>
+                {done.has(sl.id)
+                  ? <Row gap={4}><T v="small" color={c.ok}>Done</T><Ionicons name="checkmark-circle" size={20} color={c.ok} /></Row>
+                  : <T v="small" color={c.text}>{sl.sets} × {sl.reps}</T>}
               </Tap>
             ))}
           </View>

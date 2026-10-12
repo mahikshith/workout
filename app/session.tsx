@@ -78,7 +78,7 @@ export default function SessionScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: ins.top + 8 }}>
-      <Row style={{ paddingHorizontal: 20, justifyContent: 'space-between' }}>
+      <Row style={{ paddingHorizontal: 12, justifyContent: 'space-between' }}>
         <Tap onPress={() => setSheet('end')} style={s.icon}><Ionicons name="close" size={22} color={c.text} /></Tap>
         <View style={{ alignItems: 'center', flex: 1 }}>
           <Row gap={6}><View style={s.live} /><T v="label" color={c.text} numberOfLines={1} style={{ flexShrink: 1 }}>{active.title}</T></Row>
@@ -87,7 +87,7 @@ export default function SessionScreen() {
         <Tap onPress={() => setSheet('end')} style={[s.finish, { backgroundColor: c.accent }]}><T v="h3" color={c.accentInk} numberOfLines={1}>Finish</T></Tap>
       </Row>
 
-      <Row style={{ paddingHorizontal: 20, marginTop: 14 }} gap={4}>
+      <Row style={{ paddingHorizontal: 12, marginTop: 14 }} gap={4}>
         {active.items.map((x, i) => {
           const fr = x.sets.length ? x.sets.filter((y) => y.done).length / x.sets.length : 0;
           return (
@@ -100,7 +100,7 @@ export default function SessionScreen() {
         })}
       </Row>
 
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 200 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 200 }} showsVerticalScrollIndicator={false}>
         <Animated.View key={it.exId + idx} entering={FadeInDown.duration(300)}>
           <T v="label">Exercise {idx + 1} of {active.items.length} · {title(ex.primary[0])}</T>
           <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 4 }}>
@@ -231,7 +231,7 @@ const s = StyleSheet.create({
   set: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 8, borderRadius: 16 },
   setDone: { backgroundColor: '#1C2410' },
   check: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: c.dim, alignItems: 'center', justifyContent: 'center' },
-  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 12, backgroundColor: 'rgba(10,10,11,0.92)', borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 12, paddingTop: 12, backgroundColor: 'rgba(10,10,11,0.92)', borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   big: { height: 68, borderRadius: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   nav: { height: 56, width: 56, borderRadius: 28, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   rest: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#1F140C', borderRadius: r.lg, padding: 14 },

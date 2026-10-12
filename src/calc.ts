@@ -121,3 +121,11 @@ export function selfCheck() {
   assert(postpartumWeek(w({ mode: 'postpartum', date: '2026-01-01' }), '2026-02-12') === 6, 'postpartum week');
   assert(isTimed('30s') && !isTimed('10/side') && isTimed('30s/side') && !isTimed('8-12'), 'timed parse');
 }
+
+// Exercises with at least one logged set today, and plan days trained since Monday ("planId:dayIndex").
+export const doneToday = (sessions: Session[], now = Date.now()) =>
+  new Set(sessions.filter((s) => dayKey(s.startedAt) === dayKey(now)).flatMap((s) => s.items.filter((it) => it.sets.some((x) => x.done)).map((it) => it.exId)));
+export function doneThisWeek(sessions: Session[], now = Date.now()) {
+  const d = new Date(now); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return new Set(sessions.filter((s) => s.startedAt >= d.getTime() && s.planId && s.dayIndex !== undefined).map((s) => `${s.planId}:${s.dayIndex}`));
+}

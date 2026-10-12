@@ -20,12 +20,16 @@ export type Exercise = {
 export const exercises = raw as Exercise[];
 export const byId: Record<string, Exercise> = Object.fromEntries(exercises.map((e) => [e.id, e]));
 
+// Media is mirrored to the app's own GitHub Pages site by scripts/media.mjs (one fast CDN, no hotlink limits).
+// `origin()` maps a mirrored URL back to where it came from, used when the mirror fails.
+export const MEDIA = 'https://mahikshith.github.io/workout/media/';
 const IMG = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
-export const frames = (id: string) => [`${IMG}${id}/0.jpg`, `${IMG}${id}/1.jpg`];
-
 // Pinned commit, same as scripts/build-exercises.mjs. White line art (CC BY-SA 4.0), drawn for dark backgrounds.
 const WG = 'https://cdn.jsdelivr.net/gh/bryllim/workout-guide@aac599224bb9780305239607ef98540b7e0ce389/packages/workout-guide/assets/';
-export const artFrames = (slug: string) => [1, 2, 3].map((n) => `${WG}${slug}/frame-${n}.svg`);
+export const frames = (id: string) => [`${MEDIA}photo/${id}/0.jpg`, `${MEDIA}photo/${id}/1.jpg`];
+export const artFrames = (slug: string) => [1, 2, 3].map((n) => `${MEDIA}art/${slug}/frame-${n}.svg`);
+export const origin = (uri: string) =>
+  uri.startsWith(MEDIA + 'photo/') ? IMG + uri.slice(MEDIA.length + 6) : uri.startsWith(MEDIA + 'art/') ? WG + uri.slice(MEDIA.length + 4) : null;
 
 export const HOME_GEAR = ['dumbbell', 'bands', 'kettlebells', 'pull-up bar', 'barbell', 'e-z curl bar', 'bench', 'exercise ball', 'medicine ball', 'foam roll', 'jump rope', 'yoga mat'] as const;
 
