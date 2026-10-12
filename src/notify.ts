@@ -31,7 +31,7 @@ export async function reschedule(p: Profile | null, sessions: Session[]) {
     await Notifications.setNotificationChannelAsync('nudges', { name: 'Workout nudges', importance: Notifications.AndroidImportance.HIGH });
   const { hour, minute } = p.reminder;
   await Notifications.scheduleNotificationAsync({
-    content: { title: `Hey ${p.name}, it’s go time 💪`, body: NUDGES[new Date().getDate() % NUDGES.length] },
+    content: { title: `${p.name ? `Hey ${p.name}, it’s` : 'It’s'} go time 💪`, body: NUDGES[new Date().getDate() % NUDGES.length] },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute, channelId: 'nudges' },
   });
   const last = sessions[sessions.length - 1];

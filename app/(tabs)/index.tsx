@@ -22,6 +22,7 @@ export default function Today() {
   const meals = useStore((s) => s.meals);
   const water = useStore((s) => s.water[dayKey()] ?? 0);
   const start = useStore((s) => s.start);
+  const [later, setLater] = useState(false);
   const [place, setPlace] = useState<Place>(profile?.place === 'home' ? 'home' : 'gym');
   if (!profile) return null;
 
@@ -43,7 +44,7 @@ export default function Today() {
         <Row style={{ justifyContent: 'space-between' }}>
           <View>
             <T v="small">{greeting()}</T>
-            <T v="display" numberOfLines={1}>{profile.name}</T>
+            <T v="display" numberOfLines={1}>{profile.name || 'Welcome'}</T>
           </View>
           <Row gap={8}>
             <Tap onPress={() => router.push('/history')} style={s.streak}>
@@ -51,7 +52,7 @@ export default function Today() {
               <T v="h3">{streak}</T>
             </Tap>
             <Tap onPress={() => router.push('/you')} style={s.avatar}>
-              <T v="h3" color={c.accentInk}>{profile.name[0]?.toUpperCase()}</T>
+              {profile.name ? <T v="h3" color={c.accentInk}>{profile.name[0].toUpperCase()}</T> : <Ionicons name="person" size={18} color={c.accentInk} />}
             </Tap>
           </Row>
         </Row>
@@ -72,6 +73,24 @@ export default function Today() {
           })}
         </Row>
       </Rise>
+
+      {!profile.name && !later && (
+        <Rise i={2}>
+          <View style={s.setup}>
+            <Row style={{ alignItems: 'flex-start' }}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <T v="h3">Make it yours</T>
+                <T v="small">Four quick questions and we’ll tailor your plan, home swaps and food targets. Everything works without it too.</T>
+              </View>
+              <Tap onPress={() => setLater(true)} style={{ padding: 4 }}><Ionicons name="close" size={18} color={c.muted} /></Tap>
+            </Row>
+            <Row style={{ marginTop: 14 }} gap={10}>
+              <Button title="Personalize" icon="sparkles" style={{ height: 46, flex: 1 }} onPress={() => router.push('/onboarding')} />
+              <Button title="Not now" kind="ghost" style={{ height: 46 }} onPress={() => setLater(true)} />
+            </Row>
+          </View>
+        </Rise>
+      )}
 
       {active && (
         <Rise i={2}>
@@ -165,6 +184,7 @@ function Mini({ value, max, label, color }: { value: number; max: number; label:
 }
 
 const s = StyleSheet.create({
+  setup: { marginTop: 18, padding: 18, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.accent + '55' },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
   streak: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.card2, paddingHorizontal: 14, height: 40, borderRadius: 20, borderWidth: 1, borderColor: c.line },
   wd: { flex: 1, height: 62, borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: c.card },

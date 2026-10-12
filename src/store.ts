@@ -29,7 +29,7 @@ export type Session = { id: string; title: string; planId?: string; place: Place
 export type Meal = { id: string; day: string; name: string; kcal: number; protein: number };
 
 type State = {
-  profile: Profile | null;
+  profile: Profile; // name === '' means the user hasn't set up a profile yet; the app works anyway
   planId: string;
   nextDay: number; // rotation: the next session is the next day in the plan, however the week went
   sessions: Session[];
@@ -66,8 +66,14 @@ function seedSets(exId: string, target: string, sets: number, history: Session[]
   });
 }
 
+// Guest defaults: the app is usable straight away and personalizes once the user fills these in.
+export const GUEST: Profile = {
+  name: '', gender: 'other', age: 30, heightCm: 170, weightKg: 70, goalWeightKg: 70, goal: 'stay fit', level: 'beginner',
+  place: 'gym', gear: [], daysPerWeek: 3, diet: 'vegetarian', reminder: { hour: 18, minute: 0, on: false },
+};
+
 const initial = {
-  profile: null, planId: 'full-body-gym', nextDay: 0, sessions: [], active: null, weights: [], meals: [], water: {},
+  profile: GUEST, planId: 'full-body-gym', nextDay: 0, sessions: [], active: null, weights: [], meals: [], water: {},
 };
 
 export const useStore = create<State>()(
@@ -156,6 +162,9 @@ export const useStore = create<State>()(
       addWater: (n) => set((s) => ({ water: { ...s.water, [dayKey()]: Math.max(0, (s.water[dayKey()] ?? 0) + n) } })),
       reset: () => set(initial),
     }),
-    { name: 'gym-buddy', version: 1, storage: createJSONStorage(() => AsyncStorage) },
+    {
+      name: 'gym-buddy', version: 2, storage: createJSONStorage(() => AsyncStorage),
+      migrate: (old) => ({ ...(old as object), profile: (old as { profile?: Profile | null }).profile ?? GUEST }) as State,
+    },
   ),
 );

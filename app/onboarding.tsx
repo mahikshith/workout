@@ -34,17 +34,16 @@ const GOALS: { v: Goal; label: string; icon: keyof typeof Ionicons.glyphMap }[] 
   { v: 'get stronger', label: 'Get stronger', icon: 'barbell' },
   { v: 'stay fit', label: 'Stay fit', icon: 'heart' },
 ];
-const STEPS = 3;
+const STEPS = 4;
+const TIMES: [number, string][] = [[-1, 'Off'], [7, '7 am'], [12, 'Noon'], [18, '6 pm'], [20, '8 pm']];
 
 export default function Onboarding() {
   const ins = useSafeAreaInsets();
   const setProfile = useStore((st) => st.setProfile);
-  const existing = useStore((st) => st.profile);
+  const current = useStore((st) => st.profile);
+  const existing = current.name ? current : null; // editing a set-up profile vs first personalization
   const [step, setStep] = useState(0);
-  const [p, setP] = useState<Profile>(existing ?? {
-    name: '', gender: 'other', age: 30, heightCm: 165, weightKg: 62, goalWeightKg: 62, goal: 'stay fit', level: 'beginner',
-    place: 'gym', gear: [], daysPerWeek: 3, diet: 'vegetarian', reminder: { hour: 18, minute: 0, on: true },
-  });
+  const [p, setP] = useState<Profile>(existing ?? { ...current, reminder: { hour: 18, minute: 0, on: true } });
   const up = (patch: Partial<Profile>) => setP((x) => ({ ...x, ...patch }));
   const named = p.name.trim().length > 0;
   const last = step === STEPS - 1;
@@ -54,7 +53,7 @@ export default function Onboarding() {
     const final = { ...p, name: p.name.trim(), goalWeightKg: existing ? p.goalWeightKg : p.weightKg };
     const plan = recommend(final);
     setProfile(final, existing ? undefined : plan);
-    if (await askPermission()) reschedule(useStore.getState().profile, useStore.getState().sessions);
+    if (final.reminder.on && (await askPermission())) reschedule(useStore.getState().profile, useStore.getState().sessions);
     router.replace(existing ? '/you' : { pathname: '/plan/[id]', params: { id: plan, welcome: '1' } });
   }
 
@@ -107,7 +106,17 @@ export default function Onboarding() {
       <View style={s.num}><T v="label">Weight</T><Stepper big value={p.weightKg} step={0.5} onChange={(weightKg) => up({ weightKg })} min={30} suffix=" kg" /></View>
       <T v="label" style={s.label}>Days per week</T>
       <Seg<number> value={p.daysPerWeek} onPick={(daysPerWeek) => up({ daysPerWeek })} opts={[2, 3, 4, 5, 6].map((d): [number, string] => [d, String(d)])} />
-      <T v="small" style={{ marginTop: 12 }}>Diet, reminders and more can be changed anytime in You.</T>
+    </>,
+    <>
+      <T v="h1">A few last bits</T>
+      <T v="label" style={s.label}>How do you eat?</T>
+      <Seg<Profile['diet']> value={p.diet} onPick={(diet) => up({ diet })} opts={[['vegetarian', 'Veg'], ['vegan', 'Vegan'], ['eggetarian', 'Egg'], ['pescatarian', 'Fish'], ['non-veg', 'Non-veg']]} />
+      <T v="label" style={s.label}>Training experience</T>
+      <Seg<Profile['level']> value={p.level} onPick={(level) => up({ level })} opts={[['beginner', 'New'], ['intermediate', 'Some'], ['advanced', 'Seasoned']]} />
+      <T v="label" style={s.label}>Daily nudge</T>
+      <Seg<number> value={p.reminder.on ? p.reminder.hour : -1} opts={TIMES}
+        onPick={(h) => up({ reminder: h < 0 ? { ...p.reminder, on: false } : { hour: h, minute: 0, on: true } })} />
+      <T v="small" style={{ marginTop: 8 }}>A gentle reminder at your training time, plus a heads-up if your streak is at risk. Change any of this later in your profile.</T>
     </>,
   ];
 
@@ -124,8 +133,8 @@ export default function Onboarding() {
             </View>
           ))}
         </Row>
-        <Tap onPress={done} disabled={!named} style={s.hdrBtn} feedback="none">
-          <T v="small" color={c.muted}>Skip</T>
+        <Tap onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={s.hdrBtn} feedback="none">
+          <T v="small" color={c.muted}>Later</T>
         </Tap>
       </Row>
       <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>

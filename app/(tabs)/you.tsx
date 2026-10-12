@@ -28,9 +28,9 @@ export default function You() {
     <Screen>
       <Rise>
         <Row>
-          <View style={s.avatar}><T v="h1" color={c.accentInk}>{profile.name[0]?.toUpperCase()}</T></View>
+          <View style={s.avatar}>{profile.name ? <T v="h1" color={c.accentInk}>{profile.name[0].toUpperCase()}</T> : <Ionicons name="person" size={28} color={c.accentInk} />}</View>
           <View style={{ flex: 1 }}>
-            <T v="h1">{profile.name}</T>
+            <T v="h1">{profile.name || 'Guest'}</T>
             <T v="small">{title(profile.gender === 'other' ? 'athlete' : profile.gender)} · {profile.age} y · {profile.heightCm} cm · {profile.weightKg} kg</T>
           </View>
         </Row>
@@ -42,7 +42,7 @@ export default function You() {
           <Item icon="restaurant" label="Diet" value={title(profile.diet)} />
           <Item icon="calendar" label="Days per week" value={String(profile.daysPerWeek)} />
           <Item icon="flame" label="Daily target" value={`${t.kcal} kcal · ${t.protein} g protein`} />
-          <Button title="Edit profile" kind="ghost" icon="create-outline" onPress={() => router.push('/onboarding')} />
+          <Button title={profile.name ? 'Edit profile' : 'Set up your profile'} kind="ghost" icon="create-outline" onPress={() => router.push('/onboarding')} />
         </Card>
       </Rise>
 
@@ -93,7 +93,7 @@ export default function You() {
           {confirm ? (
             <View style={{ gap: 10 }}>
               <T v="body" color={c.danger}>This deletes your profile, workouts, meals and weights on this phone.</T>
-              <Button title="Yes, erase everything" kind="danger" onPress={() => { reset(); router.replace('/onboarding'); }} />
+              <Button title="Yes, erase everything" kind="danger" onPress={() => { reset(); router.replace('/'); }} />
               <Button title="Cancel" kind="ghost" onPress={() => setConfirm(false)} />
             </View>
           ) : (

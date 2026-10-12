@@ -33,7 +33,7 @@ export function nudge(p: Profile, sessions: Session[], streak: number) {
   const last = sessions[sessions.length - 1];
   const days = last ? Math.floor((Date.now() - last.startedAt) / 86400000) : -1;
   const thisWeek = sessions.filter((s) => Date.now() - s.startedAt < 7 * 86400000).length;
-  if (!last) return `Day one, ${p.name}. The hardest rep is walking in. Start your first session below.`;
+  if (!last) return `Day one${p.name ? `, ${p.name}` : ''}. The hardest rep is walking in. Start your first session below.`;
   if (days === 0) return 'Session done today. Eat well, hydrate, sleep. Muscles grow on rest.';
   if (days >= 3) return `${days} days off. No guilt, just start small: one exercise is a win today.`;
   if (thisWeek >= p.daysPerWeek) return `Weekly goal hit: ${thisWeek}/${p.daysPerWeek}. Anything extra is a bonus. Mobility counts too.`;
