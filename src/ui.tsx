@@ -67,7 +67,7 @@ export function Screen({ children, scroll = true, pad = true }: { children: Reac
 }
 
 export const Rise = ({ i = 0, children, style }: { i?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) => (
-  <Animated.View entering={FadeInDown.delay(i * 60).springify().damping(18)} style={style}>{children}</Animated.View>
+  <Animated.View entering={FadeInDown.delay(i * 50).duration(380)} style={style}>{children}</Animated.View>
 );
 
 export const Card = ({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) => (
@@ -189,11 +189,11 @@ export function Stepper({ value, onChange, step = 1, min = 0, suffix, big }: {
 }) {
   const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: big ? 16 : 6 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: big ? 16 : 2 }}>
       <Tap onPress={() => onChange(Math.max(min, +(value - step).toFixed(2)))} style={[st.step, big && st.stepBig]}>
         <Ionicons name="remove" size={big ? 26 : 18} color={c.text} />
       </Tap>
-      <Text style={{ fontFamily: big ? f.display : f.bold, fontSize: big ? 48 : 17, color: c.text, minWidth: big ? 120 : 44, textAlign: 'center' }}>
+      <Text style={{ fontFamily: big ? f.display : f.bold, fontSize: big ? 48 : 17, color: c.text, minWidth: big ? 120 : 34, textAlign: 'center' }}>
         {fmt(value)}{suffix ? <Text style={{ fontSize: big ? 18 : 12, color: c.muted }}>{suffix}</Text> : null}
       </Text>
       <Tap onPress={() => onChange(+(value + step).toFixed(2))} style={[st.step, big && st.stepBig]}>
@@ -211,6 +211,6 @@ export const st = StyleSheet.create({
   card: { backgroundColor: c.card, borderRadius: r.lg, padding: 18, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   btn: { height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 24 },
   chip: { paddingHorizontal: 16, height: 40, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
-  step: { width: 36, height: 36, borderRadius: 12, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
+  step: { width: 30, height: 34, borderRadius: 10, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   stepBig: { width: 56, height: 56, borderRadius: 28 },
 });
