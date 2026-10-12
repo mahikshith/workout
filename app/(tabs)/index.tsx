@@ -45,10 +45,15 @@ export default function Today() {
             <T v="small">{greeting()}</T>
             <T v="display" numberOfLines={1}>{profile.name}</T>
           </View>
-          <View style={s.streak}>
-            <Ionicons name="flame" size={18} color={c.warm} />
-            <T v="h3">{streak}</T>
-          </View>
+          <Row gap={8}>
+            <Tap onPress={() => router.push('/history')} style={s.streak}>
+              <Ionicons name="flame" size={18} color={c.warm} />
+              <T v="h3">{streak}</T>
+            </Tap>
+            <Tap onPress={() => router.push('/you')} style={s.avatar}>
+              <T v="h3" color={c.accentInk}>{profile.name[0]?.toUpperCase()}</T>
+            </Tap>
+          </Row>
         </Row>
       </Rise>
 
@@ -160,6 +165,7 @@ function Mini({ value, max, label, color }: { value: number; max: number; label:
 }
 
 const s = StyleSheet.create({
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
   streak: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.card2, paddingHorizontal: 14, height: 40, borderRadius: 20, borderWidth: 1, borderColor: c.line },
   wd: { flex: 1, height: 62, borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: c.card },
   wdToday: { borderWidth: 1.5, borderColor: c.text },

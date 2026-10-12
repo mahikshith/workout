@@ -4,11 +4,11 @@ import * as Haptics from 'expo-haptics';
 import { useEffect, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
 import Animated, {
-  Easing, FadeInDown, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming,
+  Easing, FadeInDown, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
-import { frames, type Exercise } from './data/exercises';
+import { artFrames, frames, type Exercise } from './data/exercises';
 import { c, f, r } from './theme';
 
 export const haptic = (kind: 'light' | 'medium' | 'success' = 'light') => {
@@ -122,14 +122,50 @@ export function Ring({ size = 120, stroke = 10, progress, color = c.accent, trac
   );
 }
 
-// The dataset ships a start and an end frame; crossfading them on a loop reads as a demo animation.
+// Line art first (workout-guide), then photos (free-exercise-db); steps-only exercises get a glyph and never hit the photo CDN.
 export function Demo({ ex, height = 240, style }: { ex: Exercise; height?: number; style?: StyleProp<ViewStyle> }) {
+  if (ex.noImages) return <Breath ex={ex} height={height} style={style} />;
+  if (ex.art) return <ArtDemo key={ex.art} slug={ex.art} height={height} style={style} />;
+  if (ex.noPhoto)
+    return (
+      <View style={[{ height, borderRadius: r.lg, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' }, style]}>
+        <Ionicons name="barbell-outline" size={height * 0.3} color={c.muted} />
+      </View>
+    );
+  return <PhotoDemo ex={ex} height={height} style={style} />;
+}
+
+// Three poses played 1→2→3→2→1 so the movement reads back and forth: ~600ms per pose, 300ms crossfades.
+function ArtDemo({ slug, height, style }: { slug: string; height: number; style?: StyleProp<ViewStyle> }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    const fade = (v: number) => withTiming(v, { duration: 300, easing: Easing.inOut(Easing.ease) });
+    const hold = (v: number) => withTiming(v, { duration: 600 });
+    p.value = withRepeat(withSequence(hold(0), fade(1), hold(1), fade(2), hold(2), fade(1), hold(1), fade(0)), -1);
+  }, []);
+  return (
+    <View style={[{ height, borderRadius: r.lg, backgroundColor: c.card2, overflow: 'hidden' }, style]}>
+      {artFrames(slug).map((uri, i) => <ArtFrame key={uri} uri={uri} i={i} p={p} />)}
+    </View>
+  );
+}
+
+function ArtFrame({ uri, i, p }: { uri: string; i: number; p: SharedValue<number> }) {
+  const a = useAnimatedStyle(() => ({ opacity: Math.max(0, 1 - Math.abs(p.value - i)) }));
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, a]}>
+      <Image source={uri} style={{ position: 'absolute', top: 12, bottom: 12, left: 12, right: 12 }} contentFit="contain" cachePolicy="disk" />
+    </Animated.View>
+  );
+}
+
+// The dataset ships a start and an end frame; crossfading them on a loop reads as a demo animation.
+function PhotoDemo({ ex, height, style }: { ex: Exercise; height: number; style?: StyleProp<ViewStyle> }) {
   const o = useSharedValue(0);
   useEffect(() => {
     o.value = withRepeat(withSequence(withTiming(0, { duration: 700 }), withTiming(1, { duration: 500 }), withTiming(1, { duration: 700 }), withTiming(0, { duration: 500 })), -1);
   }, []);
   const top = useAnimatedStyle(() => ({ opacity: o.value }));
-  if (ex.noImages) return <Breath ex={ex} height={height} style={style} />;
   const [a, b] = frames(ex.id);
   return (
     <View style={[{ height, borderRadius: r.lg, backgroundColor: c.media, overflow: 'hidden' }, style]}>
@@ -146,6 +182,14 @@ export function Thumb({ ex, size = 56 }: { ex: Exercise; size?: number }) {
     return (
       <View style={{ width: size, height: size, borderRadius: 14, backgroundColor: '#251B33', alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name="pulse" size={size * 0.45} color="#BF8CFF" />
+      </View>
+    );
+  if (ex.art)
+    return <Image source={artFrames(ex.art)[0]} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.card2 }} contentFit="contain" cachePolicy="disk" transition={150} />;
+  if (ex.noPhoto)
+    return (
+      <View style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name="barbell-outline" size={size * 0.45} color={c.muted} />
       </View>
     );
   return <Image source={frames(ex.id)[0]} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.media }} contentFit="cover" cachePolicy="disk" transition={150} />;

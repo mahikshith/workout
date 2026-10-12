@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -6,7 +7,7 @@ import { dayKey, doneSets, e1rm, streak, volume } from '../../src/calc';
 import { byId, title } from '../../src/data/exercises';
 import { useStore } from '../../src/store';
 import { c } from '../../src/theme';
-import { Button, Card, Rise, Row, Screen, Stat, Stepper, T } from '../../src/ui';
+import { Button, Card, Rise, Row, Screen, Stat, Stepper, T, Tap } from '../../src/ui';
 
 const DAY = 86400000;
 
@@ -152,7 +153,10 @@ export default function Progress() {
       )}
 
       <Rise i={7}>
-        <T v="label" style={{ marginTop: 26, marginBottom: 10 }}>History</T>
+        <Row style={{ marginTop: 26, marginBottom: 10, justifyContent: 'space-between' }}>
+          <T v="label">History</T>
+          <Tap onPress={() => router.push('/history')}><T v="small" color={c.accent}>Calendar & streaks</T></Tap>
+        </Row>
         {sessions.length === 0 && <T v="body" color={c.muted}>Your finished workouts will show up here.</T>}
         <View style={{ gap: 8 }}>
           {[...sessions].reverse().slice(0, 20).map((ss) => (

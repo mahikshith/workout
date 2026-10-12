@@ -40,3 +40,5 @@ Scan the QR code with Expo Go, or press `w` for the web preview.
 ## Credits
 
 Exercise data and images: [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain).
+
+Line-art demos: [workout-guide](https://github.com/bryllim/workout-guide) by Bryl Lim, illustrations licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) (adapted from [Everkinetic](https://github.com/everkinetic/data), CC BY-SA 4.0), code MIT. Frames are loaded unmodified from jsDelivr at a pinned commit.

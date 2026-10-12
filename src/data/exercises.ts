@@ -13,6 +13,8 @@ export type Exercise = {
   steps: string[];
   timed?: { hold: number; rest: number };
   noImages?: boolean;
+  art?: string; // workout-guide slug: line-art demo frames
+  noPhoto?: boolean; // no free-exercise-db photos exist for this id
 };
 
 export const exercises = raw as Exercise[];
@@ -20,6 +22,10 @@ export const byId: Record<string, Exercise> = Object.fromEntries(exercises.map((
 
 const IMG = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 export const frames = (id: string) => [`${IMG}${id}/0.jpg`, `${IMG}${id}/1.jpg`];
+
+// Pinned commit, same as scripts/build-exercises.mjs. White line art (CC BY-SA 4.0), drawn for dark backgrounds.
+const WG = 'https://cdn.jsdelivr.net/gh/bryllim/workout-guide@aac599224bb9780305239607ef98540b7e0ce389/packages/workout-guide/assets/';
+export const artFrames = (slug: string) => [1, 2, 3].map((n) => `${WG}${slug}/frame-${n}.svg`);
 
 export const HOME_GEAR = ['dumbbell', 'bands', 'kettlebells', 'pull-up bar', 'exercise ball', 'medicine ball', 'foam roll'] as const;
 

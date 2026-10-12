@@ -35,6 +35,13 @@ export function streak(sessions: Session[], now = Date.now()) {
   return n;
 }
 
+export function bestStreak(sessions: Session[]) {
+  const days = [...new Set(sessions.map((s) => startOfDay(s.startedAt)))].sort((a, b) => a - b);
+  let best = 0, run = 0;
+  days.forEach((d, i) => { run = i && d - days[i - 1] <= 3 * DAY ? run + 1 : 1; best = Math.max(best, run); });
+  return best;
+}
+
 export const volume = (s: Session) =>
   s.items.reduce((v, it) => v + it.sets.filter((x) => x.done).reduce((a, x) => a + x.reps * (x.weight || 0), 0), 0);
 export const doneSets = (s: Session) => s.items.reduce((n, it) => n + it.sets.filter((x) => x.done).length, 0);
@@ -83,6 +90,7 @@ export function selfCheck() {
   assert(streak([day(0), day(2), day(5)]) === 3, 'rest gaps keep streak');
   assert(streak([day(0), day(5)]) === 1, 'long gap breaks streak');
   assert(streak([day(4)]) === 0, 'stale streak is zero');
+  assert(bestStreak([day(20), day(18), day(5), day(3), day(1)]) === 3, 'best streak');
   assert(Math.round(e1rm(100, 5)) === 117, 'epley');
   assert(isTimed('30s') && !isTimed('10/side') && isTimed('30s/side') && !isTimed('8-12'), 'timed parse');
 }

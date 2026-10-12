@@ -26,7 +26,7 @@ export default function Train() {
 
   return (
     <Screen>
-      <Rise><T v="display">Train</T></Rise>
+      <Rise><T v="display">Plans</T></Rise>
 
       {current && (
         <Rise i={1}>

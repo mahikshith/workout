@@ -1,34 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
-import Animated, { FadeInRight, LinearTransition } from 'react-native-reanimated';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { FadeIn, FadeInRight } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { recommend } from '../src/coach';
 import { HOME_GEAR, title } from '../src/data/exercises';
-import type { Diet } from '../src/data/foods';
 import { askPermission, reschedule } from '../src/notify';
-import { useStore, type Profile } from '../src/store';
+import { useStore, type Goal, type Profile } from '../src/store';
 import { c, f, r } from '../src/theme';
-import { Button, Chip, Row, Stepper, T, Tap } from '../src/ui';
+import { Button, Row, Stepper, T, Tap } from '../src/ui';
 
-type Opt<K extends keyof Profile> = { value: Profile[K]; label: string; sub?: string; icon: keyof typeof Ionicons.glyphMap };
-
-function Options<K extends keyof Profile>({ opts, value, onPick }: { opts: Opt<K>[]; value: Profile[K]; onPick: (v: Profile[K]) => void }) {
+// Equal-width segmented row; every segment is a full 44px tap target.
+function Seg<V extends string | number>({ opts, value, onPick }: { opts: [V, string][]; value: V; onPick: (v: V) => void }) {
   return (
-    <View style={{ gap: 12 }}>
-      {opts.map((o) => {
-        const on = o.value === value;
+    <View style={s.seg}>
+      {opts.map(([v, label]) => {
+        const on = v === value;
         return (
-          <Tap key={String(o.value)} onPress={() => onPick(o.value)} style={[s.opt, on && s.optOn]} scale={0.98}>
-            <View style={[s.optIcon, on && { backgroundColor: c.accentInk }]}>
-              <Ionicons name={o.icon} size={22} color={on ? c.accent : c.text} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <T v="h3" color={on ? c.accentInk : c.text}>{o.label}</T>
-              {o.sub && <T v="small" color={on ? '#2B3A10' : c.muted}>{o.sub}</T>}
-            </View>
-            {on && <Ionicons name="checkmark-circle" size={24} color={c.accentInk} />}
+          <Tap key={String(v)} onPress={() => onPick(v)} style={[s.segItem, on && { backgroundColor: c.accent }]} scale={0.97}>
+            <Text style={{ fontFamily: f.semi, fontSize: 15, color: on ? c.accentInk : c.text }}>{label}</Text>
           </Tap>
         );
       })}
@@ -36,177 +27,131 @@ function Options<K extends keyof Profile>({ opts, value, onPick }: { opts: Opt<K
   );
 }
 
+const AGES: [number, string][] = [[20, '16-24'], [30, '25-34'], [40, '35-44'], [50, '45-54'], [60, '55+']];
+const GOALS: { v: Goal; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { v: 'lose fat', label: 'Lose fat', icon: 'flame' },
+  { v: 'build muscle', label: 'Build muscle', icon: 'body' },
+  { v: 'get stronger', label: 'Get stronger', icon: 'barbell' },
+  { v: 'stay fit', label: 'Stay fit', icon: 'heart' },
+];
+const STEPS = 3;
+
 export default function Onboarding() {
   const ins = useSafeAreaInsets();
   const setProfile = useStore((st) => st.setProfile);
   const existing = useStore((st) => st.profile);
   const [step, setStep] = useState(0);
   const [p, setP] = useState<Profile>(existing ?? {
-    name: '', gender: 'female', age: 25, heightCm: 165, weightKg: 62, goalWeightKg: 58, goal: 'stay fit', level: 'beginner',
+    name: '', gender: 'other', age: 30, heightCm: 165, weightKg: 62, goalWeightKg: 62, goal: 'stay fit', level: 'beginner',
     place: 'gym', gear: [], daysPerWeek: 3, diet: 'vegetarian', reminder: { hour: 18, minute: 0, on: true },
   });
   const up = (patch: Partial<Profile>) => setP((x) => ({ ...x, ...patch }));
-
-  const steps: { q: string; sub?: string; ok?: boolean; body: React.ReactNode }[] = [
-    {
-      q: 'What should we call you?', sub: 'Your buddy will cheer you on by name.', ok: p.name.trim().length > 0,
-      body: (
-        <TextInput
-          autoFocus value={p.name} onChangeText={(name) => up({ name })} placeholder="Your name" placeholderTextColor={c.dim}
-          style={s.input} returnKeyType="next" onSubmitEditing={() => p.name.trim() && setStep(1)} maxLength={24}
-        />
-      ),
-    },
-    {
-      q: 'How do you identify?', sub: 'Used to tune calorie targets and suggest plans. Every plan stays open to you.',
-      body: (
-        <Options<'gender'> value={p.gender} onPick={(gender) => up({ gender })} opts={[
-          { value: 'female', label: 'Female', icon: 'female' },
-          { value: 'male', label: 'Male', icon: 'male' },
-          { value: 'other', label: 'Non-binary / prefer not to say', icon: 'person' },
-        ]} />
-      ),
-    },
-    {
-      q: 'Your body today', sub: 'No judgement. This is just the starting line.',
-      body: (
-        <View style={{ gap: 28, alignItems: 'center' }}>
-          <View style={{ alignItems: 'center', gap: 6 }}><T v="label">Age</T><Stepper big value={p.age} onChange={(age) => up({ age })} min={13} /></View>
-          <View style={{ alignItems: 'center', gap: 6 }}><T v="label">Height</T><Stepper big value={p.heightCm} onChange={(heightCm) => up({ heightCm })} min={120} suffix=" cm" /></View>
-          <View style={{ alignItems: 'center', gap: 6 }}><T v="label">Weight</T><Stepper big value={p.weightKg} step={0.5} onChange={(weightKg) => up({ weightKg, goalWeightKg: weightKg })} min={30} suffix=" kg" /></View>
-        </View>
-      ),
-    },
-    {
-      q: 'What’s the goal?', sub: 'We’ll shape your plan and your food targets around it.',
-      body: (
-        <Options<'goal'> value={p.goal} onPick={(goal) => up({ goal })} opts={[
-          { value: 'lose fat', label: 'Lose fat', sub: 'Lean out and feel lighter', icon: 'flame' },
-          { value: 'build muscle', label: 'Build muscle', sub: 'Size, shape and tone', icon: 'body' },
-          { value: 'get stronger', label: 'Get stronger', sub: 'Move heavier weight', icon: 'barbell' },
-          { value: 'stay fit', label: 'Stay fit & healthy', sub: 'Energy, mobility, longevity', icon: 'heart' },
-        ]} />
-      ),
-    },
-    {
-      q: 'Goal weight', sub: 'Optional. We’ll draw it as a line on your progress chart.',
-      body: <View style={{ alignItems: 'center' }}><Stepper big value={p.goalWeightKg} step={0.5} onChange={(goalWeightKg) => up({ goalWeightKg })} min={30} suffix=" kg" /></View>,
-    },
-    {
-      q: 'Training experience', sub: 'Be honest. We’ll progress you from there.',
-      body: (
-        <Options<'level'> value={p.level} onPick={(level) => up({ level })} opts={[
-          { value: 'beginner', label: 'New to this', sub: 'Under 6 months of training', icon: 'leaf' },
-          { value: 'intermediate', label: 'Some experience', sub: 'I know the main lifts', icon: 'trending-up' },
-          { value: 'advanced', label: 'Seasoned', sub: 'Years under the bar', icon: 'trophy' },
-        ]} />
-      ),
-    },
-    {
-      q: 'Where will you train?', sub: 'No gym today? We swap every machine for something you can do.',
-      body: (
-        <View style={{ gap: 20 }}>
-          <Options<'place'> value={p.place} onPick={(place) => up({ place })} opts={[
-            { value: 'gym', label: 'At the gym', icon: 'business' },
-            { value: 'home', label: 'At home', icon: 'home' },
-            { value: 'both', label: 'A bit of both', icon: 'swap-horizontal' },
-          ]} />
-          {p.place !== 'gym' && (
-            <View style={{ gap: 10 }}>
-              <T v="label">What do you have at home?</T>
-              <Row style={{ flexWrap: 'wrap' }} gap={8}>
-                {HOME_GEAR.map((g) => (
-                  <Chip key={g} label={title(g)} on={p.gear.includes(g)} onPress={() => up({ gear: p.gear.includes(g) ? p.gear.filter((x) => x !== g) : [...p.gear, g] })} />
-                ))}
-              </Row>
-            </View>
-          )}
-        </View>
-      ),
-    },
-    {
-      q: 'Days per week', sub: 'Pick what you can keep up on a busy week. Consistency beats intensity.',
-      body: (
-        <View style={{ gap: 20, alignItems: 'center' }}>
-          <Row gap={10}>
-            {[2, 3, 4, 5, 6].map((d) => (
-              <Tap key={d} onPress={() => up({ daysPerWeek: d })} style={[s.day, p.daysPerWeek === d && s.optOn]}>
-                <T v="num" color={p.daysPerWeek === d ? c.accentInk : c.text}>{d}</T>
-              </Tap>
-            ))}
-          </Row>
-        </View>
-      ),
-    },
-    {
-      q: 'How do you eat?', sub: 'Meal suggestions will only show food you actually eat.',
-      body: (
-        <Options<'diet'> value={p.diet} onPick={(diet) => up({ diet: diet as Diet })} opts={[
-          { value: 'vegetarian', label: 'Vegetarian', icon: 'leaf' },
-          { value: 'vegan', label: 'Vegan', icon: 'flower' },
-          { value: 'eggetarian', label: 'Eggetarian', sub: 'Vegetarian plus eggs', icon: 'egg' },
-          { value: 'pescatarian', label: 'Pescatarian', sub: 'Vegetarian plus fish', icon: 'fish' },
-          { value: 'non-veg', label: 'Non-vegetarian', icon: 'restaurant' },
-        ]} />
-      ),
-    },
-    {
-      q: 'When should we nudge you?', sub: 'A daily reminder at your training time, plus a heads-up if your streak is at risk.',
-      body: (
-        <View style={{ alignItems: 'center', gap: 20 }}>
-          <Stepper big value={p.reminder.hour} onChange={(h) => up({ reminder: { ...p.reminder, hour: (h + 24) % 24 } })} suffix=":00" />
-          <Row gap={8}>
-            {[[6, 'Early'], [12, 'Lunch'], [18, 'Evening'], [20, 'Night']].map(([h, l]) => (
-              <Chip key={l} label={String(l)} on={p.reminder.hour === h} onPress={() => up({ reminder: { ...p.reminder, hour: h as number } })} />
-            ))}
-          </Row>
-        </View>
-      ),
-    },
-  ];
-
-  const last = step === steps.length - 1;
-  const cur = steps[step];
-  const frac = (step + 1) / steps.length;
+  const named = p.name.trim().length > 0;
+  const last = step === STEPS - 1;
+  const ageOn = AGES.find(([a]) => p.age < a + 5)?.[0] ?? 60;
 
   async function done() {
-    const plan = recommend(p);
-    setProfile({ ...p, name: p.name.trim() }, existing ? undefined : plan);
+    const final = { ...p, name: p.name.trim(), goalWeightKg: existing ? p.goalWeightKg : p.weightKg };
+    const plan = recommend(final);
+    setProfile(final, existing ? undefined : plan);
     if (await askPermission()) reschedule(useStore.getState().profile, useStore.getState().sessions);
     router.replace(existing ? '/you' : { pathname: '/plan/[id]', params: { id: plan, welcome: '1' } });
   }
 
+  const body = [
+    <>
+      <T v="label" color={c.accent}>Gym Buddy</T>
+      <T v="h1">Hey, what should we call you?</T>
+      <TextInput
+        autoFocus value={p.name} onChangeText={(name) => up({ name })} placeholder="Your name" placeholderTextColor={c.dim}
+        style={s.input} returnKeyType="done" maxLength={24} autoCapitalize="words"
+      />
+      <T v="label" style={s.label}>Gender</T>
+      <Seg<Profile['gender']> value={p.gender} onPick={(gender) => up({ gender })} opts={[['female', 'Female'], ['male', 'Male'], ['other', 'Other']]} />
+      <T v="label" style={s.label}>Age</T>
+      <Seg<number> value={ageOn} onPick={(age) => up({ age })} opts={AGES} />
+    </>,
+    <>
+      <T v="h1">What are you here for?</T>
+      <View style={s.grid}>
+        {GOALS.map((g) => {
+          const on = p.goal === g.v;
+          return (
+            <Tap key={g.v} onPress={() => up({ goal: g.v })} style={[s.tile, on && s.on]} scale={0.97}>
+              <Ionicons name={g.icon} size={26} color={on ? c.accentInk : c.accent} />
+              <T v="h3" color={on ? c.accentInk : c.text}>{g.label}</T>
+            </Tap>
+          );
+        })}
+      </View>
+      <T v="label" style={s.label}>Where do you train?</T>
+      <Seg<Profile['place']> value={p.place} onPick={(place) => up({ place })} opts={[['gym', 'Gym'], ['home', 'Home'], ['both', 'Both']]} />
+      {p.place !== 'gym' && (
+        <Animated.View entering={FadeIn.duration(220)}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 4 }}>
+            {HOME_GEAR.map((g) => {
+              const on = p.gear.includes(g);
+              return (
+                <Tap key={g} onPress={() => up({ gear: on ? p.gear.filter((x) => x !== g) : [...p.gear, g] })} style={[s.pill, on && s.on]}>
+                  <Text style={{ fontFamily: f.semi, fontSize: 14, color: on ? c.accentInk : c.text }}>{title(g)}</Text>
+                </Tap>
+              );
+            })}
+          </ScrollView>
+        </Animated.View>
+      )}
+    </>,
+    <>
+      <T v="h1">Your numbers</T>
+      <View style={s.num}><T v="label">Height</T><Stepper big value={p.heightCm} onChange={(heightCm) => up({ heightCm })} min={120} suffix=" cm" /></View>
+      <View style={s.num}><T v="label">Weight</T><Stepper big value={p.weightKg} step={0.5} onChange={(weightKg) => up({ weightKg })} min={30} suffix=" kg" /></View>
+      <T v="label" style={s.label}>Days per week</T>
+      <Seg<number> value={p.daysPerWeek} onPick={(daysPerWeek) => up({ daysPerWeek })} opts={[2, 3, 4, 5, 6].map((d): [number, string] => [d, String(d)])} />
+      <T v="small" style={{ marginTop: 12 }}>Diet, reminders and more can be changed anytime in You.</T>
+    </>,
+  ];
+
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bg, paddingTop: ins.top + 12, paddingBottom: ins.bottom + 16 }}>
-      <Row style={{ paddingHorizontal: 20 }}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bg, paddingTop: ins.top + 8, paddingBottom: ins.bottom + 16 }}>
+      <Row style={{ paddingHorizontal: 12 }} gap={8}>
         {step > 0 ? (
-          <Tap onPress={() => setStep(step - 1)} style={s.back}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
-        ) : <View style={s.back} />}
-        <View style={s.track}><Animated.View layout={LinearTransition.springify().damping(20)} style={[s.fill, { width: `${frac * 100}%` }]} /></View>
-        <T v="small" style={{ width: 40, textAlign: 'right' }}>{step + 1}/{steps.length}</T>
+          <Tap onPress={() => setStep(step - 1)} style={s.hdrBtn}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
+        ) : <View style={s.hdrBtn} />}
+        <Row style={{ flex: 1 }} gap={6}>
+          {Array.from({ length: STEPS }, (_, i) => (
+            <View key={i} style={s.pillTrack}>
+              {i <= step && <Animated.View entering={FadeIn.duration(280)} style={s.pillFill} />}
+            </View>
+          ))}
+        </Row>
+        <Tap onPress={done} disabled={!named} style={s.hdrBtn} feedback="none">
+          <T v="small" color={c.muted}>Skip</T>
+        </Tap>
       </Row>
-      <Animated.ScrollView key={step} entering={FadeInRight.springify().damping(20)}
-        contentContainerStyle={{ padding: 20, paddingTop: 36, gap: 10 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        {step === 0 && <T v="label" color={c.accent}>Gym Buddy</T>}
-        <T v="h1">{cur.q}</T>
-        {cur.sub && <T v="body" color={c.muted} style={{ marginBottom: 20 }}>{cur.sub}</T>}
-        {cur.body}
-      </Animated.ScrollView>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <Animated.View key={step} entering={FadeInRight.duration(280)} style={{ gap: 10 }}>
+          {body[step]}
+        </Animated.View>
+      </ScrollView>
       <View style={{ paddingHorizontal: 20 }}>
         <Button title={last ? 'Build my plan' : 'Continue'} icon={last ? 'sparkles' : 'arrow-forward'}
-          disabled={cur.ok === false} onPress={() => (last ? done() : setStep(step + 1))} />
+          disabled={!named} onPress={() => (last ? done() : setStep(step + 1))} />
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const s = StyleSheet.create({
-  input: { fontFamily: f.display, fontSize: 40, color: c.text, borderBottomWidth: 2, borderColor: c.accent, paddingVertical: 8 },
-  opt: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
-  optOn: { backgroundColor: c.accent, borderColor: c.accent },
-  optIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
-  back: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  track: { flex: 1, height: 6, borderRadius: 3, backgroundColor: c.card2, overflow: 'hidden' },
-  fill: { height: 6, borderRadius: 3, backgroundColor: c.accent },
-  day: { width: 56, height: 72, borderRadius: 18, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' },
+  input: { fontFamily: f.display, fontSize: 36, color: c.text, borderBottomWidth: 2, borderColor: c.accent, paddingVertical: 6, marginBottom: 8 },
+  label: { marginTop: 10 },
+  seg: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  segItem: { flex: 1, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
+  tile: { width: '48%', flexGrow: 1, height: 92, padding: 14, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, justifyContent: 'space-between' },
+  on: { backgroundColor: c.accent, borderColor: c.accent },
+  pill: { paddingHorizontal: 16, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
+  num: { alignItems: 'center', gap: 4, marginTop: 6 },
+  hdrBtn: { minWidth: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  pillTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: c.card2, overflow: 'hidden' },
+  pillFill: { ...StyleSheet.absoluteFillObject, borderRadius: 3, backgroundColor: c.accent },
 });

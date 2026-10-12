@@ -44,7 +44,7 @@ export default function ExerciseDetail() {
         {best.e1rm > 0 && <T v="small" color={c.accent} style={{ marginTop: 10 }}>Your best: {Math.round(best.e1rm)} kg estimated 1RM</T>}
       </Rise>
 
-      <Rise i={2}>
+      {ex.steps.length > 0 && <Rise i={2}>
         <T v="label" style={{ marginTop: 26, marginBottom: 10 }}>How to do it</T>
         <Card style={{ gap: 14 }}>
           {ex.steps.map((step, i) => (
@@ -54,7 +54,7 @@ export default function ExerciseDetail() {
             </Row>
           ))}
         </Card>
-      </Rise>
+      </Rise>}
 
       {[{ label: 'No machine? Gym alternatives', list: gym }, { label: 'At home instead', list: home }].map(({ label, list }, k) =>
         list.length ? (
@@ -80,7 +80,11 @@ export default function ExerciseDetail() {
         <Button title="Train this now" icon="play" style={{ marginTop: 28 }}
           onPress={() => { startSingle(ex.id, profile?.place === 'home' ? 'home' : 'gym'); router.push('/session'); }} />
       )}
-      <T v="small" color={c.dim} style={{ marginTop: 20, textAlign: 'center' }}>Images: free-exercise-db (public domain)</T>
+      {(ex.art || !(ex.noImages || ex.noPhoto)) && (
+        <T v="small" color={c.dim} style={{ marginTop: 20, textAlign: 'center' }}>
+          {ex.art ? 'Illustrations: workout-guide by Bryl Lim (CC BY-SA 4.0), based on Everkinetic' : 'Images: free-exercise-db (public domain)'}
+        </T>
+      )}
     </Screen>
   );
 }

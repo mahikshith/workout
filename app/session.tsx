@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import { useEffect, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { Easing, FadeIn, FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fmtTime, isTimed, lastSets } from '../src/calc';
 import { alternatives, byId, title } from '../src/data/exercises';
 import { reschedule, restAlert } from '../src/notify';
+import { Sheet } from '../src/sheet';
 import { useStore } from '../src/store';
 import { c, f, r } from '../src/theme';
 import { Button, Demo, haptic, Ring, Row, Stepper, T, Tap, Thumb } from '../src/ui';
@@ -27,6 +28,9 @@ export default function SessionScreen() {
   const [restUntil, setRestUntil] = useState<number | null>(null); // absolute deadline survives backgrounding
   const [restTotal, setRestTotal] = useState(90);
   const [sheet, setSheet] = useState<'swap' | 'end' | null>(null);
+  const last = useRef(sheet);
+  if (sheet) last.current = sheet;
+  const kind = last.current; // keeps sheet content on screen while it slides away
   const now = useNow(restUntil ? 250 : 1000);
 
   const resting = restUntil && restUntil > now;
@@ -67,11 +71,11 @@ export default function SessionScreen() {
     <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: ins.top + 8 }}>
       <Row style={{ paddingHorizontal: 20, justifyContent: 'space-between' }}>
         <Tap onPress={() => setSheet('end')} style={s.icon}><Ionicons name="close" size={22} color={c.text} /></Tap>
-        <View style={{ alignItems: 'center' }}>
-          <Row gap={6}><View style={s.live} /><T v="label" color={c.text}>{active.title}</T></Row>
+        <View style={{ alignItems: 'center', flex: 1 }}>
+          <Row gap={6}><View style={s.live} /><T v="label" color={c.text} numberOfLines={1} style={{ flexShrink: 1 }}>{active.title}</T></Row>
           <T style={{ fontFamily: f.display, fontSize: 20 }}>{fmtTime(Math.floor((now - active.startedAt) / 1000))}</T>
         </View>
-        <Tap onPress={() => setSheet('end')} style={[s.icon, { backgroundColor: c.accent, width: 72 }]}><T v="h3" color={c.accentInk}>Finish</T></Tap>
+        <Tap onPress={() => setSheet('end')} style={s.finish}><T v="h3" color={c.accentInk} numberOfLines={1}>Finish</T></Tap>
       </Row>
 
       <Row style={{ paddingHorizontal: 20, marginTop: 14 }} gap={4}>
@@ -88,7 +92,7 @@ export default function SessionScreen() {
       </Row>
 
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 200 }} showsVerticalScrollIndicator={false}>
-        <Animated.View key={it.exId + idx} entering={FadeInDown.springify().damping(18)}>
+        <Animated.View key={it.exId + idx} entering={FadeInDown.duration(300)}>
           <T v="label">Exercise {idx + 1} of {active.items.length} · {title(ex.primary[0])}</T>
           <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 4 }}>
             <T v="h1" style={{ flex: 1 }}>{ex.name}</T>
@@ -136,7 +140,7 @@ export default function SessionScreen() {
 
       <View style={[s.bottom, { paddingBottom: ins.bottom + 12 }]}>
         {resting ? (
-          <Animated.View entering={SlideInDown.springify().damping(18)} exiting={SlideOutDown} style={s.rest}>
+          <Animated.View entering={FadeInDown.duration(320).easing(Easing.bezier(0.32, 0.72, 0, 1))} exiting={FadeOutDown.duration(200)} style={s.rest}>
             <Ring size={84} stroke={8} progress={(restUntil! - now) / (restTotal * 1000)} color={c.warm}>
               <T style={{ fontFamily: f.display, fontSize: 22 }}>{fmtTime(Math.ceil((restUntil! - now) / 1000))}</T>
             </Ring>
@@ -166,10 +170,8 @@ export default function SessionScreen() {
         )}
       </View>
 
-      <Modal transparent visible={!!sheet} animationType="fade" onRequestClose={() => setSheet(null)}>
-        <Tap onPress={() => setSheet(null)} style={s.scrim} scale={1} feedback="none"><View /></Tap>
-        <Animated.View entering={SlideInDown.springify().damping(20)} exiting={FadeOut} style={[s.sheet, { paddingBottom: ins.bottom + 20 }]}>
-          {sheet === 'end' && (
+      <Sheet open={!!sheet} onClose={() => setSheet(null)}>
+          {kind === 'end' && (
             <View style={{ gap: 12 }}>
               <T v="h1">End workout?</T>
               <T v="body" color={c.muted}>{done ? `${done} sets logged. Finish to save them and see your summary.` : 'No sets logged yet.'}</T>
@@ -178,7 +180,7 @@ export default function SessionScreen() {
               <Button title="Discard workout" kind="danger" onPress={() => { discard(); setSheet(null); router.back(); }} />
             </View>
           )}
-          {sheet === 'swap' && profile && (
+          {kind === 'swap' && profile && (
             <View style={{ gap: 10 }}>
               <T v="h2">Swap {ex.name}</T>
               <T v="small">Best matches for the same muscles, {active.place === 'home' ? 'using what you have at home' : 'at the gym'}.</T>
@@ -196,13 +198,13 @@ export default function SessionScreen() {
               </ScrollView>
             </View>
           )}
-        </Animated.View>
-      </Modal>
+      </Sheet>
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  finish: { height: 40, minWidth: 88, paddingHorizontal: 18, borderRadius: 20, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   live: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.danger },
   seg: { height: 4, borderRadius: 2, backgroundColor: c.card2, overflow: 'hidden' },
@@ -215,7 +217,5 @@ const s = StyleSheet.create({
   nav: { height: 56, width: 56, borderRadius: 28, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   rest: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#1F140C', borderRadius: r.lg, padding: 14 },
   restBtn: { flex: 1, height: 44, borderRadius: 22, backgroundColor: '#3A2614', alignItems: 'center', justifyContent: 'center' },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
-  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: c.card, borderTopLeftRadius: r.xl, borderTopRightRadius: r.xl, padding: 22, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   alt: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.md, backgroundColor: c.card2 },
 });

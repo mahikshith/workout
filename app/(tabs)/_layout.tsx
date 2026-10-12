@@ -9,10 +9,10 @@ import { c, f } from '../../src/theme';
 
 const TABS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
   index: { label: 'Today', icon: 'flash' },
-  train: { label: 'Train', icon: 'barbell' },
+  exercises: { label: 'Exercises', icon: 'body' },
+  train: { label: 'Plans', icon: 'barbell' },
   progress: { label: 'Progress', icon: 'stats-chart' },
   fuel: { label: 'Fuel', icon: 'nutrition' },
-  you: { label: 'You', icon: 'person' },
 };
 
 function Bar({ state, navigation }: BottomTabBarProps) {
@@ -40,6 +40,7 @@ export default function TabsLayout() {
   return (
     <Tabs tabBar={(p) => <Bar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: c.bg }, animation: 'shift' }}>
       <Tabs.Screen name="index" />
+      <Tabs.Screen name="exercises" />
       <Tabs.Screen name="train" />
       <Tabs.Screen name="progress" />
       <Tabs.Screen name="fuel" />
