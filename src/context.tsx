@@ -7,14 +7,21 @@ import { c, f } from './theme';
 import { Row, Stepper, T, Tap } from './ui';
 
 const DAY = 86400000;
-const CONCERNS: [Concern, string][] = [
-  ['stressed', 'Stressed or low'], ['breakup', 'Going through a breakup'], ['lose-weight', 'Want to lose weight'],
-  ['tone', 'Want to feel firmer and toned'], ['food', 'Complicated relationship with food'], ['desk', 'Desk job'],
-  ['back', 'Back pain'], ['knee', 'Knee pain'], ['thyroid', 'Thyroid condition'],
+type Opt<K> = [K, string, keyof typeof Ionicons.glyphMap];
+const LIFE: Opt<Lifestyle>[] = [
+  ['desk', 'Desk job', 'desktop'], ['wfh', 'Work from home', 'laptop'], ['standing', 'On my feet all day', 'walk'],
+  ['active', 'Physical job', 'hammer'], ['home', 'Home and chores', 'home'], ['parent', 'Parent or carer', 'people'],
+  ['driving', 'Drive a lot', 'car'], ['travel', 'Travel a lot', 'airplane'], ['shift', 'Shift or night work', 'moon'],
+  ['student', 'Student', 'school'], ['retired', 'Retired', 'sunny'],
 ];
-const LIFE: [Lifestyle, string][] = [
-  ['desk', 'Sit at a desk'], ['standing', 'On my feet all day'], ['active', 'Physical job'], ['home', 'Home and chores'],
-  ['driving', 'Drive a lot'], ['student', 'Student'],
+const CONCERNS: Opt<Concern>[] = [
+  ['stressed', 'Stressed or low', 'cloudy'], ['anxious', 'Anxious or overthinking', 'pulse'], ['anger', 'Anger to burn off', 'flame'],
+  ['calm', 'Want to calm down', 'leaf'], ['sleep', 'Want better sleep', 'bed'], ['breakup', 'Going through a breakup', 'heart-dislike'],
+  ['confidence', 'Want more confidence', 'star'], ['lose-weight', 'Lose weight', 'trending-down'], ['gain', 'Gain weight', 'trending-up'],
+  ['tone', 'Firmer and toned', 'body'], ['endurance', 'Build endurance', 'infinite'], ['run', 'Run more', 'walk'],
+  ['posture', 'Better posture', 'accessibility'], ['flexibility', 'More flexible', 'git-merge'], ['injury', 'Back from injury', 'bandage'],
+  ['back', 'Back pain', 'warning'], ['knee', 'Knee pain', 'warning'], ['thyroid', 'Thyroid condition', 'medkit'],
+  ['food', 'Hard relationship with food', 'restaurant'],
 ];
 const MODES: [Women['mode'], string][] = [['none', 'None'], ['cycle', 'Track my cycle'], ['pregnant', 'Pregnant'], ['postpartum', 'Had a baby']];
 const AGO: [number, string][] = [[0, 'Today'], [1, 'Yesterday'], [3, '3 days ago'], [7, '1 week ago'], [14, '2 weeks ago'], [21, '3 weeks ago']];
@@ -27,6 +34,24 @@ function Pill({ label, on, onPress, icon }: { label: string; on: boolean; onPres
       {on && <Ionicons name={icon ?? 'checkmark'} size={16} color={c.accentInk} />}
       <Text style={{ fontFamily: f.semi, fontSize: 14, color: on ? c.accentInk : c.text }}>{label}</Text>
     </Tap>
+  );
+}
+
+export function Tiles<K extends string>({ opts, on, onPick }: { opts: Opt<K>[]; on: (k: K) => boolean; onPick: (k: K) => void }) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {opts.map(([k, label, icon]) => {
+        const sel = on(k);
+        return (
+          <Tap key={k} onPress={() => onPick(k)} scale={0.97}
+            style={{ width: '48%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, minHeight: 48, borderRadius: 14,
+              borderWidth: 1, backgroundColor: sel ? c.accent : c.card2, borderColor: sel ? c.accent : c.line }}>
+            <Ionicons name={icon} size={16} color={sel ? c.accentInk : c.accent} />
+            <Text numberOfLines={2} style={{ flex: 1, fontFamily: f.semi, fontSize: 14, color: sel ? c.accentInk : c.text }}>{label}</Text>
+          </Tap>
+        );
+      })}
+    </View>
   );
 }
 
@@ -43,24 +68,20 @@ export function ContextFields({ p, up }: { p: Profile; up: (patch: Partial<Profi
 
   return (
     <View style={{ gap: 10 }}>
-      <T v="label">What does a normal day look like?</T>
-      <Row style={{ flexWrap: 'wrap' }} gap={8}>
-        {LIFE.map(([k, label]) => <Pill key={k} label={label} on={p.lifestyle === k} onPress={() => up({ lifestyle: p.lifestyle === k ? undefined : k })} />)}
-      </Row>
-      <T v="small">We suggest 2 to 15 minute sessions that fit your day: desk, eye and Kegel breaks for sitters, recovery for people on their feet.</T>
+      <T v="h3">What does a normal day look like?</T>
+      <Tiles<Lifestyle> opts={LIFE} on={(k) => p.lifestyle === k} onPick={(k) => up({ lifestyle: p.lifestyle === k ? undefined : k })} />
+      <T v="small">We suggest 2 to 15 minute sessions that fit your day: desk, eye and Kegel breaks for sitters, recovery for people on their feet, hotel-room workouts for travellers.</T>
 
-      <T v="label" style={{ marginTop: 14 }}>What's going on for you right now?</T>
+      <T v="h3" style={{ marginTop: 14 }}>What's going on for you right now?</T>
       <T v="small">Optional. It helps us be kinder and safer. It stays on your phone.</T>
-      <Row style={{ flexWrap: 'wrap' }} gap={8}>
-        {CONCERNS.map(([k, label]) => <Pill key={k} label={label} on={concerns.includes(k)} onPress={() => toggle(k)} />)}
-      </Row>
+      <Tiles<Concern> opts={CONCERNS} on={(k) => concerns.includes(k)} onPick={toggle} />
       {concerns.includes('food') && (
         <T v="small" color={c.text}>We'll hide calories, weight and BMI, and focus on regular meals and feeling strong.</T>
       )}
 
       {p.gender === 'female' && (
         <>
-          <T v="label" style={{ marginTop: 14 }}>Women's health</T>
+          <T v="h3" style={{ marginTop: 14 }}>Women's health</T>
           <Row style={{ flexWrap: 'wrap' }} gap={8}>
             {MODES.map(([m, label]) => <Pill key={m} label={label} on={w.mode === m} onPress={() => setW({ mode: m })} />)}
           </Row>

@@ -11,6 +11,8 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { artFrames, frames, type Exercise } from './data/exercises';
+import { POSES, hasPose } from './data/poses';
+import { Figure } from './figure';
 import videos from './data/videos.json';
 import { useStore, type MediaPref } from './store';
 import { c, f, r } from './theme';
@@ -56,7 +58,8 @@ const tv: Record<V, object> = {
   num: { fontFamily: f.display, fontSize: 28, lineHeight: 34 },
 };
 export function T({ v = 'body', color, style, ...p }: TextProps & { v?: V; color?: string }) {
-  const def = v === 'small' || v === 'label' ? c.muted : c.text;
+  // Small print is grey; tags and labels are a lighter grey so they stay readable on dark cards.
+  const def = v === 'small' ? c.muted : v === 'label' ? '#B4B4BA' : c.text;
   return <Text {...p} style={[tv[v], { color: color ?? def }, style]} />;
 }
 
@@ -128,9 +131,9 @@ export function Ring({ size = 120, stroke = 10, progress, color = c.accent, trac
 }
 
 const VIDEOS: Record<string, { url: string; author: string }> = videos;
-const KINDS: { k: MediaPref; label: string }[] = [{ k: 'drawing', label: 'Drawing' }, { k: 'photo', label: 'Photo' }, { k: 'video', label: 'Video' }];
+const KINDS: { k: MediaPref; label: string }[] = [{ k: 'animated', label: 'Animated' }, { k: 'drawing', label: 'Drawing' }, { k: 'photo', label: 'Photo' }, { k: 'video', label: 'Video' }];
 export const mediaKinds = (ex: Exercise) =>
-  KINDS.filter(({ k }) => (k === 'drawing' ? !!ex.art : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
+  KINDS.filter(({ k }) => (k === 'animated' ? hasPose(ex.id) : k === 'drawing' ? !!ex.art : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
 const CREDIT = { drawing: 'Drawing: workout-guide by Bryl Lim, CC BY-SA 4.0, based on Everkinetic', photo: 'Photo: free-exercise-db, public domain' };
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 
@@ -150,7 +153,11 @@ export function Demo({ ex, height = 240, style, credit }: { ex: Exercise; height
       <View style={{ height, borderRadius: r.lg, backgroundColor: c.card2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
         {!kind ? <Ionicons name="barbell-outline" size={height * 0.3} color={c.muted} /> : shown.map((k) => (
           <Animated.View key={ex.id + k} entering={k === kind && shown.length > 1 ? FadeIn.duration(200).easing(EASE) : undefined} style={StyleSheet.absoluteFill}>
-            {k === 'video' ? <Clip uri={VIDEOS[ex.id].url} /> : <Loop uris={k === 'drawing' ? artFrames(ex.art!) : frames(ex.id)} solid={k === 'photo'} />}
+            {k === 'animated' ? (
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2 }]}>
+                <Figure pose={POSES[ex.id]} primary={ex.primary} secondary={ex.secondary} height={height} />
+              </View>
+            ) : k === 'video' ? <Clip uri={VIDEOS[ex.id].url} /> : <Loop uris={k === 'drawing' ? artFrames(ex.art!) : frames(ex.id)} solid={k === 'photo'} />}
           </Animated.View>
         ))}
         {kinds.length > 1 && (
@@ -165,7 +172,7 @@ export function Demo({ ex, height = 240, style, credit }: { ex: Exercise; height
           </View>
         )}
       </View>
-      {credit && kind && (
+      {credit && kind && kind !== 'animated' && (
         <T v="small" color={c.dim} style={{ marginTop: 8, textAlign: 'center' }}>
           {kind === 'video' ? `Video: ${VIDEOS[ex.id].author}, wger.de, CC BY-SA 4.0` : CREDIT[kind]}
         </T>

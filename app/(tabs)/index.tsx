@@ -32,7 +32,7 @@ export default function Today() {
   const { profile, sessions, active, meals, checkins, start, checkIn, dismiss, setupSkipped } = st;
   const [editMood, setEditMood] = useState(false);
   const [spin, setSpin] = useState(0);
-  const [place, setPlace] = useState<Spot>(profile.place === 'home' ? 'home' : 'gym');
+  const [place, setPlace] = useState<Spot>(profile.place === 'home' || profile.place === 'office' ? profile.place : 'gym');
   const [notifOff, setNotifOff] = useState(false);
   useEffect(() => { if (Platform.OS !== 'web') hasPermission().then((ok) => setNotifOff(!ok)); }, []);
 
@@ -86,18 +86,33 @@ export default function Today() {
             </Tap>
           </Row>
         </Row>
-        <Row style={{ justifyContent: 'space-between', marginTop: 16 }} gap={6}>
-          {WEEK.map((w, i) => {
-            const d = new Date(monday); d.setDate(monday.getDate() + i);
-            const k = dayKey(d), did = trained.has(k), now = k === today;
-            return (
-              <View key={i} style={[s.wd, now && { borderWidth: 1.5, borderColor: c.text }, did && { backgroundColor: c.accent }]}>
-                <T v="label" color={did ? c.accentInk : now ? c.text : c.muted}>{w}</T>
-                <T v="h3" color={did ? c.accentInk : c.text}>{d.getDate()}</T>
-              </View>
-            );
-          })}
-        </Row>
+        {/* Your week at a glance: a filled day means you trained; the dots show water and food goals met. Tap for history. */}
+        <Tap onPress={() => router.push('/history')} scale={0.99} feedback="none">
+          <Row style={{ justifyContent: 'space-between', marginTop: 16 }} gap={6}>
+            {WEEK.map((w, i) => {
+              const d = new Date(monday); d.setDate(monday.getDate() + i);
+              const k = dayKey(d), did = trained.has(k), now = k === today;
+              const dayMeals = meals.filter((m) => m.day === k);
+              const ate = gentle ? dayMeals.length >= 3 : dayMeals.reduce((a, m) => a + m.protein, 0) >= t.protein * 0.9;
+              const drank = (st.water[k] ?? 0) >= t.water;
+              return (
+                <View key={i} style={[s.wd, now && { borderWidth: 1.5, borderColor: c.text }, did && { backgroundColor: c.accent }]}>
+                  <T v="label" color={did ? c.accentInk : now ? c.text : c.muted}>{w}</T>
+                  <T v="h3" color={did ? c.accentInk : c.text}>{d.getDate()}</T>
+                  <Row gap={3}>
+                    <View style={[s.dot, { backgroundColor: drank ? c.blue : did ? 'rgba(0,0,0,0.2)' : c.line }]} />
+                    <View style={[s.dot, { backgroundColor: ate ? c.pink : did ? 'rgba(0,0,0,0.2)' : c.line }]} />
+                  </Row>
+                </View>
+              );
+            })}
+          </Row>
+          <Row style={{ marginTop: 8, justifyContent: 'center' }} gap={12}>
+            <Row gap={4}><View style={[s.dot, { backgroundColor: c.accent }]} /><T v="small">Trained</T></Row>
+            <Row gap={4}><View style={[s.dot, { backgroundColor: c.blue }]} /><T v="small">Water goal</T></Row>
+            <Row gap={4}><View style={[s.dot, { backgroundColor: c.pink }]} /><T v="small">{gentle ? '3 meals' : 'Protein goal'}</T></Row>
+          </Row>
+        </Tap>
       </Rise>
 
       {!profile.name && setupSkipped && (
@@ -259,7 +274,7 @@ export default function Today() {
       )}
 
       <Rise i={7}>
-        <T v="label" style={{ marginTop: 26, marginBottom: 12 }}>Quick sessions</T>
+        <T v="h3" style={{ marginTop: 26, marginBottom: 12 }}>Quick sessions</T>
         <View style={s.grid}>
           {qs.map((q) => (
             <Tap key={q.id} onPress={() => (active ? router.push('/session') : go(asDay(q), q.where.includes('gym') ? 'gym' : 'home'))} style={s.block} scale={0.97}>
@@ -273,7 +288,7 @@ export default function Today() {
 
       <Rise i={8}>
         <Row style={{ marginTop: 26, marginBottom: 12, justifyContent: 'space-between' }}>
-          <T v="label">No equipment needed</T>
+          <T v="h3">No equipment needed</T>
           <Tap onPress={() => router.push({ pathname: '/exercises', params: { equip: 'none' } })}><T v="small" color={c.accent}>See all</T></Tap>
         </Row>
         <View style={s.grid}>
@@ -309,7 +324,8 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.card2, paddingHorizontal: 14, height: 40, borderRadius: 20, borderWidth: 1, borderColor: c.line },
   avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  wd: { flex: 1, height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: c.card },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  wd: { flex: 1, height: 64, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: c.card },
   quote: { marginTop: 18, flexDirection: 'row', gap: 14, paddingVertical: 4 },
   quoteBar: { width: 3, borderRadius: 2 },
   mood: { flex: 1, height: 68, borderRadius: r.md, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center', gap: 6 },

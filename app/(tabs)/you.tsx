@@ -3,14 +3,14 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 import { targets } from '../../src/calc';
-import { ContextFields } from '../../src/context';
+import { ContextFields, Tiles } from '../../src/context';
 import { HOME_GEAR, title } from '../../src/data/exercises';
 import { UNLOCK } from '../../src/engine';
 import { useStore, type Profile } from '../../src/store';
 import { ACCENTS, c, type AccentId } from '../../src/theme';
 import { Button, Card, Chip, Rise, Row, Screen, T, Tap } from '../../src/ui';
 
-const LEVELS: [Profile['level'], string][] = [['beginner', 'New'], ['intermediate', 'Some experience'], ['advanced', 'Seasoned']];
+const LEVELS: [Profile['level'], string, keyof typeof Ionicons.glyphMap][] = [['beginner', 'New to training', 'leaf'], ['intermediate', 'Some experience', 'trending-up'], ['advanced', 'Seasoned', 'trophy']];
 
 export default function You() {
   const profile = useStore((s) => s.profile);
@@ -27,7 +27,7 @@ export default function You() {
     <Screen>
       <Row style={{ justifyContent: 'space-between' }}>
         <Tap onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={s.icon}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
-        <T v="label">Profile</T>
+        <T v="h2">Profile</T>
         <View style={{ width: 40 }} />
       </Row>
 
@@ -66,12 +66,21 @@ export default function You() {
         </Tap>
       </Rise>
 
+      <Rise i={2}>
+        <Tap onPress={() => router.push('/etiquette')} style={[s.row, { marginTop: 10 }]} scale={0.98}>
+          <View style={[s.rowIcon, { backgroundColor: c.accent + '22' }]}><Ionicons name="people" size={18} color={c.accent} /></View>
+          <View style={{ flex: 1 }}>
+            <T v="h3">Gym etiquette</T>
+            <T v="small" numberOfLines={1}>The unwritten rules, so first visits feel easy</T>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={c.muted} />
+        </Tap>
+      </Rise>
+
       <Rise i={3}>
         <Card style={{ marginTop: 14, gap: 12 }}>
-          <T v="label">Training experience</T>
-          <Row style={{ flexWrap: 'wrap' }} gap={8}>
-            {LEVELS.map(([v, label]) => <Chip key={v} label={label} on={profile.level === v} onPress={() => save({ level: v })} />)}
-          </Row>
+          <T v="h2">Training experience</T>
+          <Tiles<Profile['level']> opts={LEVELS} on={(v) => profile.level === v} onPick={(level) => save({ level })} />
           <T v="small">
             {profile.level === 'beginner'
               ? `Harder moves unlock after ${UNLOCK.intermediate} sessions, expert ones after ${UNLOCK.expert}. It keeps the first weeks fun instead of painful.`
@@ -96,7 +105,7 @@ export default function You() {
 
       <Rise i={5}>
         <Card style={{ marginTop: 14, gap: 12 }}>
-          <T v="label">Accent colour</T>
+          <T v="h2">Accent colour</T>
           <Row style={{ flexWrap: 'wrap' }} gap={14}>
             {(Object.keys(ACCENTS) as AccentId[]).map((id) => {
               const on = (profile.accent ?? 'lime') === id;
@@ -115,11 +124,11 @@ export default function You() {
 
       <Rise i={6}>
         <Card style={{ marginTop: 14, gap: 14 }}>
-          <T v="label">Where you train</T>
+          <T v="h2">Where you train</T>
           <Row gap={8}>
-            {(['gym', 'home', 'both'] as const).map((p) => <Chip key={p} label={title(p)} on={profile.place === p} onPress={() => save({ place: p })} />)}
+            {(['gym', 'home', 'both', 'office'] as const).map((p) => <Chip key={p} label={title(p)} on={profile.place === p} onPress={() => save({ place: p })} />)}
           </Row>
-          <T v="label" style={{ marginTop: 6 }}>Home equipment</T>
+          <T v="h3" style={{ marginTop: 6 }}>Home equipment</T>
           <Row style={{ flexWrap: 'wrap' }} gap={8}>
             {HOME_GEAR.map((g) => (
               <Chip key={g} label={title(g)} on={profile.gear.includes(g)} color={c.blue}
@@ -131,7 +140,7 @@ export default function You() {
 
       <Rise i={7}>
         <Card style={{ marginTop: 14, gap: 8 }}>
-          <T v="label">Coming soon</T>
+          <T v="h2">Coming soon</T>
           <Row style={{ alignItems: 'flex-start' }}><Ionicons name="images" size={18} color={c.pink} /><T v="body" style={{ flex: 1 }}>Gym edits: turn your photos into share-ready posts with templates</T></Row>
           <Row style={{ alignItems: 'flex-start' }}><Ionicons name="leaf" size={18} color={c.ok} /><T v="body" style={{ flex: 1 }}>Yoga and guided meditation</T></Row>
         </Card>

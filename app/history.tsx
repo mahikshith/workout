@@ -80,7 +80,7 @@ export default function History() {
         </Card>
       </Rise>
 
-      <T v="label" style={{ marginTop: 22, marginBottom: 10 }}>{new Date(day + 'T12:00:00').toDateString()}</T>
+      <T v="h3" style={{ marginTop: 22, marginBottom: 10 }}>{new Date(day + 'T12:00:00').toDateString()}</T>
       {picked.length === 0 && <T v="body" color={c.muted}>No workout logged this day.</T>}
       {picked.map((ss) => (
         <Animated.View key={ss.id} entering={FadeIn.duration(250)} exiting={FadeOut.duration(200)} layout={LinearTransition.duration(250)}>

@@ -5,8 +5,9 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { mapped, MuscleMap } from '../../src/body';
 import { Bars, LineChart } from '../../src/charts';
-import { dayKey, doneSets, e1rm, streak, volume } from '../../src/calc';
+import { dayKey, doneSets, e1rm, streak, targets, volume } from '../../src/calc';
 import { byId, title } from '../../src/data/exercises';
+import { Journey } from '../../src/journey';
 import { Sheet } from '../../src/sheet';
 import { useStore } from '../../src/store';
 import { c } from '../../src/theme';
@@ -22,12 +23,30 @@ export default function Progress() {
   const weights = useStore((s) => s.weights);
   const profile = useStore((s) => s.profile);
   const logWeight = useStore((s) => s.logWeight);
+  const meals = useStore((s) => s.meals);
+  const water = useStore((s) => s.water);
   const [kg, setKg] = useState(profile?.weightKg ?? 70);
   const [wide, setWide] = useState(false); // activity heatmap: 2 weeks, or 12 when expanded
   const [pick, setPick] = useState<string | null>(null); // strength curve exercise
   const [preview, setPreview] = useState(false);
   if (!profile) return null;
   const gentle = !!(profile.gentle || profile.concerns?.includes('food'));
+
+  // Fuel and water, last 14 days, oldest first. Noon anchors keep DST changes from shifting a day.
+  const fortnight = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - (13 - i)); return d; });
+  const keys = fortnight.map((d) => dayKey(d));
+  const t = targets(profile);
+  const glasses = keys.map((k) => water[k] ?? 0);
+  const hitWater = glasses.filter((g) => g >= t.water).length;
+  const dayMeals = keys.map((k) => meals.filter((m) => m.day === k));
+  const kcal = dayMeals.map((ms) => ms.reduce((a, m) => a + m.kcal, 0));
+  const protein = dayMeals.map((ms) => ms.reduce((a, m) => a + m.protein, 0));
+  const mealCounts = dayMeals.map((ms) => ms.length);
+  const kcalLogged = kcal.filter((_, i) => mealCounts[i] > 0);
+  const totalMeals = mealCounts.reduce((a, b) => a + b, 0);
+  const avgMeals = totalMeals / 14;
+  const fullDays = mealCounts.filter((n) => n >= 3).length;
+  const dayLabels = fortnight.map((d) => String(d.getDate()));
 
   // Weeks run Monday to Sunday. back(k, d) is day d (0 = Monday) of the week k weeks before this one.
   const mon = new Date(); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
@@ -96,9 +115,13 @@ export default function Progress() {
         </Card>
       </Rise>
 
+      {!gentle && (profile.goal === 'lose fat' || profile.concerns?.some((x) => x === 'lose-weight' || x === 'gain') || Math.abs(profile.goalWeightKg - profile.weightKg) >= 1) && (
+        <Rise i={1}><Journey p={profile} sessions={sessions} meals={meals} weights={weights} /></Rise>
+      )}
+
       <Rise i={2}>
         <Card style={{ marginTop: 14, gap: 12 }}>
-          <T v="label">Preview your progress</T>
+          <T v="h3">Preview your progress</T>
           <T v="small">See what 12 weeks of steady training could look like.</T>
           <Button title="See an example" kind="ghost" onPress={() => setPreview(true)} />
         </Card>
@@ -107,7 +130,7 @@ export default function Progress() {
       <Rise i={3}>
         <Card style={{ marginTop: 14 }}>
           <Row style={{ justifyContent: 'space-between' }}>
-            <T v="label">Activity</T>
+            <T v="h3">Activity</T>
             <Tap onPress={() => setWide(!wide)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <T v="small" color={c.accent}>{wide ? 'Collapse' : 'Expand'}</T>
               <Ionicons name={wide ? 'chevron-up' : 'chevron-down'} size={14} color={c.accent} />
@@ -132,7 +155,7 @@ export default function Progress() {
 
       <Rise i={4}>
         <Card style={{ marginTop: 14 }}>
-          <T v="label">Weekly volume · 12 weeks</T>
+          <T v="h3">Weekly volume · 12 weeks</T>
           {volTrend.some((v) => v > 0) ? (
             <>
               <View style={{ marginTop: 16 }}><LineChart values={volTrend} fmt={kgLabel} height={120} /></View>
@@ -144,7 +167,7 @@ export default function Progress() {
 
       <Rise i={5}>
         <Card style={{ marginTop: 14 }}>
-          <T v="label">Sessions per week · 8 weeks</T>
+          <T v="h3">Sessions per week · 8 weeks</T>
           {sessions.length ? <View style={{ marginTop: 14 }}><Bars items={perWeek} /></View>
             : <T v="body" color={c.muted} style={{ marginTop: 12 }}>No sessions yet. Each week's count shows up here.</T>}
         </Card>
@@ -152,7 +175,7 @@ export default function Progress() {
 
       <Rise i={6}>
         <Card style={{ marginTop: 14, gap: 12 }}>
-          <T v="label">Strength curve · est. 1RM</T>
+          <T v="h3">Strength curve · est. 1RM</T>
           {topIds.length ? (
             <>
               <Row gap={8} style={{ flexWrap: 'wrap' }}>
@@ -169,7 +192,7 @@ export default function Progress() {
         <Rise i={7}>
           <Card style={{ marginTop: 14 }}>
             <Row style={{ justifyContent: 'space-between' }}>
-              <T v="label">Body weight</T>
+              <T v="h3">Body weight</T>
               <T v="small">Goal {profile.goalWeightKg} kg</T>
             </Row>
             <View style={{ marginTop: 16 }}>
@@ -186,7 +209,7 @@ export default function Progress() {
 
       <Rise i={8}>
         <Card style={{ marginTop: 14, gap: 12 }}>
-          <T v="label">Muscle map · 30 days</T>
+          <T v="h3">Muscle map · 30 days</T>
           {splitRows.length ? (
             <>
               <View style={{ alignItems: 'center', marginVertical: 4 }}>
@@ -209,7 +232,7 @@ export default function Progress() {
       {lifts.length > 0 && (
         <Rise i={9}>
           <Card style={{ marginTop: 14, gap: 12 }}>
-            <T v="label">Top lifts · est. 1RM</T>
+            <T v="h3">Top lifts · est. 1RM</T>
             {lifts.slice(0, 5).map(([id, v], i) => (
               <Row key={id} style={{ justifyContent: 'space-between' }}>
                 <T v="num" color={i === 0 ? c.accent : i < 3 ? c.text : c.dim} style={{ fontSize: 18, lineHeight: 22, width: 20 }}>{i + 1}</T>
@@ -222,8 +245,56 @@ export default function Progress() {
       )}
 
       <Rise i={10}>
+        <T v="h2" style={{ marginTop: 26 }}>Fuel and water</T>
+        <Card style={{ marginTop: 14, gap: 12 }}>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <T v="h3">Water · 14 days</T>
+            <T v="small">Target {t.water} glasses</T>
+          </Row>
+          {glasses.some((g) => g > 0)
+            ? <Bars items={glasses.map((g, i) => ({ label: dayLabels[i], value: g }))} goal={t.water} height={100} />
+            : <T v="body" color={c.muted}>Log water on the Fuel tab and your glasses show here.</T>}
+          <T v="small">{hitWater} of 14 days on target. Bars that reach the dashed line met the goal that day.</T>
+        </Card>
+
+        {!gentle && (
+          <>
+            <Card style={{ marginTop: 14, gap: 12 }}>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <T v="h3">Calories · logged days</T>
+                <T v="small">Target {t.kcal} kcal</T>
+              </Row>
+              {kcalLogged.length > 1
+                ? <LineChart values={kcalLogged} goal={t.kcal} fmt={(v) => `${Math.round(v)}`} height={120} />
+                : <T v="body" color={c.muted}>Log meals on at least two days to see the calorie line.</T>}
+              <T v="small">Each dot is a day with meals logged, and the dashed line is your daily target. Days without meals are left out.</T>
+            </Card>
+            <Card style={{ marginTop: 14, gap: 12 }}>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <T v="h3">Protein · 14 days</T>
+                <T v="small">Target {t.protein} g</T>
+              </Row>
+              {protein.some((p) => p > 0)
+                ? <Bars items={protein.map((p, i) => ({ label: dayLabels[i], value: Math.round(p) }))} goal={t.protein} height={100} />
+                : <T v="body" color={c.muted}>Log protein with your meals and the bars fill in.</T>}
+              <T v="small">Each bar is grams of protein that day. Bars that reach the dashed line met the target.</T>
+            </Card>
+          </>
+        )}
+
+        <Card style={{ marginTop: 14, gap: 12 }}>
+          <T v="h3">Meals logged · 14 days</T>
+          {totalMeals > 0 ? (
+            <Row>
+              <Stat label="Meals per day" value={avgMeals.toFixed(1)} />
+              <Stat label="Days with 3+ meals" value={`${fullDays} of 14`} color={c.accent} />
+            </Row>
+          ) : <T v="body" color={c.muted}>Log meals on the Fuel tab and your daily average shows here.</T>}
+          <T v="small">The average counts every day in the last two weeks, including days with no meals logged.</T>
+        </Card>
+
         <Row style={{ marginTop: 26, marginBottom: 10, justifyContent: 'space-between' }}>
-          <T v="label">History</T>
+          <T v="h3">History</T>
           <Tap onPress={() => router.push('/history')}><T v="small" color={c.accent}>Calendar & streaks</T></Tap>
         </Row>
         {sessions.length === 0 && <T v="body" color={c.muted}>Your finished workouts will show up here.</T>}

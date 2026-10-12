@@ -45,7 +45,7 @@ export default function Train() {
       <Rise><T v="display">Plans</T></Rise>
 
       <Rise i={1}>
-        <T v="label" style={{ marginTop: 18, marginBottom: 12 }}>Best for you</T>
+        <T v="h3" style={{ marginTop: 18, marginBottom: 12 }}>Best for you</T>
         <View style={s.grid}>
           {best.map((p, i) => (
             <Tap key={p.id} onPress={() => open(p.id)} style={[s.block, i === 0 && s.feature, i === 0 && { borderColor: c.accent }]} scale={0.98}>
@@ -60,7 +60,7 @@ export default function Train() {
 
       <Rise i={2}>
         <Row style={{ marginTop: 28, justifyContent: 'space-between' }}>
-          <T v="label">All plans</T>
+          <T v="h3">All plans</T>
           <T v="small" color={c.dim}>{shown.length} plans</T>
         </Row>
         <Row gap={8} style={{ marginTop: 12 }}>

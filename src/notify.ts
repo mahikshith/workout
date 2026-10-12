@@ -123,6 +123,24 @@ export function plan(s: NudgeState, now = Date.now()): Req[] {
     else once(d, 1, 'Your streak is on the line', 'Two days off already. A short session today keeps it alive.');
   }
 
+  // Weekly weigh-in for weight goals (never in no-numbers mode): Monday morning, same time every week.
+  if (!p.gentle && !p.concerns?.includes('food') && (p.goal === 'lose fat' || Math.abs(p.goalWeightKg - p.weightKg) >= 1))
+    repeat('Weekly weigh-in', 'Same day, same time, before breakfast. Log it in Progress to see your trend.', { type: K.WEEKLY, weekday: 2, hour: 7, minute: 30, channelId: 'nudges' }, '/progress');
+
+  // Milestones measured from the first workout: honest encouragement at the points where people usually give up.
+  const firstAt = s.sessions[0]?.startedAt;
+  if (firstAt) for (const [d, title, body] of [
+    [7, 'One week in', 'Week one done. Strength comes before looks; keep showing up and it will.'],
+    [30, 'One month of training', 'A month in. Visible change usually starts around weeks 6 to 8. You are right on track.'],
+    [60, 'Two months strong', 'Two months of discipline. Compare yourself to week one, not to social media.'],
+    [90, 'Three months', 'Twelve weeks. This is when people notice. Most never get here; you did.'],
+  ] as const) {
+    const at = new Date(firstAt);
+    at.setDate(at.getDate() + d);
+    at.setHours(19, 15, 0, 0);
+    once(at, 1, title, body);
+  }
+
   // Water: every N minutes from..to, today (until the day's glasses are reached) and tomorrow.
   const h = s.hydration, t = targets(p), drank = s.water[today] ?? 0;
   if (h.on) for (const off of [0, 1]) {

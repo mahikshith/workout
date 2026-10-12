@@ -158,7 +158,7 @@ export default function AddFood() {
               </Card>
             )}
 
-            <T v="label" style={{ marginTop: 20 }}>Ingredients · makes {plural(open.serves)}</T>
+            <T v="h3" style={{ marginTop: 20 }}>Ingredients · makes {plural(open.serves)}</T>
             {open.ing.map(([n, amount, k, p]) => (
               <View key={n} style={s.ing}>
                 <View style={{ flex: 1 }}>
@@ -180,7 +180,7 @@ export default function AddFood() {
               </View>
             )}
 
-            <T v="label" style={{ marginTop: 20 }}>Steps</T>
+            <T v="h3" style={{ marginTop: 20 }}>Steps</T>
             {open.steps.map((x, n) => (
               <Row key={n} gap={12} style={{ alignItems: 'flex-start', marginTop: 12 }}>
                 <View style={[s.num, { backgroundColor: c.accent }]}><T v="small" color={c.accentInk}>{n + 1}</T></View>

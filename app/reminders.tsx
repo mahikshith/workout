@@ -71,7 +71,7 @@ export default function Reminders() {
       <Screen>
         <Row style={{ justifyContent: 'space-between' }}>
           <Tap onPress={() => router.back()} style={s.icon}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
-          <T v="label">Reminders</T>
+          <T v="h2">Reminders</T>
           <View style={{ width: 40 }} />
         </Row>
         <Animated.View entering={FadeInDown.duration(380).easing(EASE)} style={{ marginTop: 18, gap: 4 }}>
@@ -95,7 +95,7 @@ export default function Reminders() {
         )}
 
         <Section i={2}>
-          <T v="label">Workout reminders</T>
+          <T v="h2">Workout reminders</T>
           {!workouts.length && <T v="small">None yet. Add the times you like to train, up to five.</T>}
           {workouts.map((r) => <Line key={r.id} r={r} sub={dayList(r.days)} onOpen={() => show(r)} onToggle={(on) => toggle(r, on)} />)}
           {workouts.length < 5 && <Button title="Add reminder" kind="ghost" icon="add" onPress={add} />}
@@ -126,7 +126,7 @@ export default function Reminders() {
         </Section>
 
         <Section i={7}>
-          <T v="label">Meals</T>
+          <T v="h2">Meals</T>
           {meals.map((m) => <Line key={m.id} r={m} sub={m.label ?? 'Meal'} onOpen={() => show(m)} onToggle={(on) => toggle(m, on)} />)}
         </Section>
 
@@ -152,7 +152,7 @@ export default function Reminders() {
       <Sheet open={open} onClose={() => setOpen(false)}>
         {edit && (
           <View style={{ gap: 16 }}>
-            <T v="label">{edit.kind === 'meal' ? `${edit.label} reminder` : 'Workout reminder'}</T>
+            <T v="h3">{edit.kind === 'meal' ? `${edit.label} reminder` : 'Workout reminder'}</T>
             <T v="display" style={{ textAlign: 'center' }}>{clock(edit.hour, edit.minute)}</T>
             <Row style={{ justifyContent: 'space-around' }}>
               <View style={{ alignItems: 'center', gap: 6 }}>

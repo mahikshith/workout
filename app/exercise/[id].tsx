@@ -85,7 +85,7 @@ export default function ExerciseDetail() {
           <T color={c.muted} style={{ marginTop: 10 }}>{benefit(ex)}</T>
           {best.e1rm > 0 && <T v="small" color={c.accent} style={{ marginTop: 10 }}>Your best: {Math.round(best.e1rm)} kg estimated 1RM</T>}
           <Card style={{ marginTop: 14, gap: 14 }}>
-            <T v="label">Your dose</T>
+            <T v="h3">Your dose</T>
             <Row gap={16}><Stat label={d.sets > 1 ? 'Sets x reps' : 'Do'} value={doseText(d)} /><Stat label="Rest" value={restText(d)} /></Row>
             <Row gap={16}><Stat label="Effort" value={effort(ex)} /><Stat label="All sets, approx." value={`~${kcal(ex, profile.weightKg)}`} unit="kcal" /></Row>
             {fo && <T v="small"><T v="small" color={c.text}>Focus: {fo.label}.</T> {fo.about}</T>}
@@ -94,7 +94,7 @@ export default function ExerciseDetail() {
 
         {steps.length > 0 && (
           <Rise i={3}>
-            <T v="label" style={s.section}>How to do it</T>
+            <T v="h3" style={s.section}>How to do it</T>
             <Card style={{ gap: 14 }}>
               {steps.map((step, i) => (
                 <Row key={i} style={{ alignItems: 'flex-start' }}>
@@ -108,7 +108,7 @@ export default function ExerciseDetail() {
 
         {pose.length > 0 && (
           <Rise i={4}>
-            <T v="label" style={s.section}>Body position</T>
+            <T v="h3" style={s.section}>Body position</T>
             <Card style={{ gap: 14 }}>
               {pose.map(([k, label]) => (
                 <View key={k} style={{ gap: 2 }}>
@@ -121,7 +121,7 @@ export default function ExerciseDetail() {
         )}
 
         <Rise i={5}>
-          <T v="label" style={s.section}>Alternatives</T>
+          <T v="h3" style={s.section}>Alternatives</T>
           <View style={s.tabs}>
             {(['gym', 'home'] as const).map((k) => (
               <Tap key={k} onPress={() => setTab(k)} scale={0.98} style={[s.tab, tab === k && { backgroundColor: c.line }]}>
@@ -134,7 +134,7 @@ export default function ExerciseDetail() {
               : <T v="small">No close match {tab === 'home' ? 'with your home gear' : 'here'} yet.</T>}
             {next && (
               <>
-                <T v="label" style={{ marginTop: 14 }}>Next level</T>
+                <T v="h3" style={{ marginTop: 14 }}>Next level</T>
                 <Alt a={next} locked={nextLock?.locked}
                   note={nextLock?.sessionsLeft ? `Opens after ${nextLock.sessionsLeft} more session${nextLock.sessionsLeft > 1 ? 's' : ''}` : undefined} />
               </>

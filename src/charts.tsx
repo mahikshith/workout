@@ -41,11 +41,11 @@ export function LineChart({ values, goal, height = 120, color = c.accent, fmt = 
   );
 }
 
-// Vertical bars with a value and a label under each; the last bar is highlighted.
-export function Bars({ items, height = 110, color = c.accent }: { items: { label: string; value: number }[]; height?: number; color?: string }) {
+// Vertical bars with a value and a label under each; the last bar is highlighted. An optional goal draws a dashed line.
+export function Bars({ items, height = 110, color = c.accent, goal }: { items: { label: string; value: number }[]; height?: number; color?: string; goal?: number }) {
   const [w, setW] = useState(0);
   const n = items.length;
-  const max = Math.max(1, ...items.map((it) => it.value));
+  const max = Math.max(1, goal ?? 0, ...items.map((it) => it.value));
   const slot = n ? w / n : 0;
   const gap = 8;
   const last = n - 1;
@@ -54,6 +54,7 @@ export function Bars({ items, height = 110, color = c.accent }: { items: { label
       {w > 0 && n > 0 && (
         <>
           <Svg width={w} height={height}>
+            {goal !== undefined && <Line x1={0} x2={w} y1={height - (goal / max) * height} y2={height - (goal / max) * height} stroke={c.warm} strokeDasharray="6 6" strokeWidth={1.5} />}
             {items.map((it, i) => {
               const h = it.value > 0 ? Math.max(4, (it.value / max) * height) : 0;
               return <Rect key={i} x={i * slot + gap / 2} y={height - h} width={Math.max(2, slot - gap)} height={h} rx={6} fill={i === last ? color : c.dim} />;

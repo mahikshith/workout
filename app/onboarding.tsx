@@ -81,9 +81,9 @@ export default function Onboarding() {
             value={p.name} onChangeText={(name) => up({ name })} placeholder="Your name" placeholderTextColor={c.dim}
             style={[s.input, { borderColor: c.accent }]} returnKeyType="done" maxLength={24} autoCapitalize="words"
           />
-          <T v="label" style={s.label}>Gender</T>
+          <T v="h3" style={s.label}>Gender</T>
           <Seg<Profile['gender']> value={p.gender} onPick={(gender) => up({ gender })} opts={[['female', 'Female'], ['male', 'Male'], ['other', 'Other']]} />
-          <T v="label" style={s.label}>Age</T>
+          <T v="h3" style={s.label}>Age</T>
           <Seg<number> value={ageOn} onPick={(age) => up({ age })} opts={AGES} />
         </Section>
 
@@ -99,9 +99,9 @@ export default function Onboarding() {
               );
             })}
           </View>
-          <T v="label" style={s.label}>Where do you train?</T>
-          <Seg<Profile['place']> value={p.place} onPick={(place) => up({ place })} opts={[['gym', 'Gym'], ['home', 'Home'], ['both', 'Both']]} />
-          {p.place !== 'gym' && (
+          <T v="h3" style={s.label}>Where do you train?</T>
+          <Seg<Profile['place']> value={p.place} onPick={(place) => up({ place })} opts={[['gym', 'Gym'], ['home', 'Home'], ['both', 'Both'], ['office', 'Office']]} />
+          {(p.place === 'home' || p.place === 'both') && (
             <View style={s.wrap}>
               {HOME_GEAR.map((g) => {
                 const on = p.gear.includes(g);
@@ -113,16 +113,16 @@ export default function Onboarding() {
               })}
             </View>
           )}
-          <T v="label" style={s.label}>Training experience</T>
+          <T v="h3" style={s.label}>Training experience</T>
           <Seg<Profile['level']> value={p.level} onPick={(level) => up({ level })} opts={[['beginner', 'New'], ['intermediate', 'Some'], ['advanced', 'Seasoned']]} />
-          <T v="label" style={s.label}>Days per week</T>
+          <T v="h3" style={s.label}>Days per week</T>
           <Seg<number> value={p.daysPerWeek} onPick={(daysPerWeek) => up({ daysPerWeek })} opts={[2, 3, 4, 5, 6].map((d): [number, string] => [d, String(d)])} />
         </Section>
 
         <Section title="Body and food">
           <Row style={{ justifyContent: 'space-between' }}><T v="body">Height</T><Stepper value={p.heightCm} onChange={(heightCm) => up({ heightCm })} min={120} suffix=" cm" /></Row>
           <Row style={{ justifyContent: 'space-between' }}><T v="body">Weight</T><Stepper value={p.weightKg} step={0.5} onChange={(weightKg) => up({ weightKg })} min={30} suffix=" kg" /></Row>
-          <T v="label" style={s.label}>How do you eat?</T>
+          <T v="h3" style={s.label}>How do you eat?</T>
           <Seg<Profile['diet']> value={p.diet} onPick={(diet) => up({ diet })} opts={[['vegetarian', 'Veg'], ['vegan', 'Vegan'], ['eggetarian', 'Egg'], ['pescatarian', 'Fish'], ['non-veg', 'Non-veg']]} />
         </Section>
 

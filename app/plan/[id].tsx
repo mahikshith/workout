@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { byId } from '../../src/data/exercises';
 import { perWeek, planById } from '../../src/data/plans';
 import { program, WEEKDAYS } from '../../src/data/program';
+import { goalWeeks, timeline } from '../../src/data/expect';
 import { useStore } from '../../src/store';
 import { c, r } from '../../src/theme';
 import { Button, Card, Chip, Rise, Row, Screen, Stat, T, Tap, Thumb } from '../../src/ui';
@@ -19,7 +20,9 @@ export default function PlanDetail() {
   const { id, welcome } = useLocalSearchParams<{ id: string; welcome?: string }>();
   const plan = planById[id];
   const planId = useStore((s) => s.planId);
-  const name = useStore((s) => s.profile?.name);
+  const profile = useStore((s) => s.profile);
+  const name = profile.name;
+  const goal = goalWeeks(profile);
   const setPlan = useStore((s) => s.setPlan);
   const [wk, setWk] = useState(0);
   if (!plan) return null;
@@ -41,6 +44,21 @@ export default function PlanDetail() {
         <T v="display" style={{ marginTop: 6 }}>{plan.name}</T>
         <T v="body" color={c.muted}>{plan.tagline}</T>
         {welcome && <T v="small" style={{ marginTop: 10 }}>Picked from your goal, place, experience and schedule. You can switch plans anytime in Plans.</T>}
+        {welcome && (
+          <View style={{ marginTop: 16, padding: 16, borderRadius: 20, backgroundColor: c.card, gap: 10 }}>
+            <T v="h3">What to expect</T>
+            {timeline(profile).map((x) => (
+              <View key={x.when} style={{ flexDirection: 'row', gap: 10 }}>
+                <T v="small" color={c.accent} style={{ width: 70 }}>{x.when}</T>
+                <T v="small" color={c.text} style={{ flex: 1 }}>{x.what}</T>
+              </View>
+            ))}
+            {goal && !(profile.gentle || profile.concerns?.includes('food')) && (
+              <T v="small">A healthy pace to your goal weight is about {goal.perWeek} kg a week: roughly {goal.weeks} weeks. Slower is fine; steady wins.</T>
+            )}
+            <T v="small">Social media shows the result, not the months behind it. Consistency and discipline get you there.</T>
+          </View>
+        )}
         <Row style={{ marginTop: 18 }}>
           <Stat label="Days / week" value={n} />
           <Stat label="Weeks" value={plan.weeks} />
@@ -57,7 +75,7 @@ export default function PlanDetail() {
       </Rise>
 
       <Rise i={2}>
-        <T v="label" style={{ marginTop: 26, marginBottom: 10 }}>{`Your first 4 weeks${plan.weeks > 4 ? `, then repeat with heavier weights (${plan.weeks} weeks in all)` : ''}`}</T>
+        <T v="h3" style={{ marginTop: 26, marginBottom: 10 }}>{`Your first 4 weeks${plan.weeks > 4 ? `, then repeat with heavier weights (${plan.weeks} weeks in all)` : ''}`}</T>
         <Row gap={8}>
           <T v="h3" style={{ marginRight: 4 }}>Week</T>
           {weeks.map((w, i) => <Chip key={w.week} label={String(w.week)} on={i === wk} onPress={() => setWk(i)} />)}

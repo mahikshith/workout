@@ -27,7 +27,7 @@ export const frames = (id: string) => [`${IMG}${id}/0.jpg`, `${IMG}${id}/1.jpg`]
 const WG = 'https://cdn.jsdelivr.net/gh/bryllim/workout-guide@aac599224bb9780305239607ef98540b7e0ce389/packages/workout-guide/assets/';
 export const artFrames = (slug: string) => [1, 2, 3].map((n) => `${WG}${slug}/frame-${n}.svg`);
 
-export const HOME_GEAR = ['dumbbell', 'bands', 'kettlebells', 'pull-up bar', 'exercise ball', 'medicine ball', 'foam roll'] as const;
+export const HOME_GEAR = ['dumbbell', 'bands', 'kettlebells', 'pull-up bar', 'barbell', 'e-z curl bar', 'bench', 'exercise ball', 'medicine ball', 'foam roll', 'jump rope', 'yoga mat'] as const;
 
 // The dataset files pull-ups and hangs under "body only", but they still need a bar.
 const NEEDS_BAR = /pull-?up|chin-?up|hanging|inverted row|muscle.?up/i;

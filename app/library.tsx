@@ -88,7 +88,7 @@ export default function Library({ tab }: { tab?: boolean }) {
           windowSize={7}
           stickySectionHeadersEnabled={false}
           contentContainerStyle={[pad, { gap: 8 }]}
-          renderSectionHeader={({ section }) => <T v="label" style={{ marginTop: 10 }}>{section.title}</T>}
+          renderSectionHeader={({ section }) => <T v="h3" style={{ marginTop: 10 }}>{section.title}</T>}
           renderItem={({ item }) => (
             <ExRow e={item} focus={focusOf(item, g?.id)?.label} locked={gate(item, profile, done).locked} pick={!!pick} onPress={() => open(item)} />
           )}
@@ -124,7 +124,7 @@ export default function Library({ tab }: { tab?: boolean }) {
               })}
             </Card>
           )}
-          <T v="label" style={{ marginTop: 8 }}>Focus areas</T>
+          <T v="h3" style={{ marginTop: 8 }}>Focus areas</T>
           {[{ label: ALL, about: `Every ${g.label.toLowerCase()} move, easiest first.` }, ...g.focus].map((x) => {
             const n = x.label === ALL ? inG.length : inG.filter((e) => focusOf(e, g.id)?.label === x.label).length;
             return (

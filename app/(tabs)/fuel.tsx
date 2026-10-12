@@ -142,7 +142,7 @@ export default function Fuel() {
 
       <Sec i={4}>
         <Row style={{ justifyContent: 'space-between', marginTop: 12 }}>
-          <T v="label">Meals</T>
+          <T v="h3">Meals</T>
           {!gentle && <T v="small">{eaten} of 4 eaten</T>}
         </Row>
         <View style={{ gap: 10, marginTop: 10 }}>
@@ -179,7 +179,7 @@ export default function Fuel() {
 
       <Sec i={5}>
         <Card>
-          <T v="label">Best protein for you</T>
+          <T v="h3">Best protein for you</T>
           <T v="small" numberOfLines={2} style={{ marginTop: 4, marginBottom: 4 }}>
             {gentle ? 'Good protein foods for your diet.' : 'The most protein for the calories.'} Tap to add to {nameOf(now)}.
           </T>
@@ -260,7 +260,7 @@ export default function Fuel() {
         <Card>
           <Row>
             <View style={{ flex: 1 }}>
-              <T v="label" numberOfLines={1}>Water · 250 ml a glass</T>
+              <T v="h3" numberOfLines={1}>Water · 250 ml a glass</T>
               <T v="h3" numberOfLines={1} style={{ marginTop: 4 }}>{water} of {t.water} glasses</T>
             </View>
             <Tap onPress={() => addWater(-1)} disabled={!water} style={s.round}><Ionicons name="remove" size={20} color={c.text} /></Tap>

@@ -19,7 +19,7 @@ export type Profile = {
   goalWeightKg: number;
   goal: Goal;
   level: 'beginner' | 'intermediate' | 'advanced';
-  place: Place | 'both';
+  place: Place | 'both' | 'office'; // 'office': short sessions at work, bodyweight only
   gear: string[];
   daysPerWeek: number;
   diet: Diet;
@@ -31,8 +31,9 @@ export type Profile = {
   accent?: AccentId;
 };
 
-export type Lifestyle = 'desk' | 'standing' | 'active' | 'home' | 'driving' | 'student';
-export type Concern = 'stressed' | 'breakup' | 'lose-weight' | 'tone' | 'food' | 'back' | 'knee' | 'desk' | 'thyroid';
+export type Lifestyle = 'desk' | 'wfh' | 'standing' | 'active' | 'home' | 'parent' | 'driving' | 'travel' | 'shift' | 'student' | 'retired';
+export type Concern = 'stressed' | 'anger' | 'calm' | 'anxious' | 'sleep' | 'confidence' | 'breakup' | 'lose-weight' | 'gain' | 'tone' | 'endurance' | 'run'
+  | 'posture' | 'flexibility' | 'injury' | 'food' | 'back' | 'knee' | 'desk' | 'thyroid';
 // mode 'cycle': periodStart = first day of the last period. 'pregnant': date = due date. 'postpartum': date = birth date.
 export type Women = { mode: 'none' | 'cycle' | 'pregnant' | 'postpartum'; periodStart?: string; cycleLength?: number; date?: string };
 export type Mood = 1 | 2 | 3 | 4; // drained, meh, good, fired up

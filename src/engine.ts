@@ -6,6 +6,7 @@ import { byId, title, type Exercise } from './data/exercises';
 import { proteinPicks } from './data/foods';
 import { planById, type Day } from './data/plans';
 import { quick, type Quick } from './data/quick';
+import { expectLine } from './data/expect';
 import type { Meal, Mood, Profile, Session } from './store';
 
 export type EngineInput = {
@@ -85,7 +86,8 @@ export function gate(e: Exercise, p: Profile, sessionsDone: number): Lock {
 export function quickFor(p: Profile, now = Date.now()): Quick[] {
   const hour = new Date(now).getHours();
   const work = hour >= 9 && hour < 18;
-  const sitting = p.lifestyle === 'desk' || p.lifestyle === 'student' || p.lifestyle === 'driving' || p.concerns?.includes('desk');
+  const has = (...xs: string[]) => xs.some((x) => p.concerns?.includes(x as never));
+  const sitting = ['desk', 'wfh', 'student', 'driving'].includes(p.lifestyle ?? '') || has('desk', 'posture');
   const period = cycle(p)?.phase === 'period';
   const score = (q: Quick) => {
     const t = (x: string) => q.tags.includes(x as never);
@@ -95,6 +97,14 @@ export function quickFor(p: Profile, now = Date.now()): Quick[] {
     if (p.lifestyle === 'standing' && (t('mobility') || t('calm'))) s += 25;
     if (p.lifestyle === 'active' && t('mobility')) s += 25;
     if (p.lifestyle === 'home' && (t('strength') || t('core')) && q.minutes <= 15) s += 20;
+    if ((p.lifestyle === 'parent' || p.lifestyle === 'shift') && q.minutes <= 10) s += 15; // short windows, odd hours
+    if (p.lifestyle === 'travel' && !q.gear?.length && (t('strength') || t('cardio'))) s += 20; // hotel-room friendly
+    if (p.lifestyle === 'retired' && (t('mobility') || t('calm'))) s += 20;
+    if (has('anger') && (t('cardio') || t('strength'))) s += 25; // burn it off first, then calm down
+    if (has('stressed', 'calm', 'anxious', 'sleep') && t('calm')) s += 25;
+    if (has('endurance', 'run') && t('cardio')) s += 25;
+    if (has('flexibility', 'posture', 'injury') && t('mobility')) s += 20;
+    if (has('sleep') && hour >= 19 && t('calm')) s += 15;
     if (hour < 11 && t('morning')) s += 25;
     if (hour >= 19 && (t('calm') || t('mobility'))) s += 20;
     return s;
@@ -105,7 +115,7 @@ export function quickFor(p: Profile, now = Date.now()): Quick[] {
     .sort((a, b) => score(b) - score(a));
 }
 
-export const tone = (p: Profile) => (p.concerns?.some((x) => x === 'stressed' || x === 'breakup' || x === 'food') ? 'gentle' : 'playful');
+export const tone = (p: Profile) => (p.concerns?.some((x) => ['stressed', 'breakup', 'food', 'anxious', 'calm'].includes(x)) ? 'gentle' : 'playful');
 
 // --- today's suggestion ---
 export type Suggestion = { kind: 'plan' | 'light' | 'rest' | 'gentle'; title: string; reason: string; day: Day; dayIndex?: number; planId?: string; minutes: number };
@@ -220,12 +230,28 @@ export function insights(i: EngineInput, now = Date.now()): Insight[] {
     if (cardioMin > 150) out.push({ id: 'cardio-balance', icon: 'pulse', title: 'Lots of cardio this week', body: 'Keep cardio to two or three short sessions so your muscles have the fuel to grow.' });
   }
 
+  // The first two months: honest expectations, so a slow start never feels like failure.
+  const first = sessions[0]?.startedAt;
+  if (first && now - first < 60 * DAY) {
+    const wk = Math.floor((now - first) / (7 * DAY));
+    out.push({ id: `expect-${wk}`, icon: 'hourglass', title: `Week ${wk + 1}: what to expect`, body: expectLine(wk) });
+  } else if (!first) out.push({ id: 'expect-start', icon: 'hourglass', title: 'Set realistic goals', body: 'Most people see visible change after 6 to 8 weeks of steady training. Consistency beats intensity.' });
+
+  // First gym visits: the unwritten rules, until a few sessions are logged.
+  if (sessions.length < 3 && p.place !== 'home' && p.place !== 'office')
+    out.push({ id: 'etiquette', icon: 'people', title: 'New to the gym?', body: 'Wipe what you use, put weights back, and ask "how many sets left?" when you need a machine. More in your profile.' });
+
   const water = i.water[today] ?? 0;
   if (new Date(now).getHours() >= 15 && water < 0.4 * t.water)
     out.push({ id: 'water-low', icon: 'water', title: 'Sip some water', body: `You're at ${water} of ${t.water} glasses today. A glass now keeps the afternoon slump away.` });
 
   const life = {
     desk: { title: 'Sitting most of the day?', body: 'Stand up and move for two minutes every hour. A desk reset or a few Kegels fit between meetings.' },
+    wfh: { title: 'Working from home?', body: 'Your commute was free exercise. Replace it: a 10-minute walk before work and a desk reset at lunch.' },
+    parent: { title: 'Busy looking after others?', body: 'Short counts. Two 10-minute sessions are as useful as one long one, and kids can join in.' },
+    travel: { title: 'Always on the move?', body: 'Hotel rooms are enough: bodyweight sessions need no kit and about two square metres.' },
+    shift: { title: 'Shift or night work?', body: 'Train at the start of your shift, not right before sleep. Keep meals at regular times for your body clock.' },
+    retired: { title: 'More time for you', body: 'Strength twice a week and balance work keep you independent and steady on your feet.' },
     student: { title: 'Long hours of study?', body: 'Every hour, stand up, rest your eyes and roll your shoulders. Your focus comes back faster.' },
     driving: { title: 'Long drives?', body: 'At each stop, stretch your hips and neck for two minutes. Kegels work even while you drive.' },
     standing: { title: 'On your feet all day?', body: 'Floor-based moves and calf stretches help tired legs recover. Put your legs up for a few minutes tonight.' },

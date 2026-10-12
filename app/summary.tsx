@@ -6,6 +6,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTimi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { doneSets, prs, streak, targets, volume } from '../src/calc';
 import { byId } from '../src/data/exercises';
+import { sessionKcal } from '../src/journey';
 import { useStore } from '../src/store';
 import { c, r } from '../src/theme';
 import { Button, Card, haptic, Rise, Row, Stat, T, Thumb } from '../src/ui';
@@ -61,12 +62,13 @@ export default function Summary() {
             <Stat label="Sets" value={doneSets(s)} />
             <Stat label="Volume" value={Math.round(volume(s)).toLocaleString()} unit="kg" color={c.accent} />
           </Row>
+          {!gentle && <T v="small" style={{ marginTop: 12 }}>About {sessionKcal(s, profile.weightKg)} kcal burned in this workout (estimate).</T>}
         </Card>
       </Rise>
 
       {records.length > 0 && (
         <Rise i={4}>
-          <T v="label" style={{ marginTop: 22, marginBottom: 10 }} color={c.warm}>New personal records</T>
+          <T v="h3" style={{ marginTop: 22, marginBottom: 10 }} color={c.warm}>New personal records</T>
           <View style={{ gap: 8 }}>
             {records.map((p) => (
               <Card key={p.exId} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>

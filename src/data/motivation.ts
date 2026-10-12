@@ -45,6 +45,24 @@ const LINES = {
     'Strong is a feeling, not a number.',
     "Be as kind to yourself as you'd be to a friend.",
   ],
+  anger: [
+    'Bring the fire. Leave it on the floor, not on people.',
+    'Hit the bag, not the wall. Every rep turns anger into strength.',
+    'Run until the noise in your head goes quiet.',
+    'Strong people stay calm. Calm is trained, like any muscle.',
+  ],
+  endurance: [
+    'Endurance is just showing up tired and going anyway.',
+    'One more kilometre. Then one more after that.',
+    'Your lungs get stronger every time you push past easy.',
+  ],
+  patience: [
+    'Social media shows the result, not the 300 mornings behind it.',
+    'Discipline beats motivation. Motivation comes and goes; habits stay.',
+    'Real change takes months, not days. Months go by anyway. Use them.',
+    'Slow progress is still progress. Quitting is the only way to lose it.',
+    'Nobody transforms in a week. Everybody can transform in a year.',
+  ],
   comeback: [
     'Missed a few days? The streak starts again with one rep.',
     'Restarting is a power move.',
@@ -74,9 +92,13 @@ export function kinds(p: Profile, daysOff = 0): MotivationKind[] {
   const out: MotivationKind[] = [];
   if (daysOff >= 3) out.push('comeback');
   if (p.concerns?.includes('breakup')) out.push('breakup');
+  if (p.concerns?.includes('anger')) out.push('anger');
+  if (p.concerns?.some((x) => x === 'endurance' || x === 'run')) out.push('endurance');
+  if (p.concerns?.some((x) => x === 'anxious' || x === 'calm' || x === 'sleep')) out.push('stressed');
   if (p.concerns?.includes('stressed')) out.push('stressed');
-  if (p.concerns?.some((x) => x === 'lose-weight' || x === 'tone')) out.push('body');
+  if (p.concerns?.some((x) => x === 'lose-weight' || x === 'tone' || x === 'gain' || x === 'confidence')) out.push('body');
   if (!p.concerns?.includes('stressed')) out.push('grit');
+  out.push('patience'); // realistic expectations, for everyone
   return out;
 }
 

@@ -9,6 +9,9 @@ export function recommend(p: Profile): string {
   const pp = postpartumWeek(p);
   if (pp !== null && pp < 12) return 'after-birth'; // breathing, pelvic floor and walking come first after birth
   const female = p.gender === 'female';
+  if (p.concerns?.some((x) => x === 'endurance' || x === 'run') && p.goal !== 'build muscle') return 'cardio-aerobic';
+  if (p.concerns?.includes('gain') && p.place !== 'home') return 'lean-gain';
+  if (p.place === 'office') return 'desk-reset';
   if (p.place === 'home') {
     if (p.goal === 'lose fat') return 'fat-burn-home';
     if (p.gear.includes('dumbbell')) return 'home-dumbbell';
