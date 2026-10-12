@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Dimensions, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { doneSets, prs, streak, volume } from '../src/calc';
+import { doneSets, prs, streak, targets, volume } from '../src/calc';
 import { byId } from '../src/data/exercises';
 import { useStore } from '../src/store';
 import { c, r } from '../src/theme';
@@ -33,6 +33,10 @@ export default function Summary() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const sessions = useStore((s) => s.sessions);
   const s = sessions.find((x) => x.id === id);
+  const profile = useStore((st) => st.profile);
+  const addWater = useStore((st) => st.addWater);
+  const [drank, setDrank] = useState(false);
+  const gentle = profile.gentle || profile.concerns?.includes('food');
   useEffect(() => { haptic('success'); }, []);
   if (!s) return null;
   const history = sessions.filter((x) => x.id !== s.id);
@@ -40,7 +44,7 @@ export default function Summary() {
   const mins = Math.max(1, Math.round(((s.endedAt ?? Date.now()) - s.startedAt) / 60000));
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: ins.top + 24, paddingHorizontal: 20, paddingBottom: ins.bottom + 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ flexGrow: 1, paddingTop: ins.top + 24, paddingHorizontal: 20, paddingBottom: ins.bottom + 16 }}>
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {Array.from({ length: 36 }, (_, i) => <Confetti key={i} i={i} />)}
       </View>
@@ -75,9 +79,24 @@ export default function Summary() {
         </Rise>
       )}
 
+      <Rise i={5}>
+        <Card style={{ marginTop: 18, gap: 10 }}>
+          <Row gap={10}><Ionicons name="nutrition" size={18} color={c.pink} /><T v="h3">Refuel and rehydrate</T></Row>
+          <T v="body" color={c.muted}>
+            {gentle ? 'Have a proper meal or snack soon and a couple of glasses of water. Recovery is part of the training.'
+              : `Muscles rebuild from what you eat next. Aim for about ${Math.round(targets(profile).protein / 4)} g of protein in the next two hours, and two glasses of water.`}
+          </T>
+          <Row gap={10}>
+            <Button title="Log a meal" kind="ghost" style={{ flex: 1, height: 46 }} onPress={() => router.replace('/fuel')} />
+            <Button title={drank ? 'Water added' : 'Add a glass'} kind="ghost" style={{ flex: 1, height: 46 }} disabled={drank}
+              onPress={() => { addWater(1); setDrank(true); }} />
+          </Row>
+        </Card>
+      </Rise>
+
       <View style={{ flex: 1 }} />
-      <Button title="Done" icon="checkmark" onPress={() => router.replace('/')} />
-    </View>
+      <Button title="Done" onPress={() => router.replace('/')} />
+    </ScrollView>
   );
 }
 

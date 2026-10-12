@@ -12,16 +12,16 @@ const daysFrom = (a: string, b: string) => Math.round((Date.parse(b + 'T12:00:00
 // Women's context. Unknown dates resolve to the cautious answer (mid-pregnancy, fresh postpartum).
 export function cycle(p: Profile, today = dayKey()) {
   const w = p.women;
-  if (w?.mode !== 'cycle' || !w.periodStart) return null;
+  if (p.gender === 'male' || w?.mode !== 'cycle' || !w.periodStart) return null;
   const len = w.cycleLength ?? 28;
   const day = (((daysFrom(w.periodStart, today) % len) + len) % len) + 1;
   const phase = day <= 5 ? 'period' : day <= len - 16 ? 'follicular' : day <= len - 12 ? 'ovulation' : 'luteal';
   return { day, length: len, phase: phase as 'period' | 'follicular' | 'ovulation' | 'luteal' };
 }
 export const pregnancyWeek = (p: Profile, today = dayKey()) =>
-  p.women?.mode !== 'pregnant' ? null : !p.women.date ? 14 : Math.max(1, Math.min(42, 40 - Math.ceil(daysFrom(today, p.women.date) / 7)));
+  p.gender === 'male' || p.women?.mode !== 'pregnant' ? null : !p.women.date ? 14 : Math.max(1, Math.min(42, 40 - Math.ceil(daysFrom(today, p.women.date) / 7)));
 export const postpartumWeek = (p: Profile, today = dayKey()) =>
-  p.women?.mode !== 'postpartum' ? null : !p.women.date ? 0 : Math.max(0, Math.floor(daysFrom(p.women.date, today) / 7));
+  p.gender === 'male' || p.women?.mode !== 'postpartum' ? null : !p.women.date ? 0 : Math.max(0, Math.floor(daysFrom(p.women.date, today) / 7));
 
 // Mifflin-St Jeor, scaled by training days, nudged by goal. Pregnancy, postpartum and thyroid never get a big deficit.
 export function targets(p: Profile) {
@@ -112,7 +112,7 @@ export function selfCheck() {
   assert(streak([day(4)]) === 0, 'stale streak is zero');
   assert(bestStreak([day(20), day(18), day(5), day(3), day(1)]) === 3, 'best streak');
   assert(Math.round(e1rm(100, 5)) === 117, 'epley');
-  const w = (women: Profile['women']) => ({ women } as Profile);
+  const w = (women: Profile['women']) => ({ women, gender: 'female' } as Profile);
   assert(cycle(w({ mode: 'cycle', periodStart: '2026-01-01' }), '2026-01-03')?.phase === 'period', 'cycle period');
   assert(cycle(w({ mode: 'cycle', periodStart: '2026-01-01' }), '2026-01-20')?.phase === 'luteal', 'cycle luteal');
   assert(cycle(w({ mode: 'cycle', periodStart: '2026-01-01' }), '2026-01-29')?.day === 1, 'cycle wraps');

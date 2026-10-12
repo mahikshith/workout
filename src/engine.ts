@@ -100,6 +100,7 @@ export function quickFor(p: Profile, now = Date.now()): Quick[] {
     return s;
   };
   return quick
+    .filter((q) => !(q.tags.includes('period') && p.gender !== 'female'))
     .filter((q) => !q.gear?.some((g) => !p.gear.includes(g)) && q.slots.every((sl) => !byId[sl.id] || !hidden(byId[sl.id], p)))
     .sort((a, b) => score(b) - score(a));
 }
@@ -149,8 +150,8 @@ export function suggest(i: EngineInput, now = Date.now()): Suggestion {
   const day = plan.days[idx];
 
   if (mood === 1) {
-    const light: Day = { ...day, name: `${day.name}, light`, slots: day.slots.slice(0, 3).map((s) => ({ ...s, sets: Math.max(1, s.sets - 1) })) };
-    return out('light', light, "Low battery today? Here's a shorter version. Showing up still counts.", idx);
+    const light: Day = { ...day, name: `${day.name}, light`, slots: day.slots.map((s) => ({ ...s, sets: Math.max(1, s.sets - 1), rest: s.rest + 15 })) };
+    return out('light', light, "Low battery today? Same moves, one set fewer each and longer rests. Showing up still counts.", idx);
   }
   if (!reason) {
     const days = last ? Math.floor((now - last.startedAt) / DAY) : -1;

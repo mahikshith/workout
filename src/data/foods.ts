@@ -1,7 +1,7 @@
 import type { Ionicons } from '@expo/vector-icons';
 
 export type Diet = 'vegan' | 'vegetarian' | 'eggetarian' | 'pescatarian' | 'non-veg';
-type Kind = 'vegan' | 'veg' | 'egg' | 'fish' | 'meat';
+export type Kind = 'vegan' | 'veg' | 'egg' | 'fish' | 'meat';
 
 const allowed: Record<Diet, Kind[]> = {
   vegan: ['vegan'],
@@ -69,7 +69,8 @@ export const foods: Food[] = [
   { name: 'Lean beef', serving: '150 g', kcal: 330, protein: 40, kind: 'meat', icon: 'flame' },
 ];
 
-export const foodsFor = (diet: Diet) => foods.filter((f) => allowed[diet].includes(f.kind));
+export const fits = (diet: Diet, kind: Kind) => allowed[diet].includes(kind);
+export const foodsFor = (diet: Diet) => foods.filter((f) => fits(diet, f.kind));
 
 // Most protein for the calories first. Shakes are left out so real food leads.
 export const proteinPicks = (diet: Diet, n = 5) =>

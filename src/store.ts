@@ -44,7 +44,9 @@ export type MediaPref = 'drawing' | 'photo' | 'video';
 
 export type SetLog = { reps: number; weight: number; done: boolean };
 export type Item = { exId: string; target: string; rest: number; sets: SetLog[]; swappedFrom?: string };
-export type Session = { id: string; title: string; planId?: string; dayIndex?: number; place: Place; startedAt: number; endedAt?: number; items: Item[] };
+// running: false until the user taps Start. pausedAt is set while paused; pausedMs adds up finished pauses.
+export type Session = { id: string; title: string; planId?: string; dayIndex?: number; place: Place; startedAt: number; endedAt?: number; items: Item[];
+  running?: boolean; pausedAt?: number; pausedMs?: number };
 export type Meal = { id: string; day: string; name: string; kcal: number; protein: number; slot?: MealSlot };
 
 type State = {
@@ -65,6 +67,10 @@ type State = {
   supplements: { picked: string[]; taken: Record<string, string[]> }; // taken: dayKey -> names
   dismissed: Record<string, string>; // insight id -> dayKey it was dismissed
   mediaPref: MediaPref;
+  periods: { start: string; end?: string }[]; // logged periods, newest last
+  logPeriod: (what: 'start' | 'end') => void;
+  setupSkipped: boolean; // true after Skip on first-launch setup: Today keeps a Personalize card
+  skipSetup: (v: boolean) => void;
   checkIn: (m: Mood) => void;
   setReminders: (r: Reminder[]) => void;
   setHydration: (h: Interval) => void;
@@ -84,6 +90,9 @@ type State = {
   removeSet: (i: number, j: number) => void;
   swap: (i: number, exId: string) => void;
   addItem: (exId: string) => void;
+  begin: () => void;
+  pause: () => void;
+  resume: () => void;
   finish: () => Session | null;
   discard: () => void;
   deleteSession: (id: string) => void;
@@ -116,7 +125,7 @@ const initial = {
   hydration: { on: false, every: 90, from: 8, to: 21 }, breaks: { on: false, every: 60, from: 10, to: 18 },
   motivation: { on: true, every: 180, from: 9, to: 21 },
   nudges: { missed: true, streak: true, recap: true, quietFrom: 22, quietTo: 7 },
-  supplements: { picked: [] as string[], taken: {} as Record<string, string[]> }, dismissed: {}, mediaPref: 'drawing' as MediaPref,
+  supplements: { picked: [] as string[], taken: {} as Record<string, string[]> }, dismissed: {}, mediaPref: 'drawing' as MediaPref, setupSkipped: false, periods: [] as { start: string; end?: string }[],
 };
 
 export const useStore = create<State>()(
@@ -150,11 +159,11 @@ export const useStore = create<State>()(
           const sets = older ? Math.max(2, sl.sets - 1) : sl.sets;
           return { exId: ex.id, target: sl.reps, rest: sl.rest, sets: seedSets(ex.id, sl.reps, sets, sessions), swappedFrom };
         });
-        set({ active: { id: uid(), title: day.name, planId, dayIndex, place, startedAt: Date.now(), items } });
+        set({ active: { id: uid(), title: day.name, planId, dayIndex, place, startedAt: Date.now(), items, running: false } });
       },
       startSingle: (exId, place) =>
         set((s) => s.active ? {} : ({
-          active: { id: uid(), title: byId[exId].name, place, startedAt: Date.now(), items: [{ exId, target: '10', rest: 90, sets: seedSets(exId, '10', 3, s.sessions) }] },
+          active: { id: uid(), title: byId[exId].name, place, startedAt: Date.now(), running: false, items: [{ exId, target: '10', rest: 90, sets: seedSets(exId, '10', 3, s.sessions) }] },
         })),
       updateSet: (i, j, patch) =>
         set((s) => {
@@ -187,12 +196,17 @@ export const useStore = create<State>()(
         }),
       addItem: (exId) =>
         set((s) => s.active ? { active: { ...s.active, items: [...s.active.items, { exId, target: '10', rest: 90, sets: seedSets(exId, '10', 3, s.sessions) }] } } : {}),
+      begin: () => set((s) => (s.active && !s.active.running ? { active: { ...s.active, running: true, startedAt: Date.now(), pausedAt: undefined, pausedMs: 0 } } : {})),
+      pause: () => set((s) => (s.active?.running && !s.active.pausedAt ? { active: { ...s.active, pausedAt: Date.now() } } : {})),
+      resume: () =>
+        set((s) => (s.active?.pausedAt ? { active: { ...s.active, pausedMs: (s.active.pausedMs ?? 0) + Date.now() - s.active.pausedAt, pausedAt: undefined } } : {})),
       finish: () => {
         const { active, sessions, planId, nextDay } = get();
         if (!active) return null;
         const items = active.items.map((it) => ({ ...it, sets: it.sets.filter((x) => x.done) })).filter((it) => it.sets.length);
         if (!items.length) { set({ active: null }); return null; }
-        const done = { ...active, items, endedAt: Date.now() };
+        const end = active.pausedAt ?? Date.now();
+        const done = { ...active, items, endedAt: end, startedAt: active.startedAt + (active.pausedMs ?? 0), pausedAt: undefined, pausedMs: 0, running: false };
         const plan = planById[planId];
         const advance = active.planId === planId && plan ? ((active.dayIndex ?? nextDay) + 1) % plan.days.length : nextDay;
         set({ sessions: [...sessions, done], active: null, nextDay: advance });
@@ -205,6 +219,20 @@ export const useStore = create<State>()(
       addMeal: (m) => set((s) => ({ meals: [...s.meals, { ...m, id: uid(), day: dayKey() }] })),
       removeMeal: (id) => set((s) => ({ meals: s.meals.filter((m) => m.id !== id) })),
       addWater: (n) => set((s) => ({ water: { ...s.water, [dayKey()]: Math.max(0, (s.water[dayKey()] ?? 0) + n) } })),
+      skipSetup: (setupSkipped) => set({ setupSkipped }),
+      // A logged period start also becomes the profile's cycle anchor; the usual length is learned from past starts.
+      logPeriod: (what) =>
+        set((s) => {
+          const today = dayKey();
+          let periods = s.periods;
+          if (what === 'start') periods = [...periods.filter((x) => x.start !== today), { start: today }];
+          else if (periods.length) periods = [...periods.slice(0, -1), { ...periods[periods.length - 1], end: today }];
+          const starts = periods.map((x) => Date.parse(x.start));
+          const gaps = starts.slice(1).map((t, i) => Math.round((t - starts[i]) / 86400000)).filter((g) => g >= 21 && g <= 40);
+          const cycleLength = gaps.length ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : s.profile.women?.cycleLength ?? 28;
+          const women = { mode: 'cycle' as const, ...s.profile.women, periodStart: periods[periods.length - 1]?.start, cycleLength };
+          return { periods, profile: { ...s.profile, women } };
+        }),
       checkIn: (m) => set((s) => ({ checkins: { ...s.checkins, [dayKey()]: m } })),
       setReminders: (reminders) => set({ reminders }),
       setHydration: (hydration) => set({ hydration }),

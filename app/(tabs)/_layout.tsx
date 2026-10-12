@@ -1,15 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Tabs } from 'expo-router';
+import { BlurView } from 'expo-blur';
+import { Redirect, Tabs } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useStore } from '../../src/store';
 import { Tap } from '../../src/ui';
 import { c, f } from '../../src/theme';
 
 const TABS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
   index: { label: 'Today', icon: 'flash' },
-  exercises: { label: 'Exercises', icon: 'body' },
   train: { label: 'Plans', icon: 'barbell' },
+  exercises: { label: 'Exercises', icon: 'body' },
   progress: { label: 'Progress', icon: 'stats-chart' },
   fuel: { label: 'Fuel', icon: 'nutrition' },
 };
@@ -18,6 +20,9 @@ function Bar({ state, navigation }: BottomTabBarProps) {
   const ins = useSafeAreaInsets();
   return (
     <View style={[s.wrap, { bottom: Math.max(ins.bottom, 12) }]}>
+      {/* Frosted glass: content scrolls underneath and stays readable through the blur. */}
+      <BlurView intensity={40} tint="dark" experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFill} />
+      <View style={s.glassEdge} pointerEvents="none" />
       {state.routes.map((route, i) => {
         const on = state.index === i;
         const t = TABS[route.name];
@@ -34,11 +39,14 @@ function Bar({ state, navigation }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
+  // First launch opens setup; after Skip the app stays usable and Today keeps a Personalize card.
+  const firstRun = useStore((s) => !s.profile.name && !s.setupSkipped && !s.sessions.length);
+  if (firstRun) return <Redirect href="/onboarding" />;
   return (
     <Tabs tabBar={(p) => <Bar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: c.bg }, animation: 'shift' }}>
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="exercises" />
       <Tabs.Screen name="train" />
+      <Tabs.Screen name="exercises" />
       <Tabs.Screen name="progress" />
       <Tabs.Screen name="fuel" />
       <Tabs.Screen name="you" />
@@ -48,11 +56,12 @@ export default function TabsLayout() {
 
 const s = StyleSheet.create({
   wrap: {
-    position: 'absolute', left: 16, right: 16, height: 64, borderRadius: 32, backgroundColor: 'rgba(24,24,27,0.96)',
+    position: 'absolute', left: 16, right: 16, height: 64, borderRadius: 32, backgroundColor: 'rgba(24,24,27,0.55)', overflow: 'hidden',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8,
     borderWidth: StyleSheet.hairlineWidth, borderColor: c.line,
     shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 12,
   },
+  glassEdge: { ...StyleSheet.absoluteFillObject, borderRadius: 32, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderBottomColor: 'rgba(255,255,255,0.02)' },
   item: { height: 48, minWidth: 48, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 14 },
   label: { fontFamily: f.bold, fontSize: 13, color: c.accentInk },
 });

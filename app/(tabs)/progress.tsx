@@ -1,15 +1,21 @@
-import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, Line, Polyline } from 'react-native-svg';
+import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import { mapped, MuscleMap } from '../../src/body';
+import { Bars, LineChart } from '../../src/charts';
 import { dayKey, doneSets, e1rm, streak, volume } from '../../src/calc';
 import { byId, title } from '../../src/data/exercises';
+import { Sheet } from '../../src/sheet';
 import { useStore } from '../../src/store';
 import { c } from '../../src/theme';
-import { Button, Card, Rise, Row, Screen, Stat, Stepper, T, Tap } from '../../src/ui';
+import { Button, Card, Chip, Rise, Row, Screen, Stat, Stepper, T, Tap } from '../../src/ui';
 
 const DAY = 86400000;
+const EASE = Easing.bezier(0.32, 0.72, 0, 1);
+const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const kgLabel = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k kg` : `${Math.round(v)} kg`);
 
 export default function Progress() {
   const sessions = useStore((s) => s.sessions);
@@ -17,43 +23,65 @@ export default function Progress() {
   const profile = useStore((s) => s.profile);
   const logWeight = useStore((s) => s.logWeight);
   const [kg, setKg] = useState(profile?.weightKg ?? 70);
-  const [chartW, setChartW] = useState(300);
+  const [wide, setWide] = useState(false); // activity heatmap: 2 weeks, or 12 when expanded
+  const [pick, setPick] = useState<string | null>(null); // strength curve exercise
+  const [preview, setPreview] = useState(false);
   if (!profile) return null;
+  const gentle = !!(profile.gentle || profile.concerns?.includes('food'));
 
-  // Weekly volume, last 8 weeks (Monday-first).
-  const monday = new Date(); monday.setHours(0, 0, 0, 0); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-  const weeks = Array.from({ length: 8 }, (_, i) => {
-    const from = monday.getTime() - (7 - i) * 7 * DAY;
-    const ss = sessions.filter((s) => s.startedAt >= from && s.startedAt < from + 7 * DAY);
-    return { label: new Date(from).getDate(), v: ss.reduce((a, s) => a + volume(s), 0), n: ss.length };
-  });
-  const maxV = Math.max(1, ...weeks.map((w) => w.v));
+  // Weeks run Monday to Sunday. back(k, d) is day d (0 = Monday) of the week k weeks before this one.
+  const mon = new Date(); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+  const back = (k: number, d = 0) => { const x = new Date(mon); x.setDate(mon.getDate() - 7 * k + d); return x; };
+  const weekOf = (k: number) => { const a = back(k).getTime(), b = back(k - 1).getTime(); return sessions.filter((s) => s.startedAt >= a && s.startedAt < b); };
 
-  // 12-week heatmap.
+  const volTrend = Array.from({ length: 12 }, (_, i) => weekOf(11 - i).reduce((a, s) => a + volume(s), 0));
+  const perWeek = Array.from({ length: 8 }, (_, i) => ({ label: String(back(7 - i).getDate()), value: weekOf(7 - i).length }));
+
   const counts: Record<string, number> = {};
-  for (const s of sessions) counts[dayKey(s.startedAt)] = (counts[dayKey(s.startedAt)] ?? 0) + doneSets(s);
-  const heatStart = monday.getTime() - 11 * 7 * DAY;
+  for (const s of sessions) { const k = dayKey(s.startedAt); counts[k] = (counts[k] ?? 0) + doneSets(s); }
+  const weeksBack = Array.from({ length: wide ? 12 : 2 }, (_, i) => (wide ? 12 : 2) - 1 - i); // oldest first
 
-  // Muscle split, last 30 days.
+  // Muscles from the last 30 days: primary muscles count every set, helpers half. Top 3 are primary on the map, next 4 helpers.
   const split: Record<string, number> = {};
-  for (const s of sessions.filter((x) => Date.now() - x.startedAt < 30 * DAY))
-    for (const it of s.items) { const m = byId[it.exId]?.primary[0]; if (m) split[m] = (split[m] ?? 0) + it.sets.length; }
-  const splitRows = Object.entries(split).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  for (const s of sessions) {
+    if (Date.now() - s.startedAt >= 30 * DAY) continue;
+    for (const it of s.items) {
+      const ex = byId[it.exId];
+      if (!ex) continue;
+      const n = it.sets.filter((x) => x.done).length;
+      for (const m of ex.primary) split[m] = (split[m] ?? 0) + n;
+      for (const m of ex.secondary) split[m] = (split[m] ?? 0) + n / 2;
+    }
+  }
+  const ranked = Object.entries(split).filter(([m]) => mapped(m)).sort((a, b) => b[1] - a[1]);
+  const splitRows = ranked.slice(0, 8);
   const maxS = Math.max(1, ...splitRows.map((x) => x[1]));
+  const mainMuscles = ranked.slice(0, 3).map((x) => x[0]);
+  const helperMuscles = ranked.slice(3, 7).map((x) => x[0]);
 
-  // Records.
+  // Best estimated 1RM per exercise, and the strength curve of the picked one.
   const best: Record<string, number> = {};
   for (const s of sessions) for (const it of s.items) for (const x of it.sets) if (x.weight) best[it.exId] = Math.max(best[it.exId] ?? 0, e1rm(x.weight, x.reps));
-  const records = Object.entries(best).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const lifts = Object.entries(best).sort((a, b) => b[1] - a[1]);
+  const topIds = lifts.slice(0, 6).map((x) => x[0]);
+  const cur = pick && topIds.includes(pick) ? pick : topIds[0];
+  const curve = cur ? sessions.flatMap((s) => {
+    const v = Math.max(0, ...s.items.filter((it) => it.exId === cur).flatMap((it) => it.sets.filter((x) => x.done && x.weight).map((x) => e1rm(x.weight, x.reps))));
+    return v > 0 ? [v] : [];
+  }).slice(-20) : [];
 
-  // Weight chart.
   const w = weights.slice(-30);
-  const vals = [...w.map((x) => x.kg), profile.goalWeightKg];
-  const lo = Math.min(...vals) - 1, hi = Math.max(...vals) + 1, H = 120;
-  const y = (v: number) => H - ((v - lo) / (hi - lo)) * H;
-  const x = (i: number) => (w.length < 2 ? chartW / 2 : (i / (w.length - 1)) * (chartW - 12) + 6);
+  const now = new Date();
+  const thisMonth = sessions.filter((s) => { const d = new Date(s.startedAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length;
 
-  const thisMonth = sessions.filter((s) => new Date(s.startedAt).getMonth() === new Date().getMonth()).length;
+  // Example projection: starts from the real top lift when there is one, else a sample 40 kg. Compounds 1.5% a week.
+  const base = cur ? best[cur] : 40;
+  const days = Math.max(1, profile.daysPerWeek);
+  const proj = Array.from({ length: 13 }, (_, i) => base * Math.pow(1.015, i));
+  const gain = base * (Math.pow(1.015, 12) - 1);
+  const intro = cur
+    ? `Starts from your ${byId[cur]?.name} est. 1RM of ${Math.round(base)} kg and ${days} sessions a week.`
+    : `Starts from a sample lift of 40 kg and ${days} sessions a week. Log a few sets and it starts from your own numbers.`;
 
   return (
     <Screen>
@@ -69,79 +97,120 @@ export default function Progress() {
       </Rise>
 
       <Rise i={2}>
-        <Card style={{ marginTop: 14 }}>
-          <T v="label">Weekly volume</T>
-          <Row style={{ alignItems: 'flex-end', height: 130, marginTop: 14 }} gap={8}>
-            {weeks.map((wk, i) => (
-              <View key={i} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
-                <View style={{ width: '100%', height: Math.max(4, (wk.v / maxV) * 100), borderRadius: 8, backgroundColor: i === 7 ? c.accent : c.card2 }} />
-                <T v="label">{wk.label}</T>
-              </View>
-            ))}
-          </Row>
+        <Card style={{ marginTop: 14, gap: 12 }}>
+          <T v="label">Preview your progress</T>
+          <T v="small">See what 12 weeks of steady training could look like.</T>
+          <Button title="See an example" kind="ghost" onPress={() => setPreview(true)} />
         </Card>
       </Rise>
 
       <Rise i={3}>
         <Card style={{ marginTop: 14 }}>
-          <T v="label">Last 12 weeks</T>
-          <Row style={{ marginTop: 14, justifyContent: 'space-between' }} gap={4}>
-            {Array.from({ length: 12 }, (_, wi) => (
-              <View key={wi} style={{ gap: 4, flex: 1 }}>
-                {Array.from({ length: 7 }, (_, di) => {
-                  const t = heatStart + (wi * 7 + di) * DAY;
-                  const n = counts[dayKey(t)] ?? 0;
-                  const future = t > Date.now();
-                  return <View key={di} style={[s.cell, { backgroundColor: future ? 'transparent' : n === 0 ? c.card2 : n < 8 ? '#5C7A1F' : n < 16 ? '#93C22E' : c.accent }]} />;
-                })}
-              </View>
-            ))}
+          <Row style={{ justifyContent: 'space-between' }}>
+            <T v="label">Activity</T>
+            <Tap onPress={() => setWide(!wide)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <T v="small" color={c.accent}>{wide ? 'Collapse' : 'Expand'}</T>
+              <Ionicons name={wide ? 'chevron-up' : 'chevron-down'} size={14} color={c.accent} />
+            </Tap>
           </Row>
+          <Animated.View layout={LinearTransition.duration(320).easing(EASE)} style={{ marginTop: 14, gap: 6, overflow: 'hidden' }}>
+            <Row gap={6}>{DAYS.map((d, i) => <T key={i} v="label" style={{ flex: 1, textAlign: 'center' }}>{d}</T>)}</Row>
+            {weeksBack.map((k) => (
+              <Animated.View key={k} entering={FadeIn.duration(260)} exiting={FadeOut.duration(160)} style={{ flexDirection: 'row', gap: 6 }}>
+                {DAYS.map((_, j) => {
+                  const d = back(k, j);
+                  const n = counts[dayKey(d)] ?? 0;
+                  const future = d.getTime() > Date.now();
+                  return <View key={j} style={[s.cell, { backgroundColor: future ? 'transparent' : n === 0 ? c.card2 : n < 8 ? '#5C7A1F' : n < 16 ? '#93C22E' : c.accent }]} />;
+                })}
+              </Animated.View>
+            ))}
+          </Animated.View>
+          {!sessions.length && <T v="small" style={{ marginTop: 12 }}>Your activity fills in as you train.</T>}
         </Card>
       </Rise>
 
-      {!(profile.gentle || profile.concerns?.includes('food')) && <Rise i={4}>
+      <Rise i={4}>
         <Card style={{ marginTop: 14 }}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <T v="label">Body weight</T>
-            <T v="small">Goal {profile.goalWeightKg} kg</T>
-          </Row>
-          <View style={{ height: H, marginTop: 16 }} onLayout={(e) => setChartW(e.nativeEvent.layout.width)}>
-            <Svg width={chartW} height={H}>
-              <Line x1={0} x2={chartW} y1={y(profile.goalWeightKg)} y2={y(profile.goalWeightKg)} stroke={c.warm} strokeDasharray="6 6" strokeWidth={1.5} />
-              {w.length > 1 && <Polyline points={w.map((p, i) => `${x(i)},${y(p.kg)}`).join(' ')} fill="none" stroke={c.accent} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />}
-              {w.map((p, i) => <Circle key={p.day} cx={x(i)} cy={y(p.kg)} r={i === w.length - 1 ? 5 : 3} fill={c.accent} />)}
-            </Svg>
-          </View>
-          <Row style={{ marginTop: 16, justifyContent: 'space-between' }}>
-            <Stepper value={kg} step={0.1} onChange={setKg} min={30} suffix=" kg" />
-            <Button title="Log" onPress={() => logWeight(+kg.toFixed(1))} style={{ height: 44, paddingHorizontal: 22 }} />
-          </Row>
+          <T v="label">Weekly volume · 12 weeks</T>
+          {volTrend.some((v) => v > 0) ? (
+            <>
+              <View style={{ marginTop: 16 }}><LineChart values={volTrend} fmt={kgLabel} height={120} /></View>
+              <Row style={{ justifyContent: 'space-between', marginTop: 8 }}><T v="small">12 weeks ago</T><T v="small">This week</T></Row>
+            </>
+          ) : <T v="body" color={c.muted} style={{ marginTop: 12 }}>Finish a workout and your weekly volume shows here.</T>}
         </Card>
-      </Rise>}
+      </Rise>
 
-      {splitRows.length > 0 && (
-        <Rise i={5}>
-          <Card style={{ marginTop: 14, gap: 10 }}>
-            <T v="label">Muscle split · 30 days</T>
-            {splitRows.map(([m, n]) => (
-              <Row key={m} gap={10}>
-                <T v="small" color={c.text} style={{ width: 90 }} numberOfLines={1}>{title(m)}</T>
-                <View style={{ flex: 1, height: 10, borderRadius: 5, backgroundColor: c.card2 }}>
-                  <View style={{ width: `${(n / maxS) * 100}%`, height: 10, borderRadius: 5, backgroundColor: c.blue }} />
-                </View>
-                <T v="small" style={{ width: 28, textAlign: 'right' }}>{n}</T>
+      <Rise i={5}>
+        <Card style={{ marginTop: 14 }}>
+          <T v="label">Sessions per week · 8 weeks</T>
+          {sessions.length ? <View style={{ marginTop: 14 }}><Bars items={perWeek} /></View>
+            : <T v="body" color={c.muted} style={{ marginTop: 12 }}>No sessions yet. Each week's count shows up here.</T>}
+        </Card>
+      </Rise>
+
+      <Rise i={6}>
+        <Card style={{ marginTop: 14, gap: 12 }}>
+          <T v="label">Strength curve · est. 1RM</T>
+          {topIds.length ? (
+            <>
+              <Row gap={8} style={{ flexWrap: 'wrap' }}>
+                {topIds.map((id) => <Chip key={id} label={byId[id]?.name ?? id} on={id === cur} onPress={() => setPick(id)} />)}
               </Row>
-            ))}
+              <LineChart values={curve} fmt={(v) => `${Math.round(v)} kg`} height={120} />
+              <T v="small">{curve.length > 1 ? `${curve.length} sessions with this lift` : 'Log this lift again and the curve draws itself.'}</T>
+            </>
+          ) : <T v="body" color={c.muted}>Log a few sets with weight and your strength curve shows here.</T>}
+        </Card>
+      </Rise>
+
+      {!gentle && (
+        <Rise i={7}>
+          <Card style={{ marginTop: 14 }}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <T v="label">Body weight</T>
+              <T v="small">Goal {profile.goalWeightKg} kg</T>
+            </Row>
+            <View style={{ marginTop: 16 }}>
+              {w.length ? <LineChart values={w.map((p) => p.kg)} goal={profile.goalWeightKg} fmt={(v) => `${v.toFixed(1)} kg`} height={120} />
+                : <T v="body" color={c.muted}>Log your weight to start the line.</T>}
+            </View>
+            <Row style={{ marginTop: 16, justifyContent: 'space-between' }}>
+              <Stepper value={kg} step={0.1} onChange={setKg} min={30} suffix=" kg" />
+              <Button title="Log" onPress={() => logWeight(+kg.toFixed(1))} style={{ height: 44, paddingHorizontal: 22 }} />
+            </Row>
           </Card>
         </Rise>
       )}
 
-      {records.length > 0 && (
-        <Rise i={6}>
+      <Rise i={8}>
+        <Card style={{ marginTop: 14, gap: 12 }}>
+          <T v="label">Muscle map · 30 days</T>
+          {splitRows.length ? (
+            <>
+              <View style={{ alignItems: 'center', marginVertical: 4 }}>
+                <MuscleMap primary={mainMuscles} secondary={helperMuscles} size={180} />
+              </View>
+              {splitRows.map(([m, n]) => (
+                <Row key={m} gap={10}>
+                  <T v="small" color={c.text} style={{ width: 90 }} numberOfLines={1}>{title(m)}</T>
+                  <View style={{ flex: 1, height: 10, borderRadius: 5, backgroundColor: c.card2 }}>
+                    <View style={{ width: `${(n / maxS) * 100}%`, height: 10, borderRadius: 5, backgroundColor: c.blue }} />
+                  </View>
+                  <T v="small" style={{ width: 28, textAlign: 'right' }}>{Math.round(n)}</T>
+                </Row>
+              ))}
+            </>
+          ) : <T v="body" color={c.muted}>Train this month and your muscle map fills in.</T>}
+        </Card>
+      </Rise>
+
+      {lifts.length > 0 && (
+        <Rise i={9}>
           <Card style={{ marginTop: 14, gap: 12 }}>
             <T v="label">Top lifts · est. 1RM</T>
-            {records.map(([id, v], i) => (
+            {lifts.slice(0, 5).map(([id, v], i) => (
               <Row key={id} style={{ justifyContent: 'space-between' }}>
                 <T v="num" color={i === 0 ? c.accent : i < 3 ? c.text : c.dim} style={{ fontSize: 18, lineHeight: 22, width: 20 }}>{i + 1}</T>
                 <T v="h3" style={{ flex: 1 }} numberOfLines={1}>{byId[id]?.name}</T>
@@ -152,7 +221,7 @@ export default function Progress() {
         </Rise>
       )}
 
-      <Rise i={7}>
+      <Rise i={10}>
         <Row style={{ marginTop: 26, marginBottom: 10, justifyContent: 'space-between' }}>
           <T v="label">History</T>
           <Tap onPress={() => router.push('/history')}><T v="small" color={c.accent}>Calendar & streaks</T></Tap>
@@ -173,11 +242,29 @@ export default function Progress() {
           ))}
         </View>
       </Rise>
+
+      <Sheet open={preview} onClose={() => setPreview(false)}>
+        <View style={{ gap: 14 }}>
+          <T v="label" color={c.warm}>Example, not a promise</T>
+          <T v="h2">12 weeks of steady training</T>
+          <T v="small">{intro}</T>
+          <T v="label" style={{ marginTop: 6 }}>Estimated strength</T>
+          <LineChart values={proj} fmt={(v) => `${Math.round(v)} kg`} height={110} />
+          <T v="small">Rising about 1.5% a week, anywhere from 1% to 2%.</T>
+          <T v="label">Sessions per week</T>
+          <Bars items={Array.from({ length: 12 }, (_, i) => ({ label: String(i + 1), value: days }))} height={90} />
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Stat label="Sessions" value={days * 12} />
+            <Stat label="Streak" value="12 wks" color={c.accent} />
+            <Stat label="Strength" value={`+${Math.round(gain)} kg`} />
+          </Row>
+          <Button title="Close" kind="ghost" onPress={() => setPreview(false)} />
+        </View>
+      </Sheet>
     </Screen>
   );
 }
 
 const s = StyleSheet.create({
-  cell: { aspectRatio: 1, borderRadius: 4 },
+  cell: { flex: 1, aspectRatio: 1, borderRadius: 4 },
 });
-

@@ -24,7 +24,7 @@ export default function SessionScreen() {
   const active = useStore((s) => s.active);
   const profile = useStore((s) => s.profile);
   const sessions = useStore((s) => s.sessions);
-  const { updateSet, addSet, removeSet, swap, finish, discard } = useStore.getState();
+  const { updateSet, addSet, removeSet, swap, finish, discard, begin, pause, resume } = useStore.getState();
   const [idx, setIdx] = useState(0);
   const [restUntil, setRestUntil] = useState<number | null>(null); // absolute deadline survives backgrounding
   const [restTotal, setRestTotal] = useState(90);
@@ -35,9 +35,15 @@ export default function SessionScreen() {
   const now = useNow(restUntil ? 250 : 1000);
 
   const resting = restUntil && restUntil > now;
-  useEffect(() => { if (restUntil && restUntil <= now) { haptic('success'); setRestUntil(null); } }, [now, restUntil]);
+  useEffect(() => { if (restUntil && restUntil <= now && !useStore.getState().active?.pausedAt) { haptic('success'); setRestUntil(null); } }, [now, restUntil]);
 
   if (!active) return <Redirect href="/" />;
+  const started = active.running !== false;
+  const paused = !!active.pausedAt;
+  const elapsed = started ? Math.max(0, Math.floor(((active.pausedAt ?? now) - active.startedAt - (active.pausedMs ?? 0)) / 1000)) : 0;
+  // Pausing freezes the rest countdown too: on resume its deadline moves by the paused time.
+  const doPause = () => { pause(); if (restUntil) restAlert(null); haptic('medium'); };
+  const doResume = () => { const gap = Date.now() - (active.pausedAt ?? Date.now()); resume(); if (restUntil) { setRestUntil(restUntil + gap); restAlert((restUntil + gap - Date.now()) / 1000); } haptic('medium'); };
   const it = active.items[Math.min(idx, active.items.length - 1)];
   const ex = byId[it.exId];
   const timed = isTimed(it.target); // '30s' targets log seconds; drills with a hold still count reps
@@ -48,6 +54,8 @@ export default function SessionScreen() {
 
   function toggle(j: number) {
     const was = it.sets[j].done;
+    if (!started) begin();
+    if (paused) doResume();
     updateSet(idx, j, { done: !was });
     if (!was) {
       haptic('success');
@@ -74,7 +82,7 @@ export default function SessionScreen() {
         <Tap onPress={() => setSheet('end')} style={s.icon}><Ionicons name="close" size={22} color={c.text} /></Tap>
         <View style={{ alignItems: 'center', flex: 1 }}>
           <Row gap={6}><View style={s.live} /><T v="label" color={c.text} numberOfLines={1} style={{ flexShrink: 1 }}>{active.title}</T></Row>
-          <T style={{ fontFamily: f.display, fontSize: 20 }}>{fmtTime(Math.floor((now - active.startedAt) / 1000))}</T>
+          <T style={{ fontFamily: f.display, fontSize: 20 }}>{!started ? 'Ready' : paused ? 'Paused' : fmtTime(elapsed)}</T>
         </View>
         <Tap onPress={() => setSheet('end')} style={[s.finish, { backgroundColor: c.accent }]}><T v="h3" color={c.accentInk} numberOfLines={1}>Finish</T></Tap>
       </Row>
@@ -140,7 +148,15 @@ export default function SessionScreen() {
       </ScrollView>
 
       <View style={[s.bottom, { paddingBottom: ins.bottom + 12 }]}>
-        {resting ? (
+        {!started || paused ? (
+          <Animated.View entering={FadeInDown.duration(260).easing(Easing.bezier(0.32, 0.72, 0, 1))} style={{ gap: 8 }}>
+            {paused && <T v="small" style={{ textAlign: 'center' }}>Paused at {fmtTime(elapsed)}. Take your time.</T>}
+            <Tap onPress={() => { if (!started) { begin(); haptic('success'); } else doResume(); }} style={[s.big, { backgroundColor: c.accent }]} scale={0.98} feedback="none">
+              <Ionicons name="play" size={26} color={c.accentInk} />
+              <T v="h2" color={c.accentInk}>{started ? 'Resume' : 'Start workout'}</T>
+            </Tap>
+          </Animated.View>
+        ) : resting ? (
           <Animated.View entering={FadeInDown.duration(320).easing(Easing.bezier(0.32, 0.72, 0, 1))} exiting={FadeOutDown.duration(200)} style={s.rest}>
             <Ring size={84} stroke={8} progress={(restUntil! - now) / (restTotal * 1000)} color={c.warm}>
               <T style={{ fontFamily: f.display, fontSize: 22 }}>{fmtTime(Math.ceil((restUntil! - now) / 1000))}</T>
@@ -156,6 +172,7 @@ export default function SessionScreen() {
           </Animated.View>
         ) : (
           <Row gap={10}>
+            <Tap onPress={doPause} style={[s.nav, { width: 64, height: 64, borderRadius: 32 }]} feedback="none"><Ionicons name="pause" size={26} color={c.text} /></Tap>
             <Tap onPress={() => setIdx(Math.max(0, idx - 1))} disabled={idx === 0} style={s.nav}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
             <View style={{ flex: 1, alignItems: 'center' }}>
               <T v="label">{done}/{total} sets</T>
@@ -215,6 +232,7 @@ const s = StyleSheet.create({
   setDone: { backgroundColor: '#1C2410' },
   check: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: c.dim, alignItems: 'center', justifyContent: 'center' },
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 12, backgroundColor: 'rgba(10,10,11,0.92)', borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  big: { height: 68, borderRadius: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   nav: { height: 56, width: 56, borderRadius: 28, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   rest: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#1F140C', borderRadius: r.lg, padding: 14 },
   restBtn: { flex: 1, height: 44, borderRadius: 22, backgroundColor: '#3A2614', alignItems: 'center', justifyContent: 'center' },

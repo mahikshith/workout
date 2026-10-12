@@ -58,7 +58,7 @@ export function ContextFields({ p, up }: { p: Profile; up: (patch: Partial<Profi
         <T v="small" color={c.text}>We'll hide calories, weight and BMI, and focus on regular meals and feeling strong.</T>
       )}
 
-      {p.gender !== 'male' && (
+      {p.gender === 'female' && (
         <>
           <T v="label" style={{ marginTop: 14 }}>Women's health</T>
           <Row style={{ flexWrap: 'wrap' }} gap={8}>
