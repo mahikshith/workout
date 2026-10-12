@@ -1,107 +1,109 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { postpartumWeek, pregnancyWeek } from '../../src/calc';
 import { ranked } from '../../src/coach';
-import { title } from '../../src/data/exercises';
-import { planById } from '../../src/data/plans';
-import { useStore } from '../../src/store';
+import { CATEGORIES, perWeek, plans, type Plan } from '../../src/data/plans';
+import { useStore, type Profile } from '../../src/store';
 import { c, r } from '../../src/theme';
 import { Chip, Rise, Row, Screen, T, Tap } from '../../src/ui';
 
-const BODY: { m: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { m: 'chest', icon: 'shirt' }, { m: 'shoulders', icon: 'accessibility' }, { m: 'lats', icon: 'body' }, { m: 'biceps', icon: 'barbell' },
-  { m: 'triceps', icon: 'hand-left' }, { m: 'abdominals', icon: 'grid' }, { m: 'glutes', icon: 'fitness' }, { m: 'quadriceps', icon: 'walk' },
-  { m: 'hamstrings', icon: 'flash' }, { m: 'calves', icon: 'footsteps' }, { m: 'lower back', icon: 'shield' }, { m: 'pelvic floor', icon: 'flower' },
+type Where = 'gym' | 'home' | 'office';
+const WHERE: { k: Where; label: string; icon: 'barbell' | 'home' | 'briefcase' }[] = [
+  { k: 'gym', label: 'Gym', icon: 'barbell' }, { k: 'home', label: 'Home', icon: 'home' }, { k: 'office', label: 'Office', icon: 'briefcase' },
 ];
+
+// Office shows recovery and desk-friendly plans only; gym and home hide desk-only plans.
+const fits = (p: Plan, w: Where) =>
+  w === 'office' ? p.category === 'Recovery' : !p.tags.includes('office') && (p.place === w || p.place === 'any');
+
+// One plain line on why a plan suits this person.
+function because(p: Profile, plan: Plan) {
+  if (plan.id === 'pregnancy-safe') return 'Safe moves for your pregnancy, checked against your week.';
+  if (plan.id === 'after-birth') return 'Gentle steps back after birth, at your pace.';
+  if (plan.category === 'Recovery' && (pregnancyWeek(p) !== null || postpartumWeek(p) !== null)) return 'Gentle and safe for you right now.';
+  const n = perWeek(plan);
+  const goal = plan.tags.includes(p.goal) ? `Built to help you ${p.goal}` : 'A good change of pace';
+  const days = n === p.daysPerWeek ? `your ${n} days a week` : `${n} days a week`;
+  return `${goal}, ${days}${plan.level === 'beginner' && p.level === 'beginner' ? ', beginner friendly' : ''}.`;
+}
+
+const open = (id: string) => router.push({ pathname: '/plan/[id]', params: { id } });
 
 export default function Train() {
   const profile = useStore((s) => s.profile);
   const planId = useStore((s) => s.planId);
-  const [where, setWhere] = useState<'all' | 'gym' | 'home'>('all');
+  const [where, setWhere] = useState<Where>(profile?.place === 'home' ? 'home' : 'gym');
   if (!profile) return null;
-  const current = planById[planId];
-  const list = ranked(profile).filter((p) => p.id !== planId && (where === 'all' || p.place === where || p.place === 'any'));
+  const best = ranked(profile).slice(0, 3);
+  const shown = plans.filter((p) => fits(p, where) && (p.category !== 'Women' || profile.gender !== 'male'));
+  const meta = (p: Plan) => `${perWeek(p)} days/week · ${p.level}`;
 
   return (
     <Screen>
       <Rise><T v="display">Plans</T></Rise>
 
-      {current && (
-        <Rise i={1}>
-          <Tap onPress={() => router.push({ pathname: '/plan/[id]', params: { id: current.id } })} style={s.current} scale={0.98}>
-            <LinearGradient colors={[current.color, current.color + 'AA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-            <T v="label" color={c.accentInk}>Your plan</T>
-            <T v="h1" color={c.accentInk} style={{ marginTop: 4 }}>{current.name}</T>
-            <T v="body" color="#1A1A1A">{current.tagline}</T>
-            <Row style={{ marginTop: 14 }} gap={8}>
-              {current.days.map((d) => (
-                <View key={d.name} style={s.dayPill}><T v="small" color={c.text}>{d.name}</T></View>
-              ))}
-            </Row>
-          </Tap>
-        </Rise>
-      )}
+      <Rise i={1}>
+        <T v="label" style={{ marginTop: 18, marginBottom: 12 }}>Best for you</T>
+        <View style={s.grid}>
+          {best.map((p, i) => (
+            <Tap key={p.id} onPress={() => open(p.id)} style={[s.block, i === 0 && s.feature, i === 0 && { borderColor: c.accent }]} scale={0.98}>
+              <T v="label" color={c.accent}>{p.id === planId ? 'Current plan' : i === 0 ? 'Top pick' : p.category}</T>
+              <T v={i === 0 ? 'h2' : 'h3'} numberOfLines={2}>{p.name}</T>
+              <T v="small" numberOfLines={i === 0 ? 2 : 3} style={{ flexGrow: 1 }}>{because(profile, p)}</T>
+              <T v="label" color={c.text}>{meta(p)}</T>
+            </Tap>
+          ))}
+        </View>
+      </Rise>
 
       <Rise i={2}>
+        <Row style={{ marginTop: 28, justifyContent: 'space-between' }}>
+          <T v="label">All plans</T>
+          <T v="small" color={c.dim}>{shown.length} plans</T>
+        </Row>
+        <Row gap={8} style={{ marginTop: 12 }}>
+          {WHERE.map((w) => <Chip key={w.k} label={w.label} icon={w.icon} on={where === w.k} onPress={() => setWhere(w.k)} />)}
+        </Row>
+        {CATEGORIES.map((cat) => {
+          const list = shown.filter((p) => p.category === cat);
+          if (!list.length) return null;
+          return (
+            <View key={cat} style={{ marginTop: 22 }}>
+              <T v="h3" style={{ marginBottom: 10 }}>{cat}</T>
+              <View style={s.grid}>
+                {list.map((p) => (
+                  <Tap key={p.id} onPress={() => open(p.id)} style={s.block} scale={0.98}>
+                    <T v="h3" numberOfLines={2} style={{ flexGrow: 1 }}>{p.name}</T>
+                    <T v="small">{perWeek(p)} days/week</T>
+                    <T v="label" color={p.id === planId ? c.accent : c.muted}>{p.id === planId ? 'Current' : p.level}</T>
+                  </Tap>
+                ))}
+              </View>
+            </View>
+          );
+        })}
+      </Rise>
+
+      <Rise i={3}>
         <Tap onPress={() => router.push('/library')} style={s.lib} scale={0.98}>
           <View style={[s.libIcon, { backgroundColor: c.accent }]}><Ionicons name="search" size={22} color={c.accentInk} /></View>
           <View style={{ flex: 1 }}>
             <T v="h3">Exercise library</T>
-            <T v="small">878 exercises with demos and alternatives</T>
+            <T v="small">Every exercise with demos and alternatives</T>
           </View>
           <Ionicons name="chevron-forward" size={20} color={c.muted} />
         </Tap>
-      </Rise>
-
-      <Rise i={3}>
-        <T v="label" style={{ marginTop: 26, marginBottom: 12 }}>Browse by muscle</T>
-        <View style={s.grid}>
-          {BODY.map((b) => (
-            <Tap key={b.m} onPress={() => router.push({ pathname: '/library', params: { muscle: b.m } })} style={s.muscle}>
-              <Ionicons name={b.icon} size={22} color={c.accent} />
-              <T v="small" color={c.text} numberOfLines={1}>{title(b.m)}</T>
-            </Tap>
-          ))}
-        </View>
-      </Rise>
-
-      <Rise i={4}>
-        <Row style={{ marginTop: 26, marginBottom: 12, justifyContent: 'space-between' }}>
-          <T v="label">More plans</T>
-          <Row gap={6}>
-            {(['all', 'gym', 'home'] as const).map((w) => <Chip key={w} label={title(w)} on={where === w} onPress={() => setWhere(w)} />)}
-          </Row>
-        </Row>
-        <View style={{ gap: 12 }}>
-          {list.map((p) => (
-            <Tap key={p.id} onPress={() => router.push({ pathname: '/plan/[id]', params: { id: p.id } })} style={s.plan} scale={0.98}>
-              <View style={[s.bar, { backgroundColor: p.color }]} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <T v="h3">{p.name}</T>
-                <T v="small" numberOfLines={1}>{p.tagline}</T>
-                <Row gap={6} style={{ marginTop: 6 }}>
-                  <T v="label" color={p.color}>{p.place === 'any' ? 'Anywhere' : title(p.place)}</T>
-                  <T v="label">· {p.days.length} day{p.days.length > 1 ? 's' : ''} · {p.level}</T>
-                </Row>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={c.muted} />
-            </Tap>
-          ))}
-        </View>
       </Rise>
     </Screen>
   );
 }
 
 const s = StyleSheet.create({
-  current: { marginTop: 18, borderRadius: r.xl, padding: 22, overflow: 'hidden' },
-  dayPill: { backgroundColor: 'rgba(10,10,11,0.75)', paddingHorizontal: 12, height: 30, borderRadius: 15, justifyContent: 'center' },
-  lib: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
+  block: { width: '48%', minHeight: 120, gap: 6, padding: 14, borderRadius: r.md, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  feature: { width: '100%', minHeight: 0, padding: 18, borderRadius: r.lg, borderWidth: 1 },
+  lib: { marginTop: 28, flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   libIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  muscle: { width: '31%', flexGrow: 1, height: 84, borderRadius: r.md, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-  plan: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-  bar: { width: 6, alignSelf: 'stretch', borderRadius: 3 },
 });

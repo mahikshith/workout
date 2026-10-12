@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { StyleSheet, Switch, View } from 'react-native';
 import Animated, { Easing, FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { dayKey, postpartumWeek, pregnancyWeek, targets } from '../../src/calc';
 import { BLOATING, SUPPLEMENTS, foodsFor, proteinPicks, type Food } from '../../src/data/foods';
+import { mealPlan, perServing, suggest } from '../../src/data/recipes';
 import { Rings } from '../../src/rings';
-import { Sheet } from '../../src/sheet';
 import { useStore, type MealSlot } from '../../src/store';
 import { c, f } from '../../src/theme';
-import { Button, Card, Rise, Row, Screen, T, Tap } from '../../src/ui';
+import { Card, Rise, Row, Screen, T, Tap } from '../../src/ui';
 
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 const fade = () => FadeIn.duration(280).easing(EASE);
@@ -21,7 +22,6 @@ const SLOTS: { id: MealSlot; name: string; icon: Icon }[] = [
 ];
 const slotNow = (h = new Date().getHours()): MealSlot => (h < 11 ? 'breakfast' : h < 15 ? 'lunch' : h < 18 ? 'snack' : 'dinner');
 const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
-const EMPTY = { name: '', kcal: '', protein: '' };
 
 // Sections fade up on entry and slide smoothly when one above them grows or shrinks.
 const Sec = ({ i, children }: { i: number; children: ReactNode }) => (
@@ -36,9 +36,7 @@ export default function Fuel() {
   const water = useStore((s) => s.water[dayKey()] ?? 0);
   const sup = useStore((s) => s.supplements);
   const { addMeal, removeMeal, addWater, pickSupplement, takeSupplement } = useStore.getState();
-  const [sheet, setSheet] = useState<{ slot: MealSlot; open: boolean }>({ slot: 'breakfast', open: false });
-  const [form, setForm] = useState(EMPTY);
-  const [open, setOpen] = useState({ sup: false, gas: false, light: false });
+  const [open, setOpen] = useState({ plan: true, sup: false, gas: false, light: false });
   if (!profile) return null;
 
   // Gentle mode: no calorie, protein, weight, BMI or portion-size numbers anywhere on this screen.
@@ -58,11 +56,8 @@ export default function Fuel() {
     const hit = inSlot(slot).filter((m) => m.name === fd.name).pop();
     if (hit) removeMeal(hit.id); else addMeal({ name: fd.name, kcal: fd.kcal, protein: fd.protein, slot });
   };
-  const q = form.name.trim();
-  const list = foodsFor(profile.diet).filter((fd) => fd.name.toLowerCase().includes(q.toLowerCase()));
-  const addCustom = () => { addMeal({ name: q, kcal: gentle ? 0 : +form.kcal, protein: gentle ? 0 : +form.protein || 0, slot: sheet.slot }); setForm(EMPTY); };
-  const openSheet = (slot: MealSlot) => { setForm(EMPTY); setSheet({ slot, open: true }); };
-  const closeSheet = () => setSheet({ ...sheet, open: false });
+  const addFood = (slot: MealSlot, recipe?: string) => router.push({ pathname: '/food', params: recipe ? { slot, recipe } : { slot } });
+  const plan = mealPlan(profile, gentle);
   const showSup = !gentle && (profile.goal === 'build muscle' || profile.goal === 'get stronger')
     && pregnancyWeek(profile) === null && postpartumWeek(profile) === null && profile.age >= 18;
   const picked = SUPPLEMENTS.filter((x) => sup.picked.includes(x.name));
@@ -114,6 +109,38 @@ export default function Fuel() {
       </Sec>
 
       <Sec i={3}>
+        <Card>
+          <Head title={`Today's plan: ${plan.title}`} open={open.plan} onPress={() => setOpen({ ...open, plan: !open.plan })} />
+          {open.plan && (
+            <Animated.View entering={fade()} style={{ marginTop: 6 }}>
+              {plan.items.map((it, n) => {
+                const nth = plan.items.slice(0, n).filter((x) => x.slot === it.slot).length; // second snack of the day
+                const done = inSlot(it.slot).length > nth;
+                return (
+                  <View key={n} style={s.row}>
+                    <Row gap={8}>
+                      <Ionicons name={done ? 'checkmark-circle' : SLOTS.find((x) => x.id === it.slot)!.icon} size={18} color={done ? c.accent : c.muted} />
+                      <T v="h3" numberOfLines={1} style={{ flex: 1, flexShrink: 1 }}>{it.name}</T>
+                    </Row>
+                    <T v="small" numberOfLines={3} style={{ marginTop: 2 }}>{it.text}</T>
+                    {suggest(profile, plan.group, it.slot, 2, nth * 2).map((rc) => (
+                      <Tap key={rc.id} onPress={() => addFood(it.slot, rc.id)} scale={0.98} style={s.pick}>
+                        <Ionicons name="restaurant-outline" size={14} color={c.accent} />
+                        <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1, flexShrink: 1 }}>{rc.name}</T>
+                        {!gentle && <T v="small" numberOfLines={1}>{perServing(rc).kcal} kcal</T>}
+                        <Ionicons name="chevron-forward" size={14} color={c.dim} />
+                      </Tap>
+                    ))}
+                  </View>
+                );
+              })}
+              {!!plan.note && <T v="small" color={c.text} numberOfLines={6} style={{ marginTop: 10 }}>{plan.note}</T>}
+            </Animated.View>
+          )}
+        </Card>
+      </Sec>
+
+      <Sec i={4}>
         <Row style={{ justifyContent: 'space-between', marginTop: 12 }}>
           <T v="label">Meals</T>
           {!gentle && <T v="small">{eaten} of 4 eaten</T>}
@@ -132,7 +159,7 @@ export default function Fuel() {
                     <T v="h3" numberOfLines={1}>{x.name}</T>
                     <T v="small" numberOfLines={1}>{!items.length ? 'Nothing yet' : gentle ? 'Logged' : `${k} kcal · ${p} g protein`}</T>
                   </View>
-                  <Tap onPress={() => openSheet(x.id)} style={s.round}><Ionicons name="add" size={22} color={c.text} /></Tap>
+                  <Tap onPress={() => addFood(x.id)} style={s.round}><Ionicons name="add" size={22} color={c.text} /></Tap>
                 </Row>
                 {items.map((m) => (
                   <Animated.View key={m.id} entering={fade()} style={s.item}>
@@ -146,11 +173,11 @@ export default function Fuel() {
           })}
         </View>
         <T v="small" numberOfLines={2} style={{ marginTop: 10 }}>
-          {gentle ? 'Aim for 3 meals and a snack. Regular meals help you train.' : `Aim for 3 meals and 1 snack, about ${Math.round(t.protein / 4)} g of protein each.`}
+          {gentle ? `Aim for ${plan.title}. Regular meals help you train.` : `Aim for ${plan.title}, about ${Math.round(t.protein / plan.items.length)} g of protein each time.`}
         </T>
       </Sec>
 
-      <Sec i={4}>
+      <Sec i={5}>
         <Card>
           <T v="label">Best protein for you</T>
           <T v="small" numberOfLines={2} style={{ marginTop: 4, marginBottom: 4 }}>
@@ -161,7 +188,7 @@ export default function Fuel() {
       </Sec>
 
       {!gentle && profile.goal === 'lose fat' && (
-        <Sec i={5}>
+        <Sec i={6}>
           <Card>
             <Head title="Filling foods that are light on calories" open={open.light} onPress={() => setOpen({ ...open, light: !open.light })} />
             {open.light && (
@@ -175,7 +202,7 @@ export default function Fuel() {
       )}
 
       {showSup && (
-        <Sec i={5}>
+        <Sec i={6}>
           <Card>
             <Head title="Supplements (optional)" open={open.sup} onPress={() => setOpen({ ...open, sup: !open.sup })} />
             {picked.length > 0 && (
@@ -213,7 +240,7 @@ export default function Fuel() {
         </Sec>
       )}
 
-      <Sec i={6}>
+      <Sec i={7}>
         <Card>
           <Head title="Foods that can cause bloating or gas" open={open.gas} onPress={() => setOpen({ ...open, gas: !open.gas })} />
           {open.gas && (
@@ -229,7 +256,7 @@ export default function Fuel() {
         </Card>
       </Sec>
 
-      <Sec i={7}>
+      <Sec i={8}>
         <Card>
           <Row>
             <View style={{ flex: 1 }}>
@@ -250,37 +277,6 @@ export default function Fuel() {
         </Card>
       </Sec>
 
-      <Sheet open={sheet.open} onClose={closeSheet}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <Row>
-            <T v="h2" numberOfLines={1} style={{ flex: 1, flexShrink: 1 }}>Add to {nameOf(sheet.slot)}</T>
-            <Tap onPress={closeSheet} style={s.round}><Ionicons name="close" size={20} color={c.text} /></Tap>
-          </Row>
-          <TextInput
-            value={form.name} onChangeText={(name) => setForm({ ...form, name })} placeholder="Search, or type your own food" maxLength={40}
-            placeholderTextColor={c.dim} style={[s.input, { marginTop: 14 }]}
-          />
-          {!!q && (
-            <Animated.View entering={fade()}>
-              <Row gap={8} style={{ marginTop: 8 }}>
-                {!gentle && (
-                  <>
-                    <TextInput value={form.kcal} onChangeText={(v) => setForm({ ...form, kcal: v.replace(/\D/g, '') })} placeholder="Calories" keyboardType="number-pad" maxLength={4} placeholderTextColor={c.dim} style={[s.input, { flex: 1 }]} />
-                    <TextInput value={form.protein} onChangeText={(v) => setForm({ ...form, protein: v.replace(/\D/g, '') })} placeholder="Protein g" keyboardType="number-pad" maxLength={3} placeholderTextColor={c.dim} style={[s.input, { flex: 1 }]} />
-                  </>
-                )}
-                <Button title="Add" icon="add" disabled={!gentle && !form.kcal} onPress={addCustom} style={[{ height: 48, paddingHorizontal: 18 }, gentle && { flex: 1 }]} />
-              </Row>
-            </Animated.View>
-          )}
-          <T v="small" numberOfLines={2} style={{ marginTop: 14 }}>
-            {list.length ? 'Fits your diet. Tap to add, tap again to remove.' : 'No match. Add it as your own food above.'}
-          </T>
-          <ScrollView style={{ maxHeight: 260, marginTop: 4 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {list.map((fd) => foodRow(fd, sheet.slot, gentle ? '' : `${fd.kcal} kcal · ${fd.protein} g protein · ${fd.serving}`))}
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Sheet>
     </Screen>
   );
 }
@@ -310,5 +306,5 @@ const s = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   tick: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
   row: { gap: 2, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
-  input: { height: 48, borderRadius: 14, backgroundColor: c.card2, paddingHorizontal: 14, color: c.text, fontFamily: f.medium, fontSize: 15 },
+  pick: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingHorizontal: 12, height: 40, borderRadius: 12, backgroundColor: c.card2 },
 });

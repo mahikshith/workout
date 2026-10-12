@@ -1,29 +1,48 @@
-import { postpartumWeek } from './calc';
+import { postpartumWeek, pregnancyWeek } from './calc';
 import type { Place } from './data/exercises';
-import { plans } from './data/plans';
+import { perWeek, plans, type Plan } from './data/plans';
 import type { Profile, Session } from './store';
 
-// Gender only shifts the default; every plan stays open to everyone.
+// One best plan from goal, place, experience, days per week and body context. Women plans are only picked for women.
 export function recommend(p: Profile): string {
+  if (pregnancyWeek(p) !== null) return 'pregnancy-safe';
   const pp = postpartumWeek(p);
-  if (pp !== null && pp < 12) return 'pelvic-floor'; // breathing, pelvic floor and walking come first after birth
-  const place: Place = p.place === 'home' ? 'home' : 'gym';
-  if (place === 'home') {
+  if (pp !== null && pp < 12) return 'after-birth'; // breathing, pelvic floor and walking come first after birth
+  const female = p.gender === 'female';
+  if (p.place === 'home') {
     if (p.goal === 'lose fat') return 'fat-burn-home';
-    return p.gear.includes('dumbbell') ? 'home-dumbbell' : 'home-bodyweight';
+    if (p.gear.includes('dumbbell')) return 'home-dumbbell';
+    return p.level === 'beginner' ? 'home-beginner' : 'home-bodyweight';
   }
-  if (p.level === 'beginner' || p.daysPerWeek <= 3) return p.gender === 'female' && p.goal !== 'get stronger' ? 'glutes-legs-gym' : 'full-body-gym';
-  if (p.daysPerWeek >= 5 && p.goal !== 'lose fat') return 'ppl-gym';
-  return p.gender === 'female' && p.goal !== 'get stronger' ? 'glutes-legs-gym' : 'upper-lower-gym';
+  const days = p.daysPerWeek;
+  const thin = p.weightKg / (p.heightCm / 100) ** 2 < 20;
+  if (p.goal === 'lose fat') return days >= 4 || p.level === 'beginner' ? 'fat-loss-gym' : 'functional';
+  if (p.level === 'beginner' || days <= 3) {
+    if (p.goal === 'get stronger') return 'strength-5x5';
+    if (p.goal === 'build muscle' && thin) return 'lean-gain';
+    if (female && days >= 5 && p.goal !== 'stay fit') return 'glutes-legs-gym';
+    return 'full-body-gym';
+  }
+  if (p.goal === 'stay fit') return days >= 5 && female ? 'glutes-legs-gym' : 'functional';
+  if (days >= 6) return p.goal === 'get stronger' ? 'phul' : 'ppl-gym';
+  if (days === 5) return p.goal === 'get stronger' ? 'phul' : female ? 'glutes-legs-gym' : 'bro-split';
+  return p.goal === 'get stronger' ? 'phul' : 'upper-lower-gym';
 }
 
-export const ranked = (p: Profile) => {
+// Plans that fit this person, best first. Women plans only for women; pregnancy and after-birth plans only when they apply.
+export const ranked = (p: Profile): Plan[] => {
   const best = recommend(p);
+  const preg = pregnancyWeek(p) !== null;
+  const pp = postpartumWeek(p);
+  const fresh = pp !== null && pp < 12;
   const place = p.place === 'both' ? null : p.place;
-  return [...plans].sort((a, b) => score(b) - score(a));
-  function score(x: (typeof plans)[number]) {
-    return (x.id === best ? 100 : 0) + (x.tags.includes(p.goal) ? 10 : 0) + (!place || x.place === place || x.place === 'any' ? 5 : 0);
-  }
+  const ok = (x: Plan) =>
+    (x.category !== 'Women' || p.gender === 'female') && (x.id !== 'pregnancy-safe' || preg) && (x.id !== 'after-birth' || fresh) &&
+    (!place || x.place === place || x.place === 'any');
+  const score = (x: Plan) =>
+    (x.id === best ? 100 : 0) + (x.tags.includes(p.goal) ? 10 : 0) - 2 * Math.abs(perWeek(x) - p.daysPerWeek) +
+    (x.level === 'intermediate' && p.level === 'beginner' ? -8 : 0) + ((preg || fresh) && x.category === 'Recovery' ? (x.id === 'pelvic-floor' ? 50 : 40) : 0);
+  return plans.filter(ok).sort((a, b) => score(b) - score(a));
 };
 
 export const defaultPlace = (p: Profile): Place => (p.place === 'home' ? 'home' : 'gym');

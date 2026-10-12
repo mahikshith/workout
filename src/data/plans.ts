@@ -122,8 +122,8 @@ export const plans: Plan[] = [
         x('Barbell_Deadlift', 3, '5', 180), x('Pullups', 3, '6-10', 120), x('Bent_Over_Barbell_Row', 3, '8', 120),
         x('Seated_Cable_Rows', 3, '10-12'), x('Straight-Arm_Pulldown', 2, '12-15', 60) ] },
       { name: 'Shoulder Day', focus: 'Shoulders · Traps · Abs', slots: [
-        x('Standing_Military_Press', 4, '6-8', 150), x('Face_Pull', 3, '15', 60), x('Side_Lateral_Raise', 4, '12-15', 60),
-        x('Barbell_Shrug', 3, '10-12', 60), x('Reverse_Machine_Flyes', 3, '12-15', 60), x('Plank', 3, '45s', 60) ] },
+        x('Standing_Military_Press', 4, '6-8', 150), x('Face_Pull', 3, '15', 60), x('Barbell_Shrug', 3, '10-12', 60),
+        x('Side_Lateral_Raise', 4, '12-15', 60), x('Reverse_Machine_Flyes', 3, '12-15', 60), x('Plank', 3, '45s', 60) ] },
       { name: 'Leg Day', focus: 'Quads · Hamstrings · Calves', slots: [
         x('Barbell_Squat', 4, '6-8', 180), x('Romanian_Deadlift', 3, '8-10', 120), x('Leg_Press', 3, '10-12', 120),
         x('Lying_Leg_Curls', 3, '12', 60), x('Leg_Extensions', 3, '15', 60), x('Standing_Calf_Raises', 4, '12-15', 60) ] },
@@ -179,7 +179,7 @@ export const plans: Plan[] = [
         x('Triceps_Overhead_Extension_with_Rope', 3, '8-12', 60) ] },
       { name: 'Lower Hypertrophy', focus: 'Moderate weight, more reps', slots: [
         x('Hack_Squat', 3, '8-12', 120), x('Romanian_Deadlift', 3, '10', 120), x('Dumbbell_Lunges', 3, '10/side'),
-        x('Leg_Extensions', 3, '10-15', 60), x('Seated_Leg_Curl', 3, '10-15', 60), x('Seated_Calf_Raise', 4, '10-15', 60) ] },
+        x('Seated_Leg_Curl', 3, '10-15', 60), x('Leg_Extensions', 3, '10-15', 60), x('Seated_Calf_Raise', 4, '10-15', 60) ] },
     ],
   },
   {
@@ -371,7 +371,7 @@ export const plans: Plan[] = [
         x('Bodyweight_Squat', 2, '10', 60), x('wg_wall-push-up', 2, '10', 60), x('wg_doorway-row', 2, '10', 60),
         x('Butt_Lift_Bridge', 2, '12', 45), x('wg_calf-raise', 2, '15', 45), x('Dead_Bug', 2, '8/side', 45) ] },
       { name: 'Home Start B', focus: 'Hold · Push · Row · Core', slots: [
-        x('wg_knee-push-up', 2, '8', 60), x('wg_wall-sit', 2, '20s', 60), x('wg_towel-row', 2, '10', 60),
+        x('wg_knee-push-up', 2, '8', 60), x('wg_towel-row', 2, '10', 60), x('wg_wall-sit', 2, '20s', 60),
         x('Single_Leg_Glute_Bridge', 2, '8/side', 45), x('wg_bird-dog', 2, '8/side', 45), x('Plank', 2, '20s', 45) ] },
     ],
   },
@@ -389,8 +389,8 @@ export const plans: Plan[] = [
         x('Bodyweight_Squat', 3, '15', 60), x('Pushups', 3, '8-12', 60), x('Bodyweight_Walking_Lunge', 3, '10/side', 60),
         x('Butt_Lift_Bridge', 3, '15', 45), x('Plank', 3, '30s', 45), x('Mountain_Climbers', 3, '30s', 45) ] },
       { name: 'Home Full Body B', focus: 'Glutes · Back · Core', slots: [
-        x('Step-up_with_Knee_Raise', 3, '10/side', 60), x('Incline_Push-Up', 3, '12', 60), x('Single_Leg_Glute_Bridge', 3, '10/side', 45),
-        x('Bench_Dips', 3, '10', 60), x('Hyperextensions_With_No_Hyperextension_Bench', 3, '12', 45), x('Dead_Bug', 3, '10/side', 45) ] },
+        x('Step-up_with_Knee_Raise', 3, '10/side', 60), x('Incline_Push-Up', 3, '12', 60), x('Bench_Dips', 3, '10', 60),
+        x('Hyperextensions_With_No_Hyperextension_Bench', 3, '12', 45), x('Single_Leg_Glute_Bridge', 3, '10/side', 45), x('Dead_Bug', 3, '10/side', 45) ] },
     ],
   },
   {
@@ -405,7 +405,7 @@ export const plans: Plan[] = [
     days: [
       { name: 'Home Upper', focus: 'Chest · Back · Shoulders · Arms', slots: [
         x('Dumbbell_Bench_Press', 3, '10'), x('One-Arm_Dumbbell_Row', 3, '10/side'), x('Dumbbell_Shoulder_Press', 3, '10'),
-        x('Band_Pull_Apart', 3, '15', 45), x('Hammer_Curls', 3, '12', 60), x('Standing_Dumbbell_Triceps_Extension', 3, '12', 60) ] },
+        x('Hammer_Curls', 3, '12', 60), x('Band_Pull_Apart', 3, '15', 45), x('Standing_Dumbbell_Triceps_Extension', 3, '12', 60) ] },
       { name: 'Home Lower', focus: 'Quads · Glutes · Hamstrings', slots: [
         x('Goblet_Squat', 4, '12'), x('Stiff-Legged_Dumbbell_Deadlift', 3, '10'), x('Split_Squat_with_Dumbbells', 3, '10/side'),
         x('Hip_Lift_with_Band', 3, '15', 45), x('Calf_Raise_On_A_Dumbbell', 3, '15', 45), x('Russian_Twist', 3, '20', 45) ] },
@@ -422,10 +422,10 @@ export const plans: Plan[] = [
     week: [0, null, 1, null, 0, null, null], weeks: 6,
     days: [
       { name: 'Cardio Blast', focus: 'Conditioning circuit', slots: [
-        x('Pushups', 4, '30s', 30), x('Freehand_Jump_Squat', 4, '30s', 30), x('Mountain_Climbers', 4, '30s', 30),
-        x('Scissors_Jump', 4, '30s', 30), x('Air_Bike', 4, '30s', 30) ] },
+        x('Pushups', 4, '30s', 30), x('Air_Bike', 4, '30s', 30), x('Freehand_Jump_Squat', 4, '30s', 30),
+        x('Mountain_Climbers', 4, '30s', 30), x('Scissors_Jump', 4, '30s', 30) ] },
       { name: 'Core Burner', focus: 'Abs and obliques', slots: [
-        x('Plank', 3, '40s', 30), x('Russian_Twist', 3, '20', 30), x('Flutter_Kicks', 3, '30s', 30),
+        x('Flutter_Kicks', 3, '30s', 30), x('Plank', 3, '40s', 30), x('Russian_Twist', 3, '20', 30),
         x('Leg_Pull-In', 3, '15', 30), x('Dead_Bug', 3, '10/side', 30) ] },
     ],
   },
@@ -461,7 +461,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'desk-reset', name: 'Desk Reset', tagline: 'Five minutes at your desk, every workday.',
-    place: 'any', level: 'beginner', tags: ['stay fit', 'desk'], color: '', category: 'Recovery',
+    place: 'any', level: 'beginner', tags: ['stay fit', 'desk', 'office'], color: '', category: 'Recovery',
     about: 'Gentle neck, back, wrist and hip moves undo the stiffness of sitting, and eye breaks rest your eyes from screens. You finish the day less sore and more awake.',
     who: 'Office workers, students and anyone at a screen for hours.',
     why: 'Every workday, because stiffness from sitting comes back daily. Five minutes is easy to fit in.',
@@ -471,7 +471,7 @@ export const plans: Plan[] = [
     days: [
       { name: 'Desk Reset', focus: 'Neck · Back · Wrists · Hips · Eyes', slots: [
         x('Desk_Neck_Tilt', 1, '5/side', 10), x('Desk_Chin_Tuck', 1, '8', 10), x('Desk_Seated_Twist', 1, '30s/side', 10),
-        x('Desk_Wrist_Stretch', 1, '30s/side', 10), x('Desk_Figure_Four', 1, '30s/side', 10), x('Eye_20_20_20', 1, '1', 10) ] },
+        x('Desk_Wrist_Stretch', 1, '30s/side', 10), x('Desk_Figure_Four', 1, '30s/side', 10), x('Eye_20_20_20', 1, '20s', 10) ] },
     ],
   },
 ];

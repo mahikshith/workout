@@ -6,6 +6,7 @@ import type { Diet } from './data/foods';
 import { planById, type Day } from './data/plans';
 import { dayKey, lastSets, parseReps } from './calc';
 import { gate } from './engine';
+import { order } from './data/order';
 import type { AccentId } from './theme';
 
 export type Goal = 'lose fat' | 'build muscle' | 'get stronger' | 'stay fit';
@@ -40,7 +41,7 @@ export type MealSlot = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 export type Reminder = { id: string; kind: 'workout' | 'meal' | 'custom'; hour: number; minute: number; days: number[]; on: boolean; label?: string };
 export type Interval = { on: boolean; every: number; from: number; to: number }; // every N minutes between hours from..to
 export type NudgePrefs = { missed: boolean; streak: boolean; recap: boolean; quietFrom: number; quietTo: number };
-export type MediaPref = 'drawing' | 'photo' | 'video';
+export type MediaPref = 'animated' | 'drawing' | 'photo' | 'video';
 
 export type SetLog = { reps: number; weight: number; done: boolean };
 export type Item = { exId: string; target: string; rest: number; sets: SetLog[]; swappedFrom?: string };
@@ -125,7 +126,7 @@ const initial = {
   hydration: { on: false, every: 90, from: 8, to: 21 }, breaks: { on: false, every: 60, from: 10, to: 18 },
   motivation: { on: true, every: 180, from: 9, to: 21 },
   nudges: { missed: true, streak: true, recap: true, quietFrom: 22, quietTo: 7 },
-  supplements: { picked: [] as string[], taken: {} as Record<string, string[]> }, dismissed: {}, mediaPref: 'drawing' as MediaPref, setupSkipped: false, periods: [] as { start: string; end?: string }[],
+  supplements: { picked: [] as string[], taken: {} as Record<string, string[]> }, dismissed: {}, mediaPref: 'animated' as MediaPref, setupSkipped: false, periods: [] as { start: string; end?: string }[],
 };
 
 export const useStore = create<State>()(
@@ -148,7 +149,7 @@ export const useStore = create<State>()(
         if (active) return; // an unfinished workout is resumed, never silently replaced
         const gear = profile?.gear ?? [];
         const older = (profile?.age ?? 30) >= 55 || profile?.level === 'beginner';
-        const items = day.slots.map((sl) => {
+        const items = order(day.slots).map((sl) => {
           let ex = byId[sl.id];
           let swappedFrom: string | undefined;
           const ok = (e: typeof ex) => available(e, place, gear) && !gate(e, profile, sessions.length).locked;
@@ -252,13 +253,15 @@ export const useStore = create<State>()(
       reset: () => set(initial),
     }),
     {
-      name: 'gym-buddy', version: 3, storage: createJSONStorage(() => AsyncStorage),
+      name: 'gym-buddy', version: 4, storage: createJSONStorage(() => AsyncStorage),
       // Older saves lack the newer fields: fill them from `initial`, and turn the single setup reminder into the list.
       migrate: (old) => {
         const o = old as Partial<State> & { profile?: Profile | null };
         const profile = o.profile ?? GUEST;
         const reminders = o.reminders ?? (profile.reminder?.on ? [{ id: 'setup', kind: 'workout' as const, ...profile.reminder, days: [] }] : []);
-        return { ...initial, ...o, profile, reminders } as State;
+        // v4: the smooth animated figure becomes the default demo (the old 'drawing' value was only ever the default).
+        const mediaPref = !o.mediaPref || o.mediaPref === 'drawing' ? 'animated' : o.mediaPref;
+        return { ...initial, ...o, profile, reminders, mediaPref } as State;
       },
     },
   ),

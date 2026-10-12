@@ -6,7 +6,7 @@ export type Group = 'Fat loss' | 'Muscle gain' | 'Weight gain' | 'Pregnancy-frie
 export const GROUPS: Group[] = ['Fat loss', 'Muscle gain', 'Weight gain', 'Pregnancy-friendly', 'Quick and easy'];
 // [name, amount, kcal, protein g] for the whole recipe. Honest approximations; raw weights unless it says cooked.
 export type Ing = [string, string, number, number];
-// noPreg: protein powder or high-mercury fish, so it is left out for pregnant users.
+// noPreg: protein powder or tuna, left out during pregnancy and postpartum. Everything else is cooked through and pasteurised.
 export type Recipe = { id: string; name: string; group: Group; kind: Kind; serves: number; minutes: number; slots: MealSlot[]; why: string; ing: Ing[]; steps: string[]; noPreg?: boolean };
 
 export const RECIPES: Recipe[] = [
@@ -119,7 +119,7 @@ export const RECIPES: Recipe[] = [
     steps: ['Mix the ragi flour with a little cold milk so there are no lumps.', 'Add the rest of the milk and cook on low heat, stirring, for 5 to 6 minutes.', 'Top with dates and almonds.'] },
   { id: 'moong-khichdi', name: 'Moong dal khichdi', group: 'Pregnancy-friendly', kind: 'vegan', serves: 2, minutes: 30, slots: ['lunch', 'dinner'],
     why: 'Soft, warm and easy to digest, with protein from the dal.',
-    ing: [['Rice', '75 g dry', 270, 5], ['Yellow moong dal', '75 g dry', 260, 18], ['Mixed vegetables', '1.5 cups', 75, 4], ['Oil or ghee', '2 tsp', 90, 0]],
+    ing: [['Rice', '75 g dry', 270, 5], ['Yellow moong dal', '75 g dry', 260, 18], ['Mixed vegetables', '1.5 cups', 75, 4], ['Oil', '2 tsp', 90, 0]],
     steps: ['Wash the rice and dal together.', 'Heat the oil with cumin, then add the vegetables.', 'Add the rice, dal, turmeric, salt and 4 cups of water.', 'Pressure-cook for 3 whistles, or simmer covered for 25 minutes.'] },
   { id: 'chicken-veg-stew', name: 'Chicken and vegetable stew', group: 'Pregnancy-friendly', kind: 'meat', serves: 2, minutes: 40, slots: ['lunch', 'dinner'],
     why: 'Well-cooked chicken gives protein and iron in a light, warming bowl.',
@@ -181,8 +181,7 @@ export function groupFor(p: Profile, gentle: boolean): Group {
 // n recipes for a slot: the plan's group first, then any other recipe that fits. skip gives a second snack different picks.
 export function suggest(p: Profile, group: Group, slot: MealSlot, n = 2, skip = 0) {
   const ok = recipesFor(p).filter((r) => r.slots.includes(slot));
-  const safe = busy(p) ? ok.filter((r) => r.group === 'Pregnancy-friendly' || r.group === 'Quick and easy') : ok;
-  const pool = [...safe.filter((r) => r.group === group), ...safe.filter((r) => r.group !== group)];
+  const pool = [...ok.filter((r) => r.group === group), ...ok.filter((r) => r.group !== group)];
   const out = pool.slice(skip, skip + n);
   return out.length === n ? out : pool.slice(0, n);
 }

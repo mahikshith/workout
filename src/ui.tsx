@@ -192,12 +192,13 @@ function Loop({ uris, solid }: { uris: string[]; solid: boolean }) {
   );
 }
 
-// Line art is transparent, so frames trade opacity; photos are opaque, so the next one fades in over the last.
+// Every frame sits on an opaque background and fades in over the last one, so mid-blend the white outlines mix
+// evenly instead of stacking up and looking thicker (what trading opacity on transparent line art did).
 function Frame({ uri, i, p, solid }: { uri: string; i: number; p: SharedValue<number>; solid: boolean }) {
-  const a = useAnimatedStyle(() => ({ opacity: solid ? Math.min(1, Math.max(0, p.value - i + 1)) : Math.max(0, 1 - Math.abs(p.value - i)) }));
+  const a = useAnimatedStyle(() => ({ opacity: i === 0 ? 1 : Math.min(1, Math.max(0, p.value - i + 1)) }));
   const inset = solid ? 0 : 12;
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, a]}>
+    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: solid ? c.media : c.card2 }, a]}>
       <Image source={uri} style={{ position: 'absolute', top: inset, bottom: inset, left: inset, right: inset }} contentFit="contain" cachePolicy="memory-disk" />
     </Animated.View>
   );

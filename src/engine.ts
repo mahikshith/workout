@@ -133,6 +133,11 @@ export function suggest(i: EngineInput, now = Date.now()): Suggestion {
   if (cyc?.phase === 'period' && (mood ?? 2) <= 2)
     return out('gentle', planById.mobility.days[0], 'Period days can feel heavy. Gentle movement like this can ease cramps.', undefined, 'mobility');
 
+  // The plan's own week: a rest day suggests recovery. Training days follow the rotation, so a missed day is never lost.
+  const weekday = (new Date(now).getDay() + 6) % 7; // Monday = 0
+  if (plan.week?.length === 7 && plan.week[weekday] === null && mood !== 4)
+    return out('rest', planById.mobility.days[0], `Rest day in ${plan.name}. Muscles grow on rest; a short stretch keeps you loose. Feeling great? Pick any quick session below.`, undefined, 'mobility');
+
   // Rest the muscles trained in the last day and a half: pick the plan day that overlaps least.
   let idx = i.nextDay % plan.days.length;
   let reason = '';
