@@ -5,6 +5,8 @@ import { alternatives, available, byId, type Place } from './data/exercises';
 import type { Diet } from './data/foods';
 import { planById, type Day } from './data/plans';
 import { dayKey, lastSets, parseReps } from './calc';
+import { gate } from './engine';
+import type { AccentId } from './theme';
 
 export type Goal = 'lose fat' | 'build muscle' | 'get stronger' | 'stay fit';
 export type Profile = {
@@ -20,13 +22,28 @@ export type Profile = {
   gear: string[];
   daysPerWeek: number;
   diet: Diet;
-  reminder: { hour: number; minute: number; on: boolean };
+  reminder: { hour: number; minute: number; on: boolean }; // setup's first reminder; the full list lives in State.reminders
+  concerns?: Concern[]; // "What's going on for you right now?" (optional)
+  women?: Women;
+  gentle?: boolean; // no-numbers mode: hides calories, weight and BMI
+  accent?: AccentId;
 };
+
+export type Concern = 'stressed' | 'breakup' | 'lose-weight' | 'tone' | 'food' | 'back' | 'knee' | 'desk' | 'thyroid';
+// mode 'cycle': periodStart = first day of the last period. 'pregnant': date = due date. 'postpartum': date = birth date.
+export type Women = { mode: 'none' | 'cycle' | 'pregnant' | 'postpartum'; periodStart?: string; cycleLength?: number; date?: string };
+export type Mood = 1 | 2 | 3 | 4; // drained, meh, good, fired up
+export type MealSlot = 'breakfast' | 'lunch' | 'snack' | 'dinner';
+// days: 0 = Sunday ... 6 = Saturday; empty = every day.
+export type Reminder = { id: string; kind: 'workout' | 'meal' | 'custom'; hour: number; minute: number; days: number[]; on: boolean; label?: string };
+export type Interval = { on: boolean; every: number; from: number; to: number }; // every N minutes between hours from..to
+export type NudgePrefs = { missed: boolean; streak: boolean; recap: boolean; quietFrom: number; quietTo: number };
+export type MediaPref = 'drawing' | 'photo' | 'video';
 
 export type SetLog = { reps: number; weight: number; done: boolean };
 export type Item = { exId: string; target: string; rest: number; sets: SetLog[]; swappedFrom?: string };
-export type Session = { id: string; title: string; planId?: string; place: Place; startedAt: number; endedAt?: number; items: Item[] };
-export type Meal = { id: string; day: string; name: string; kcal: number; protein: number };
+export type Session = { id: string; title: string; planId?: string; dayIndex?: number; place: Place; startedAt: number; endedAt?: number; items: Item[] };
+export type Meal = { id: string; day: string; name: string; kcal: number; protein: number; slot?: MealSlot };
 
 type State = {
   profile: Profile; // name === '' means the user hasn't set up a profile yet; the app works anyway
@@ -37,9 +54,26 @@ type State = {
   weights: { day: string; kg: number }[];
   meals: Meal[];
   water: Record<string, number>;
+  checkins: Record<string, Mood>; // dayKey -> mood
+  reminders: Reminder[];
+  hydration: Interval;
+  breaks: Interval; // desk and eye breaks
+  nudges: NudgePrefs;
+  supplements: { picked: string[]; taken: Record<string, string[]> }; // taken: dayKey -> names
+  dismissed: Record<string, string>; // insight id -> dayKey it was dismissed
+  mediaPref: MediaPref;
+  checkIn: (m: Mood) => void;
+  setReminders: (r: Reminder[]) => void;
+  setHydration: (h: Interval) => void;
+  setBreaks: (b: Interval) => void;
+  setNudges: (n: NudgePrefs) => void;
+  pickSupplement: (name: string, on: boolean) => void;
+  takeSupplement: (name: string) => void;
+  dismiss: (insightId: string) => void;
+  setMediaPref: (m: MediaPref) => void;
   setProfile: (p: Profile, planId?: string) => void;
   setPlan: (id: string) => void;
-  start: (day: Day, place: Place, planId?: string) => void;
+  start: (day: Day, place: Place, planId?: string, dayIndex?: number) => void;
   startSingle: (exId: string, place: Place) => void;
   updateSet: (i: number, j: number, patch: Partial<SetLog>) => void;
   addSet: (i: number) => void;
@@ -50,7 +84,7 @@ type State = {
   discard: () => void;
   deleteSession: (id: string) => void;
   logWeight: (kg: number) => void;
-  addMeal: (m: Omit<Meal, 'id' | 'day'>) => void;
+  addMeal: (m: Omit<Meal, 'id' | 'day'>) => void; // pass slot to file it under a meal
   removeMeal: (id: string) => void;
   addWater: (n: number) => void;
   reset: () => void;
@@ -73,7 +107,11 @@ export const GUEST: Profile = {
 };
 
 const initial = {
-  profile: GUEST, planId: 'full-body-gym', nextDay: 0, sessions: [], active: null, weights: [], meals: [], water: {},
+  profile: GUEST, planId: 'full-body-gym', nextDay: 0, sessions: [] as Session[], active: null, weights: [], meals: [] as Meal[], water: {},
+  checkins: {}, reminders: [] as Reminder[],
+  hydration: { on: false, every: 90, from: 8, to: 21 }, breaks: { on: false, every: 60, from: 10, to: 18 },
+  nudges: { missed: true, streak: true, recap: true, quietFrom: 22, quietTo: 7 },
+  supplements: { picked: [] as string[], taken: {} as Record<string, string[]> }, dismissed: {}, mediaPref: 'drawing' as MediaPref,
 };
 
 export const useStore = create<State>()(
@@ -89,8 +127,9 @@ export const useStore = create<State>()(
         })),
       setPlan: (id) => set({ planId: id, nextDay: 0 }),
 
-      // Exercises the place can't support are swapped for the best available alternative up front.
-      start: (day, place, planId) => {
+      // Exercises the place can't support, or that are locked for this person (level or safety), are replaced
+      // up front by the best alternative that is allowed.
+      start: (day, place, planId, dayIndex) => {
         const { sessions, profile, active } = get();
         if (active) return; // an unfinished workout is resumed, never silently replaced
         const gear = profile?.gear ?? [];
@@ -98,14 +137,15 @@ export const useStore = create<State>()(
         const items = day.slots.map((sl) => {
           let ex = byId[sl.id];
           let swappedFrom: string | undefined;
-          if (!available(ex, place, gear)) {
-            const alt = alternatives(ex, place, gear, 1)[0];
+          const ok = (e: typeof ex) => available(e, place, gear) && !gate(e, profile, sessions.length).locked;
+          if (!ok(ex)) {
+            const alt = alternatives(ex, place, gear, 12).find(ok);
             if (alt) { swappedFrom = ex.id; ex = alt; }
           }
           const sets = older ? Math.max(2, sl.sets - 1) : sl.sets;
           return { exId: ex.id, target: sl.reps, rest: sl.rest, sets: seedSets(ex.id, sl.reps, sets, sessions), swappedFrom };
         });
-        set({ active: { id: uid(), title: day.name, planId, place, startedAt: Date.now(), items } });
+        set({ active: { id: uid(), title: day.name, planId, dayIndex, place, startedAt: Date.now(), items } });
       },
       startSingle: (exId, place) =>
         set((s) => s.active ? {} : ({
@@ -149,7 +189,7 @@ export const useStore = create<State>()(
         if (!items.length) { set({ active: null }); return null; }
         const done = { ...active, items, endedAt: Date.now() };
         const plan = planById[planId];
-        const advance = active.planId === planId && plan ? (nextDay + 1) % plan.days.length : nextDay;
+        const advance = active.planId === planId && plan ? ((active.dayIndex ?? nextDay) + 1) % plan.days.length : nextDay;
         set({ sessions: [...sessions, done], active: null, nextDay: advance });
         return done;
       },
@@ -160,11 +200,32 @@ export const useStore = create<State>()(
       addMeal: (m) => set((s) => ({ meals: [...s.meals, { ...m, id: uid(), day: dayKey() }] })),
       removeMeal: (id) => set((s) => ({ meals: s.meals.filter((m) => m.id !== id) })),
       addWater: (n) => set((s) => ({ water: { ...s.water, [dayKey()]: Math.max(0, (s.water[dayKey()] ?? 0) + n) } })),
+      checkIn: (m) => set((s) => ({ checkins: { ...s.checkins, [dayKey()]: m } })),
+      setReminders: (reminders) => set({ reminders }),
+      setHydration: (hydration) => set({ hydration }),
+      setBreaks: (breaks) => set({ breaks }),
+      setNudges: (nudges) => set({ nudges }),
+      pickSupplement: (name, on) =>
+        set((s) => ({ supplements: { ...s.supplements, picked: on ? [...new Set([...s.supplements.picked, name])] : s.supplements.picked.filter((x) => x !== name) } })),
+      takeSupplement: (name) =>
+        set((s) => {
+          const today = s.supplements.taken[dayKey()] ?? [];
+          const next = today.includes(name) ? today.filter((x) => x !== name) : [...today, name];
+          return { supplements: { ...s.supplements, taken: { ...s.supplements.taken, [dayKey()]: next } } };
+        }),
+      dismiss: (id) => set((s) => ({ dismissed: { ...s.dismissed, [id]: dayKey() } })),
+      setMediaPref: (mediaPref) => set({ mediaPref }),
       reset: () => set(initial),
     }),
     {
-      name: 'gym-buddy', version: 2, storage: createJSONStorage(() => AsyncStorage),
-      migrate: (old) => ({ ...(old as object), profile: (old as { profile?: Profile | null }).profile ?? GUEST }) as State,
+      name: 'gym-buddy', version: 3, storage: createJSONStorage(() => AsyncStorage),
+      // Older saves lack the newer fields: fill them from `initial`, and turn the single setup reminder into the list.
+      migrate: (old) => {
+        const o = old as Partial<State> & { profile?: Profile | null };
+        const profile = o.profile ?? GUEST;
+        const reminders = o.reminders ?? (profile.reminder?.on ? [{ id: 'setup', kind: 'workout' as const, ...profile.reminder, days: [] }] : []);
+        return { ...initial, ...o, profile, reminders } as State;
+      },
     },
   ),
 );

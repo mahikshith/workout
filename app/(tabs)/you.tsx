@@ -28,7 +28,7 @@ export default function You() {
     <Screen>
       <Rise>
         <Row>
-          <View style={s.avatar}>{profile.name ? <T v="h1" color={c.accentInk}>{profile.name[0].toUpperCase()}</T> : <Ionicons name="person" size={28} color={c.accentInk} />}</View>
+          <View style={[s.avatar, { backgroundColor: c.accent }]}>{profile.name ? <T v="h1" color={c.accentInk}>{profile.name[0].toUpperCase()}</T> : <Ionicons name="person" size={28} color={c.accentInk} />}</View>
           <View style={{ flex: 1 }}>
             <T v="h1">{profile.name || 'Guest'}</T>
             <T v="small">{title(profile.gender === 'other' ? 'athlete' : profile.gender)} · {profile.age} y · {profile.heightCm} cm · {profile.weightKg} kg</T>
@@ -117,7 +117,7 @@ const Item = ({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; la
 );
 
 const s = StyleSheet.create({
-  avatar: { width: 64, height: 64, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 64, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   itemIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
 });
 

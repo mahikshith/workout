@@ -46,7 +46,7 @@ export default function Train() {
 
       <Rise i={2}>
         <Tap onPress={() => router.push('/library')} style={s.lib} scale={0.98}>
-          <View style={s.libIcon}><Ionicons name="search" size={22} color={c.accentInk} /></View>
+          <View style={[s.libIcon, { backgroundColor: c.accent }]}><Ionicons name="search" size={22} color={c.accentInk} /></View>
           <View style={{ flex: 1 }}>
             <T v="h3">Exercise library</T>
             <T v="small">878 exercises with demos and alternatives</T>
@@ -99,7 +99,7 @@ const s = StyleSheet.create({
   current: { marginTop: 18, borderRadius: r.xl, padding: 22, overflow: 'hidden' },
   dayPill: { backgroundColor: 'rgba(10,10,11,0.75)', paddingHorizontal: 12, height: 30, borderRadius: 15, justifyContent: 'center' },
   lib: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-  libIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
+  libIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   muscle: { width: '31%', flexGrow: 1, height: 84, borderRadius: r.md, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   plan: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },

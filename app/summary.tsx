@@ -44,7 +44,7 @@ export default function Summary() {
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {Array.from({ length: 36 }, (_, i) => <Confetti key={i} i={i} />)}
       </View>
-      <Animated.View entering={ZoomIn.duration(450).easing(Easing.out(Easing.cubic))} style={s2.badge}>
+      <Animated.View entering={ZoomIn.duration(450).easing(Easing.out(Easing.cubic))} style={[s2.badge, { backgroundColor: c.accent }]}>
         <Ionicons name="trophy" size={44} color={c.accentInk} />
       </Animated.View>
       <Rise i={1}><T v="display" style={{ textAlign: 'center', marginTop: 18 }}>Workout done</T></Rise>
@@ -82,5 +82,5 @@ export default function Summary() {
 }
 
 const s2 = StyleSheet.create({
-  badge: { alignSelf: 'center', width: 96, height: 96, borderRadius: r.xl, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
+  badge: { alignSelf: 'center', width: 96, height: 96, borderRadius: r.xl, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
 });

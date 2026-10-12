@@ -23,7 +23,7 @@ function Bar({ state, navigation }: BottomTabBarProps) {
         const t = TABS[route.name];
         if (!t) return null;
         return (
-          <Tap key={route.key} onPress={() => !on && navigation.navigate(route.name)} style={[s.item, on && s.on]} scale={0.9}>
+          <Tap key={route.key} onPress={() => !on && navigation.navigate(route.name)} style={[s.item, on && { backgroundColor: c.accent }]} scale={0.9}>
             <Ionicons name={on ? t.icon : (`${t.icon}-outline` as keyof typeof Ionicons.glyphMap)} size={20} color={on ? c.accentInk : c.muted} />
             {on && <Text style={s.label}>{t.label}</Text>}
           </Tap>
@@ -54,6 +54,5 @@ const s = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 12,
   },
   item: { height: 48, minWidth: 48, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 14 },
-  on: { backgroundColor: c.accent },
   label: { fontFamily: f.bold, fontSize: 13, color: c.accentInk },
 });

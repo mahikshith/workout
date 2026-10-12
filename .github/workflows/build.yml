@@ -24,7 +24,7 @@ jobs:
       - run: bash scripts/ci.sh npm install --no-audit --no-fund --legacy-peer-deps
       - run: bash scripts/ci.sh npx tsc --noEmit
       - run: node scripts/check.mjs
-      - run: node --experimental-strip-types -e "import('./src/calc.ts').then(m => { m.selfCheck(); console.log('calc ok') })"
+      - run: node --experimental-strip-types --no-warnings scripts/selfcheck.mjs
 
   web:
     needs: check

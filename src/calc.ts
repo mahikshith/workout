@@ -7,13 +7,33 @@ export const dayKey = (d: Date | number = new Date()) => {
 const DAY = 86400000;
 const startOfDay = (t: number) => new Date(dayKey(t) + 'T00:00:00').getTime();
 
-// Mifflin-St Jeor, scaled by training days, nudged by goal.
+const daysFrom = (a: string, b: string) => Math.round((Date.parse(b + 'T12:00:00') - Date.parse(a + 'T12:00:00')) / DAY);
+
+// Women's context. Unknown dates resolve to the cautious answer (mid-pregnancy, fresh postpartum).
+export function cycle(p: Profile, today = dayKey()) {
+  const w = p.women;
+  if (w?.mode !== 'cycle' || !w.periodStart) return null;
+  const len = w.cycleLength ?? 28;
+  const day = (((daysFrom(w.periodStart, today) % len) + len) % len) + 1;
+  const phase = day <= 5 ? 'period' : day <= len - 16 ? 'follicular' : day <= len - 12 ? 'ovulation' : 'luteal';
+  return { day, length: len, phase: phase as 'period' | 'follicular' | 'ovulation' | 'luteal' };
+}
+export const pregnancyWeek = (p: Profile, today = dayKey()) =>
+  p.women?.mode !== 'pregnant' ? null : !p.women.date ? 14 : Math.max(1, Math.min(42, 40 - Math.ceil(daysFrom(today, p.women.date) / 7)));
+export const postpartumWeek = (p: Profile, today = dayKey()) =>
+  p.women?.mode !== 'postpartum' ? null : !p.women.date ? 0 : Math.max(0, Math.floor(daysFrom(p.women.date, today) / 7));
+
+// Mifflin-St Jeor, scaled by training days, nudged by goal. Pregnancy, postpartum and thyroid never get a big deficit.
 export function targets(p: Profile) {
   const sex = p.gender === 'male' ? 5 : p.gender === 'female' ? -161 : -78;
   const bmr = 10 * p.weightKg + 6.25 * p.heightCm - 5 * p.age + sex;
   const activity = p.daysPerWeek <= 2 ? 1.3 : p.daysPerWeek <= 3 ? 1.4 : p.daysPerWeek <= 5 ? 1.55 : 1.7;
   const tdee = bmr * activity;
-  const delta = { 'lose fat': -Math.min(500, tdee * 0.2), 'build muscle': tdee * 0.1, 'get stronger': tdee * 0.05, 'stay fit': 0 }[p.goal];
+  let delta = { 'lose fat': -Math.min(500, tdee * 0.2), 'build muscle': tdee * 0.1, 'get stronger': tdee * 0.05, 'stay fit': 0 }[p.goal];
+  const pw = pregnancyWeek(p);
+  if (pw !== null) delta = pw >= 28 ? 450 : pw >= 14 ? 340 : 0;
+  else if (postpartumWeek(p) !== null || p.concerns?.includes('food')) delta = Math.max(delta, 0);
+  else if (p.concerns?.includes('thyroid')) delta = Math.max(delta, -tdee * 0.1);
   const proteinPerKg = { 'lose fat': 2, 'build muscle': 1.8, 'get stronger': 1.8, 'stay fit': 1.4 }[p.goal];
   return {
     kcal: Math.round((tdee + delta) / 10) * 10,
@@ -92,5 +112,12 @@ export function selfCheck() {
   assert(streak([day(4)]) === 0, 'stale streak is zero');
   assert(bestStreak([day(20), day(18), day(5), day(3), day(1)]) === 3, 'best streak');
   assert(Math.round(e1rm(100, 5)) === 117, 'epley');
+  const w = (women: Profile['women']) => ({ women } as Profile);
+  assert(cycle(w({ mode: 'cycle', periodStart: '2026-01-01' }), '2026-01-03')?.phase === 'period', 'cycle period');
+  assert(cycle(w({ mode: 'cycle', periodStart: '2026-01-01' }), '2026-01-20')?.phase === 'luteal', 'cycle luteal');
+  assert(cycle(w({ mode: 'cycle', periodStart: '2026-01-01' }), '2026-01-29')?.day === 1, 'cycle wraps');
+  assert(pregnancyWeek(w({ mode: 'pregnant', date: '2026-03-01' }), '2026-01-04') === 32, 'pregnancy week');
+  assert(pregnancyWeek(w({ mode: 'pregnant' })) === 14, 'unknown due date is cautious');
+  assert(postpartumWeek(w({ mode: 'postpartum', date: '2026-01-01' }), '2026-02-12') === 6, 'postpartum week');
   assert(isTimed('30s') && !isTimed('10/side') && isTimed('30s/side') && !isTimed('8-12'), 'timed parse');
 }

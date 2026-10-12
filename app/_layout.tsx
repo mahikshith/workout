@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useStore } from '../src/store';
-import { c } from '../src/theme';
+import { c, setAccent } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -18,9 +18,12 @@ export default function Root() {
   const ready = fonts && hydrated;
   useEffect(() => { if (ready) SplashScreen.hideAsync(); }, [ready]);
 
+  const accent = useStore((s) => s.profile.accent ?? 'lime');
+  setAccent(accent); // before children render; the key below remounts them so every inline colour updates
+
   if (!ready) return null;
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: c.bg }}>
+    <GestureHandlerRootView key={accent} style={{ flex: 1, backgroundColor: c.bg }}>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg }, animation: 'slide_from_right' }}>
         <Stack.Screen name="(tabs)" />

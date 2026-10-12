@@ -16,6 +16,18 @@ export const c = {
   media: '#F4F4F2',
 };
 
+// Accent choices for the profile. `c.accent` is swapped in place and the root remounts, so read it at render time
+// (inline styles), never inside StyleSheet.create.
+export const ACCENTS = {
+  lime: { name: 'Volt lime', hex: '#C5F04A' },
+  gold: { name: 'Champagne gold', hex: '#E6C36A' },
+  ember: { name: 'Ember', hex: '#FF7A45' },
+  glacier: { name: 'Glacier', hex: '#7DD3FC' },
+  rose: { name: 'Rose', hex: '#F4A3B5' },
+} as const;
+export type AccentId = keyof typeof ACCENTS;
+export const setAccent = (id: AccentId = 'lime') => { c.accent = ACCENTS[id]?.hex ?? ACCENTS.lime.hex; };
+
 export const f = {
   display: 'Anton_400Regular',
   regular: 'Outfit_400Regular',

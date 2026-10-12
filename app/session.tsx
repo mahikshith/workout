@@ -75,7 +75,7 @@ export default function SessionScreen() {
           <Row gap={6}><View style={s.live} /><T v="label" color={c.text} numberOfLines={1} style={{ flexShrink: 1 }}>{active.title}</T></Row>
           <T style={{ fontFamily: f.display, fontSize: 20 }}>{fmtTime(Math.floor((now - active.startedAt) / 1000))}</T>
         </View>
-        <Tap onPress={() => setSheet('end')} style={s.finish}><T v="h3" color={c.accentInk} numberOfLines={1}>Finish</T></Tap>
+        <Tap onPress={() => setSheet('end')} style={[s.finish, { backgroundColor: c.accent }]}><T v="h3" color={c.accentInk} numberOfLines={1}>Finish</T></Tap>
       </Row>
 
       <Row style={{ paddingHorizontal: 20, marginTop: 14 }} gap={4}>
@@ -204,7 +204,7 @@ export default function SessionScreen() {
 }
 
 const s = StyleSheet.create({
-  finish: { height: 40, minWidth: 88, paddingHorizontal: 18, borderRadius: 20, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
+  finish: { height: 40, minWidth: 88, paddingHorizontal: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   live: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.danger },
   seg: { height: 4, borderRadius: 2, backgroundColor: c.card2, overflow: 'hidden' },

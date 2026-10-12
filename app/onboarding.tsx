@@ -63,7 +63,7 @@ export default function Onboarding() {
       <T v="h1">Hey, what should we call you?</T>
       <TextInput
         autoFocus value={p.name} onChangeText={(name) => up({ name })} placeholder="Your name" placeholderTextColor={c.dim}
-        style={s.input} returnKeyType="done" maxLength={24} autoCapitalize="words"
+        style={[s.input, { borderColor: c.accent }]} returnKeyType="done" maxLength={24} autoCapitalize="words"
       />
       <T v="label" style={s.label}>Gender</T>
       <Seg<Profile['gender']> value={p.gender} onPick={(gender) => up({ gender })} opts={[['female', 'Female'], ['male', 'Male'], ['other', 'Other']]} />
@@ -76,7 +76,7 @@ export default function Onboarding() {
         {GOALS.map((g) => {
           const on = p.goal === g.v;
           return (
-            <Tap key={g.v} onPress={() => up({ goal: g.v })} style={[s.tile, on && s.on]} scale={0.97}>
+            <Tap key={g.v} onPress={() => up({ goal: g.v })} style={[s.tile, on && { backgroundColor: c.accent, borderColor: c.accent }]} scale={0.97}>
               <Ionicons name={g.icon} size={26} color={on ? c.accentInk : c.accent} />
               <T v="h3" color={on ? c.accentInk : c.text}>{g.label}</T>
             </Tap>
@@ -91,7 +91,7 @@ export default function Onboarding() {
             {HOME_GEAR.map((g) => {
               const on = p.gear.includes(g);
               return (
-                <Tap key={g} onPress={() => up({ gear: on ? p.gear.filter((x) => x !== g) : [...p.gear, g] })} style={[s.pill, on && s.on]}>
+                <Tap key={g} onPress={() => up({ gear: on ? p.gear.filter((x) => x !== g) : [...p.gear, g] })} style={[s.pill, on && { backgroundColor: c.accent, borderColor: c.accent }]}>
                   <Text style={{ fontFamily: f.semi, fontSize: 14, color: on ? c.accentInk : c.text }}>{title(g)}</Text>
                 </Tap>
               );
@@ -129,7 +129,7 @@ export default function Onboarding() {
         <Row style={{ flex: 1 }} gap={6}>
           {Array.from({ length: STEPS }, (_, i) => (
             <View key={i} style={s.pillTrack}>
-              {i <= step && <Animated.View entering={FadeIn.duration(280)} style={s.pillFill} />}
+              {i <= step && <Animated.View entering={FadeIn.duration(280)} style={[s.pillFill, { backgroundColor: c.accent }]} />}
             </View>
           ))}
         </Row>
@@ -151,16 +151,15 @@ export default function Onboarding() {
 }
 
 const s = StyleSheet.create({
-  input: { fontFamily: f.display, fontSize: 36, color: c.text, borderBottomWidth: 2, borderColor: c.accent, paddingVertical: 6, marginBottom: 8 },
+  input: { fontFamily: f.display, fontSize: 36, color: c.text, borderBottomWidth: 2, paddingVertical: 6, marginBottom: 8 },
   label: { marginTop: 10 },
   seg: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   segItem: { flex: 1, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
   tile: { width: '48%', flexGrow: 1, height: 92, padding: 14, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, justifyContent: 'space-between' },
-  on: { backgroundColor: c.accent, borderColor: c.accent },
   pill: { paddingHorizontal: 16, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
   num: { alignItems: 'center', gap: 4, marginTop: 6 },
   hdrBtn: { minWidth: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   pillTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: c.card2, overflow: 'hidden' },
-  pillFill: { ...StyleSheet.absoluteFillObject, borderRadius: 3, backgroundColor: c.accent },
+  pillFill: { ...StyleSheet.absoluteFillObject, borderRadius: 3 },
 });
