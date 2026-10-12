@@ -27,7 +27,7 @@ export default function PlanDetail() {
           {welcome ? <T v="label" color={plan.color} style={{ marginTop: 8 }}>Your plan is ready, {name}</T> : <T v="label" color={plan.color} style={{ marginTop: 16 }}>{plan.place === 'any' ? 'Anywhere' : title(plan.place)} · {plan.level}</T>}
           <T v="display" style={{ marginTop: 6 }}>{plan.name}</T>
           <T v="body" color={c.muted}>{plan.tagline}</T>
-          {welcome && <T v="small" style={{ marginTop: 10 }}>Picked from your goal, place, experience and schedule. You can switch plans anytime in Train.</T>}
+          {welcome && <T v="small" style={{ marginTop: 10 }}>Picked from your goal, place, experience and schedule. You can switch plans anytime in Plans.</T>}
         </Rise>
       </View>
 

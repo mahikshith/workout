@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { Easing, FadeIn, FadeInDown, FadeOutDown } from 'react-native-reanimated';
@@ -36,7 +36,7 @@ export default function SessionScreen() {
   const resting = restUntil && restUntil > now;
   useEffect(() => { if (restUntil && restUntil <= now) { haptic('success'); setRestUntil(null); } }, [now, restUntil]);
 
-  if (!active) return null;
+  if (!active) return <Redirect href="/" />;
   const it = active.items[Math.min(idx, active.items.length - 1)];
   const ex = byId[it.exId];
   const timed = isTimed(it.target) || !!ex.timed;
