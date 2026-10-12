@@ -6,6 +6,7 @@ import Animated, { Easing, FadeIn } from 'react-native-reanimated';
 import { cycle, dayKey, postpartumWeek, pregnancyWeek, streak as calcStreak, targets } from '../../src/calc';
 import { greeting } from '../../src/coach';
 import { available, byId, exercises, title, type Place } from '../../src/data/exercises';
+import { challenge, level } from '../../src/data/badges';
 import { motivation } from '../../src/data/motivation';
 import { planById, type Day } from '../../src/data/plans';
 import { asDay, quickById } from '../../src/data/quick';
@@ -219,6 +220,31 @@ export default function Today() {
         </Tap>
       </Rise>
 
+      <Rise i={4}>
+        {(() => {
+          const ch = challenge(st), lv = level(st);
+          return (
+            <Tap onPress={() => router.push('/progress')} scale={0.98} style={[s.card, { marginTop: 12, gap: 10 }]}>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <T v="h3">{ch.done ? 'Weekly challenge complete' : 'This week's challenge'}</T>
+                <T v="small" color={c.accent}>Level {lv.lvl} · {lv.name}</T>
+              </Row>
+              {ch.goals.map((g) => (
+                <View key={g.label} style={{ gap: 4 }}>
+                  <Row style={{ justifyContent: 'space-between' }}>
+                    <T v="small" color={c.text}>{g.label}</T>
+                    <T v="small">{Math.min(g.have, g.need)}/{g.need}</T>
+                  </Row>
+                  <View style={s.track}><View style={[s.fill, { width: `${Math.min(100, (g.have / g.need) * 100)}%`, backgroundColor: c.accent }]} /></View>
+                </View>
+              ))}
+              <View style={s.track}><View style={[s.fill, { width: `${(lv.into / lv.need) * 100}%`, backgroundColor: c.warm }]} /></View>
+              <T v="small">{lv.need - lv.into} XP to level {lv.lvl + 1}. Every workout is 10 XP, every set 1.</T>
+            </Tap>
+          );
+        })()}
+      </Rise>
+
       <Rise i={5}>
         <View style={[s.card, { marginTop: 12, padding: 20 }]}>
           <Row style={{ justifyContent: 'space-between' }}>
@@ -324,6 +350,8 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.card2, paddingHorizontal: 14, height: 40, borderRadius: 20, borderWidth: 1, borderColor: c.line },
   avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  track: { height: 6, borderRadius: 3, backgroundColor: c.card2, overflow: 'hidden' },
+  fill: { height: 6, borderRadius: 3 },
   dot: { width: 6, height: 6, borderRadius: 3 },
   wd: { flex: 1, height: 64, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: c.card },
   quote: { marginTop: 18, flexDirection: 'row', gap: 14, paddingVertical: 4 },

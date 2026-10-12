@@ -7,6 +7,7 @@ import { mapped, MuscleMap } from '../../src/body';
 import { Bars, LineChart } from '../../src/charts';
 import { dayKey, doneSets, e1rm, streak, targets, volume } from '../../src/calc';
 import { byId, title } from '../../src/data/exercises';
+import { badges } from '../../src/data/badges';
 import { Journey } from '../../src/journey';
 import { Sheet } from '../../src/sheet';
 import { useStore } from '../../src/store';
@@ -112,6 +113,21 @@ export default function Progress() {
             <Stat label="This month" value={thisMonth} />
             <Stat label="Streak" value={streak(sessions)} color={c.accent} />
           </Row>
+        </Card>
+      </Rise>
+
+      <Rise i={1}>
+        <Card style={{ marginTop: 14, gap: 12 }}>
+          <T v="h3">Achievements</T>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {badges(useStore.getState()).map((b) => (
+              <View key={b.id} style={{ width: '31%', flexGrow: 1, alignItems: 'center', gap: 4, padding: 10, borderRadius: 14, backgroundColor: c.card2, opacity: b.got ? 1 : 0.45 }}>
+                <Ionicons name={b.got ? b.icon : 'lock-closed'} size={22} color={b.got ? c.accent : c.muted} />
+                <T v="small" color={c.text} numberOfLines={1}>{b.title}</T>
+                <T v="small" numberOfLines={2} style={{ textAlign: 'center', fontSize: 11, lineHeight: 14 }}>{b.how}</T>
+              </View>
+            ))}
+          </View>
         </Card>
       </Rise>
 

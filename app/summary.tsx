@@ -6,6 +6,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTimi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { doneSets, prs, streak, targets, volume } from '../src/calc';
 import { byId } from '../src/data/exercises';
+import { badges, level } from '../src/data/badges';
 import { sessionKcal } from '../src/journey';
 import { useStore } from '../src/store';
 import { c, r } from '../src/theme';
@@ -42,6 +43,10 @@ export default function Summary() {
   if (!s) return null;
   const history = sessions.filter((x) => x.id !== s.id);
   const records = prs(s, history);
+  const all = useStore.getState();
+  const before = { ...all, sessions: history };
+  const fresh = badges(all).filter((b, i) => b.got && !badges(before)[i].got);
+  const lv = level(all), lvBefore = level(before);
   const mins = Math.max(1, Math.round(((s.endedAt ?? Date.now()) - s.startedAt) / 60000));
 
   return (
@@ -65,6 +70,15 @@ export default function Summary() {
           {!gentle && <T v="small" style={{ marginTop: 12 }}>About {sessionKcal(s, profile.weightKg)} kcal burned in this workout (estimate).</T>}
         </Card>
       </Rise>
+
+      {(fresh.length > 0 || lv.lvl > lvBefore.lvl) && (
+        <Rise i={4}>
+          <Card style={{ marginTop: 18, gap: 10 }}>
+            {lv.lvl > lvBefore.lvl && <Row gap={10}><Ionicons name="arrow-up-circle" size={20} color={c.warm} /><T v="h3">Level {lv.lvl}: {lv.name}</T></Row>}
+            {fresh.map((b) => <Row key={b.id} gap={10}><Ionicons name={b.icon} size={20} color={c.accent} /><T v="h3">Unlocked: {b.title}</T></Row>)}
+          </Card>
+        </Rise>
+      )}
 
       {records.length > 0 && (
         <Rise i={4}>
