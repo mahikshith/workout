@@ -239,7 +239,7 @@ export function Thumb({ ex, size = 56 }: { ex: Exercise; size?: number }) {
   return <Image source={frames(ex.id)[0]} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.media }} contentFit="cover" cachePolicy="disk" transition={150} />;
 }
 
-// Pelvic-floor drills: a circle that grows while you squeeze and shrinks while you release.
+// Drills without pictures (pelvic floor, breathing, eyes, desk): a circle that grows for the hold and shrinks for the rest.
 export function Breath({ ex, height, style }: { ex: Exercise; height: number; style?: StyleProp<ViewStyle> }) {
   const { hold, rest } = ex.timed ?? { hold: 4, rest: 4 };
   const s = useSharedValue(0.55);
@@ -255,7 +255,7 @@ export function Breath({ ex, height, style }: { ex: Exercise; height: number; st
     <View style={[{ height, borderRadius: r.lg, backgroundColor: '#140F1C', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, style]}>
       <Animated.View style={[{ position: 'absolute', width: height * 0.8, height: height * 0.8, borderRadius: height, backgroundColor: '#BF8CFF' }, a]} />
       <Animated.View style={[{ position: 'absolute', width: height * 0.8, height: height * 0.8, borderRadius: height, backgroundColor: '#E2CCFF' }, inner]} />
-      <T v="label" color="#251B33" style={{ position: 'absolute', bottom: 16 }}>{`squeeze ${hold}s · release ${rest}s`}</T>
+      <T v="label" color="#251B33" style={{ position: 'absolute', bottom: 16 }}>{`${ex.category === 'pelvic floor' ? 'squeeze' : ex.category === 'breathing' ? 'breathe in' : 'hold'} ${hold}s · ${ex.category === 'pelvic floor' ? 'release' : ex.category === 'breathing' ? 'breathe out' : 'rest'} ${rest}s`}</T>
     </View>
   );
 }

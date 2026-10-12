@@ -40,8 +40,10 @@ export function available(e: Exercise, place: Place, gear: string[]) {
   return e.equipment === 'body only' || gear.includes(e.equipment);
 }
 
+// Alternatives only come from the same kind of exercise; in-house eye, desk and breathing drills form their own kinds.
 const group = (e: Exercise) =>
-  e.category === 'stretching' ? 'stretch' : e.category === 'cardio' ? 'cardio' : e.category === 'pelvic floor' ? 'pelvic' : 'strength';
+  e.category === 'stretching' || e.category === 'mobility' ? 'stretch'
+  : ['cardio', 'pelvic floor', 'eyes', 'desk', 'breathing'].includes(e.category) ? e.category : 'strength';
 const words = (s: string) => new Set(s.toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 3));
 
 // Ranks swaps by shared muscle, movement and name; an exercise's best stand-ins come first.

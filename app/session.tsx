@@ -40,8 +40,8 @@ export default function SessionScreen() {
   if (!active) return <Redirect href="/" />;
   const it = active.items[Math.min(idx, active.items.length - 1)];
   const ex = byId[it.exId];
-  const timed = isTimed(it.target) || !!ex.timed;
-  const showWeight = !(ex.category === 'pelvic floor' || ex.category === 'stretching' || (ex.equipment === 'body only' && timed));
+  const timed = isTimed(it.target); // '30s' targets log seconds; drills with a hold still count reps
+  const showWeight = !(['pelvic floor', 'stretching', 'mobility', 'eyes', 'desk', 'breathing'].includes(ex.category) || (ex.equipment === 'body only' && timed));
   const prev = lastSets(sessions, it.exId);
   const total = active.items.reduce((n, x) => n + x.sets.length, 0);
   const done = active.items.reduce((n, x) => n + x.sets.filter((y) => y.done).length, 0);

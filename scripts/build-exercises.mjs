@@ -242,5 +242,8 @@ out.push(
   ]),
 );
 
+// Photos that show a different variation than the drawing and guide (Flutter_Kicks photos are face-down on a bench).
+for (const id of ['Flutter_Kicks']) { const e = out.find((x) => x.id === id); if (e?.art) e.noPhoto = true; }
+
 writeFileSync(new URL('../src/data/exercises.json', import.meta.url), JSON.stringify(out));
 console.log(`wrote ${out.length} exercises`);
