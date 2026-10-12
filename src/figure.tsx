@@ -90,14 +90,14 @@ export function Figure({ pose, primary, secondary, height, width }: { pose: Pose
 
   // The angle of the main working joint (the pose's guide joint, else the joint that moves most) is labelled once, at the key position.
   const label = useMemo(() => {
-    const j = (pose.guide?.joint ?? (moving.main && moving.main in NB ? moving.main : undefined)) as keyof typeof NB | undefined;
+    const j = (pose.guide?.joint ?? (moving.main && moving.main in NB ? moving.main : undefined)) as Key | undefined;
     if (!j) return null;
     const key = pose.guide?.at ?? 1;
     const o = solve(pose, b, key);
     const [na, nb] = NB[j];
     const a1 = angle(o[j], o[na]), a2 = angle(o[j], o[nb]);
     const d = ((a2 - a1 + 540) % 360) - 180;
-    return { j: j as Key, key, pos: at(o[j], a1 + d / 2, 18), deg: Math.round(Math.abs(d)) };
+    return { j, key, pos: at(o[j], a1 + d / 2, 18), deg: Math.round(Math.abs(d)) };
   }, [pose, b, moving.main]);
 
   const tone = (s: 0 | 1) => (front || s === 0 ? BODY.near : BODY.far);
