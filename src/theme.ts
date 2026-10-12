@@ -37,3 +37,21 @@ export const f = {
 };
 
 export const r = { sm: 12, md: 18, lg: 24, xl: 32 };
+
+// One colour per equipment type, used for equipment badges everywhere.
+export const EQUIP: Record<string, { label: string; color: string }> = {
+  'body only': { label: 'Bodyweight', color: '#30D158' },
+  dumbbell: { label: 'Dumbbell', color: '#5AC8FA' },
+  barbell: { label: 'Barbell', color: '#FF9F0A' },
+  machine: { label: 'Machine', color: '#BF8CFF' },
+  cable: { label: 'Cable', color: '#FF6482' },
+  kettlebells: { label: 'Kettlebell', color: '#FFD60A' },
+  bands: { label: 'Band', color: '#64D2FF' },
+  'e-z curl bar': { label: 'EZ bar', color: '#FF9F0A' },
+  'exercise ball': { label: 'Ball', color: '#AC8E68' },
+  'medicine ball': { label: 'Med ball', color: '#AC8E68' },
+  'foam roll': { label: 'Foam roller', color: '#8E8E93' },
+  'pull-up bar': { label: 'Pull-up bar', color: '#30D158' },
+  other: { label: 'Other', color: '#8E8E93' },
+};
+export const equip = (e: string) => EQUIP[e] ?? EQUIP.other;
