@@ -226,7 +226,7 @@ export default function Today() {
           return (
             <Tap onPress={() => router.push('/progress')} scale={0.98} style={[s.card, { marginTop: 12, gap: 10 }]}>
               <Row style={{ justifyContent: 'space-between' }}>
-                <T v="h3">{ch.done ? 'Weekly challenge complete' : 'This week's challenge'}</T>
+                <T v="h3">{ch.done ? 'Weekly challenge complete' : 'This week’s challenge'}</T>
                 <T v="small" color={c.accent}>Level {lv.lvl} · {lv.name}</T>
               </Row>
               {ch.goals.map((g) => (
