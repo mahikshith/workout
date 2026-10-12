@@ -37,7 +37,7 @@ export default function Train() {
   const sessions = useStore((s) => s.sessions);
   const [where, setWhere] = useState<Where>(profile?.place === 'home' ? 'home' : 'gym');
   if (!profile) return null;
-  const best = ranked(profile).slice(0, 3);
+  const best = ranked(profile).filter((p) => p.id !== planId).slice(0, 3); // the current plan has its own card above
   const shown = plans.filter((p) => fits(p, where) && (p.category !== 'Women' || profile.gender !== 'male'));
   const meta = (p: Plan) => `${perWeek(p)} days/week · ${p.level}`;
 

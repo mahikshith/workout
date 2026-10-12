@@ -11,11 +11,11 @@ import { c, equip, f, r } from '../src/theme';
 import { Card, Chip, Row, T, Tap, Thumb } from '../src/ui';
 
 const LEVELS = ['beginner', 'intermediate', 'expert'] as const;
-const BLOCK = Math.floor((Math.min(Dimensions.get('window').width, 600) - 24 - 20) / 3); // 12 px gutters, two 10 px gaps
+const BLOCK = Math.floor((Math.min(Dimensions.get('window').width, 600) - 24 - 10) / 2); // two columns: 12 px gutters, one 10 px gap
 // The muscle grid reads top to bottom like a body: upper body, core, lower body, then everything else.
 const REGIONS: { label: string; ids: string[] }[] = [
-  { label: 'Upper body', ids: ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'neck'] },
-  { label: 'Core', ids: ['abs'] },
+  { label: 'Upper body', ids: ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms'] },
+  { label: 'Core and neck', ids: ['abs', 'neck'] },
   { label: 'Lower body', ids: ['glutes', 'quads', 'hamstrings', 'calves', 'hips'] },
   { label: 'More', ids: ['mobility', 'cardio', 'pelvic', 'desk'] },
 ];
@@ -181,7 +181,7 @@ const s = StyleSheet.create({
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   search: { marginHorizontal: 12, marginTop: 14, height: 50, borderRadius: 25, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: c.line },
   input: { flex: 1, color: c.text, fontFamily: f.medium, fontSize: 15, height: 50 },
-  block: { width: BLOCK, minHeight: 88, padding: 12, borderRadius: r.md, backgroundColor: c.card, justifyContent: 'space-between', borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  block: { width: BLOCK, minHeight: 76, padding: 12, borderRadius: r.md, backgroundColor: c.card, justifyContent: 'space-between', borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   focus: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: r.md, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   start: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.md, backgroundColor: c.card },

@@ -332,12 +332,18 @@ function viewBox(pose: Pose, b: Pts): [number, number, number, number] {
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   const grow = (p: P2, r: number) => { x0 = Math.min(x0, p[0] - r); x1 = Math.max(x1, p[0] + r); y0 = Math.min(y0, p[1] - r); y1 = Math.max(y1, p[1] + r); };
   const gear = pose.prop === 'barbell' ? 9.5 : pose.prop === 'dumbbell' || pose.prop === 'kettlebell' ? 11 : 3.3;
+  let mid = 0; // the body's own centre, averaged over the rep, so the figure sits in the middle of the pane
   for (let i = 0; i <= 16; i++) {
     const o = solve(pose, b, i / 16);
-    for (const k of Object.keys(o) as Key[]) grow(o[k], k.startsWith('wr') ? gear : (R[k] ?? 4));
+    let lo = 1e9, hi = -1e9;
+    for (const k of Object.keys(o) as Key[]) {
+      grow(o[k], k.startsWith('wr') ? gear : (R[k] ?? 4));
+      if (!k.startsWith('wr') && !k.startsWith('el')) { lo = Math.min(lo, o[k][0]); hi = Math.max(hi, o[k][0]); }
+    }
+    mid += (lo + hi) / 2 / 17;
   }
   for (const n of [0, 1] as const) { const a = anchorOf(pose, b, n); if (a) grow(a, 2); }
   if (pose.ground !== 'hang' && pose.ground !== 'mat') grow([b.pelvis[0], 0], 2);
-  const pad = 9, w = Math.max(x1 - x0 + 2 * pad, 80), h = Math.max(y1 - y0 + 2 * pad, 80);
-  return [(x0 + x1) / 2 - w / 2, (y0 + y1) / 2 - h / 2, w, h].map((v) => Math.round(v * 10) / 10) as [number, number, number, number];
+  const pad = 9, w = Math.max(2 * Math.max(mid - x0, x1 - mid) + 2 * pad, 80), h = Math.max(y1 - y0 + 2 * pad, 80);
+  return [mid - w / 2, (y0 + y1) / 2 - h / 2, w, h].map((v) => Math.round(v * 10) / 10) as [number, number, number, number];
 }
