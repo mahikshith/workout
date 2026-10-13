@@ -5,7 +5,7 @@ import { bestStreak, dayKey, doneSets, prs, targets, volume } from '../calc';
 import type { Meal, Profile, Session } from '../store';
 
 type Icon = keyof typeof Ionicons.glyphMap;
-export type Badge = { id: string; icon: Icon; title: string; how: string; got: boolean };
+export type Badge = { id: string; icon: Icon; title: string; how: string; got: boolean; have: number; need: number };
 type St = { profile: Profile; sessions: Session[]; meals: Meal[]; water: Record<string, number> };
 const DAY = 86400000;
 
@@ -21,20 +21,22 @@ export function badges(s: St): Badge[] {
   const early = s.sessions.some((x) => new Date(x.startedAt).getHours() < 7);
   const late = s.sessions.some((x) => new Date(x.startedAt).getHours() >= 21);
   const home = s.sessions.some((x) => x.place === 'home');
-  const b = (id: string, icon: Icon, title: string, how: string, got: boolean): Badge => ({ id, icon, title, how, got });
+  // have/need drive the progress ring on the journey path; yes/no badges count 0 or 1 of 1.
+  const b = (id: string, icon: Icon, title: string, how: string, have: number | boolean, need = 1): Badge =>
+    ({ id, icon, title, how, have: Math.min(Number(have), need), need, got: Number(have) >= need });
   return [
-    b('first', 'flag', 'First step', 'Finish your first workout', n >= 1),
-    b('five', 'ribbon', 'Getting going', 'Finish 5 workouts', n >= 5),
-    b('twenty', 'medal', 'Regular', 'Finish 20 workouts', n >= 20),
-    b('fifty', 'trophy', 'Committed', 'Finish 50 workouts', n >= 50),
-    b('streak3', 'flame', 'On a roll', 'A 3-session streak', best >= 3),
-    b('streak10', 'bonfire', 'Unstoppable', 'A 10-session streak', best >= 10),
-    b('sets100', 'layers', '100 sets', 'Log 100 sets in total', sets >= 100),
-    b('ton', 'barbell', 'Tonne lifted', 'Lift 1,000 kg in total', kg >= 1000),
-    b('pr', 'trending-up', 'Personal best', 'Beat one of your own records', records >= 1),
-    b('pr10', 'rocket', 'Record breaker', 'Beat 10 personal records', records >= 10),
-    b('water7', 'water', 'Hydrated', 'Hit your water goal on 7 days', waterDays >= 7),
-    b('meals7', 'restaurant', 'Fuelled', 'Log food on 7 days', mealDays >= 7),
+    b('first', 'flag', 'First step', 'Finish your first workout', n, 1),
+    b('five', 'ribbon', 'Getting going', 'Finish 5 workouts', n, 5),
+    b('twenty', 'medal', 'Regular', 'Finish 20 workouts', n, 20),
+    b('fifty', 'trophy', 'Committed', 'Finish 50 workouts', n, 50),
+    b('streak3', 'flame', 'On a roll', 'A 3-session streak', best, 3),
+    b('streak10', 'bonfire', 'Unstoppable', 'A 10-session streak', best, 10),
+    b('sets100', 'layers', '100 sets', 'Log 100 sets in total', sets, 100),
+    b('ton', 'barbell', 'Tonne lifted', 'Lift 1,000 kg in total', Math.round(kg), 1000),
+    b('pr', 'trending-up', 'Personal best', 'Beat one of your own records', records, 1),
+    b('pr10', 'rocket', 'Record breaker', 'Beat 10 personal records', records, 10),
+    b('water7', 'water', 'Hydrated', 'Hit your water goal on 7 days', waterDays, 7),
+    b('meals7', 'restaurant', 'Fuelled', 'Log food on 7 days', mealDays, 7),
     b('early', 'sunny', 'Early bird', 'Train before 7 am', early),
     b('late', 'moon', 'Night owl', 'Train after 9 pm', late),
     b('home', 'home', 'No excuses', 'Finish a workout at home', home),

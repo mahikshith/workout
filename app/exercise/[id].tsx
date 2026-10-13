@@ -28,7 +28,12 @@ const places = (e: Exercise) =>
   : ['Gym', ...(available(e, 'home', [...HOME_GEAR]) ? ['Home'] : []), ...(office(e) ? ['Office'] : [])];
 
 export default function ExerciseDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // origin/depth: when people hop from alternative to alternative, each page remembers where the chain started and how
+  // many pages deep it is, so one tap on "Back to ..." returns there instead of pressing back again and again.
+  const { id, origin, depth: d0 } = useLocalSearchParams<{ id: string; origin?: string; depth?: string }>();
+  const depth = Number(d0) || 0;
+  const start = origin && origin !== id ? byId[origin] : undefined;
+  const hop = (to: string) => router.push({ pathname: '/exercise/[id]', params: { id: to, origin: origin ?? id, depth: String(depth + 1) } });
   const ins = useSafeAreaInsets();
   const ex = byId[id];
   const profile = useStore((s) => s.profile);
@@ -68,6 +73,12 @@ export default function ExerciseDetail() {
         </Row>
 
         <Rise>
+          {start && depth > 1 && (
+            <Tap onPress={() => router.dismiss(depth)} scale={0.97} style={[s.origin, { borderColor: c.accent }]}>
+              <Ionicons name="return-up-back" size={16} color={c.accent} />
+              <T v="small" color={c.text} numberOfLines={1} style={{ flexShrink: 1 }}>Back to {start.name}</T>
+            </Tap>
+          )}
           <T v="h1" style={{ marginTop: 14 }}>{ex.name}</T>
           <Row style={{ flexWrap: 'wrap', marginTop: 8 }} gap={8}>
             <View style={s.tag}><T v="small" color={c.text}>{title(ex.level)}</T></View>
@@ -144,12 +155,12 @@ export default function ExerciseDetail() {
             ))}
           </View>
           <Animated.View key={tab} entering={FadeIn.duration(200)} style={{ gap: 8, marginTop: 10 }}>
-            {alts.length ? alts.map((a, i) => <Alt key={a.id} a={a} tag={i === 0 && alts.length > 1 ? 'Easiest' : undefined} />)
+            {alts.length ? alts.map((a, i) => <Alt key={a.id} a={a} onPress={() => hop(a.id)} tag={i === 0 && alts.length > 1 ? 'Easiest' : undefined} />)
               : <T v="small">No close match {tab === 'home' ? 'with your home gear' : 'here'} yet.</T>}
             {next && (
               <>
                 <T v="h3" style={{ marginTop: 14 }}>Next level</T>
-                <Alt a={next} locked={nextLock?.locked}
+                <Alt a={next} onPress={() => hop(next.id)} locked={nextLock?.locked}
                   note={nextLock?.sessionsLeft ? `Opens after ${nextLock.sessionsLeft} more session${nextLock.sessionsLeft > 1 ? 's' : ''}` : undefined} />
               </>
             )}
@@ -199,10 +210,10 @@ const Legend = ({ text, faint }: { text: string; faint?: boolean }) => (
   <Row gap={8}><View style={[s.dot, faint && { backgroundColor: SOFT, opacity: 0.7 }]} /><T v="small" style={{ flex: 1 }}>{text}</T></Row>
 );
 
-function Alt({ a, tag, locked, note }: { a: Exercise; tag?: string; locked?: boolean; note?: string }) {
+function Alt({ a, tag, locked, note, onPress }: { a: Exercise; tag?: string; locked?: boolean; note?: string; onPress: () => void }) {
   const q = equip(a.equipment);
   return (
-    <Tap onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: a.id } })} style={s.alt} scale={0.98}>
+    <Tap onPress={onPress} style={s.alt} scale={0.98}>
       <Thumb ex={a} size={52} />
       <View style={{ flex: 1, gap: 4 }}>
         <T v="h3">{a.name}</T>
@@ -220,6 +231,7 @@ function Alt({ a, tag, locked, note }: { a: Exercise; tag?: string; locked?: boo
 
 const s = StyleSheet.create({
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
+  origin: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingHorizontal: 12, height: 34, borderRadius: 17, borderWidth: 1, backgroundColor: c.card, maxWidth: '100%' },
   done: { marginTop: 10, padding: 10, borderRadius: r.md, borderWidth: 1, backgroundColor: c.card },
   tag: { paddingHorizontal: 12, height: 30, borderRadius: 15, backgroundColor: c.card2, justifyContent: 'center' },
   mini: { paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: c.card2, justifyContent: 'center' },

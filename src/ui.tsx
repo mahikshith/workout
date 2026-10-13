@@ -4,7 +4,7 @@ import { Image, type ImageProps } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
 import Animated, {
   cancelAnimation, Easing, FadeIn, FadeInDown, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
@@ -322,23 +322,49 @@ export function Thumb({ ex, size = 56 }: { ex: Exercise; size?: number }) {
     : <Pic uri={frames(ex.id)[0]} onError={() => setBad(true)} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.media }} contentFit="cover" cachePolicy="disk" transition={150} />;
 }
 
-// Drills without pictures (pelvic floor, breathing, eyes, desk): a circle that grows for the hold and shrinks for the rest.
+// Drills without a figure (pelvic floor, breathing, eyes, desk): a circle that grows for the hold and shrinks for the
+// rest, with the reps counting down in the middle (10 to 1), the phase word under it, and a dot per rep around it.
+// After the last rep it shows "Set done" for a moment and starts over.
 export function Breath({ ex, height, style }: { ex: Exercise; height: number; style?: StyleProp<ViewStyle> }) {
   const { hold, rest } = ex.timed ?? { hold: 4, rest: 4 };
+  const reps = 10;
   const s = useSharedValue(0.55);
+  const [k, setK] = useState(0); // reps finished in this set; reps means the set is done
+  const [phase, setPhase] = useState<'in' | 'out'>('in');
   useEffect(() => {
     s.value = withRepeat(withSequence(
       withTiming(1, { duration: hold * 1000, easing: Easing.inOut(Easing.sin) }),
       withTiming(0.55, { duration: rest * 1000, easing: Easing.inOut(Easing.sin) }),
     ), -1);
+    let alive = true, n = 0, t: ReturnType<typeof setTimeout>;
+    const tick = (ph: 'in' | 'out') => {
+      if (!alive) return;
+      setPhase(ph);
+      t = setTimeout(() => {
+        if (ph === 'out') { n = (n + 1) % (reps + 1); setK(n); }
+        tick(ph === 'in' ? 'out' : 'in');
+      }, (ph === 'in' ? hold : rest) * 1000);
+    };
+    tick('in');
+    return () => { alive = false; clearTimeout(t); cancelAnimation(s); };
   }, [hold, rest]);
   const a = useAnimatedStyle(() => ({ transform: [{ scale: s.value }], opacity: 0.35 + (s.value - 0.55) }));
   const inner = useAnimatedStyle(() => ({ transform: [{ scale: s.value * 0.7 }] }));
+  const word = ex.category === 'pelvic floor' ? (phase === 'in' ? 'Squeeze' : 'Release') : ex.category === 'breathing' ? (phase === 'in' ? 'Breathe in' : 'Breathe out') : phase === 'in' ? 'Hold' : 'Rest';
+  const D = height * 0.8, ring = D / 2 + 10;
   return (
     <View style={[{ height, borderRadius: r.lg, backgroundColor: '#140F1C', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, style]}>
-      <Animated.View style={[{ position: 'absolute', width: height * 0.8, height: height * 0.8, borderRadius: height, backgroundColor: '#BF8CFF' }, a]} />
-      <Animated.View style={[{ position: 'absolute', width: height * 0.8, height: height * 0.8, borderRadius: height, backgroundColor: '#E2CCFF' }, inner]} />
-      <T v="label" color="#251B33" style={{ position: 'absolute', bottom: 16 }}>{`${ex.category === 'pelvic floor' ? 'squeeze' : ex.category === 'breathing' ? 'breathe in' : 'hold'} ${hold}s · ${ex.category === 'pelvic floor' ? 'release' : ex.category === 'breathing' ? 'breathe out' : 'rest'} ${rest}s`}</T>
+      <Animated.View style={[{ position: 'absolute', width: D, height: D, borderRadius: height, backgroundColor: '#BF8CFF' }, a]} />
+      <Animated.View style={[{ position: 'absolute', width: D, height: D, borderRadius: height, backgroundColor: '#E2CCFF' }, inner]} />
+      {Array.from({ length: reps }, (_, i) => {
+        const ang = (i / reps) * Math.PI * 2 - Math.PI / 2;
+        return <View key={i} style={{ position: 'absolute', width: 8, height: 8, borderRadius: 4, left: '50%', top: '50%', marginLeft: Math.cos(ang) * ring - 4, marginTop: Math.sin(ang) * ring - 4, backgroundColor: i < k ? '#BF8CFF' : '#3A2D4D' }} />;
+      })}
+      <View style={{ alignItems: 'center' }}>
+        <Text style={{ fontFamily: f.display, fontSize: 44, lineHeight: 50, color: '#251B33' }}>{k >= reps ? '✓' : reps - k}</Text>
+        <T v="label" color="#251B33">{k >= reps ? 'Set done' : `${word} · ${phase === 'in' ? hold : rest}s`}</T>
+      </View>
+      <T v="small" color="#E2CCFF" style={{ position: 'absolute', bottom: 12 }}>{k >= reps ? 'Rest, then go again' : `${reps - k} rep${reps - k === 1 ? '' : 's'} to go`}</T>
     </View>
   );
 }
@@ -359,14 +385,25 @@ export function Stepper({ value, onChange, step = 1, min = 0, suffix, big }: {
   value: number; onChange: (n: number) => void; step?: number; min?: number; suffix?: string; big?: boolean;
 }) {
   const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+  // Tap the number to type it; +/- still nudge. A typed value is kept only if it is a real number at or above min.
+  const [txt, setTxt] = useState<string | null>(null);
+  const commit = () => {
+    const n = parseFloat((txt ?? '').replace(',', '.'));
+    if (Number.isFinite(n)) onChange(Math.max(min, +n.toFixed(2)));
+    setTxt(null);
+  };
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: big ? 16 : 2 }}>
       <Tap onPress={() => onChange(Math.max(min, +(value - step).toFixed(2)))} style={[st.step, big && st.stepBig]}>
         <Ionicons name="remove" size={big ? 26 : 18} color={c.text} />
       </Tap>
-      <Text style={{ fontFamily: big ? f.display : f.bold, fontSize: big ? 48 : 17, color: c.text, minWidth: big ? 120 : 34, textAlign: 'center' }}>
-        {fmt(value)}{suffix ? <Text style={{ fontSize: big ? 18 : 12, color: c.muted }}>{suffix}</Text> : null}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', minWidth: big ? 120 : 34 }}>
+        <TextInput value={txt ?? fmt(value)} onFocus={() => setTxt(fmt(value))} onChangeText={setTxt} onBlur={commit} onSubmitEditing={commit}
+          keyboardType="decimal-pad" selectTextOnFocus maxLength={6} returnKeyType="done"
+          style={{ fontFamily: big ? f.display : f.bold, fontSize: big ? 48 : 17, color: c.text, textAlign: 'center', padding: 0, minWidth: big ? 80 : 30,
+            borderBottomWidth: txt !== null ? 1.5 : 0, borderBottomColor: c.accent }} />
+        {suffix ? <Text style={{ fontFamily: f.semi, fontSize: big ? 18 : 12, color: c.muted }}>{suffix}</Text> : null}
+      </View>
       <Tap onPress={() => onChange(+(value + step).toFixed(2))} style={[st.step, big && st.stepBig]}>
         <Ionicons name="add" size={big ? 26 : 18} color={c.text} />
       </Tap>

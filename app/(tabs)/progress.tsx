@@ -7,12 +7,12 @@ import { mapped, MuscleMap } from '../../src/body';
 import { Bars, LineChart } from '../../src/charts';
 import { dayKey, doneSets, e1rm, streak, targets, volume } from '../../src/calc';
 import { byId, title } from '../../src/data/exercises';
-import { badges } from '../../src/data/badges';
+import { badges, level } from '../../src/data/badges';
+import { JourneyPath } from '../../src/path';
 import { Journey } from '../../src/journey';
-import { Sheet } from '../../src/sheet';
 import { useStore } from '../../src/store';
 import { c } from '../../src/theme';
-import { Button, Card, Chip, Rise, Row, Screen, Stat, Stepper, T, Tap, TabTitle } from '../../src/ui';
+import { Button, Card, Chip, haptic, Rise, Row, Screen, Stat, Stepper, T, Tap, TabTitle } from '../../src/ui';
 
 const DAY = 86400000;
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
@@ -47,7 +47,12 @@ export default function Progress() {
   const totalMeals = mealCounts.reduce((a, b) => a + b, 0);
   const avgMeals = totalMeals / 14;
   const fullDays = mealCounts.filter((n) => n >= 3).length;
-  const dayLabels = fortnight.map((d) => String(d.getDate()));
+  // Day charts are centred on today: the 7 days before, today, then 6 days still to come.
+  const around = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + i - 7); return d; });
+  const aKeys = around.map((d) => dayKey(d));
+  const aLabels = around.map((d) => String(d.getDate())); // today's bar and label are in the accent colour
+  const aWater = aKeys.map((k) => water[k] ?? 0);
+  const aProtein = aKeys.map((k) => meals.filter((m) => m.day === k).reduce((a, m) => a + m.protein, 0));
 
   // Weeks run Monday to Sunday. back(k, d) is day d (0 = Monday) of the week k weeks before this one.
   const mon = new Date(); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
@@ -55,7 +60,10 @@ export default function Progress() {
   const weekOf = (k: number) => { const a = back(k).getTime(), b = back(k - 1).getTime(); return sessions.filter((s) => s.startedAt >= a && s.startedAt < b); };
 
   const volTrend = Array.from({ length: 12 }, (_, i) => weekOf(11 - i).reduce((a, s) => a + volume(s), 0));
-  const perWeek = Array.from({ length: 8 }, (_, i) => ({ label: String(back(7 - i).getDate()), value: weekOf(7 - i).length }));
+  // Four weeks back, this week in the middle, three weeks ahead.
+  const perWeek = Array.from({ length: 8 }, (_, i) => ({ label: i === 4 ? 'Now' : String(back(4 - i).getDate()), value: i > 4 ? 0 : weekOf(4 - i).length }));
+  const lastW = weights.length ? [...weights].sort((a, b) => a.day.localeCompare(b.day))[weights.length - 1] : null;
+  const loggedToday = lastW?.day === dayKey();
 
   const counts: Record<string, number> = {};
   for (const s of sessions) { const k = dayKey(s.startedAt); counts[k] = (counts[k] ?? 0) + doneSets(s); }
@@ -118,16 +126,27 @@ export default function Progress() {
 
       <Rise i={1}>
         <Card style={{ marginTop: 14, gap: 12 }}>
-          <T v="h3">Achievements</T>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {badges(useStore.getState()).map((b) => (
-              <View key={b.id} style={{ width: '31%', flexGrow: 1, alignItems: 'center', gap: 4, padding: 10, borderRadius: 14, backgroundColor: c.card2, opacity: b.got ? 1 : 0.45 }}>
-                <Ionicons name={b.got ? b.icon : 'lock-closed'} size={22} color={b.got ? c.accent : c.muted} />
-                <T v="small" color={c.text} numberOfLines={1}>{b.title}</T>
-                <T v="small" numberOfLines={2} style={{ textAlign: 'center', fontSize: 11, lineHeight: 14 }}>{b.how}</T>
-              </View>
-            ))}
-          </View>
+          {(() => {
+            const all = useStore.getState(), lv = level(all), bs = badges(all);
+            return (
+              <>
+                <Row style={{ justifyContent: 'space-between' }}>
+                  <T v="h3">Your journey</T>
+                  <T v="small" color={c.accent}>{bs.filter((x) => x.got).length} of {bs.length} stops</T>
+                </Row>
+                <View style={{ gap: 6 }}>
+                  <Row style={{ justifyContent: 'space-between' }}>
+                    <T v="label" color={c.text}>Level {lv.lvl} · {lv.name}</T>
+                    <T v="small">{lv.into}/{lv.need} XP</T>
+                  </Row>
+                  <View style={{ height: 8, borderRadius: 4, backgroundColor: c.card2 }}>
+                    <View style={{ width: `${Math.min(100, (lv.into / lv.need) * 100)}%`, height: 8, borderRadius: 4, backgroundColor: c.accent }} />
+                  </View>
+                </View>
+                <JourneyPath badges={bs} />
+              </>
+            );
+          })()}
         </Card>
       </Rise>
 
@@ -139,7 +158,25 @@ export default function Progress() {
         <Card style={{ marginTop: 14, gap: 12 }}>
           <T v="h3">Preview your progress</T>
           <T v="small">See what 12 weeks of steady training could look like.</T>
-          <Button title="See an example" kind="ghost" onPress={() => setPreview(true)} />
+          <Button title={preview ? 'Hide the example' : 'See an example'} kind="ghost" icon={preview ? 'chevron-up' : 'eye-outline'} onPress={() => setPreview(!preview)} />
+          {preview && (
+            <Animated.View entering={FadeIn.duration(260)} style={{ gap: 14 }}>
+          <T v="label" color={c.warm}>Example, not a promise</T>
+          <T v="h2">12 weeks of steady training</T>
+          <T v="small">{intro}</T>
+          <T v="label" style={{ marginTop: 6 }}>Estimated strength</T>
+          <LineChart values={proj} fmt={(v) => `${Math.round(v)} kg`} height={110} />
+          <T v="small">Rising about 1.5% a week, anywhere from 1% to 2%.</T>
+          <T v="label">Sessions per week</T>
+          <Bars items={Array.from({ length: 12 }, (_, i) => ({ label: String(i + 1), value: days }))} height={90} />
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Stat label="Sessions" value={days * 12} />
+            <Stat label="Streak" value="12 wks" color={c.accent} />
+            <Stat label="Strength" value={`+${Math.round(gain)} kg`} />
+          </Row>
+          
+                    </Animated.View>
+          )}
         </Card>
       </Rise>
 
@@ -184,7 +221,7 @@ export default function Progress() {
       <Rise i={5}>
         <Card style={{ marginTop: 14 }}>
           <T v="h3">Sessions per week · 8 weeks</T>
-          {sessions.length ? <View style={{ marginTop: 14 }}><Bars items={perWeek} /></View>
+          {sessions.length ? <View style={{ marginTop: 14 }}><Bars items={perWeek} now={4} /></View>
             : <T v="body" color={c.muted} style={{ marginTop: 12 }}>No sessions yet. Each week's count shows up here.</T>}
         </Card>
       </Rise>
@@ -211,13 +248,20 @@ export default function Progress() {
               <T v="h3">Body weight</T>
               <T v="small">Goal {profile.goalWeightKg} kg</T>
             </Row>
+            {lastW && (
+              <Row gap={8} style={{ marginTop: 10 }}>
+                <T v="num" color={c.accent}>{lastW.kg.toFixed(1)}<T v="small"> kg</T></T>
+                <T v="small" style={{ flex: 1 }}>{loggedToday ? 'Logged today' : `Last logged ${new Date(lastW.day + 'T12:00:00').toDateString().slice(4, 10)}`} · {weights.length} weigh-in{weights.length > 1 ? 's' : ''}</T>
+              </Row>
+            )}
             <View style={{ marginTop: 16 }}>
               {w.length ? <LineChart values={w.map((p) => p.kg)} goal={profile.goalWeightKg} fmt={(v) => `${v.toFixed(1)} kg`} height={120} />
                 : <T v="body" color={c.muted}>Log your weight to start the line.</T>}
             </View>
             <Row style={{ marginTop: 16, justifyContent: 'space-between' }}>
               <Stepper value={kg} step={0.1} onChange={setKg} min={30} suffix=" kg" />
-              <Button title="Log" onPress={() => logWeight(+kg.toFixed(1))} style={{ height: 44, paddingHorizontal: 22 }} />
+              <Button title={loggedToday && lastW?.kg === +kg.toFixed(1) ? 'Logged' : loggedToday ? 'Update' : 'Log'} icon={loggedToday && lastW?.kg === +kg.toFixed(1) ? 'checkmark' : undefined}
+                onPress={() => { logWeight(+kg.toFixed(1)); haptic('success'); }} style={{ height: 44, paddingHorizontal: 22 }} />
             </Row>
           </Card>
         </Rise>
@@ -268,7 +312,7 @@ export default function Progress() {
             <T v="small">Target {t.water} glasses</T>
           </Row>
           {glasses.some((g) => g > 0)
-            ? <Bars items={glasses.map((g, i) => ({ label: dayLabels[i], value: g }))} goal={t.water} height={100} />
+            ? <Bars items={aWater.map((g, i) => ({ label: aLabels[i], value: g }))} goal={t.water} height={100} now={7} />
             : <T v="body" color={c.muted}>Log water on the Fuel tab and your glasses show here.</T>}
           <T v="small">{hitWater} of 14 days on target. Bars that reach the dashed line met the goal that day.</T>
         </Card>
@@ -291,7 +335,7 @@ export default function Progress() {
                 <T v="small">Target {t.protein} g</T>
               </Row>
               {protein.some((p) => p > 0)
-                ? <Bars items={protein.map((p, i) => ({ label: dayLabels[i], value: Math.round(p) }))} goal={t.protein} height={100} />
+                ? <Bars items={aProtein.map((p, i) => ({ label: aLabels[i], value: Math.round(p) }))} goal={t.protein} height={100} now={7} />
                 : <T v="body" color={c.muted}>Log protein with your meals and the bars fill in.</T>}
               <T v="small">Each bar is grams of protein that day. Bars that reach the dashed line met the target.</T>
             </Card>
@@ -330,24 +374,6 @@ export default function Progress() {
         </View>
       </Rise>
 
-      <Sheet open={preview} onClose={() => setPreview(false)}>
-        <View style={{ gap: 14 }}>
-          <T v="label" color={c.warm}>Example, not a promise</T>
-          <T v="h2">12 weeks of steady training</T>
-          <T v="small">{intro}</T>
-          <T v="label" style={{ marginTop: 6 }}>Estimated strength</T>
-          <LineChart values={proj} fmt={(v) => `${Math.round(v)} kg`} height={110} />
-          <T v="small">Rising about 1.5% a week, anywhere from 1% to 2%.</T>
-          <T v="label">Sessions per week</T>
-          <Bars items={Array.from({ length: 12 }, (_, i) => ({ label: String(i + 1), value: days }))} height={90} />
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Stat label="Sessions" value={days * 12} />
-            <Stat label="Streak" value="12 wks" color={c.accent} />
-            <Stat label="Strength" value={`+${Math.round(gain)} kg`} />
-          </Row>
-          <Button title="Close" kind="ghost" onPress={() => setPreview(false)} />
-        </View>
-      </Sheet>
     </Screen>
   );
 }

@@ -75,7 +75,9 @@ export default function Today() {
       <Rise>
         <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View style={{ flex: 1, gap: 4 }}>
-            <T v="h1" numberOfLines={2}>{greeting()}{profile.name ? `, ${profile.name}` : ''}</T>
+            {/* Greeting, then the name on its own line so a long name never breaks mid-word. */}
+            <T v="h3" color={c.muted}>{greeting()}{profile.name ? ',' : ''}</T>
+            {!!profile.name && <T v="h1" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{profile.name}</T>}
             {!trainedToday && <T v="h3" color={c.accent}>{HYPE[(new Date().getDate() + spin) % HYPE.length]}</T>}
           </View>
           <Row gap={8}>
@@ -219,6 +221,22 @@ export default function Today() {
             <RingStat progress={water / t.water} color={c.blue} icon="water" value={`${water}/${t.water}`} label="Water" />
           </Row>
         </Tap>
+        {!gentle && (() => {
+          // Body weight at a glance, so a weigh-in visibly lands somewhere; tap to log or see the trend.
+          const ws = [...st.weights].sort((a, b) => a.day.localeCompare(b.day));
+          const lw = ws[ws.length - 1], first = ws[0];
+          const ago = lw ? Math.round((Date.parse(today + 'T12:00:00') - Date.parse(lw.day + 'T12:00:00')) / 86400000) : 0;
+          return (
+            <Tap onPress={() => router.push('/progress')} scale={0.99} style={[s.card, s.row, { marginTop: 10, paddingVertical: 12 }]}>
+              <Ionicons name="scale-outline" size={20} color={c.accent} />
+              <View style={{ flex: 1 }}>
+                <T v="h3">{lw ? `${lw.kg.toFixed(1)} kg` : 'Log your weight'}</T>
+                <T v="small">{lw ? `${ago === 0 ? 'Weighed today' : ago === 1 ? 'Weighed yesterday' : `Weighed ${ago} days ago`}${first && ws.length > 1 ? ` · ${lw.kg - first.kg > 0 ? '+' : ''}${(lw.kg - first.kg).toFixed(1)} kg since you started` : ''}` : 'Once a week, same time, is enough to see the trend.'}</T>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={c.muted} />
+            </Tap>
+          );
+        })()}
       </Rise>
 
       <Rise i={4}>

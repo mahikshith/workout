@@ -42,13 +42,15 @@ export function LineChart({ values, goal, height = 120, color = c.accent, fmt = 
 }
 
 // Vertical bars with a value and a label under each; the last bar is highlighted. An optional goal draws a dashed line.
-export function Bars({ items, height = 110, color = c.accent, goal }: { items: { label: string; value: number }[]; height?: number; color?: string; goal?: number }) {
+// `now` marks the current bar (highlighted). Bars after it are the days or weeks still to come: drawn as faint
+// empty slots so the current one sits in the middle of the chart instead of at the far right edge.
+export function Bars({ items, height = 110, color = c.accent, goal, now }: { items: { label: string; value: number }[]; height?: number; color?: string; goal?: number; now?: number }) {
   const [w, setW] = useState(0);
   const n = items.length;
   const max = Math.max(1, goal ?? 0, ...items.map((it) => it.value));
   const slot = n ? w / n : 0;
   const gap = 8;
-  const last = n - 1;
+  const last = now ?? n - 1;
   return (
     <View style={{ height: height + 40, width: '100%' }} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
       {w > 0 && n > 0 && (
@@ -56,14 +58,15 @@ export function Bars({ items, height = 110, color = c.accent, goal }: { items: {
           <Svg width={w} height={height}>
             {goal !== undefined && <Line x1={0} x2={w} y1={height - (goal / max) * height} y2={height - (goal / max) * height} stroke={c.warm} strokeDasharray="6 6" strokeWidth={1.5} />}
             {items.map((it, i) => {
+              if (i > last) return <Rect key={i} x={i * slot + gap / 2} y={height - 10} width={Math.max(2, slot - gap)} height={10} rx={5} fill="none" stroke={c.line} strokeDasharray="3 3" />;
               const h = it.value > 0 ? Math.max(4, (it.value / max) * height) : 0;
               return <Rect key={i} x={i * slot + gap / 2} y={height - h} width={Math.max(2, slot - gap)} height={h} rx={6} fill={i === last ? color : c.dim} />;
             })}
           </Svg>
           {items.map((it, i) => (
             <View key={i} style={{ position: 'absolute', left: i * slot, width: slot, top: height + 6, alignItems: 'center' }}>
-              <T v="small" color={i === last ? color : c.text}>{it.value}</T>
-              <T v="label" style={{ marginTop: 2 }}>{it.label}</T>
+              <T v="small" color={i === last ? color : i > last ? 'transparent' : c.text}>{it.value}</T>
+              <T v="label" color={i === last ? color : i > last ? c.dim : undefined} style={{ marginTop: 2 }}>{it.label}</T>
             </View>
           ))}
         </>
