@@ -9,17 +9,20 @@ import { foodsFor, type Food } from '../src/data/foods';
 import { GROUPS, groupFor, perServing, recipeById, recipesFor, totals, type Recipe } from '../src/data/recipes';
 import { swapFor } from '../src/data/swaps';
 import { useStore, type MealSlot } from '../src/store';
-import { c, f } from '../src/theme';
-import { Button, Card, Row, Stepper, T, Tap } from '../src/ui';
+import { c, f, r } from '../src/theme';
+import { Banner, Button, Card, IconBox, ListRow, Row, Section, Stepper, T, Tap, Tile } from '../src/ui';
 
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 const fade = () => FadeIn.duration(280).easing(EASE);
+type Icon = keyof typeof Ionicons.glyphMap;
 const NAMES: Record<MealSlot, string> = { breakfast: 'Breakfast', lunch: 'Lunch', snack: 'Snack', dinner: 'Dinner' };
+const SLOT_ICON: Record<MealSlot, Icon> = { breakfast: 'sunny', lunch: 'restaurant', snack: 'cafe', dinner: 'moon' };
 const ICON = { vegan: 'leaf', veg: 'nutrition', egg: 'egg', fish: 'fish', meat: 'flame' } as const;
 const TABS = ['Recipes', 'Foods', 'Custom'] as const;
 const EMPTY = { name: '', kcal: '', protein: '' };
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 const plural = (n: number) => `${fmt(n)} serving${n === 1 ? '' : 's'}`;
+const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
 const weighed = (amount: string) => /\d\s?(g|ml)\b/.test(amount); // gentle mode hides gram and ml amounts
 
 // Full-screen add-food page for one meal: recipes, single foods, or your own entry. ?recipe= opens a recipe straight away.
@@ -62,6 +65,7 @@ export default function AddFood() {
     setForm(EMPTY);
   };
   const per = open && perServing(open);
+  const whole = open && totals(open);
   const todays = meals.filter((m) => m.day === dayKey());
   const logged = (x: Recipe) => todays.find((m) => m.name === x.name || m.name.startsWith(x.name + ' ('));
   const already = open ? logged(open) : undefined;
@@ -74,27 +78,17 @@ export default function AddFood() {
   const recRow = (x: Recipe) => {
     const p = perServing(x);
     return (
-      <Tap key={x.id} onPress={() => show(x)} scale={0.98} style={s.row}>
-        <View style={s.icon}><Ionicons name={ICON[x.kind]} size={16} color={c.warm} /></View>
-        <View style={{ flex: 1 }}>
-          <T v="body" numberOfLines={1}>{x.name}</T>
-          <T v="small" numberOfLines={1}>{gentle ? `${x.minutes} min` : `${x.minutes} min · ${p.kcal} kcal · ${p.protein} g protein`}</T>
-        </View>
-        {logged(x) ? <Ionicons name="checkmark-circle" size={22} color={c.accent} /> : <Ionicons name="chevron-forward" size={18} color={c.dim} />}
-      </Tap>
+      <ListRow key={x.id} icon={ICON[x.kind]} color={c.pink} title={x.name} onPress={() => show(x)}
+        sub={gentle ? `${x.minutes} min` : `${x.minutes} min · ${p.kcal} kcal · ${p.protein} g protein`}
+        right={logged(x) ? <Ionicons name="checkmark-circle" size={22} color={c.ok} /> : undefined} />
     );
   };
   const foodRow = (fd: Food) => {
     const on = items.some((m) => m.name === fd.name);
     return (
-      <Tap key={fd.name} onPress={() => toggle(fd)} scale={0.98} style={s.row}>
-        <View style={s.icon}><Ionicons name={fd.icon} size={16} color={c.warm} /></View>
-        <View style={{ flex: 1 }}>
-          <T v="body" numberOfLines={1}>{fd.name}</T>
-          {!gentle && <T v="small" numberOfLines={1}>{fd.kcal} kcal · {fd.protein} g protein · {fd.serving}</T>}
-        </View>
-        <Ionicons name={on ? 'checkmark-circle' : 'add-circle-outline'} size={24} color={on ? c.accent : c.dim} />
-      </Tap>
+      <ListRow key={fd.name} icon={fd.icon} color={c.pink} title={fd.name} onPress={() => toggle(fd)}
+        sub={gentle ? undefined : `${fd.serving} · ${fd.kcal} kcal · ${fd.protein} g protein`}
+        right={<Ionicons name={on ? 'checkmark-circle' : 'add-circle-outline'} size={24} color={on ? c.ok : c.dim} />} />
     );
   };
 
@@ -104,24 +98,27 @@ export default function AddFood() {
         <Row style={{ justifyContent: 'space-between' }}>
           <Tap onPress={back} style={s.round}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
           <T v="label" numberOfLines={1} style={{ flexShrink: 1 }}>{open ? 'Recipe' : `Add to ${meal}`}</T>
-          <View style={{ width: 40 }} />
+          <View style={{ width: 44 }} />
         </Row>
-
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 24 }}
         keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <Card style={{ marginTop: 14, padding: 14 }}>
-          <T v="small" numberOfLines={1}>{NAMES[slot]} so far today</T>
-          {gentle ? (
-            <T v="h3" numberOfLines={1} style={{ marginTop: 4 }}>{items.length ? `${items.length} logged` : 'Nothing yet'}</T>
-          ) : (
-            <Row gap={16} style={{ marginTop: 4, flexWrap: 'wrap' }}>
-              <T v="h2" color={c.warm} numberOfLines={1}>{kcal} <T v="small">kcal</T></T>
-              <T v="h2" color={c.pink} numberOfLines={1}>{protein} g <T v="small">protein</T></T>
-            </Row>
-          )}
-          {items.length > 0 && <T v="small" numberOfLines={2} style={{ marginTop: 4 }}>{items.map((m) => m.name).join(', ')}</T>}
+        {/* What this meal holds so far. */}
+        <Card style={{ marginTop: 12 }}>
+          <Row>
+            <IconBox icon={SLOT_ICON[slot]} color={items.length ? c.ok : c.muted} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <T v="h3" numberOfLines={1}>{NAMES[slot]} today</T>
+              <T v="small" numberOfLines={1}>{items.length ? items.map((m) => m.name).join(', ') : 'Nothing yet'}</T>
+            </View>
+            {!gentle && (
+              <View style={{ alignItems: 'flex-end' }}>
+                <T v="h3" color={c.warm} numberOfLines={1}>{kcal}<T v="small"> kcal</T></T>
+                <T v="small" color={c.pink} numberOfLines={1}>{protein} g protein</T>
+              </View>
+            )}
+          </Row>
         </Card>
 
         {!open && (
@@ -134,108 +131,121 @@ export default function AddFood() {
           </View>
         )}
         {!open && tab !== 'Custom' && (
-          <TextInput value={q} onChangeText={setQ} placeholder={tab === 'Recipes' ? 'Search recipes' : 'Search foods'} maxLength={40}
-            placeholderTextColor={c.dim} style={[s.input, { marginTop: 12 }]} />
+          <View style={s.search}>
+            <Ionicons name="search" size={18} color={c.dim} />
+            <TextInput value={q} onChangeText={setQ} placeholder={tab === 'Recipes' ? 'Search recipes' : 'Search foods'} maxLength={40}
+              placeholderTextColor={c.dim} style={s.searchInput} />
+          </View>
         )}
-        {open && per ? (
+        {open && per && whole ? (
           <Animated.View key={open.id} entering={fade()}>
-            <T v="h2" style={{ marginTop: 8 }}>{open.name}</T>
-            <T v="small" style={{ marginTop: 4 }}>
-              Makes {plural(open.serves)} · {open.minutes} min · Good for {open.slots.map((x) => NAMES[x].toLowerCase()).join(', ')}
-            </T>
-            {!gentle && <T v="body" style={{ marginTop: 10 }}>{open.why}</T>}
+            <T v="h1" style={{ marginTop: 24 }}>{open.name}</T>
+            <Row gap={16} style={{ marginTop: 8, flexWrap: 'wrap' }}>
+              <Meta icon="time-outline" text={`${open.minutes} min`} />
+              <Meta icon="people-outline" text={`Serves ${fmt(open.serves)}`} />
+              <Meta icon="restaurant-outline" text={cap(open.slots.join(', '))} />
+            </Row>
+            {!gentle && <T v="small" style={{ marginTop: 12 }}>{open.why}</T>}
             {open.group === 'Pregnancy-friendly' && (
-              <T v="small" color={c.text} style={{ marginTop: 10 }}>Made with pregnancy-safe foods: everything cooked through and pasteurised. Check with your doctor about your needs.</T>
+              <View style={{ marginTop: 16 }}>
+                <Banner icon="heart" color={c.pink} title="Pregnancy-safe: cooked through and pasteurised. Ask your doctor about your needs." />
+              </View>
             )}
             {!gentle && (
-              <Card style={{ marginTop: 14, padding: 14 }}>
-                <Row>
-                  <View style={{ flex: 1 }}>
-                    <T v="label" numberOfLines={1}>Per serving</T>
-                    <T v="h2" color={c.warm} numberOfLines={1}>{per.kcal} kcal</T>
+              <Row style={{ marginTop: 16 }}>
+                <Tile icon="flame" color={c.warm} value={per.kcal} unit="kcal" label="Per serving" />
+                <Tile icon="nutrition" color={c.pink} value={per.protein} unit="g" label="Protein per serving" />
+              </Row>
+            )}
+
+            <Section title="Ingredients">
+              <Card style={{ paddingVertical: 4 }}>
+                {open.ing.map(([n, amount, k, p], i) => {
+                  const swap = swapFor(n);
+                  return (
+                    <View key={n} style={[s.ing, i > 0 && s.sep]}>
+                      <Row style={{ alignItems: 'flex-start' }}>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <T v="body">{n}</T>
+                          {(!gentle || !weighed(amount)) && <T v="small" numberOfLines={1}>{amount}</T>}
+                        </View>
+                        {!gentle && (
+                          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                            <Pill color={c.warm} text={`${k} kcal`} />
+                            <Pill color={c.pink} text={`${p} g protein`} />
+                          </View>
+                        )}
+                      </Row>
+                      {swap && (
+                        <Row gap={6} style={{ marginTop: 6, alignItems: 'flex-start' }}>
+                          <Ionicons name="swap-horizontal" size={14} color={c.blue} style={{ marginTop: 2 }} />
+                          <T v="small" color={c.blue} style={{ flex: 1 }}>{swap}</T>
+                        </Row>
+                      )}
+                    </View>
+                  );
+                })}
+                <Row style={[s.ing, s.sep]}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <T v="h3" numberOfLines={1}>Whole recipe</T>
+                    <T v="small" numberOfLines={1}>Makes {plural(open.serves)}</T>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <T v="label" numberOfLines={1}>Protein</T>
-                    <T v="h2" color={c.pink} numberOfLines={1}>{per.protein} g</T>
-                  </View>
+                  {!gentle && <T v="small" color={c.text} numberOfLines={1}>{whole.kcal} kcal · {whole.protein} g</T>}
                 </Row>
               </Card>
-            )}
+            </Section>
 
-            <T v="h3" style={{ marginTop: 20 }}>Ingredients · makes {plural(open.serves)}</T>
-            {open.ing.map(([n, amount, k, p]) => (
-              <View key={n} style={s.ing}>
-                <View style={{ flex: 1 }}>
-                  <T v="body" numberOfLines={2}>{n}</T>
-                  {(!gentle || !weighed(amount)) && <T v="small" numberOfLines={1}>{amount}</T>}
-                  {swapFor(n) && <T v="small" color={c.blue} style={{ marginTop: 2 }}>Swap: {swapFor(n)}</T>}
-                </View>
-                {!gentle && (
-                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                    <View style={[s.pill, { backgroundColor: c.warm + '22' }]}><T v="small" color={c.warm} numberOfLines={1}>{k} kcal</T></View>
-                    <View style={[s.pill, { backgroundColor: c.pink + '22' }]}><T v="small" color={c.pink} numberOfLines={1}>{p} g protein</T></View>
-                  </View>
-                )}
-              </View>
-            ))}
-            {!gentle && (
-              <View style={[s.ing, { flexWrap: 'wrap' }]}>
-                <T v="h3" style={{ flex: 1, minWidth: 110 }}>Whole recipe</T>
-                <T v="small" color={c.text} numberOfLines={1}>{totals(open).kcal} kcal · {totals(open).protein} g protein</T>
-              </View>
-            )}
+            <Section title="Steps">
+              <Card style={{ gap: 16 }}>
+                {open.steps.map((x, n) => (
+                  <Row key={n} style={{ alignItems: 'flex-start' }}>
+                    <View style={[s.num, { backgroundColor: c.accent + '22' }]}><T v="small" color={c.accent}>{n + 1}</T></View>
+                    <T v="body" style={{ flex: 1 }}>{x}</T>
+                  </Row>
+                ))}
+              </Card>
+            </Section>
 
-            <T v="h3" style={{ marginTop: 20 }}>Steps</T>
-            {open.steps.map((x, n) => (
-              <Row key={n} gap={12} style={{ alignItems: 'flex-start', marginTop: 12 }}>
-                <View style={[s.num, { backgroundColor: c.accent }]}><T v="small" color={c.accentInk}>{n + 1}</T></View>
-                <T v="body" style={{ flex: 1 }}>{x}</T>
-              </Row>
-            ))}
-            <Card style={{ marginTop: 20, gap: 10 }}>
-              <T v="h3">Want more detail?</T>
-              <T v="small">These steps cover the basics. For a fuller walkthrough, look up “{open.name}” online or watch someone make it.</T>
-              <Row gap={10}>
-                <Button title="Search recipe" icon="search" kind="ghost" style={{ flex: 1, height: 46, paddingHorizontal: 10 }}
+            <Section title="More detail">
+              <Row>
+                <Button title="Search recipe" icon="search" kind="ghost" style={s.half}
                   onPress={() => Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(open.name + ' recipe')}`)} />
-                <Button title="Watch video" icon="logo-youtube" kind="ghost" style={{ flex: 1, height: 46, paddingHorizontal: 10 }}
+                <Button title="Watch video" icon="logo-youtube" kind="ghost" style={s.half}
                   onPress={() => Linking.openURL(`https://www.youtube.com/results?search_query=${encodeURIComponent('how to make ' + open.name)}`)} />
               </Row>
-              <T v="small" color={c.dim}>Allergic to something? Each ingredient above shows a swap where one makes sense.</T>
-            </Card>
+              <T v="small" style={{ marginTop: 8 }}>A fuller walkthrough, found online.</T>
+            </Section>
           </Animated.View>
         ) : tab === 'Recipes' ? (
           <Animated.View key="recipes" entering={fade()}>
-            {!recs.length && <T v="small" style={{ marginTop: 12 }}>No recipe with that name. Try Foods or Custom.</T>}
-            {gentle
-              ? groups.flatMap((g) => recs.filter((x) => x.group === g)).map(recRow)
-              : groups.map((g) => {
-                const list = recs.filter((x) => x.group === g);
-                return list.length > 0 && (
-                  <View key={g} style={{ marginTop: 14 }}>
-                    <T v="label" numberOfLines={1}>{g}{g === mine ? ' · for you' : ''}</T>
-                    {list.map(recRow)}
-                  </View>
-                );
-              })}
+            {!recs.length && <T v="small" style={{ marginTop: 16 }}>No recipe with that name. Try Foods or Custom.</T>}
+            {gentle ? (
+              <View style={s.list}>{groups.flatMap((g) => recs.filter((x) => x.group === g)).map(recRow)}</View>
+            ) : (
+              groups.filter((g) => recs.some((x) => x.group === g)).map((g, i) => (
+                <Section key={g} title={g === mine ? `${g} · for you` : g} first={i === 0}>
+                  <View style={{ gap: 8 }}>{recs.filter((x) => x.group === g).map(recRow)}</View>
+                </Section>
+              ))
+            )}
           </Animated.View>
         ) : tab === 'Foods' ? (
           <Animated.View key="foods" entering={fade()}>
-            <T v="small" numberOfLines={2} style={{ marginTop: 8 }}>{foods.length ? 'Fits your diet. Tap to add, tap again to remove.' : 'No match. Add it under Custom.'}</T>
-            {foods.map(foodRow)}
+            <T v="small" numberOfLines={1} style={{ marginTop: 16 }}>{foods.length ? 'Tap to add, tap again to remove.' : 'No match. Add it under Custom.'}</T>
+            <View style={s.list}>{foods.map(foodRow)}</View>
           </Animated.View>
         ) : (
           <Animated.View key="custom" entering={fade()}>
-            <T v="small" numberOfLines={2} style={{ marginTop: 8 }}>Anything that is not in the lists.</T>
+            <T v="small" numberOfLines={1} style={{ marginTop: 16 }}>Anything not in the lists.</T>
             <TextInput value={form.name} onChangeText={(name) => setForm({ ...form, name })} placeholder="What did you eat?" maxLength={40}
-              placeholderTextColor={c.dim} style={[s.input, { marginTop: 10 }]} />
+              placeholderTextColor={c.dim} style={[s.input, { marginTop: 8 }]} />
             {!gentle && (
               <Row gap={8} style={{ marginTop: 8 }}>
                 <TextInput value={form.kcal} onChangeText={(v) => setForm({ ...form, kcal: v.replace(/\D/g, '') })} placeholder="Calories" keyboardType="number-pad" maxLength={4} placeholderTextColor={c.dim} style={[s.input, { flex: 1 }]} />
                 <TextInput value={form.protein} onChangeText={(v) => setForm({ ...form, protein: v.replace(/\D/g, '') })} placeholder="Protein g" keyboardType="number-pad" maxLength={3} placeholderTextColor={c.dim} style={[s.input, { flex: 1 }]} />
               </Row>
             )}
-            <Button title={`Add to ${meal}`} icon="add" disabled={!form.name.trim() || (!gentle && !form.kcal)} onPress={addCustom} style={{ marginTop: 14 }} />
+            <Button title={`Add to ${meal}`} icon="add" disabled={!form.name.trim() || (!gentle && !form.kcal)} onPress={addCustom} style={{ marginTop: 16 }} />
           </Animated.View>
         )}
       </ScrollView>
@@ -247,7 +257,7 @@ export default function AddFood() {
           </T>
           {already ? (
             <Row>
-              <Row gap={6} style={{ flex: 1 }}><Ionicons name="checkmark-circle" size={20} color={c.accent} /><T v="small" color={c.text} style={{ flex: 1 }}>{`Logged today${already.slot ? ` at ${NAMES[already.slot].toLowerCase()}` : ''}`}</T></Row>
+              <Row gap={6} style={{ flex: 1 }}><Ionicons name="checkmark-circle" size={20} color={c.ok} /><T v="small" color={c.text} style={{ flex: 1 }}>{`Logged today${already.slot ? ` at ${NAMES[already.slot].toLowerCase()}` : ''}`}</T></Row>
               <Button title="Remove" icon="trash-outline" kind="ghost" onPress={() => removeMeal(already.id)} style={{ height: 48, paddingHorizontal: 16 }} />
             </Row>
           ) : (
@@ -262,15 +272,26 @@ export default function AddFood() {
   );
 }
 
+const Meta = ({ icon, text }: { icon: Icon; text: string }) => (
+  <Row gap={6}><Ionicons name={icon} size={16} color={c.muted} /><T v="small" color={c.text}>{text}</T></Row>
+);
+
+const Pill = ({ color, text }: { color: string; text: string }) => (
+  <View style={[s.pill, { backgroundColor: color + '22' }]}><T v="small" color={color} numberOfLines={1}>{text}</T></View>
+);
+
 const s = StyleSheet.create({
-  round: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
-  icon: { width: 36, height: 36, borderRadius: 12, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  round: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   seg: { flexDirection: 'row', gap: 4, marginTop: 12, padding: 4, borderRadius: 22, backgroundColor: c.card2 },
   segItem: { flex: 1, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  input: { height: 48, borderRadius: 14, backgroundColor: c.card2, paddingHorizontal: 14, color: c.text, fontFamily: f.medium, fontSize: 15 },
-  ing: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line },
+  search: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, height: 48, borderRadius: r.md, backgroundColor: c.card2, paddingHorizontal: 14 },
+  searchInput: { flex: 1, height: 48, padding: 0, color: c.text, fontFamily: f.medium, fontSize: 15 },
+  input: { height: 48, borderRadius: r.md, backgroundColor: c.card2, paddingHorizontal: 14, color: c.text, fontFamily: f.medium, fontSize: 15 },
+  list: { gap: 8, marginTop: 12 },
+  ing: { paddingVertical: 12 },
+  sep: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
   pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  num: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: -1 },
+  num: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  half: { flex: 1, height: 48, paddingHorizontal: 10 },
   foot: { paddingHorizontal: 12, paddingTop: 12, backgroundColor: c.card, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
 });

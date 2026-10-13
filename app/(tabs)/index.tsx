@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { Easing, FadeIn } from 'react-native-reanimated';
 import { cycle, dayKey, doneToday, postpartumWeek, pregnancyWeek, streak as calcStreak, targets } from '../../src/calc';
 import { greeting } from '../../src/coach';
@@ -9,12 +9,13 @@ import { available, byId, exercises, title, type Place } from '../../src/data/ex
 import { challenge, level } from '../../src/data/badges';
 import { motivation } from '../../src/data/motivation';
 import { planById, type Day } from '../../src/data/plans';
+import { cardioFor } from '../../src/data/cardio';
 import { asDay, quickById } from '../../src/data/quick';
 import { gate, insights, quickFor, suggest } from '../../src/engine';
 import { askPermission, hasPermission, reschedule } from '../../src/notify';
 import { useStore, type Mood } from '../../src/store';
 import { c, r } from '../../src/theme';
-import { Button, Chip, Ring, Rise, Row, Screen, T, Tap, Thumb } from '../../src/ui';
+import { Avatar, Banner, Button, Fold, IconBox, Rise, Row, Screen, Section, T, Tap, Thumb, Tile } from '../../src/ui';
 
 const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const MOODS: { v: Mood; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -24,14 +25,13 @@ const MOODS: { v: Mood; label: string; icon: keyof typeof Ionicons.glyphMap }[] 
   { v: 4, label: 'Fired up', icon: 'flash' },
 ];
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
-const HYPE = ['Unleash the beast inside you.', 'Ready for a quick warm-up?', 'Today is a good day to get stronger.', 'One session closer to your goal.'];
 type Spot = Place | 'office';
-const WHERE: Record<string, string> = { office: 'Desk', home: 'Home', gym: 'Gym', anywhere: 'Anywhere' };
 
 export default function Today() {
   const st = useStore();
   const { profile, sessions, active, meals, checkins, start, checkIn, dismiss, setupSkipped } = st;
   const [editMood, setEditMood] = useState(false);
+  const [showList, setShowList] = useState(false);
   const [spin, setSpin] = useState(0);
   const [place, setPlace] = useState<Spot>(profile.place === 'home' || profile.place === 'office' ? profile.place : 'gym');
   const [notifOff, setNotifOff] = useState(false);
@@ -62,324 +62,287 @@ export default function Today() {
   const lastAt = sessions[sessions.length - 1]?.startedAt;
   const daysOff = lastAt ? Math.floor((Date.now() - lastAt) / 86400000) : 0;
   const quote = motivation(profile, daysOff, Math.floor(Date.now() / (3 * 3600000)) + spin);
-  const label = place === 'office' ? 'At your desk' : { plan: `Up next · ${plan.name}`, light: 'Lighter today', rest: 'Recovery', gentle: 'Gentle today' }[sug.kind];
+  const label = place === 'office' ? 'At your desk' : { plan: 'Up next', light: 'Lighter today', rest: 'Recovery day', gentle: 'Gentle today' }[sug.kind];
+  const setupNeeded = !profile.name && setupSkipped;
   const cyc = cycle(profile), pw = pregnancyWeek(profile), pp = postpartumWeek(profile);
   const nextPeriod = cyc ? new Date(Date.now() + (cyc.length - cyc.day + 1) * 86400000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '';
   const inPeriod = !!st.periods.length && !st.periods[st.periods.length - 1].end && Date.now() - Date.parse(st.periods[st.periods.length - 1].start) < 10 * 86400000;
 
   const go = (d: Day, pl: Place, planId?: string, dayIndex?: number) => { start(d, pl, planId, dayIndex); router.push('/session'); };
   const startMain = () => (active ? router.push('/session') : place === 'office' && desk ? go(asDay(desk), 'home') : go(sug.day, where, sug.planId, sug.dayIndex));
+  const ws = [...st.weights].sort((a, b) => a.day.localeCompare(b.day));
+  const lw = ws[ws.length - 1];
+  const ago = lw ? Math.round((Date.parse(today + 'T12:00:00') - Date.parse(lw.day + 'T12:00:00')) / 86400000) : 0;
+  const mealsIn = new Set(todays.map((m) => m.slot ?? m.id)).size;
+  const ch = challenge(st), lv = level(st);
+  const minutes = place === 'office' && desk ? desk.minutes : sug.minutes;
+  const cardio = cardioFor(profile, sessions);
 
   return (
     <Screen>
+      {/* Header: who and when on the left, streak and profile on the right (the first two stops of a Z read). */}
       <Rise>
-        <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View style={{ flex: 1, gap: 4 }}>
-            {/* Greeting, then the name on its own line so a long name never breaks mid-word. */}
-            <T v="h3" color={c.muted}>{greeting()}{profile.name ? ',' : ''}</T>
-            {!!profile.name && <T v="h1" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{profile.name}</T>}
-            {!trainedToday && <T v="h3" color={c.accent}>{HYPE[(new Date().getDate() + spin) % HYPE.length]}</T>}
+        <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <T v="small">{greeting()}</T>
+            <T v="h1" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{profile.name || 'Ready to train'}</T>
           </View>
           <Row gap={8}>
             <Tap onPress={() => router.push('/history')} style={s.pill}>
               <Ionicons name="flame" size={18} color={c.warm} />
               <T v="h3">{streak}</T>
             </Tap>
-            <Tap onPress={() => router.push('/you')} style={[s.avatar, { backgroundColor: c.accent }]}>
-              {profile.name ? <T v="h3" color={c.accentInk}>{profile.name[0].toUpperCase()}</T> : <Ionicons name="person" size={18} color={c.accentInk} />}
-            </Tap>
+            <Avatar />
           </Row>
         </Row>
-        {/* Your week at a glance: a filled day means you trained; the dots show water and food goals met. Tap for history. */}
         <Tap onPress={() => router.push('/history')} scale={0.99} feedback="none">
-          <Row style={{ justifyContent: 'space-between', marginTop: 16 }} gap={6}>
+          <Row style={{ justifyContent: 'space-between', marginTop: 20 }} gap={6}>
             {WEEK.map((w, i) => {
               const d = new Date(monday); d.setDate(monday.getDate() + i);
               const k = dayKey(d), did = trained.has(k), now = k === today;
-              const dayMeals = meals.filter((m) => m.day === k);
-              const ate = gentle ? dayMeals.length >= 3 : dayMeals.reduce((a, m) => a + m.protein, 0) >= t.protein * 0.9;
-              const drank = (st.water[k] ?? 0) >= t.water;
               return (
-                <View key={i} style={[s.wd, now && { borderWidth: 1.5, borderColor: c.text }, did && { backgroundColor: c.accent }]}>
+                <View key={i} style={[s.wd, now && { borderWidth: 1.5, borderColor: c.accent }, did && { backgroundColor: c.accent }]}>
                   <T v="label" color={did ? c.accentInk : now ? c.text : c.muted}>{w}</T>
-                  <T v="h3" color={did ? c.accentInk : c.text}>{d.getDate()}</T>
-                  <Row gap={3}>
-                    <View style={[s.dot, { backgroundColor: drank ? c.blue : did ? 'rgba(0,0,0,0.2)' : c.line }]} />
-                    <View style={[s.dot, { backgroundColor: ate ? c.pink : did ? 'rgba(0,0,0,0.2)' : c.line }]} />
-                  </Row>
+                  {did ? <Ionicons name="checkmark" size={18} color={c.accentInk} /> : <T v="h3" color={now ? c.text : c.muted}>{d.getDate()}</T>}
                 </View>
               );
             })}
           </Row>
-          <Row style={{ marginTop: 8, justifyContent: 'center' }} gap={12}>
-            <Row gap={4}><View style={[s.dot, { backgroundColor: c.accent }]} /><T v="small">Trained</T></Row>
-            <Row gap={4}><View style={[s.dot, { backgroundColor: c.blue }]} /><T v="small">Water goal</T></Row>
-            <Row gap={4}><View style={[s.dot, { backgroundColor: c.pink }]} /><T v="small">{gentle ? '3 meals' : 'Protein goal'}</T></Row>
+        </Tap>
+      </Rise>
+
+      {/* Only what needs a decision today, one line each. */}
+      {(setupNeeded || notifOff || pw !== null || pp !== null || cyc) && (
+        <Rise i={1} style={{ marginTop: 20, gap: 8 }}>
+          {setupNeeded && <Banner icon="sparkles" title="Personalize your plan" action="1 min" onPress={() => router.push('/onboarding')} />}
+          {notifOff && <Banner icon="notifications-off" color={c.warm} title="Reminders are off" action="Allow"
+            onPress={async () => { if (await askPermission()) { setNotifOff(false); reschedule(); } }} />}
+          {(pw !== null || pp !== null) && <Banner icon="heart" color={c.pink} title={pw !== null ? `Pregnancy · week ${pw} · plan adjusted` : `After birth · week ${pp} · plan adjusted`} />}
+          {cyc && <Banner icon="water" color={c.pink} title={`Cycle day ${cyc.day} · ${{ period: 'Period', follicular: 'Energy rising', ovulation: 'Peak energy', luteal: 'Pre-period' }[cyc.phase]}`}
+            action={inPeriod ? 'Period ended' : 'Period started'} onPress={() => st.logPeriod(inPeriod ? 'end' : 'start')} />}
+        </Rise>
+      )}
+
+      {/* Mood, once a day: four icons, one word each. */}
+      {(!mood || editMood) && (
+        <Rise i={2} style={{ marginTop: 20 }}>
+          <T v="h3" style={{ marginBottom: 10 }}>How do you feel?</T>
+          <Row gap={8}>
+            {MOODS.map((m) => {
+              const on = mood === m.v;
+              return (
+                <Tap key={m.v} onPress={() => { checkIn(m.v); setEditMood(false); }} style={[s.mood, on && { backgroundColor: c.accent, borderColor: c.accent }]} scale={0.95}>
+                  <Ionicons name={m.icon} size={22} color={on ? c.accentInk : c.text} />
+                  <T v="small" color={on ? c.accentInk : c.text} numberOfLines={1}>{m.label}</T>
+                </Tap>
+              );
+            })}
           </Row>
-        </Tap>
-      </Rise>
-
-      {!profile.name && setupSkipped && (
-        <Rise i={1}>
-          <Tap onPress={() => router.push('/onboarding')} style={[s.card, s.row, { marginTop: 16, borderColor: c.accent }]} scale={0.98}>
-            <View style={[s.icon, { backgroundColor: c.accent }]}><Ionicons name="sparkles" size={18} color={c.accentInk} /></View>
-            <View style={{ flex: 1 }}>
-              <T v="h3">Personalize your plan</T>
-              <T v="small">One minute. Your workouts, food targets and reminders are built from it.</T>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={c.muted} />
-          </Tap>
         </Rise>
       )}
 
-      {notifOff && (
-        <Rise i={1}>
-          <View style={[s.card, s.row, { marginTop: 12 }]}>
-            <View style={[s.icon, { backgroundColor: c.warm + '22' }]}><Ionicons name="notifications-off" size={18} color={c.warm} /></View>
-            <View style={{ flex: 1 }}>
-              <T v="h3">Reminders are off</T>
-              <T v="small">Water, workout and motivation nudges need notifications.</T>
-            </View>
-            <Button title="Allow" style={{ height: 40, paddingHorizontal: 16 }}
-              onPress={async () => { if (await askPermission()) { setNotifOff(false); reschedule(); } }} />
-          </View>
-        </Rise>
-      )}
-
-      {(pw !== null || pp !== null) && (
-        <Rise i={1}>
-          <View style={[s.card, s.row, { marginTop: 12 }]}>
-            <View style={[s.icon, { backgroundColor: c.pink + '22' }]}><Ionicons name="heart" size={18} color={c.pink} /></View>
-            <View style={{ flex: 1 }}>
-              <T v="h3">{pw !== null ? `Plan calibrated for pregnancy, week ${pw}` : `Plan calibrated for after birth, week ${pp}`}</T>
-              <T v="small">Moves that aren't right for you now are hidden or replaced. Follow your doctor where their advice differs.</T>
-            </View>
-          </View>
-        </Rise>
-      )}
-
-      {cyc && (
-        <Rise i={1}>
-          <View style={[s.card, { marginTop: 12, gap: 10 }]}>
-            <Row>
-              <View style={[s.icon, { backgroundColor: c.pink + '22' }]}><Ionicons name="water" size={18} color={c.pink} /></View>
-              <View style={{ flex: 1 }}>
-                <T v="h3">Cycle day {cyc.day} · {{ period: 'Period', follicular: 'Building energy', ovulation: 'Peak energy', luteal: 'Before your period' }[cyc.phase]}</T>
-                <T v="small">Next period around {nextPeriod}. Today's suggestion takes this into account.</T>
-              </View>
-            </Row>
-            <Button title={inPeriod ? 'My period ended' : 'My period started today'} kind="ghost" style={{ height: 44 }}
-              onPress={() => st.logPeriod(inPeriod ? 'end' : 'start')} />
-          </View>
-        </Rise>
-      )}
-
-      <Rise i={2}>
-        <Tap onPress={() => setSpin(spin + 1)} scale={0.99} feedback="none" style={s.quote}>
-          <View style={[s.quoteBar, { backgroundColor: c.accent }]} />
-          <Animated.View key={quote} entering={FadeIn.duration(350).easing(EASE)} style={{ flex: 1 }}>
-            <T v="h2">{quote}</T>
-          </Animated.View>
-        </Tap>
-      </Rise>
-
+      {/* Hero: today's workout. The one thing this screen is for. */}
       <Rise i={3}>
-        {mood && !editMood ? (
-          <Tap onPress={() => setEditMood(true)} style={[s.card, s.row, { marginTop: 16 }]} scale={0.98}>
-            <Ionicons name={MOODS[mood - 1].icon} size={18} color={c.accent} />
-            <T v="body" style={{ flex: 1 }}>Feeling {MOODS[mood - 1].label.toLowerCase()} today</T>
-            <T v="small">Change</T>
-          </Tap>
-        ) : (
-          <Animated.View entering={FadeIn.duration(250).easing(EASE)} style={[s.card, { marginTop: 16 }]}>
-            <T v="h3">How are you feeling?</T>
-            <T v="small" style={{ marginTop: 2 }}>Today's suggestion adapts to your answer.</T>
-            <Row style={{ marginTop: 14 }} gap={8}>
-              {MOODS.map((m) => {
-                const on = mood === m.v;
-                return (
-                  <Tap key={m.v} onPress={() => { checkIn(m.v); setEditMood(false); }} style={[s.mood, on && { backgroundColor: c.accent, borderColor: c.accent }]} scale={0.95}>
-                    <Ionicons name={m.icon} size={22} color={on ? c.accentInk : c.text} />
-                    <T v="small" color={on ? c.accentInk : c.text} numberOfLines={1}>{m.label}</T>
-                  </Tap>
-                );
-              })}
-            </Row>
-          </Animated.View>
-        )}
-      </Rise>
-
-      <Rise i={4}>
-        <Tap onPress={() => router.push('/fuel')} scale={0.98} style={[s.card, { marginTop: 12 }]}>
-          <Row style={{ justifyContent: 'space-around' }}>
-            <RingStat progress={trainedToday ? 1 : 0} color={c.accent} icon="barbell" value={trainedToday ? 'Done' : 'To do'} label="Workout" />
-            {gentle ? (
-              <RingStat progress={new Set(todays.map((m) => m.slot ?? m.id)).size / 4} color={c.pink} icon="restaurant" value={`${new Set(todays.map((m) => m.slot ?? m.id)).size} of 4`} label="Meals" />
-            ) : (
-              <RingStat progress={protein / t.protein} color={c.pink} icon="nutrition" value={`${protein}/${t.protein}`} label="Protein (g)" />
-            )}
-            <RingStat progress={water / t.water} color={c.blue} icon="water" value={`${water}/${t.water}`} label="Water" />
-          </Row>
-        </Tap>
-        {!gentle && (() => {
-          // Body weight at a glance, so a weigh-in visibly lands somewhere; tap to log or see the trend.
-          const ws = [...st.weights].sort((a, b) => a.day.localeCompare(b.day));
-          const lw = ws[ws.length - 1], first = ws[0];
-          const ago = lw ? Math.round((Date.parse(today + 'T12:00:00') - Date.parse(lw.day + 'T12:00:00')) / 86400000) : 0;
-          return (
-            <Tap onPress={() => router.push('/progress')} scale={0.99} style={[s.card, s.row, { marginTop: 10, paddingVertical: 12 }]}>
-              <Ionicons name="scale-outline" size={20} color={c.accent} />
-              <View style={{ flex: 1 }}>
-                <T v="h3">{lw ? `${lw.kg.toFixed(1)} kg` : 'Log your weight'}</T>
-                <T v="small">{lw ? `${ago === 0 ? 'Weighed today' : ago === 1 ? 'Weighed yesterday' : `Weighed ${ago} days ago`}${first && ws.length > 1 ? ` · ${lw.kg - first.kg > 0 ? '+' : ''}${(lw.kg - first.kg).toFixed(1)} kg since you started` : ''}` : 'Once a week, same time, is enough to see the trend.'}</T>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={c.muted} />
-            </Tap>
-          );
-        })()}
-      </Rise>
-
-      <Rise i={4}>
-        {(() => {
-          const ch = challenge(st), lv = level(st);
-          return (
-            <Tap onPress={() => router.push('/progress')} scale={0.98} style={[s.card, { marginTop: 12, gap: 10 }]}>
-              <Row style={{ justifyContent: 'space-between' }}>
-                <T v="h3">{ch.done ? 'Weekly challenge complete' : 'This week’s challenge'}</T>
-                <T v="small" color={c.accent}>Level {lv.lvl} · {lv.name}</T>
-              </Row>
-              {ch.goals.map((g) => (
-                <View key={g.label} style={{ gap: 4 }}>
-                  <Row style={{ justifyContent: 'space-between' }}>
-                    <T v="small" color={c.text}>{g.label}</T>
-                    <T v="small">{Math.min(g.have, g.need)}/{g.need}</T>
-                  </Row>
-                  <View style={s.track}><View style={[s.fill, { width: `${Math.min(100, (g.have / g.need) * 100)}%`, backgroundColor: c.accent }]} /></View>
-                </View>
-              ))}
-              <View style={s.track}><View style={[s.fill, { width: `${(lv.into / lv.need) * 100}%`, backgroundColor: c.warm }]} /></View>
-              <T v="small">{lv.need - lv.into} XP to level {lv.lvl + 1}. Every workout is 10 XP, every set 1.</T>
-            </Tap>
-          );
-        })()}
-      </Rise>
-
-      <Rise i={5}>
-        <View style={[s.card, { marginTop: 12, padding: 20 }]}>
+        <View style={[s.hero, { borderColor: c.accent + '55' }]}>
           <Row style={{ justifyContent: 'space-between' }}>
-            <T v="label" color={c.accent} numberOfLines={1} style={{ flex: 1 }}>{label}</T>
-            {place !== 'office' && (
-              <Tap onPress={() => router.push({ pathname: '/plan/[id]', params: { id: sug.planId ?? plan.id } })}><T v="small" color={c.accent}>About this plan</T></Tap>
+            <View style={[s.tag, { backgroundColor: c.accent + '22' }]}><T v="label" color={c.accent} numberOfLines={1}>{label}</T></View>
+            {mood && !editMood && (
+              <Tap onPress={() => setEditMood(true)} style={s.moodChip} scale={0.95}>
+                <Ionicons name={MOODS[mood - 1].icon} size={16} color={c.text} />
+                <T v="small" color={c.text}>{MOODS[mood - 1].label}</T>
+              </Tap>
             )}
           </Row>
-          <T v="h1" style={{ marginTop: 6 }}>{day.name}</T>
-          <T v="body" color={c.muted}>Trains {muscles || 'your whole body'}. About {place === 'office' && desk ? desk.minutes : sug.minutes} min.</T>
-          {place !== 'office' && (
-            <Row style={{ marginTop: 10, alignItems: 'flex-start' }} gap={8}>
-              <Ionicons name="sparkles" size={16} color={c.accent} style={{ marginTop: 3 }} />
-              <T v="body" style={{ flex: 1 }}>{sug.reason}</T>
-            </Row>
-          )}
-          <View style={{ marginTop: 14, gap: 8 }}>
-            {day.slots.map((sl, i) => (
-              <Tap key={sl.id + i} onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: sl.id } })} style={s.row} scale={0.99}>
-                <Thumb ex={byId[sl.id]} size={40} />
-                <T v="body" style={{ flex: 1 }} numberOfLines={1} color={done.has(sl.id) ? c.muted : c.text}>{byId[sl.id]?.name}</T>
-                {done.has(sl.id)
-                  ? <Row gap={4}><T v="small" color={c.ok}>Done</T><Ionicons name="checkmark-circle" size={20} color={c.ok} /></Row>
-                  : <T v="small" color={c.text}>{sl.sets} × {sl.reps}</T>}
+          <T v="h1" style={{ marginTop: 12 }} numberOfLines={2}>{day.name}</T>
+          <Row gap={16} style={{ marginTop: 8, flexWrap: 'wrap' }}>
+            <Meta icon="time-outline" text={`${minutes} min`} />
+            <Meta icon="barbell-outline" text={`${day.slots.length} exercises`} />
+            {!!muscles && <Meta icon="body-outline" text={muscles.split(', ').slice(0, 2).join(', ')} />}
+          </Row>
+
+          <Tap onPress={() => setShowList(!showList)} scale={0.99} feedback="none" style={{ marginTop: 16 }}>
+            {showList ? (
+              <View style={{ gap: 8 }}>
+                {day.slots.map((sl, i) => (
+                  <Tap key={sl.id + i} onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: sl.id } })} style={s.exRow} scale={0.99}>
+                    <Thumb ex={byId[sl.id]} size={40} />
+                    <T v="body" style={{ flex: 1 }} numberOfLines={1} color={done.has(sl.id) ? c.muted : c.text}>{byId[sl.id]?.name}</T>
+                    {done.has(sl.id) ? <Ionicons name="checkmark-circle" size={20} color={c.ok} /> : <T v="small" color={c.text}>{sl.sets} × {sl.reps}</T>}
+                  </Tap>
+                ))}
+                <Row gap={4} style={{ alignSelf: 'center', marginTop: 4 }}><T v="small">Hide</T><Ionicons name="chevron-up" size={14} color={c.muted} /></Row>
+              </View>
+            ) : (
+              <Row style={{ justifyContent: 'space-between' }}>
+                <Row gap={0}>
+                  {day.slots.slice(0, 5).map((sl, i) => (
+                    <View key={sl.id + i} style={[s.stack, { zIndex: 10 - i, marginLeft: i ? -10 : 0 }]}><Thumb ex={byId[sl.id]} size={40} /></View>
+                  ))}
+                </Row>
+                <Row gap={4}><T v="small" color={c.text}>See all</T><Ionicons name="chevron-down" size={14} color={c.text} /></Row>
+              </Row>
+            )}
+          </Tap>
+
+          <Row style={{ marginTop: 16 }} gap={8}>
+            {(['gym', 'home', 'office'] as const).map((k) => (
+              <Tap key={k} onPress={() => setPlace(k)} scale={0.96} style={[s.seg, place === k && { backgroundColor: c.text }]}>
+                <Ionicons name={k === 'gym' ? 'barbell' : k === 'home' ? 'home' : 'briefcase'} size={14} color={place === k ? c.bg : c.muted} />
+                <T v="small" color={place === k ? c.bg : c.muted}>{k === 'gym' ? 'Gym' : k === 'home' ? 'Home' : 'Office'}</T>
               </Tap>
             ))}
-          </View>
-          <Row style={{ marginTop: 16 }} gap={8}>
-            <Chip label="Gym" icon="barbell" on={place === 'gym'} onPress={() => setPlace('gym')} />
-            <Chip label="Home" icon="home" on={place === 'home'} onPress={() => setPlace('home')} />
-            <Chip label="Office" icon="briefcase" on={place === 'office'} onPress={() => setPlace('office')} />
           </Row>
           {replaced > 0 && place !== 'office' && (
-            <T v="small" color={c.warm} style={{ marginTop: 10 }}>
-              {replaced} exercise{replaced > 1 ? 's' : ''} will use {place === 'home' ? 'home-friendly' : 'beginner-friendly'} alternatives.
-            </T>
+            <Row gap={6} style={{ marginTop: 10 }}>
+              <Ionicons name="swap-horizontal" size={14} color={c.warm} />
+              <T v="small" color={c.warm}>{replaced} swapped for {place === 'home' ? 'home' : 'beginner'} versions</T>
+            </Row>
           )}
-          <Button title={active ? 'Resume your workout' : 'Start'} style={{ marginTop: 16 }} onPress={startMain} />
+          <Button title={active ? 'Resume workout' : 'Start workout'} icon="play" style={{ marginTop: 16 }} onPress={startMain} />
+          {place !== 'office' && (
+            <Tap onPress={() => router.push({ pathname: '/plan/[id]', params: { id: sug.planId ?? plan.id } })} style={{ alignSelf: 'center', marginTop: 12, paddingVertical: 4 }}>
+              <T v="small">{plan.name} ›</T>
+            </Tap>
+          )}
         </View>
       </Rise>
 
-      {tip && (
-        <Rise i={6}>
-          <View style={[s.card, { marginTop: 12 }]}>
-            <Row style={{ alignItems: 'flex-start' }} gap={12}>
-              <View style={[s.icon, { backgroundColor: c.accent + '22' }]}><Ionicons name={tip.icon} size={18} color={c.accent} /></View>
-              <View style={{ flex: 1, gap: 4 }}>
-                <T v="h3">{tip.title}</T>
-                <T v="body" color={c.muted}>{tip.body}</T>
+      {/* Today at a glance: four tiles, numbers only. */}
+      <Rise i={4}>
+        <Section title="Today" action="Fuel" onAction={() => router.push('/fuel')}>
+          <Row gap={12}>
+            <Tile icon="barbell" value={trainedToday ? 'Done' : 'To do'} label="Workout" progress={trainedToday ? 1 : 0} />
+            {gentle
+              ? <Tile icon="restaurant" color={c.pink} value={`${mealsIn}/4`} label="Meals" progress={mealsIn / 4} onPress={() => router.push('/fuel')} />
+              : <Tile icon="nutrition" color={c.pink} value={`${protein}`} unit={`/ ${t.protein} g`} label="Protein" progress={protein / t.protein} onPress={() => router.push('/fuel')} />}
+          </Row>
+          <Row gap={12} style={{ marginTop: 12 }}>
+            <Tile icon="water" color={c.blue} value={`${water}`} unit={`/ ${t.water}`} label="Glasses of water" progress={water / t.water} onPress={() => router.push('/fuel')} />
+            {gentle
+              ? <Tile icon="flame" color={c.warm} value={streak} label="Streak" onPress={() => router.push('/history')} />
+              : <Tile icon="scale-outline" color={c.text} value={lw ? lw.kg.toFixed(1) : '-'} unit={lw ? 'kg' : undefined}
+                  label={!lw ? 'Log weight' : ago === 0 ? 'Weighed today' : `${ago}d ago`} onPress={() => router.push('/progress')} />}
+          </Row>
+        </Section>
+      </Rise>
+
+      {/* Cardio: picked by the engine from the Base > Build > Push > Peak ladder. */}
+      <Rise i={5}>
+        <Section title="Cardio" action={`${cardio.name} · ${cardio.stage}/4`} onAction={() => router.push({ pathname: '/exercises', params: { muscle: 'cardio' } })}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 12 }} style={{ marginHorizontal: -12, paddingLeft: 12 }}>
+            {cardio.picks.map((q) => (
+              <Tap key={q.id} onPress={() => (active ? router.push('/session') : go(asDay(q), q.at === 'gym' ? 'gym' : 'home'))} style={s.quick} scale={0.97}>
+                <IconBox icon={q.icon} color={c.blue} />
+                <View>
+                  <T v="h3" numberOfLines={1}>{q.name}</T>
+                  <T v="small" numberOfLines={1}>{q.minutes} min · {q.impact === 'low' ? 'Low impact' : 'High impact'}</T>
+                </View>
+              </Tap>
+            ))}
+            {cardio.next && (
+              <View style={[s.quick, { opacity: 0.6 }]}>
+                <IconBox icon="lock-closed" color={c.muted} />
+                <View>
+                  <T v="h3" numberOfLines={1}>{cardio.next.name}</T>
+                  <T v="small" numberOfLines={1}>Opens in {cardio.toNext} sessions</T>
+                </View>
               </View>
-            </Row>
+            )}
+          </ScrollView>
+        </Section>
+      </Rise>
+
+      {/* This week: three goals as bars, level underneath. */}
+      <Rise i={5}>
+        <Section title="This week" action={`Level ${lv.lvl}`} onAction={() => router.push('/progress')}>
+          <Tap onPress={() => router.push('/progress')} scale={0.99} style={[s.card, { gap: 14 }]}>
+            {ch.goals.map((g, i) => (
+              <Row key={g.label} gap={12}>
+                <IconBox icon={(['barbell', 'water', 'restaurant'] as const)[i] ?? 'checkmark'} color={g.have >= g.need ? c.ok : c.accent} size={32} />
+                <View style={{ flex: 1, gap: 6 }}>
+                  <Row style={{ justifyContent: 'space-between' }}>
+                    <T v="body" color={c.text} numberOfLines={1}>{g.label}</T>
+                    <T v="small" color={g.have >= g.need ? c.ok : c.text}>{Math.min(g.have, g.need)}/{g.need}</T>
+                  </Row>
+                  <View style={s.track}><View style={[s.fill, { width: `${Math.min(100, (g.have / g.need) * 100)}%`, backgroundColor: g.have >= g.need ? c.ok : c.accent }]} /></View>
+                </View>
+              </Row>
+            ))}
+          </Tap>
+        </Section>
+      </Rise>
+
+      {tip && (
+        <Rise i={6} style={{ marginTop: 32 }}>
+          <Fold title={tip.title} icon={tip.icon}>
+            <T v="body" color={c.muted}>{tip.body}</T>
             <Tap onPress={() => dismiss(tip.id)} style={s.gotIt}><T v="small" color={c.text}>Got it</T></Tap>
-          </View>
+          </Fold>
         </Rise>
       )}
 
       <Rise i={7}>
-        <T v="h3" style={{ marginTop: 26, marginBottom: 12 }}>Quick sessions</T>
-        <View style={s.grid}>
-          {qs.map((q) => (
-            <Tap key={q.id} onPress={() => (active ? router.push('/session') : go(asDay(q), q.where.includes('gym') ? 'gym' : 'home'))} style={s.block} scale={0.97}>
-              <View style={[s.icon, { backgroundColor: c.accent + '22' }]}><Ionicons name={q.icon} size={18} color={c.accent} /></View>
-              <T v="h3" style={{ marginTop: 10 }} numberOfLines={1}>{q.name}</T>
-              <T v="small" numberOfLines={1}>{q.minutes} min · {WHERE[q.where[0]] ?? 'Anywhere'}</T>
-            </Tap>
-          ))}
-        </View>
+        <Section title="Quick sessions">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 12 }} style={{ marginHorizontal: -12, paddingLeft: 12 }}>
+            {qs.map((q) => (
+              <Tap key={q.id} onPress={() => (active ? router.push('/session') : go(asDay(q), q.where.includes('gym') ? 'gym' : 'home'))} style={s.quick} scale={0.97}>
+                <IconBox icon={q.icon} />
+                <View>
+                  <T v="h3" numberOfLines={1}>{q.name}</T>
+                  <T v="small" numberOfLines={1}>{q.minutes} min</T>
+                </View>
+              </Tap>
+            ))}
+          </ScrollView>
+        </Section>
       </Rise>
 
       <Rise i={8}>
-        <Row style={{ marginTop: 26, marginBottom: 12, justifyContent: 'space-between' }}>
-          <T v="h3">No equipment needed</T>
-          <Tap onPress={() => router.push({ pathname: '/exercises', params: { equip: 'none' } })}><T v="small" color={c.accent}>See all</T></Tap>
-        </Row>
-        <View style={s.grid}>
-          {anywhere.map((e) => (
-            <Tap key={e.id} onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: e.id } })} style={[s.block, { padding: 0, overflow: 'hidden' }]} scale={0.97}>
-              <View style={{ alignItems: 'center', backgroundColor: c.card2 }}><Thumb ex={e} size={110} /></View>
-              <View style={{ padding: 10 }}>
-                <T v="h3" numberOfLines={1}>{e.name}</T>
-                <T v="small">Bodyweight</T>
-              </View>
-            </Tap>
-          ))}
-        </View>
+        <Section title="No equipment" action="See all" onAction={() => router.push({ pathname: '/exercises', params: { equip: 'none' } })}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 12 }} style={{ marginHorizontal: -12, paddingLeft: 12 }}>
+            {anywhere.map((e) => (
+              <Tap key={e.id} onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: e.id } })} style={s.media} scale={0.97}>
+                <View style={{ alignItems: 'center', backgroundColor: c.card2 }}><Thumb ex={e} size={128} /></View>
+                <T v="h3" numberOfLines={1} style={{ padding: 10 }}>{e.name}</T>
+              </Tap>
+            ))}
+          </ScrollView>
+        </Section>
+      </Rise>
+
+      {/* A line to end on. Tap for another. */}
+      <Rise i={9}>
+        <Tap onPress={() => setSpin(spin + 1)} scale={0.99} feedback="none" style={s.quote}>
+          <View style={[s.quoteBar, { backgroundColor: c.accent }]} />
+          <Animated.View key={quote} entering={FadeIn.duration(350).easing(EASE)} style={{ flex: 1 }}>
+            <T v="body" color={c.muted}>{quote}</T>
+          </Animated.View>
+        </Tap>
       </Rise>
     </Screen>
   );
 }
 
-function RingStat({ progress, color, icon, value, label }: { progress: number; color: string; icon: keyof typeof Ionicons.glyphMap; value: string; label: string }) {
-  return (
-    <View style={{ alignItems: 'center', gap: 6, flex: 1 }}>
-      <Ring size={72} stroke={7} progress={progress} color={color}>
-        <Ionicons name={icon} size={20} color={color} />
-      </Ring>
-      <T v="h3" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ alignSelf: 'stretch', textAlign: 'center' }}>{value}</T>
-      <T v="label">{label}</T>
-    </View>
-  );
-}
+const Meta = ({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) => (
+  <Row gap={6}><Ionicons name={icon} size={16} color={c.muted} /><T v="small" color={c.text}>{text}</T></Row>
+);
 
 const s = StyleSheet.create({
   card: { padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.card2, paddingHorizontal: 14, height: 40, borderRadius: 20, borderWidth: 1, borderColor: c.line },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  hero: { marginTop: 20, padding: 20, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1 },
+  tag: { paddingHorizontal: 10, height: 26, borderRadius: 13, justifyContent: 'center', maxWidth: '70%' },
+  moodChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, height: 30, borderRadius: 15, backgroundColor: c.card2 },
+  exRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stack: { borderRadius: 16, borderWidth: 2, borderColor: c.card, overflow: 'hidden' },
+  seg: { flex: 1, height: 36, borderRadius: 18, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card2 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.card2, paddingHorizontal: 14, height: 40, borderRadius: 20 },
   track: { height: 6, borderRadius: 3, backgroundColor: c.card2, overflow: 'hidden' },
   fill: { height: 6, borderRadius: 3 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  wd: { flex: 1, height: 64, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: c.card },
-  quote: { marginTop: 18, flexDirection: 'row', gap: 14, paddingVertical: 4 },
+  wd: { flex: 1, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: c.card },
+  quote: { marginTop: 32, flexDirection: 'row', gap: 12, paddingVertical: 2 },
   quoteBar: { width: 3, borderRadius: 2 },
-  mood: { flex: 1, height: 68, borderRadius: r.md, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  icon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  gotIt: { alignSelf: 'flex-end', marginTop: 12, paddingHorizontal: 14, height: 32, borderRadius: 16, backgroundColor: c.card2, justifyContent: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  block: { width: '48%', flexGrow: 1, padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  mood: { flex: 1, height: 68, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  gotIt: { alignSelf: 'flex-start', paddingHorizontal: 14, height: 32, borderRadius: 16, backgroundColor: c.card2, justifyContent: 'center' },
+  quick: { width: 150, gap: 12, padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  media: { width: 150, borderRadius: r.lg, overflow: 'hidden', backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
 });

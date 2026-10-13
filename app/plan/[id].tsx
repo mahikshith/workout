@@ -9,12 +9,19 @@ import { program, WEEKDAYS } from '../../src/data/program';
 import { goalWeeks, timeline } from '../../src/data/expect';
 import { useStore } from '../../src/store';
 import { c, r } from '../../src/theme';
-import { Button, Card, Chip, Rise, Row, Screen, Stat, T, Tap, Thumb } from '../../src/ui';
+import { Button, Card, Chip, Fold, IconBox, Rise, Row, Screen, Section, T, Tap, Thumb, Tile } from '../../src/ui';
+
+type Icon = keyof typeof Ionicons.glyphMap;
+const STEPS: Icon[] = ['school-outline', 'trending-up-outline', 'shirt-outline', 'trophy-outline'];
 
 const rest = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)}${sec % 60 ? `:${String(sec % 60).padStart(2, '0')}` : ''} min rest` : `${sec}s rest`);
 
-const Section = ({ label, text }: { label: string; text: string }) => (
-  <View style={{ gap: 4 }}><T v="label" color={c.accent}>{label}</T><T v="body">{text}</T></View>
+// One point inside a Fold: icon, then the line.
+const Line = ({ icon, text, color = c.muted }: { icon: Icon; text: string; color?: string }) => (
+  <Row gap={12} style={{ alignItems: 'flex-start' }}>
+    <Ionicons name={icon} size={18} color={color} style={{ marginTop: 2 }} />
+    <T v="body" color={c.muted} style={{ flex: 1 }}>{text}</T>
+  </Row>
 );
 
 export default function PlanDetail() {
@@ -36,88 +43,105 @@ export default function PlanDetail() {
   const n = perWeek(plan);
   // Each training day once, in the order it first appears in the week, with this week's sets and reps.
   const days = [...new Map(week.days.filter((d) => d.day).map((d) => [d.index!, d.day!] as const)).entries()];
+  // Gentle plans already title their weeks "Week 1"; the others get the number in front of the phase.
+  const weekTitle = week.title.startsWith('Week') ? week.title : `Week ${week.week} · ${week.title}`;
+
+  // Opens itself on the welcome screen; on a normal visit it waits closed in the About section.
+  const expect = (
+    <Fold title="What to expect" icon="hourglass-outline" open={!!welcome}>
+      {timeline(profile).map((x, i) => (
+        <Row key={x.when} gap={12} style={{ alignItems: 'flex-start' }}>
+          <IconBox icon={STEPS[i % STEPS.length]} size={32} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <T v="small" color={c.accent}>{x.when}</T>
+            <T v="small" color={c.text}>{x.what}</T>
+          </View>
+        </Row>
+      ))}
+      {goal && !(profile.gentle || profile.concerns?.includes('food')) && (
+        <Row gap={12} style={{ alignItems: 'flex-start' }}>
+          <IconBox icon="scale-outline" size={32} />
+          <T v="small" color={c.text} style={{ flex: 1 }}>{`Healthy pace: about ${goal.perWeek} kg a week, roughly ${goal.weeks} weeks. Slower is fine; steady wins.`}</T>
+        </Row>
+      )}
+      <T v="small">Social media shows the result, not the months behind it. Consistency and discipline get you there.</T>
+    </Fold>
+  );
 
   return (
     <Screen>
       {!welcome && <Tap onPress={leave} style={s.icon}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>}
+
+      {/* Hero: what the plan is, in three numbers. */}
       <Rise>
         <T v="label" color={c.accent} style={{ marginTop: welcome ? 8 : 16 }}>
           {welcome ? `Your plan is ready${name ? `, ${name}` : ''}` : `${plan.category} · ${plan.level} · ${plan.place === 'any' ? 'anywhere' : plan.place}`}
         </T>
-        <T v="display" style={{ marginTop: 6 }}>{plan.name}</T>
+        <T v="display" style={{ marginTop: 8 }}>{plan.name}</T>
         {isCurrent && !welcome && (
-          <Row gap={6} style={[s.current, { backgroundColor: c.accent }]}>
+          <Row gap={8} style={[s.current, { backgroundColor: c.accent }]}>
             <Ionicons name="checkmark-circle" size={16} color={c.accentInk} />
             <T v="label" color={c.accentInk}>Your current plan</T>
           </Row>
         )}
-        <T v="body" color={c.muted}>{plan.tagline}</T>
-        {welcome && <T v="small" style={{ marginTop: 10 }}>Picked from your goal, place, experience and schedule. You can switch plans anytime in Plans.</T>}
+        <T v="body" color={c.muted} style={{ marginTop: 4 }}>{plan.tagline}</T>
         {welcome && (
-          <View style={{ marginTop: 16, padding: 16, borderRadius: 20, backgroundColor: c.card, gap: 10 }}>
-            <T v="h3">What to expect</T>
-            {timeline(profile).map((x) => (
-              <View key={x.when} style={{ flexDirection: 'row', gap: 10 }}>
-                <T v="small" color={c.accent} style={{ width: 70 }}>{x.when}</T>
-                <T v="small" color={c.text} style={{ flex: 1 }}>{x.what}</T>
-              </View>
-            ))}
-            {goal && !(profile.gentle || profile.concerns?.includes('food')) && (
-              <T v="small">A healthy pace to your goal weight is about {goal.perWeek} kg a week: roughly {goal.weeks} weeks. Slower is fine; steady wins.</T>
-            )}
-            <T v="small">Social media shows the result, not the months behind it. Consistency and discipline get you there.</T>
-          </View>
-        )}
-        <Row style={{ marginTop: 18 }}>
-          <Stat label="Days / week" value={n} />
-          <Stat label="Weeks" value={plan.weeks} />
-          <Stat label="Sessions" value={n * plan.weeks} />
-        </Row>
-      </Rise>
-
-      <Rise i={1}>
-        <Card style={{ marginTop: 18, gap: 16 }}>
-          <Section label="What it does" text={plan.about} />
-          <Section label="Who it's for" text={plan.who} />
-          <Section label={`Why ${n} day${n > 1 ? 's' : ''}`} text={plan.why} />
-        </Card>
-      </Rise>
-
-      <Rise i={2}>
-        <T v="h3" style={{ marginTop: 26, marginBottom: 10 }}>{`Your first 4 weeks${plan.weeks > 4 ? `, then repeat with heavier weights (${plan.weeks} weeks in all)` : ''}`}</T>
-        <Row gap={8}>
-          <T v="h3" style={{ marginRight: 4 }}>Week</T>
-          {weeks.map((w, i) => <Chip key={w.week} label={String(w.week)} on={i === wk} onPress={() => setWk(i)} />)}
-        </Row>
-        <Card style={{ marginTop: 12 }}>
-          <T v="h3">{week.title}</T>
-          <T v="small" style={{ marginTop: 2 }}>{week.note}</T>
-          <Row gap={6} style={{ marginTop: 14 }}>
-            {week.days.map((d, i) => (
-              <View key={i} style={[s.day, d.day ? { backgroundColor: c.accent } : { backgroundColor: c.card2 }]}>
-                <T v="label" color={d.day ? c.accentInk : c.muted}>{WEEKDAYS[i].slice(0, 2)}</T>
-                <T v="h3" color={d.day ? c.accentInk : c.dim}>{d.day ? d.index! + 1 : '–'}</T>
-              </View>
-            ))}
+          <Row gap={8} style={{ marginTop: 12 }}>
+            <Ionicons name="sparkles" size={16} color={c.accent} />
+            <T v="small" numberOfLines={1} style={{ flex: 1 }}>Picked for you · switch anytime in Plans</T>
           </Row>
-          <T v="small" color={c.dim} style={{ marginTop: 8 }}>Numbers are training days below. Grey days are rest.</T>
-        </Card>
+        )}
+        <Row gap={12} style={{ marginTop: 20 }}>
+          <Tile icon="calendar-outline" value={n} unit="days" label="Per week" />
+          <Tile icon="flag-outline" value={plan.weeks} label="Weeks" />
+          <Tile icon="barbell-outline" value={n * plan.weeks} label="Sessions" />
+        </Row>
+      </Rise>
+
+      {welcome && <Rise i={1} style={{ marginTop: 24 }}>{expect}</Rise>}
+
+      {/* The month: pick a week, see which days you train, then each day's exercises. */}
+      <Rise i={2}>
+        <Section title="Schedule">
+          <Row gap={8}>
+            <T v="small" style={{ marginRight: 4 }}>Week</T>
+            {weeks.map((w, i) => <Chip key={w.week} label={String(w.week)} on={i === wk} onPress={() => setWk(i)} />)}
+          </Row>
+          {plan.weeks > 4 && (
+            <Row gap={8} style={{ marginTop: 12 }}>
+              <Ionicons name="repeat" size={16} color={c.muted} />
+              <T v="small">{`Then repeat heavier · ${plan.weeks} weeks total`}</T>
+            </Row>
+          )}
+          <Card style={{ marginTop: 12 }}>
+            <T v="h3">{weekTitle}</T>
+            <T v="small" style={{ marginTop: 4 }}>{week.note}</T>
+            <Row gap={4} style={{ marginTop: 12 }}>
+              {week.days.map((d, i) => (
+                <View key={i} style={[s.day, { backgroundColor: d.day ? c.accent : c.card2 }]}>
+                  <T v="label" color={d.day ? c.accentInk : c.muted}>{WEEKDAYS[i].slice(0, 2)}</T>
+                  <T v="h3" color={d.day ? c.accentInk : c.dim}>{d.day ? d.index! + 1 : '–'}</T>
+                </View>
+              ))}
+            </Row>
+          </Card>
+        </Section>
       </Rise>
 
       {days.map(([i, d], k) => (
-        <Rise key={i} i={k + 3}>
-          <Card style={{ marginTop: 12 }}>
-            <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <View style={{ flex: 1 }}>
-                <T v="h2">{d.name}</T>
+        <Rise key={i} i={k + 3} style={{ marginTop: 12 }}>
+          <Card>
+            <Row gap={12}>
+              <View style={[s.num, { backgroundColor: c.accent }]}><T v="h3" color={c.accentInk}>{i + 1}</T></View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <T v="h3" numberOfLines={1}>{d.name}</T>
                 <T v="small">{d.focus}</T>
               </View>
-              <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                <T v="label" color={c.accent}>Day {i + 1}</T>
-                {isCurrent && doneWeek.has(`${plan.id}:${i}`) && <Row gap={4}><Ionicons name="checkmark-circle" size={16} color={c.ok} /><T v="small" color={c.ok}>Done this week</T></Row>}
-              </View>
+              {isCurrent && doneWeek.has(`${plan.id}:${i}`) && (
+                <Row gap={4}><Ionicons name="checkmark-circle" size={16} color={c.ok} /><T v="small" color={c.ok}>Done this week</T></Row>
+              )}
             </Row>
-            <View style={{ gap: 10, marginTop: 14 }}>
+            <View style={{ gap: 12, marginTop: 16 }}>
               {d.slots.map((sl) => (
                 <Tap key={sl.id} onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: sl.id } })} style={s.slot} scale={0.98}>
                   <Thumb ex={byId[sl.id]} size={44} />
@@ -133,29 +157,26 @@ export default function PlanDetail() {
         </Rise>
       ))}
 
+      {/* Everything to read sits behind folds, so the page stays a schedule, not a wall of text. */}
       <Rise i={days.length + 3}>
-        <Card style={{ marginTop: 18, gap: 10 }}>
-          <T v="label" color={c.accent}>Benefits</T>
-          {plan.benefits.map((b) => (
-            <Row key={b} gap={10} style={{ alignItems: 'flex-start' }}>
-              <Ionicons name="checkmark-circle" size={18} color={c.accent} style={{ marginTop: 2 }} />
-              <T v="body" style={{ flex: 1 }}>{b}</T>
-            </Row>
-          ))}
-        </Card>
-        <Card style={{ marginTop: 12, gap: 10 }}>
-          <T v="label" color={c.accent}>Food and supplements</T>
-          {plan.tips.map((t) => (
-            <Row key={t} gap={10} style={{ alignItems: 'flex-start' }}>
-              <Ionicons name="nutrition-outline" size={18} color={c.muted} style={{ marginTop: 2 }} />
-              <T v="body" style={{ flex: 1 }}>{t}</T>
-            </Row>
-          ))}
-          <T v="small" color={c.dim}>General advice, not medical advice. Check with your doctor if you have a health condition.</T>
-        </Card>
+        <Section title="About">
+          <View style={{ gap: 12 }}>
+            <Fold title="What it does" icon="flash-outline"><T v="body" color={c.muted}>{plan.about}</T></Fold>
+            <Fold title="Who it’s for" icon="people-outline"><T v="body" color={c.muted}>{plan.who}</T></Fold>
+            <Fold title={`Why ${n} day${n > 1 ? 's' : ''}`} icon="calendar-outline"><T v="body" color={c.muted}>{plan.why}</T></Fold>
+            {!welcome && expect}
+            <Fold title="Benefits" icon="ribbon-outline">
+              {plan.benefits.map((b) => <Line key={b} icon="checkmark-circle" color={c.accent} text={b} />)}
+            </Fold>
+            <Fold title="Food and supplements" icon="nutrition-outline">
+              {plan.tips.map((t) => <Line key={t} icon="nutrition-outline" text={t} />)}
+              <T v="small" color={c.dim}>General advice, not medical advice. Check with your doctor if you have a health condition.</T>
+            </Fold>
+          </View>
+        </Section>
       </Rise>
 
-      <View style={{ marginTop: 22, gap: 10 }}>
+      <View style={{ marginTop: 32 }}>
         {welcome ? (
           <Button title="Let’s go" icon="flash" onPress={() => router.replace('/')} />
         ) : isCurrent ? (
@@ -169,8 +190,9 @@ export default function PlanDetail() {
 }
 
 const s = StyleSheet.create({
-  current: { alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 12, height: 30, borderRadius: 15 },
-  icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
+  current: { alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 12, height: 30, borderRadius: 15 },
+  icon: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   slot: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: r.sm },
   day: { flex: 1, height: 56, borderRadius: r.sm, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  num: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
 });

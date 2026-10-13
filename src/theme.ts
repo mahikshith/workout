@@ -1,8 +1,9 @@
 export const c = {
   bg: '#0A0A0B',
-  card: '#0F0F11',
-  card2: '#18181B',
-  line: '#26262B',
+  // Surfaces step up clearly from the page so every block reads as a block: page, card, inset.
+  card: '#151518',
+  card2: '#1F1F23',
+  line: '#2A2A30',
   text: '#F5F5F7',
   muted: '#8E8E93',
   dim: '#55555C',
@@ -36,7 +37,11 @@ export const f = {
   bold: 'Outfit_700Bold',
 };
 
-export const r = { sm: 12, md: 18, lg: 24, xl: 32 };
+// Corner radii: 16 for cards everywhere (bigger reads as toy-like), smaller for things inside cards.
+export const r = { sm: 10, md: 14, lg: 16, xl: 20 };
+
+// Spacing scale. Sections are 32 apart, cards inside a section 12, things inside a card 12; nothing else.
+export const sp = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, section: 32 };
 
 // One colour per equipment type, used for equipment badges everywhere.
 export const EQUIP: Record<string, { label: string; color: string }> = {

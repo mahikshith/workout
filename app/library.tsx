@@ -42,6 +42,7 @@ export default function Library({ tab }: { tab?: boolean }) {
   const [gid, setGid] = useState<string | null>(muscle ? groupFor(muscle) : null);
   const [focus, setFocus] = useState<string | null>(null);
   useEffect(() => { if (eq === 'none') { setBare(true); setGid(null); setFocus(null); } }, [eq]);
+  useEffect(() => { if (muscle) { setGid(groupFor(muscle)); setFocus(null); } }, [muscle]);
 
   const g = GROUPS.find((x) => x.id === gid);
   const fo = g && !g.focus.length ? ALL : focus; // a group without focus areas goes straight to its list

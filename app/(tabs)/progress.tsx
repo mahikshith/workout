@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { mapped, MuscleMap } from '../../src/body';
 import { Bars, LineChart } from '../../src/charts';
@@ -12,12 +11,19 @@ import { JourneyPath } from '../../src/path';
 import { Journey } from '../../src/journey';
 import { useStore } from '../../src/store';
 import { c } from '../../src/theme';
-import { Button, Card, Chip, haptic, Rise, Row, Screen, Stat, Stepper, T, Tap, TabTitle } from '../../src/ui';
+import { Button, Card, Chip, Fold, haptic, IconBox, ListRow, Rise, Row, Screen, Section, Stat, Stepper, T, Tap, TabTitle, Tile } from '../../src/ui';
 
 const DAY = 86400000;
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const kgLabel = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k kg` : `${Math.round(v)} kg`);
+const kgShort = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`);
+const kgLabel = (v: number) => `${kgShort(v)} kg`;
+const short = (t: number | string) => new Date(t).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+
+type Trend = 'volume' | 'sessions' | 'strength' | 'weight';
+type Fuel = 'water' | 'protein' | 'kcal' | 'meals';
+const TRENDS: { k: Trend; label: string }[] = [{ k: 'volume', label: 'Volume' }, { k: 'sessions', label: 'Sessions' }, { k: 'strength', label: 'Strength' }, { k: 'weight', label: 'Weight' }];
+const FUELS: { k: Fuel; label: string }[] = [{ k: 'water', label: 'Water' }, { k: 'protein', label: 'Protein' }, { k: 'kcal', label: 'Calories' }, { k: 'meals', label: 'Meals' }];
 
 export default function Progress() {
   const sessions = useStore((s) => s.sessions);
@@ -29,9 +35,15 @@ export default function Progress() {
   const [kg, setKg] = useState(profile?.weightKg ?? 70);
   const [wide, setWide] = useState(false); // activity heatmap: 2 weeks, or 12 when expanded
   const [pick, setPick] = useState<string | null>(null); // strength curve exercise
-  const [preview, setPreview] = useState(false);
+  const [trend, setTrend] = useState<Trend>('volume');
+  const [fuel, setFuel] = useState<Fuel>('water');
   if (!profile) return null;
   const gentle = !!(profile.gentle || profile.concerns?.includes('food'));
+  // No-numbers mode hides weight and calorie charts; fall back if one was picked before it was switched on.
+  const tr: Trend = gentle && trend === 'weight' ? 'volume' : trend;
+  const fu: Fuel = gentle && (fuel === 'protein' || fuel === 'kcal') ? 'water' : fuel;
+  const trends = TRENDS.filter((o) => !gentle || o.k !== 'weight');
+  const fuels = FUELS.filter((o) => !gentle || o.k === 'water' || o.k === 'meals');
 
   // Fuel and water, last 14 days, oldest first. Noon anchors keep DST changes from shifting a day.
   const fortnight = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - (13 - i)); return d; });
@@ -44,6 +56,7 @@ export default function Progress() {
   const protein = dayMeals.map((ms) => ms.reduce((a, m) => a + m.protein, 0));
   const mealCounts = dayMeals.map((ms) => ms.length);
   const kcalLogged = kcal.filter((_, i) => mealCounts[i] > 0);
+  const kcalAvg = kcalLogged.length ? Math.round(kcalLogged.reduce((a, b) => a + b, 0) / kcalLogged.length) : 0;
   const totalMeals = mealCounts.reduce((a, b) => a + b, 0);
   const avgMeals = totalMeals / 14;
   const fullDays = mealCounts.filter((n) => n >= 3).length;
@@ -102,282 +115,262 @@ export default function Progress() {
   const now = new Date();
   const thisMonth = sessions.filter((s) => { const d = new Date(s.startedAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length;
 
+  // Achievements road and level, from the same store slices (no getState, so it re-renders when they change).
+  const all = { profile, sessions, meals, water };
+  const lv = level(all), bs = badges(all);
+  const stops = bs.filter((x) => x.got).length;
+
   // Example projection: starts from the real top lift when there is one, else a sample 40 kg. Compounds 1.5% a week.
   const base = cur ? best[cur] : 40;
   const days = Math.max(1, profile.daysPerWeek);
   const proj = Array.from({ length: 13 }, (_, i) => base * Math.pow(1.015, i));
   const gain = base * (Math.pow(1.015, 12) - 1);
-  const intro = cur
-    ? `Starts from your ${byId[cur]?.name} est. 1RM of ${Math.round(base)} kg and ${days} sessions a week.`
-    : `Starts from a sample lift of 40 kg and ${days} sessions a week. Log a few sets and it starts from your own numbers.`;
+  const intro = cur ? `From your ${byId[cur]?.name ?? 'top lift'} · ${days} sessions a week` : `Sample 40 kg lift · ${days} sessions a week`;
+  const same = loggedToday && lastW?.kg === +kg.toFixed(1);
 
   return (
     <Screen>
       <Rise><TabTitle title="Progress" /></Rise>
-      <Rise i={1}>
-        <Card style={{ marginTop: 18 }}>
-          <Row>
-            <Stat label="Workouts" value={sessions.length} />
-            <Stat label="This month" value={thisMonth} />
-            <Stat label="Streak" value={streak(sessions)} color={c.accent} />
-          </Row>
-        </Card>
-      </Rise>
 
       <Rise i={1}>
-        <Card style={{ marginTop: 14, gap: 12 }}>
-          {(() => {
-            const all = useStore.getState(), lv = level(all), bs = badges(all);
-            return (
-              <>
-                <Row style={{ justifyContent: 'space-between' }}>
-                  <T v="h3">Your journey</T>
-                  <T v="small" color={c.accent}>{bs.filter((x) => x.got).length} of {bs.length} stops</T>
-                </Row>
-                <View style={{ gap: 6 }}>
-                  <Row style={{ justifyContent: 'space-between' }}>
-                    <T v="label" color={c.text}>Level {lv.lvl} · {lv.name}</T>
-                    <T v="small">{lv.into}/{lv.need} XP</T>
-                  </Row>
-                  <View style={{ height: 8, borderRadius: 4, backgroundColor: c.card2 }}>
-                    <View style={{ width: `${Math.min(100, (lv.into / lv.need) * 100)}%`, height: 8, borderRadius: 4, backgroundColor: c.accent }} />
-                  </View>
-                </View>
-                <JourneyPath badges={bs} />
-              </>
-            );
-          })()}
-        </Card>
+        <Row gap={12} style={{ marginTop: 20 }}>
+          <Tile icon="barbell" value={sessions.length} label="Workouts" />
+          <Tile icon="calendar" value={thisMonth} label="This month" />
+          <Tile icon="flame" color={c.warm} value={streak(sessions)} label="Streak" onPress={() => router.push('/history')} />
+        </Row>
       </Rise>
 
-      {!gentle && (profile.goal === 'lose fat' || profile.concerns?.some((x) => x === 'lose-weight' || x === 'gain') || Math.abs(profile.goalWeightKg - profile.weightKg) >= 1) && (
-        <Rise i={1}><Journey p={profile} sessions={sessions} meals={meals} weights={weights} /></Rise>
-      )}
-
+      {/* Hero: one chart at a time, picked with the switch. */}
       <Rise i={2}>
-        <Card style={{ marginTop: 14, gap: 12 }}>
-          <T v="h3">Preview your progress</T>
-          <T v="small">See what 12 weeks of steady training could look like.</T>
-          <Button title={preview ? 'Hide the example' : 'See an example'} kind="ghost" icon={preview ? 'chevron-up' : 'eye-outline'} onPress={() => setPreview(!preview)} />
-          {preview && (
-            <Animated.View entering={FadeIn.duration(260)} style={{ gap: 14 }}>
-          <T v="label" color={c.warm}>Example, not a promise</T>
-          <T v="h2">12 weeks of steady training</T>
-          <T v="small">{intro}</T>
-          <T v="label" style={{ marginTop: 6 }}>Estimated strength</T>
-          <LineChart values={proj} fmt={(v) => `${Math.round(v)} kg`} height={110} />
-          <T v="small">Rising about 1.5% a week, anywhere from 1% to 2%.</T>
-          <T v="label">Sessions per week</T>
-          <Bars items={Array.from({ length: 12 }, (_, i) => ({ label: String(i + 1), value: days }))} height={90} />
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Stat label="Sessions" value={days * 12} />
-            <Stat label="Streak" value="12 wks" color={c.accent} />
-            <Stat label="Strength" value={`+${Math.round(gain)} kg`} />
-          </Row>
-          
-                    </Animated.View>
-          )}
-        </Card>
+        <Section title="Trends">
+          <Card style={{ gap: 16 }}>
+            <Seg opts={trends} value={tr} onChange={setTrend} />
+            <Animated.View key={tr} entering={FadeIn.duration(220).easing(EASE)} style={{ gap: 12 }}>
+              {tr === 'volume' && (
+                <Panel value={kgShort(volTrend[11])} unit="kg" cap="This week · 12-week trend" empty={!volTrend.some((v) => v > 0) && 'Finish a workout to see volume'}>
+                  <LineChart values={volTrend} fmt={kgLabel} height={120} />
+                  <Row style={{ justifyContent: 'space-between' }}><T v="small">12 weeks ago</T><T v="small">This week</T></Row>
+                </Panel>
+              )}
+              {tr === 'sessions' && (
+                <Panel value={perWeek[4].value} cap="Sessions this week" empty={!sessions.length && 'No sessions yet'}>
+                  <Bars items={perWeek} now={4} />
+                </Panel>
+              )}
+              {tr === 'strength' && (
+                <>
+                  {topIds.length > 0 && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
+                      {topIds.map((id) => <Chip key={id} label={byId[id]?.name ?? id} on={id === cur} onPress={() => setPick(id)} />)}
+                    </ScrollView>
+                  )}
+                  <Panel value={cur ? Math.round(best[cur]) : '-'} unit={cur ? 'kg' : undefined} cap={`Best est. 1RM · ${curve.length} session${curve.length === 1 ? '' : 's'}`}
+                    empty={!topIds.length && 'Log sets with weight to see this'}>
+                    <LineChart values={curve} fmt={(v) => `${Math.round(v)} kg`} height={120} />
+                  </Panel>
+                </>
+              )}
+              {tr === 'weight' && (
+                <Panel value={lastW ? lastW.kg.toFixed(1) : '-'} unit={lastW ? 'kg' : undefined} cap={`Goal ${profile.goalWeightKg} kg · ${weights.length} weigh-ins`}
+                  empty={!w.length && 'Log your weight below'}>
+                  <LineChart values={w.map((p) => p.kg)} goal={profile.goalWeightKg} fmt={(v) => `${v.toFixed(1)} kg`} height={120} />
+                </Panel>
+              )}
+            </Animated.View>
+          </Card>
+        </Section>
       </Rise>
 
       <Rise i={3}>
-        <Card style={{ marginTop: 14 }}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <T v="h3">Activity</T>
-            <Tap onPress={() => setWide(!wide)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <T v="small" color={c.accent}>{wide ? 'Collapse' : 'Expand'}</T>
-              <Ionicons name={wide ? 'chevron-up' : 'chevron-down'} size={14} color={c.accent} />
-            </Tap>
-          </Row>
-          <Animated.View layout={LinearTransition.duration(320).easing(EASE)} style={{ marginTop: 14, gap: 6, overflow: 'hidden' }}>
-            <Row gap={6}>{DAYS.map((d, i) => <T key={i} v="label" style={{ flex: 1, textAlign: 'center' }}>{d}</T>)}</Row>
-            {weeksBack.map((k) => (
-              <Animated.View key={k} entering={FadeIn.duration(260)} exiting={FadeOut.duration(160)} style={{ flexDirection: 'row', gap: 6 }}>
-                {DAYS.map((_, j) => {
-                  const d = back(k, j);
-                  const n = counts[dayKey(d)] ?? 0;
-                  const future = d.getTime() > Date.now();
-                  return <View key={j} style={[s.cell, { backgroundColor: future ? 'transparent' : n === 0 ? c.card2 : n < 8 ? '#5C7A1F' : n < 16 ? '#93C22E' : c.accent }]} />;
-                })}
-              </Animated.View>
-            ))}
-          </Animated.View>
-          {!sessions.length && <T v="small" style={{ marginTop: 12 }}>Your activity fills in as you train.</T>}
-        </Card>
-      </Rise>
-
-      <Rise i={4}>
-        <Card style={{ marginTop: 14 }}>
-          <T v="h3">Weekly volume · 12 weeks</T>
-          {volTrend.some((v) => v > 0) ? (
-            <>
-              <View style={{ marginTop: 16 }}><LineChart values={volTrend} fmt={kgLabel} height={120} /></View>
-              <Row style={{ justifyContent: 'space-between', marginTop: 8 }}><T v="small">12 weeks ago</T><T v="small">This week</T></Row>
-            </>
-          ) : <T v="body" color={c.muted} style={{ marginTop: 12 }}>Finish a workout and your weekly volume shows here.</T>}
-        </Card>
-      </Rise>
-
-      <Rise i={5}>
-        <Card style={{ marginTop: 14 }}>
-          <T v="h3">Sessions per week · 8 weeks</T>
-          {sessions.length ? <View style={{ marginTop: 14 }}><Bars items={perWeek} now={4} /></View>
-            : <T v="body" color={c.muted} style={{ marginTop: 12 }}>No sessions yet. Each week's count shows up here.</T>}
-        </Card>
-      </Rise>
-
-      <Rise i={6}>
-        <Card style={{ marginTop: 14, gap: 12 }}>
-          <T v="h3">Strength curve · est. 1RM</T>
-          {topIds.length ? (
-            <>
-              <Row gap={8} style={{ flexWrap: 'wrap' }}>
-                {topIds.map((id) => <Chip key={id} label={byId[id]?.name ?? id} on={id === cur} onPress={() => setPick(id)} />)}
+        <Section title="Journey">
+          <Card style={{ gap: 16 }}>
+            <View style={{ gap: 10 }}>
+              <Row gap={12}>
+                <IconBox icon="ribbon" />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <T v="h3" numberOfLines={1}>Level {lv.lvl} · {lv.name}</T>
+                  <T v="small" numberOfLines={1}>{lv.into}/{lv.need} XP · {stops} of {bs.length} stops</T>
+                </View>
               </Row>
-              <LineChart values={curve} fmt={(v) => `${Math.round(v)} kg`} height={120} />
-              <T v="small">{curve.length > 1 ? `${curve.length} sessions with this lift` : 'Log this lift again and the curve draws itself.'}</T>
-            </>
-          ) : <T v="body" color={c.muted}>Log a few sets with weight and your strength curve shows here.</T>}
-        </Card>
+              <View style={s.track}><View style={[s.fill, { width: `${Math.min(100, (lv.into / lv.need) * 100)}%`, backgroundColor: c.accent }]} /></View>
+            </View>
+            <JourneyPath badges={bs} />
+          </Card>
+        </Section>
       </Rise>
 
       {!gentle && (
-        <Rise i={7}>
-          <Card style={{ marginTop: 14 }}>
-            <Row style={{ justifyContent: 'space-between' }}>
-              <T v="h3">Body weight</T>
-              <T v="small">Goal {profile.goalWeightKg} kg</T>
-            </Row>
-            {lastW && (
-              <Row gap={8} style={{ marginTop: 10 }}>
-                <T v="num" color={c.accent}>{lastW.kg.toFixed(1)}<T v="small"> kg</T></T>
-                <T v="small" style={{ flex: 1 }}>{loggedToday ? 'Logged today' : `Last logged ${new Date(lastW.day + 'T12:00:00').toDateString().slice(4, 10)}`} · {weights.length} weigh-in{weights.length > 1 ? 's' : ''}</T>
+        <Rise i={4}>
+          <Section title="Body weight">
+            <Card style={{ gap: 16 }}>
+              <Row gap={12}>
+                <IconBox icon="scale-outline" />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <T v="h3" numberOfLines={1}>{lastW ? `${lastW.kg.toFixed(1)} kg` : 'No weigh-ins yet'}</T>
+                  <T v="small" numberOfLines={1}>{lastW ? `${loggedToday ? 'Today' : short(lastW.day + 'T12:00:00')} · goal ${profile.goalWeightKg} kg` : `Goal ${profile.goalWeightKg} kg`}</T>
+                </View>
               </Row>
-            )}
-            <View style={{ marginTop: 16 }}>
-              {w.length ? <LineChart values={w.map((p) => p.kg)} goal={profile.goalWeightKg} fmt={(v) => `${v.toFixed(1)} kg`} height={120} />
-                : <T v="body" color={c.muted}>Log your weight to start the line.</T>}
-            </View>
-            <Row style={{ marginTop: 16, justifyContent: 'space-between' }}>
-              <Stepper value={kg} step={0.1} onChange={setKg} min={30} suffix=" kg" />
-              <Button title={loggedToday && lastW?.kg === +kg.toFixed(1) ? 'Logged' : loggedToday ? 'Update' : 'Log'} icon={loggedToday && lastW?.kg === +kg.toFixed(1) ? 'checkmark' : undefined}
-                onPress={() => { logWeight(+kg.toFixed(1)); haptic('success'); }} style={{ height: 44, paddingHorizontal: 22 }} />
-            </Row>
-          </Card>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <Stepper value={kg} step={0.1} onChange={setKg} min={30} suffix=" kg" />
+                <Button title={same ? 'Logged' : loggedToday ? 'Update' : 'Log'} icon={same ? 'checkmark' : undefined}
+                  onPress={() => { logWeight(+kg.toFixed(1)); haptic('success'); }} style={{ height: 44, paddingHorizontal: 22 }} />
+              </Row>
+            </Card>
+          </Section>
         </Rise>
       )}
 
-      <Rise i={8}>
-        <Card style={{ marginTop: 14, gap: 12 }}>
-          <T v="h3">Muscle map · 30 days</T>
+      {!gentle && (profile.goal === 'lose fat' || profile.concerns?.some((x) => x === 'lose-weight' || x === 'gain') || Math.abs(profile.goalWeightKg - profile.weightKg) >= 1) && (
+        <Rise i={4}><Journey p={profile} sessions={sessions} meals={meals} weights={weights} /></Rise>
+      )}
+
+      <Rise i={5}>
+        <Section title="Muscles">
           {splitRows.length ? (
-            <>
+            <Card style={{ gap: 12 }}>
+              <T v="small">Sets · last 30 days</T>
               <View style={{ alignItems: 'center', marginVertical: 4 }}>
                 <MuscleMap primary={mainMuscles} secondary={helperMuscles} size={180} />
               </View>
               {splitRows.map(([m, n]) => (
-                <Row key={m} gap={10}>
+                <Row key={m} gap={12}>
                   <T v="small" color={c.text} style={{ width: 90 }} numberOfLines={1}>{title(m)}</T>
-                  <View style={{ flex: 1, height: 10, borderRadius: 5, backgroundColor: c.card2 }}>
-                    <View style={{ width: `${(n / maxS) * 100}%`, height: 10, borderRadius: 5, backgroundColor: c.blue }} />
-                  </View>
+                  <View style={[s.track, { flex: 1 }]}><View style={[s.fill, { width: `${(n / maxS) * 100}%`, backgroundColor: c.accent }]} /></View>
                   <T v="small" style={{ width: 28, textAlign: 'right' }}>{Math.round(n)}</T>
                 </Row>
               ))}
-            </>
-          ) : <T v="body" color={c.muted}>Train this month and your muscle map fills in.</T>}
-        </Card>
+            </Card>
+          ) : <ListRow icon="body-outline" title="No muscle data yet" sub="Train this month to fill it in" />}
+        </Section>
       </Rise>
 
       {lifts.length > 0 && (
-        <Rise i={9}>
-          <Card style={{ marginTop: 14, gap: 12 }}>
-            <T v="h3">Top lifts · est. 1RM</T>
-            {lifts.slice(0, 5).map(([id, v], i) => (
-              <Row key={id} style={{ justifyContent: 'space-between' }}>
-                <T v="num" color={i === 0 ? c.accent : i < 3 ? c.text : c.dim} style={{ fontSize: 18, lineHeight: 22, width: 20 }}>{i + 1}</T>
-                <T v="h3" style={{ flex: 1 }} numberOfLines={1}>{byId[id]?.name}</T>
-                <T v="h3" color={c.accent}>{Math.round(v)} kg</T>
-              </Row>
-            ))}
-          </Card>
+        <Rise i={6}>
+          <Section title="Top lifts">
+            <View style={{ gap: 8 }}>
+              {lifts.slice(0, 5).map(([id, v], i) => (
+                <ListRow key={id} icon={i === 0 ? 'trophy' : 'barbell'} title={byId[id]?.name ?? id} sub={`#${i + 1} · est. 1RM`}
+                  right={<T v="h3" color={c.accent}>{Math.round(v)} kg</T>} />
+              ))}
+            </View>
+          </Section>
         </Rise>
       )}
 
-      <Rise i={10}>
-        <T v="h2" style={{ marginTop: 26 }}>Fuel and water</T>
-        <Card style={{ marginTop: 14, gap: 12 }}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <T v="h3">Water · 14 days</T>
-            <T v="small">Target {t.water} glasses</T>
-          </Row>
-          {glasses.some((g) => g > 0)
-            ? <Bars items={aWater.map((g, i) => ({ label: aLabels[i], value: g }))} goal={t.water} height={100} now={7} />
-            : <T v="body" color={c.muted}>Log water on the Fuel tab and your glasses show here.</T>}
-          <T v="small">{hitWater} of 14 days on target. Bars that reach the dashed line met the goal that day.</T>
-        </Card>
-
-        {!gentle && (
-          <>
-            <Card style={{ marginTop: 14, gap: 12 }}>
-              <Row style={{ justifyContent: 'space-between' }}>
-                <T v="h3">Calories · logged days</T>
-                <T v="small">Target {t.kcal} kcal</T>
-              </Row>
-              {kcalLogged.length > 1
-                ? <LineChart values={kcalLogged} goal={t.kcal} fmt={(v) => `${Math.round(v)}`} height={120} />
-                : <T v="body" color={c.muted}>Log meals on at least two days to see the calorie line.</T>}
-              <T v="small">Each dot is a day with meals logged, and the dashed line is your daily target. Days without meals are left out.</T>
-            </Card>
-            <Card style={{ marginTop: 14, gap: 12 }}>
-              <Row style={{ justifyContent: 'space-between' }}>
-                <T v="h3">Protein · 14 days</T>
-                <T v="small">Target {t.protein} g</T>
-              </Row>
-              {protein.some((p) => p > 0)
-                ? <Bars items={aProtein.map((p, i) => ({ label: aLabels[i], value: Math.round(p) }))} goal={t.protein} height={100} now={7} />
-                : <T v="body" color={c.muted}>Log protein with your meals and the bars fill in.</T>}
-              <T v="small">Each bar is grams of protein that day. Bars that reach the dashed line met the target.</T>
-            </Card>
-          </>
-        )}
-
-        <Card style={{ marginTop: 14, gap: 12 }}>
-          <T v="h3">Meals logged · 14 days</T>
-          {totalMeals > 0 ? (
-            <Row>
-              <Stat label="Meals per day" value={avgMeals.toFixed(1)} />
-              <Stat label="Days with 3+ meals" value={`${fullDays} of 14`} color={c.accent} />
-            </Row>
-          ) : <T v="body" color={c.muted}>Log meals on the Fuel tab and your daily average shows here.</T>}
-          <T v="small">The average counts every day in the last two weeks, including days with no meals logged.</T>
-        </Card>
-
-        <Row style={{ marginTop: 26, marginBottom: 10, justifyContent: 'space-between' }}>
-          <T v="h3">History</T>
-          <Tap onPress={() => router.push('/history')}><T v="small" color={c.accent}>Calendar & streaks</T></Tap>
-        </Row>
-        {sessions.length === 0 && <T v="body" color={c.muted}>Your finished workouts will show up here.</T>}
-        <View style={{ gap: 8 }}>
-          {[...sessions].reverse().slice(0, 20).map((ss) => (
-            <Card key={ss.id} style={{ flexDirection: 'row', alignItems: 'center', padding: 14 }}>
-              <View style={{ flex: 1 }}>
-                <T v="h3">{ss.title}</T>
-                <Row gap={6}><T v="small">{new Date(ss.startedAt).toDateString()}</T><Ionicons name={ss.place === 'home' ? 'home' : 'barbell'} size={12} color={c.muted} /></Row>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <T v="h3">{doneSets(ss)} sets</T>
-                <T v="small">{Math.round(volume(ss))} kg</T>
-              </View>
-            </Card>
-          ))}
-        </View>
+      <Rise i={7}>
+        <Section title="Activity" action={wide ? 'Collapse' : 'Expand'} onAction={() => setWide(!wide)}>
+          <Card>
+            <Animated.View layout={LinearTransition.duration(320).easing(EASE)} style={{ gap: 6, overflow: 'hidden' }}>
+              <Row gap={6}>{DAYS.map((d, i) => <T key={i} v="label" style={{ flex: 1, textAlign: 'center' }}>{d}</T>)}</Row>
+              {weeksBack.map((k) => (
+                <Animated.View key={k} entering={FadeIn.duration(260)} exiting={FadeOut.duration(160)} style={{ flexDirection: 'row', gap: 6 }}>
+                  {DAYS.map((_, j) => {
+                    const d = back(k, j);
+                    const n = counts[dayKey(d)] ?? 0;
+                    const future = d.getTime() > Date.now();
+                    return <View key={j} style={[s.cell, { backgroundColor: future ? 'transparent' : n === 0 ? c.card2 : n < 8 ? c.accent + '55' : n < 16 ? c.accent + 'AA' : c.accent }]} />;
+                  })}
+                </Animated.View>
+              ))}
+            </Animated.View>
+            {!sessions.length && <T v="small" style={{ marginTop: 12 }}>Fills in as you train</T>}
+          </Card>
+        </Section>
       </Rise>
 
+      <Rise i={8}>
+        <Section title="Fuel and water" action="Fuel" onAction={() => router.push('/fuel')}>
+          <Card style={{ gap: 16 }}>
+            <Seg opts={fuels} value={fu} onChange={setFuel} />
+            <Animated.View key={fu} entering={FadeIn.duration(220).easing(EASE)}>
+              {fu === 'water' && (
+                <Panel value={hitWater} unit="/ 14 days" cap={`On target · ${t.water} glasses a day`} empty={!glasses.some((g) => g > 0) && 'Log water on the Fuel tab'}>
+                  <Bars items={aWater.map((g, i) => ({ label: aLabels[i], value: g }))} goal={t.water} height={100} now={7} color={c.blue} />
+                </Panel>
+              )}
+              {fu === 'protein' && (
+                <Panel value={Math.round(aProtein[7])} unit={`/ ${t.protein} g`} cap="Protein today" empty={!protein.some((p) => p > 0) && 'Log meals on the Fuel tab'}>
+                  <Bars items={aProtein.map((p, i) => ({ label: aLabels[i], value: Math.round(p) }))} goal={t.protein} height={100} now={7} color={c.pink} />
+                </Panel>
+              )}
+              {fu === 'kcal' && (
+                <Panel value={kcalAvg || '-'} unit={kcalAvg ? 'kcal' : undefined} cap={`Average logged day · target ${t.kcal}`} empty={kcalLogged.length < 2 && 'Log meals on two days to see this'}>
+                  <LineChart values={kcalLogged} goal={t.kcal} fmt={(v) => `${Math.round(v)}`} height={120} color={c.pink} />
+                </Panel>
+              )}
+              {fu === 'meals' && (
+                <Panel value={avgMeals.toFixed(1)} cap={`Meals a day · 3+ on ${fullDays} of 14 days`} empty={!totalMeals && 'Log meals on the Fuel tab'} />
+              )}
+            </Animated.View>
+          </Card>
+        </Section>
+      </Rise>
+
+      <Rise i={9}>
+        <Section title="Preview">
+          <Fold title="12-week example" icon="eye-outline">
+            <T v="label" color={c.warm}>Example, not a promise</T>
+            <T v="small" numberOfLines={1}>{intro}</T>
+            <T v="label">Strength · about 1.5% a week</T>
+            <LineChart values={proj} fmt={(v) => `${Math.round(v)} kg`} height={110} />
+            <T v="label">Sessions per week</T>
+            <Bars items={Array.from({ length: 12 }, (_, i) => ({ label: String(i + 1), value: days }))} height={90} />
+            <Row>
+              <Stat label="Sessions" value={days * 12} />
+              <Stat label="Streak" value="12 wks" color={c.accent} />
+              <Stat label="Strength" value={`+${Math.round(gain)} kg`} />
+            </Row>
+          </Fold>
+        </Section>
+      </Rise>
+
+      <Rise i={10}>
+        <Section title="History" action="Calendar" onAction={() => router.push('/history')}>
+          {sessions.length === 0 ? <ListRow icon="time-outline" title="No workouts yet" sub="Finished workouts show up here" /> : (
+            <View style={{ gap: 8 }}>
+              {[...sessions].reverse().slice(0, 20).map((ss) => (
+                <ListRow key={ss.id} icon={ss.place === 'home' ? 'home' : 'barbell'} title={ss.title}
+                  sub={`${short(ss.startedAt)} · ${doneSets(ss)} sets · ${kgLabel(volume(ss))}`} />
+              ))}
+            </View>
+          )}
+        </Section>
+      </Rise>
     </Screen>
+  );
+}
+
+// A segmented switch: one option on at a time, same look as the place switch on Today.
+function Seg<K extends string>({ opts, value, onChange }: { opts: { k: K; label: string }[]; value: K; onChange: (k: K) => void }) {
+  return (
+    <View style={s.segs}>
+      {opts.map((o) => (
+        <Tap key={o.k} onPress={() => onChange(o.k)} scale={0.96} style={[s.seg, value === o.k && { backgroundColor: c.text }]}>
+          <T v="small" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} color={value === o.k ? c.bg : c.muted}>{o.label}</T>
+        </Tap>
+      ))}
+    </View>
+  );
+}
+
+// One chart panel: a big number, one caption line, then the chart. With nothing logged yet, just the empty line.
+function Panel({ value, unit, cap, empty, children }: { value: string | number; unit?: string; cap: string; empty?: string | false; children?: ReactNode }) {
+  if (empty) return <T v="body" color={c.muted}>{empty}</T>;
+  return (
+    <View style={{ gap: 12 }}>
+      <View>
+        <T v="num">{value}{unit ? <T v="small"> {unit}</T> : null}</T>
+        <T v="small" numberOfLines={1}>{cap}</T>
+      </View>
+      {children}
+    </View>
   );
 }
 
 const s = StyleSheet.create({
   cell: { flex: 1, aspectRatio: 1, borderRadius: 4 },
+  track: { height: 8, borderRadius: 4, backgroundColor: c.card2, overflow: 'hidden' },
+  fill: { height: 8, borderRadius: 4 },
+  segs: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: 24, backgroundColor: c.card2 },
+  seg: { flex: 1, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
 });

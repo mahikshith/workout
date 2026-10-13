@@ -13,7 +13,7 @@ import { gate, hidden } from '../../src/engine';
 import { Sheet } from '../../src/sheet';
 import { useStore } from '../../src/store';
 import { c, equip, r } from '../../src/theme';
-import { Button, Card, Demo, Rise, Row, Screen, Stat, T, Tap, Thumb } from '../../src/ui';
+import { Banner, Button, Card, Demo, Fold, Rise, Row, Screen, Section, T, Tap, Thumb, Tile } from '../../src/ui';
 
 // Hand-written coaching per exercise (src/data/guide.json); anything missing falls back to the dataset's steps.
 type Guide = { steps?: string[]; hands?: string; arms?: string; legs?: string; back?: string; breathe?: string; mistake?: string };
@@ -86,67 +86,69 @@ export default function ExerciseDetail() {
             {places(ex).map((b) => <View key={b} style={s.tag}><T v="small" color={c.text}>{b}</T></View>)}
           </Row>
           {at !== undefined && (
-            <Row gap={8} style={[s.done, { borderColor: c.ok + '66' }]}>
-              <Ionicons name="checkmark-circle" size={18} color={c.ok} />
-              <T v="small" color={c.text} style={{ flex: 1 }}>{`You did this ${doneNote(at).day}. It shows as done for a week, then counts as fresh again in ${doneNote(at).left} day${doneNote(at).left > 1 ? 's' : ''}. You can still train it any time.`}</T>
-            </Row>
+            <View style={{ marginTop: 12 }}><Banner icon="checkmark-circle" color={c.ok} title={`Done ${doneNote(at).day} · fresh in ${doneNote(at).left}d`} /></View>
           )}
         </Rise>
-        <Rise i={1}><Demo ex={ex} height={300} credit paused={away} style={{ marginTop: 14 }} /></Rise>
+        {/* Media first, then the numbers, then instructions on demand. */}
+        <Rise i={1}><Demo ex={ex} height={300} credit paused={away} style={{ marginTop: 16 }} /></Rise>
+
+        <Rise i={2}>
+          <Section title="Your dose">
+            <Row gap={12}>
+              <Tile icon="repeat" value={doseText(d)} label={d.sets > 1 ? 'Sets × reps' : 'Do'} />
+              <Tile icon="timer-outline" color={c.blue} value={restText(d)} label="Rest" />
+            </Row>
+            <Row gap={12} style={{ marginTop: 12 }}>
+              <Tile icon="speedometer-outline" color={c.warm} value={effort(ex)} label="Effort" />
+              <Tile icon="flame-outline" color={c.pink} value={`~${kcal(ex, profile.weightKg)}`} unit="kcal" label="All sets" />
+            </Row>
+            {best.e1rm > 0 && <View style={{ marginTop: 12 }}><Banner icon="trophy" title={`Your best · ${Math.round(best.e1rm)} kg 1RM`} /></View>}
+          </Section>
+        </Rise>
 
         {ex.primary.some(mapped) && (
-          <Rise i={1}>
-            <Card style={{ marginTop: 14, alignItems: 'center', gap: 14 }}>
-              <MuscleMap primary={ex.primary} secondary={ex.secondary} size={200} />
-              <View style={{ alignSelf: 'stretch', gap: 6 }}>
-                <Legend text={`Main: ${ex.primary.map(title).join(', ')}`} />
-                {ex.secondary.length > 0 && <Legend faint text={`Also: ${ex.secondary.map(title).join(', ')}`} />}
-              </View>
-            </Card>
+          <Rise i={3}>
+            <Section title="Muscles">
+              <Card style={{ alignItems: 'center', gap: 14 }}>
+                <MuscleMap primary={ex.primary} secondary={ex.secondary} size={200} />
+                <View style={{ alignSelf: 'stretch', gap: 6 }}>
+                  <Legend text={ex.primary.map(title).join(', ')} />
+                  {ex.secondary.length > 0 && <Legend faint text={ex.secondary.map(title).join(', ')} />}
+                </View>
+              </Card>
+            </Section>
           </Rise>
         )}
 
-        <Rise i={2}>
-          <T color={c.muted} style={{ marginTop: 18 }}>{benefit(ex)}</T>
-          {best.e1rm > 0 && <T v="small" color={c.accent} style={{ marginTop: 10 }}>Your best: {Math.round(best.e1rm)} kg estimated 1RM</T>}
-          <Card style={{ marginTop: 14, gap: 14 }}>
-            <T v="h3">Your dose</T>
-            <Row gap={16}><Stat label={d.sets > 1 ? 'Sets x reps' : 'Do'} value={doseText(d)} /><Stat label="Rest" value={restText(d)} /></Row>
-            <Row gap={16}><Stat label="Effort" value={effort(ex)} /><Stat label="All sets, approx." value={`~${kcal(ex, profile.weightKg)}`} unit="kcal" /></Row>
-            {fo && <T v="small"><T v="small" color={c.text}>Focus: {fo.label}.</T> {fo.about}</T>}
-          </Card>
-        </Rise>
-
-        {steps.length > 0 && (
-          <Rise i={3}>
-            <T v="h3" style={s.section}>How to do it</T>
-            <Card style={{ gap: 14 }}>
+        <Rise i={4} style={{ marginTop: 32, gap: 12 }}>
+          {steps.length > 0 && (
+            <Fold title="How to do it" icon="list" open>
               {steps.map((step, i) => (
                 <Row key={i} style={{ alignItems: 'flex-start' }}>
                   <View style={[s.num, { backgroundColor: c.accent }]}><T v="small" color={c.accentInk}>{i + 1}</T></View>
                   <T style={{ flex: 1 }}>{step}</T>
                 </Row>
               ))}
-            </Card>
-          </Rise>
-        )}
-
-        {pose.length > 0 && (
-          <Rise i={4}>
-            <T v="h3" style={s.section}>Body position</T>
-            <Card style={{ gap: 14 }}>
+            </Fold>
+          )}
+          {pose.length > 0 && (
+            <Fold title="Form cues" icon="body">
               {pose.map(([k, label]) => (
                 <View key={k} style={{ gap: 2 }}>
                   <T v="label" color={k === 'mistake' ? c.warm : c.muted}>{label}</T>
                   <T>{g?.[k]}</T>
                 </View>
               ))}
-            </Card>
-          </Rise>
-        )}
+            </Fold>
+          )}
+          <Fold title="Why it helps" icon="sparkles">
+            <T color={c.muted}>{benefit(ex)}</T>
+            {fo && <T v="small">Focus: {fo.label}. {fo.about}</T>}
+          </Fold>
+        </Rise>
 
         <Rise i={5}>
-          <T v="h3" style={s.section}>Alternatives</T>
+          <T v="h2" style={s.section}>Alternatives</T>
           <View style={s.tabs}>
             {(['gym', 'home'] as const).map((k) => (
               <Tap key={k} onPress={() => setTab(k)} scale={0.98} style={[s.tab, tab === k && { backgroundColor: c.line }]}>
@@ -235,7 +237,7 @@ const s = StyleSheet.create({
   done: { marginTop: 10, padding: 10, borderRadius: r.md, borderWidth: 1, backgroundColor: c.card },
   tag: { paddingHorizontal: 12, height: 30, borderRadius: 15, backgroundColor: c.card2, justifyContent: 'center' },
   mini: { paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: c.card2, justifyContent: 'center' },
-  section: { marginTop: 26, marginBottom: 10 },
+  section: { marginTop: 32, marginBottom: 12 },
   num: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: RED },
   tabs: { flexDirection: 'row', padding: 4, borderRadius: 22, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },

@@ -49,8 +49,8 @@ export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback
 type V = 'display' | 'h1' | 'h2' | 'h3' | 'body' | 'small' | 'label' | 'num';
 const tv: Record<V, object> = {
   // The whole type scale. Screens pick a variant; they never set their own font or size.
-  display: { fontFamily: f.display, fontSize: 40, lineHeight: 46, letterSpacing: 0.5, textTransform: 'uppercase' },
-  h1: { fontFamily: f.display, fontSize: 30, lineHeight: 36, letterSpacing: 0.4, textTransform: 'uppercase' },
+  display: { fontFamily: f.display, fontSize: 34, lineHeight: 40, letterSpacing: 0.5, textTransform: 'uppercase' },
+  h1: { fontFamily: f.display, fontSize: 28, lineHeight: 34, letterSpacing: 0.4, textTransform: 'uppercase' },
   h2: { fontFamily: f.bold, fontSize: 22, lineHeight: 28 },
   h3: { fontFamily: f.semi, fontSize: 17, lineHeight: 23 },
   body: { fontFamily: f.regular, fontSize: 16, lineHeight: 23 },
@@ -103,6 +103,98 @@ export const Rise = ({ i = 0, children, style }: { i?: number; children: ReactNo
 export const Card = ({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) => (
   <View style={[st.card, style]}>{children}</View>
 );
+
+// --- Layout primitives. Every screen is built from these, so spacing and hierarchy stay the same everywhere:
+// a Section has a short title (2-3 words, no sentence under it) and an optional action on the right; its content
+// sits 12 below; sections are 32 apart. Supporting text is one short line at most.
+type Icon = keyof typeof Ionicons.glyphMap;
+
+export function Section({ title, action, onAction, first, children, style }: {
+  title: string; action?: string; onAction?: () => void; first?: boolean; children: ReactNode; style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <View style={[{ marginTop: first ? 20 : 32 }, style]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <T v="h2">{title}</T>
+        {action && <Tap onPress={onAction} scale={0.95} style={{ paddingVertical: 4, paddingLeft: 12 }}><T v="small" color={c.accent}>{action}</T></Tap>}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+// Tappable when it has an onPress, a plain view otherwise (never greyed out like a disabled button).
+const Press = ({ onPress, style, children }: { onPress?: () => void; style?: StyleProp<ViewStyle>; children: ReactNode }) =>
+  onPress ? <Tap onPress={onPress} scale={0.98} style={style}>{children}</Tap> : <View style={style}>{children}</View>;
+
+// An icon on a tinted rounded square: the visual anchor at the start of every row and tile.
+export const IconBox = ({ icon, color = c.accent, size = 40, solid }: { icon: Icon; color?: string; size?: number; solid?: boolean }) => (
+  <View style={{ width: size, height: size, borderRadius: size * 0.32, alignItems: 'center', justifyContent: 'center', backgroundColor: solid ? color : color + '22' }}>
+    <Ionicons name={icon} size={size * 0.5} color={solid ? c.accentInk : color} />
+  </View>
+);
+
+// A stat tile: icon, one big number, a 1-2 word label. No sentences.
+export function Tile({ icon, color = c.accent, value, unit, label, onPress, progress, style }: {
+  icon: Icon; color?: string; value: string | number; unit?: string; label: string; onPress?: () => void; progress?: number; style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <Press onPress={onPress} style={[st.tile, style]}>
+      <IconBox icon={icon} color={color} size={32} />
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ fontFamily: f.bold, fontSize: 24, color: c.text, marginTop: 12 }}>
+        {value}{unit ? <Text style={{ fontFamily: f.medium, fontSize: 13, color: c.muted }}> {unit}</Text> : null}
+      </Text>
+      <T v="small" numberOfLines={1}>{label}</T>
+      {progress !== undefined && (
+        <View style={{ height: 4, borderRadius: 2, backgroundColor: c.card2, marginTop: 10, overflow: 'hidden' }}>
+          <View style={{ width: `${Math.max(0, Math.min(1, progress)) * 100}%`, height: 4, borderRadius: 2, backgroundColor: color }} />
+        </View>
+      )}
+    </Press>
+  );
+}
+
+// A one-line row: icon, title, optional short subtitle, chevron or custom right side.
+export function ListRow({ icon, color, thumb, title, sub, right, onPress, style }: {
+  icon?: Icon; color?: string; thumb?: ReactNode; title: string; sub?: string; right?: ReactNode; onPress?: () => void; style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <Press onPress={onPress} style={[st.listRow, style]}>
+      {thumb ?? (icon ? <IconBox icon={icon} color={color} /> : null)}
+      <View style={{ flex: 1, gap: 2 }}>
+        <T v="h3" numberOfLines={1}>{title}</T>
+        {sub ? <T v="small" numberOfLines={1}>{sub}</T> : null}
+      </View>
+      {right ?? (onPress ? <Ionicons name="chevron-forward" size={18} color={c.dim} /> : null)}
+    </Press>
+  );
+}
+
+// A slim notice: icon + one line + optional action. For setup prompts, permissions, health context.
+export function Banner({ icon, color = c.accent, title, action, onPress }: { icon: Icon; color?: string; title: string; action?: string; onPress?: () => void }) {
+  return (
+    <Press onPress={onPress} style={[st.banner, { borderColor: color + '55' }]}>
+      <Ionicons name={icon} size={18} color={color} />
+      <T v="body" color={c.text} numberOfLines={2} style={{ flex: 1 }}>{title}</T>
+      {action ? <T v="small" color={color}>{action}</T> : onPress ? <Ionicons name="chevron-forward" size={16} color={c.dim} /> : null}
+    </Press>
+  );
+}
+
+// Show more on demand: a heading line that opens its content. For instructions, explanations, long lists.
+export function Fold({ title, icon, children, open: start = false }: { title: string; icon?: Icon; children: ReactNode; open?: boolean }) {
+  const [open, setOpen] = useState(start);
+  return (
+    <View style={st.card}>
+      <Tap onPress={() => setOpen(!open)} scale={0.99} feedback="none" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        {icon && <IconBox icon={icon} size={32} />}
+        <T v="h3" style={{ flex: 1 }}>{title}</T>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
+      </Tap>
+      {open && <Animated.View entering={FadeIn.duration(200)} style={{ marginTop: 14, gap: 12 }}>{children}</Animated.View>}
+    </View>
+  );
+}
 
 export function Button({ title, onPress, kind = 'primary', icon, style, disabled }: {
   title: string; onPress?: () => void; kind?: 'primary' | 'ghost' | 'danger'; icon?: keyof typeof Ionicons.glyphMap; style?: StyleProp<ViewStyle>; disabled?: boolean;
@@ -417,6 +509,9 @@ export const Row = ({ children, style, gap = 12 }: { children: ReactNode; style?
 
 export const st = StyleSheet.create({
   card: { backgroundColor: c.card, borderRadius: r.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: r.md, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1 },
   btn: { height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 24 },
   chip: { paddingHorizontal: 16, height: 40, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
   step: { width: 30, height: 34, borderRadius: 10, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
