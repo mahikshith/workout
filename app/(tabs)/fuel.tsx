@@ -9,7 +9,7 @@ import { mealPlan, perServing, suggest } from '../../src/data/recipes';
 import { Rings } from '../../src/rings';
 import { useStore, type MealSlot } from '../../src/store';
 import { c, f } from '../../src/theme';
-import { Card, Rise, Row, Screen, T, Tap } from '../../src/ui';
+import { Card, Rise, Row, Screen, T, Tap, TabTitle } from '../../src/ui';
 
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 const fade = () => FadeIn.duration(280).easing(EASE);
@@ -80,7 +80,7 @@ export default function Fuel() {
 
   return (
     <Screen>
-      <Rise><T v="display">Fuel</T></Rise>
+      <Rise><TabTitle title="Fuel" /></Rise>
       <Rise i={1}><T v="small" numberOfLines={1}>{gentle ? cap(profile.diet) : `${cap(profile.diet)} · ${cap(profile.goal)}`}</T></Rise>
 
       <Sec i={2}>

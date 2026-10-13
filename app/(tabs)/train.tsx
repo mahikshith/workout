@@ -7,7 +7,7 @@ import { ranked } from '../../src/coach';
 import { CATEGORIES, perWeek, planById, plans, type Plan } from '../../src/data/plans';
 import { useStore, type Profile } from '../../src/store';
 import { c, r } from '../../src/theme';
-import { Chip, Rise, Row, Screen, T, Tap } from '../../src/ui';
+import { Chip, Rise, Row, Screen, T, Tap, TabTitle } from '../../src/ui';
 
 type Where = 'gym' | 'home' | 'office';
 const WHERE: { k: Where; label: string; icon: 'barbell' | 'home' | 'briefcase' }[] = [
@@ -43,7 +43,7 @@ export default function Train() {
 
   return (
     <Screen>
-      <Rise><T v="display">Plans</T></Rise>
+      <Rise><TabTitle title="Plans" /></Rise>
 
       {planById[planId] && (() => {
         const cur = planById[planId], n = perWeek(cur);

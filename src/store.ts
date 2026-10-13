@@ -6,6 +6,7 @@ import type { Diet } from './data/foods';
 import { planById, type Day } from './data/plans';
 import { dayKey, lastSets, parseReps } from './calc';
 import { gate } from './engine';
+import { dose } from './data/muscles';
 import { order } from './data/order';
 import type { AccentId } from './theme';
 
@@ -107,6 +108,11 @@ type State = {
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
+function single(exId: string, history: Session[]) {
+  const d = dose(byId[exId]);
+  return { exId, target: d.reps, rest: d.rest, sets: seedSets(exId, d.reps, d.sets, history) };
+}
+
 function seedSets(exId: string, target: string, sets: number, history: Session[]): SetLog[] {
   const prev = lastSets(history, exId);
   return Array.from({ length: sets }, (_, k) => {
@@ -165,7 +171,8 @@ export const useStore = create<State>()(
       },
       startSingle: (exId, place) =>
         set((s) => s.active ? {} : ({
-          active: { id: uid(), title: byId[exId].name, place, startedAt: Date.now(), running: false, items: [{ exId, target: '10', rest: 90, sets: seedSets(exId, '10', 3, s.sessions) }] },
+          // A single exercise gets its own dose: minutes for cardio, seconds for holds, reps otherwise.
+          active: { id: uid(), title: byId[exId].name, place, startedAt: Date.now(), running: false, items: [single(exId, s.sessions)] },
         })),
       updateSet: (i, j, patch) =>
         set((s) => {
@@ -197,7 +204,7 @@ export const useStore = create<State>()(
           return { active: { ...s.active, items } };
         }),
       addItem: (exId) =>
-        set((s) => s.active ? { active: { ...s.active, items: [...s.active.items, { exId, target: '10', rest: 90, sets: seedSets(exId, '10', 3, s.sessions) }] } } : {}),
+        set((s) => s.active ? { active: { ...s.active, items: [...s.active.items, single(exId, s.sessions)] } } : {}),
       begin: () => set((s) => (s.active && !s.active.running ? { active: { ...s.active, running: true, startedAt: Date.now(), pausedAt: undefined, pausedMs: 0 } } : {})),
       pause: () => set((s) => (s.active?.running && !s.active.pausedAt ? { active: { ...s.active, pausedAt: Date.now() } } : {})),
       resume: () =>

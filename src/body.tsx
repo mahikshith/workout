@@ -20,13 +20,15 @@ const [, , W, H] = VIEWBOX.split(' ').map(Number);
 const APath = Animated.createAnimatedComponent(Path);
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 
-// Front and back side by side. Every region has a light outline; main muscles are red and breathe slowly
-// (1.6 s in, 1.6 s out) with a soft wide stroke behind them as a glow; helpers are a still, lighter red.
+// Front and back side by side. Every region has a light outline; main muscles are red with a soft wide stroke behind
+// them as a glow; helpers are a still, lighter red. The main muscles pulse twice when the map appears, then hold still:
+// a constant pulse on these detailed paths made scrolling the exercise page stutter on Android.
+// All main muscles share one glow path and one fill path, so the pulse animates two paths, not dozens.
 export function MuscleMap({ primary, secondary, size = 200 }: { primary: string[]; secondary: string[]; size?: number }) {
   const p = useSharedValue(0);
   const still = useReducedMotion();
   useEffect(() => {
-    p.value = still ? 1 : withRepeat(withTiming(1, { duration: 1600, easing: EASE }), -1, true);
+    p.value = still ? 1 : withRepeat(withTiming(1, { duration: 1200, easing: EASE }), 5, true);
     return () => cancelAnimation(p);
   }, [still]);
   const parts = BODY.map(([region, d]) => {
@@ -40,8 +42,8 @@ export function MuscleMap({ primary, secondary, size = 200 }: { primary: string[
         <Path key={i} d={x.d} fill={x.kind ? SOFT : c.card2} fillOpacity={x.kind ? 0.55 : 1}
           stroke={x.kind ? SOFT : c.muted} strokeOpacity={x.kind ? 0.9 : 0.6} strokeWidth={5} strokeLinejoin="round" />
       ))}
-      {main.map((x, i) => <Glow key={'g' + i} d={x.d} p={p} />)}
-      {main.map((x, i) => <Main key={'m' + i} d={x.d} p={p} />)}
+      {main.length > 0 && <Glow d={main.map((x) => x.d).join(' ')} p={p} />}
+      {main.length > 0 && <Main d={main.map((x) => x.d).join(' ')} p={p} />}
     </Svg>
   );
 }

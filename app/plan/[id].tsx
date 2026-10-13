@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { doneThisWeek, doneToday } from '../../src/calc';
+import { doneNote, doneRecently, doneThisWeek } from '../../src/calc';
 import { byId } from '../../src/data/exercises';
 import { perWeek, planById } from '../../src/data/plans';
 import { program, WEEKDAYS } from '../../src/data/program';
@@ -26,7 +26,7 @@ export default function PlanDetail() {
   const goal = goalWeeks(profile);
   const setPlan = useStore((s) => s.setPlan);
   const sessions = useStore((s) => s.sessions);
-  const today = doneToday(sessions), doneWeek = doneThisWeek(sessions);
+  const recent = doneRecently(sessions), doneWeek = doneThisWeek(sessions);
   const [wk, setWk] = useState(0);
   if (!plan) return null;
   const isCurrent = plan.id === planId;
@@ -122,10 +122,10 @@ export default function PlanDetail() {
                 <Tap key={sl.id} onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: sl.id } })} style={s.slot} scale={0.98}>
                   <Thumb ex={byId[sl.id]} size={44} />
                   <View style={{ flex: 1 }}>
-                    <T v="h3" numberOfLines={1} color={today.has(sl.id) ? c.muted : c.text}>{byId[sl.id].name}</T>
-                    <T v="small">{today.has(sl.id) ? 'Logged today' : rest(sl.rest)}</T>
+                    <T v="h3" numberOfLines={1} color={recent.has(sl.id) ? c.muted : c.text}>{byId[sl.id].name}</T>
+                    <T v="small" color={recent.has(sl.id) ? c.ok : c.muted}>{recent.has(sl.id) ? doneNote(recent.get(sl.id)!).text : rest(sl.rest)}</T>
                   </View>
-                  {today.has(sl.id) ? <Ionicons name="checkmark-circle" size={24} color={c.ok} /> : <T v="small" color={c.text}>{sl.sets} × {sl.reps}</T>}
+                  {recent.has(sl.id) ? <Ionicons name="checkmark-circle" size={24} color={c.ok} /> : <T v="small" color={c.text}>{sl.sets} × {sl.reps}</T>}
                 </Tap>
               ))}
             </View>

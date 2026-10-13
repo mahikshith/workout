@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mapped, MuscleMap, RED, SOFT } from '../../src/body';
-import { bestBefore } from '../../src/calc';
+import { bestBefore, doneNote, doneRecently } from '../../src/calc';
 import { alternatives, available, byId, HOME_GEAR, title, type Exercise } from '../../src/data/exercises';
 import guide from '../../src/data/guide.json';
 import { benefit, dose, doseText, ease, effort, focusOf, harder, kcal, office, restText } from '../../src/data/muscles';
@@ -34,15 +34,21 @@ export default function ExerciseDetail() {
   const profile = useStore((s) => s.profile);
   const sessions = useStore((s) => s.sessions);
   const active = useStore((s) => s.active);
-  const { startSingle, setProfile } = useStore.getState();
+  const { startSingle, setProfile, addItem } = useStore.getState();
+  const inWorkout = !!active?.items.some((x) => x.exId === id);
   const [tab, setTab] = useState<'gym' | 'home'>(profile.place === 'home' ? 'home' : 'gym');
   const [sheet, setSheet] = useState(false);
+  // Pause the animated figure once it is scrolled out of view: the page below then scrolls without the figure redrawing.
+  const [away, setAway] = useState(false);
+  const awayRef = useRef(false);
+  const onScroll = (y: number) => { const v = y > 420; if (v !== awayRef.current) { awayRef.current = v; setAway(v); } };
   if (!ex) return null;
   const g = GUIDE[ex.id];
   const steps = g?.steps?.length ? g.steps : ex.steps.slice(0, 5);
   const pose = POSE.filter(([k]) => g?.[k]);
   const lock = gate(ex, profile, sessions.length);
   const best = bestBefore(sessions, ex.id);
+  const at = doneRecently(sessions).get(ex.id);
   // Best matches the person can do now, shown easiest first; the closest harder match is the next level.
   const pool = tab === 'gym' ? alternatives(ex, 'gym', [], 40) : alternatives(ex, 'home', profile.gear, 40);
   const alts = pool.filter((a) => !gate(a, profile, sessions.length).locked).slice(0, 3).sort((a, b) => ease(a) - ease(b));
@@ -54,14 +60,28 @@ export default function ExerciseDetail() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Screen>
+      <Screen onScroll={onScroll}>
         <Row style={{ justifyContent: 'space-between' }}>
           <Tap onPress={() => router.back()} style={s.icon}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
           <T v="label">{title(ex.category)}</T>
           <View style={{ width: 40 }} />
         </Row>
 
-        <Rise><Demo ex={ex} height={300} credit style={{ marginTop: 16 }} /></Rise>
+        <Rise>
+          <T v="h1" style={{ marginTop: 14 }}>{ex.name}</T>
+          <Row style={{ flexWrap: 'wrap', marginTop: 8 }} gap={8}>
+            <View style={s.tag}><T v="small" color={c.text}>{title(ex.level)}</T></View>
+            <View style={[s.tag, { backgroundColor: eq.color + '22' }]}><T v="small" color={eq.color}>{eq.label}</T></View>
+            {places(ex).map((b) => <View key={b} style={s.tag}><T v="small" color={c.text}>{b}</T></View>)}
+          </Row>
+          {at !== undefined && (
+            <Row gap={8} style={[s.done, { borderColor: c.ok + '66' }]}>
+              <Ionicons name="checkmark-circle" size={18} color={c.ok} />
+              <T v="small" color={c.text} style={{ flex: 1 }}>{`You did this ${doneNote(at).day}. It shows as done for a week, then counts as fresh again in ${doneNote(at).left} day${doneNote(at).left > 1 ? 's' : ''}. You can still train it any time.`}</T>
+            </Row>
+          )}
+        </Rise>
+        <Rise i={1}><Demo ex={ex} height={300} credit paused={away} style={{ marginTop: 14 }} /></Rise>
 
         {ex.primary.some(mapped) && (
           <Rise i={1}>
@@ -76,13 +96,7 @@ export default function ExerciseDetail() {
         )}
 
         <Rise i={2}>
-          <T v="h1" style={{ marginTop: 22 }}>{ex.name}</T>
-          <Row style={{ flexWrap: 'wrap', marginTop: 10 }} gap={8}>
-            <View style={s.tag}><T v="small" color={c.text}>{title(ex.level)}</T></View>
-            <View style={[s.tag, { backgroundColor: eq.color + '22' }]}><T v="small" color={eq.color}>{eq.label}</T></View>
-            {places(ex).map((b) => <View key={b} style={s.tag}><T v="small" color={c.text}>{b}</T></View>)}
-          </Row>
-          <T color={c.muted} style={{ marginTop: 10 }}>{benefit(ex)}</T>
+          <T color={c.muted} style={{ marginTop: 18 }}>{benefit(ex)}</T>
           {best.e1rm > 0 && <T v="small" color={c.accent} style={{ marginTop: 10 }}>Your best: {Math.round(best.e1rm)} kg estimated 1RM</T>}
           <Card style={{ marginTop: 14, gap: 14 }}>
             <T v="h3">Your dose</T>
@@ -141,11 +155,10 @@ export default function ExerciseDetail() {
             )}
           </Animated.View>
         </Rise>
-        {lock.locked && <View style={{ height: 70 }} />}
+        <View style={{ height: lock.locked ? 70 : active ? 60 : 0 }} />
       </Screen>
 
-      {(lock.locked || !active) && (
-        <View style={[s.bottom, { paddingBottom: ins.bottom + 12 }]}>
+      <View style={[s.bottom, { paddingBottom: ins.bottom + 12 }]}>
           {lock.locked ? (
             <View style={s.lock}>
               <Row gap={10}><Ionicons name="lock-closed" size={18} color={c.muted} /><T v="h3" style={{ flex: 1 }}>{lock.title}</T></Row>
@@ -156,12 +169,15 @@ export default function ExerciseDetail() {
                 </Tap>
               )}
             </View>
+          ) : active ? (
+            // A workout is already open: add this move to it (or go back to it) instead of hiding the button.
+            <Button title={inWorkout ? 'Back to your workout' : 'Add to your workout'} icon={inWorkout ? 'arrow-forward' : 'add'}
+              onPress={() => { if (!inWorkout) addItem(ex.id); router.push('/session'); }} />
           ) : (
             <Button title="Train this now" icon="play"
               onPress={() => { startSingle(ex.id, profile.place === 'home' ? 'home' : 'gym'); router.push('/session'); }} />
           )}
-        </View>
-      )}
+      </View>
 
       <Sheet open={sheet} onClose={() => setSheet(false)}>
         <View style={{ gap: 12 }}>
@@ -204,6 +220,7 @@ function Alt({ a, tag, locked, note }: { a: Exercise; tag?: string; locked?: boo
 
 const s = StyleSheet.create({
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
+  done: { marginTop: 10, padding: 10, borderRadius: r.md, borderWidth: 1, backgroundColor: c.card },
   tag: { paddingHorizontal: 12, height: 30, borderRadius: 15, backgroundColor: c.card2, justifyContent: 'center' },
   mini: { paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: c.card2, justifyContent: 'center' },
   section: { marginTop: 26, marginBottom: 10 },

@@ -10,6 +10,7 @@ import { askPermission, reschedule } from '../src/notify';
 import { useStore, type Goal, type Profile } from '../src/store';
 import { c, f, r } from '../src/theme';
 import { ContextFields } from '../src/context';
+import { TimePicker } from '../src/timepicker';
 import { Button, Row, Stepper, T, Tap } from '../src/ui';
 
 // Equal-width segmented row; every segment is a full 44px tap target.
@@ -35,6 +36,7 @@ const GOALS: { v: Goal; label: string; icon: keyof typeof Ionicons.glyphMap }[] 
   { v: 'get stronger', label: 'Get stronger', icon: 'barbell' },
   { v: 'stay fit', label: 'Stay fit', icon: 'heart' },
 ];
+const fmt12 = (h: number, m: number) => `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
 const TIMES: [number, string][] = [[-1, 'Off'], [7, '7 am'], [12, 'Noon'], [18, '6 pm'], [20, '8 pm']];
 
 // One scrollable page: every question the reasoning engine needs, answered in about a minute.
@@ -44,6 +46,7 @@ export default function Onboarding() {
   const current = useStore((st) => st.profile);
   const existing = current.name ? current : null; // editing a set-up profile vs first setup
   const [p, setP] = useState<Profile>(existing ?? { ...current, reminder: { hour: 18, minute: 0, on: true } });
+  const [clock, setClock] = useState(false);
   const up = (patch: Partial<Profile>) => setP((x) => ({ ...x, ...patch }));
   const named = p.name.trim().length > 0;
   const ageOn = AGES.find(([a]) => p.age < a + 5)?.[0] ?? 60;
@@ -127,8 +130,17 @@ export default function Onboarding() {
         </Section>
 
         <Section title="Daily nudge">
-          <Seg<number> value={p.reminder.on ? p.reminder.hour : -1} opts={TIMES}
+          <Seg<number> value={p.reminder.on ? (p.reminder.minute ? -2 : p.reminder.hour) : -1} opts={TIMES}
             onPick={(h) => up({ reminder: h < 0 ? { ...p.reminder, on: false } : { hour: h, minute: 0, on: true } })} />
+          <Tap onPress={() => setClock(!clock)} scale={0.98} style={s.clock}>
+            <Ionicons name="alarm-outline" size={20} color={c.accent} />
+            <T v="h3" style={{ flex: 1 }}>{p.reminder.on ? `At ${fmt12(p.reminder.hour, p.reminder.minute)}` : 'Pick an exact time'}</T>
+            <T v="small" color={c.accent}>{clock ? 'Done' : 'Set time'}</T>
+          </Tap>
+          {clock && (
+            <TimePicker hour={p.reminder.hour} minute={p.reminder.minute}
+              onChange={(hour, minute) => up({ reminder: { hour, minute, on: true } })} />
+          )}
           <T v="small">A reminder at your training time, plus water and motivation through the day. Fine-tune it all later in Reminders.</T>
         </Section>
 
@@ -161,6 +173,7 @@ const s = StyleSheet.create({
   tile: { width: '48%', flexGrow: 1, height: 76, padding: 14, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, justifyContent: 'space-between' },
   pill: { paddingHorizontal: 16, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  clock: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: r.md, backgroundColor: c.card2 },
   section: { gap: 10, padding: 18, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingTop: 12, backgroundColor: 'rgba(10,10,11,0.94)', borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
 });

@@ -5,6 +5,7 @@ import { AppState, Linking, Platform, StyleSheet, Switch, View } from 'react-nat
 import Animated, { Easing, FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { askPermission, hasPermission, rescheduleAll } from '../src/notify';
 import { Sheet } from '../src/sheet';
+import { TimePicker } from '../src/timepicker';
 import { useStore, type Interval, type NudgePrefs, type Reminder } from '../src/store';
 import { c } from '../src/theme';
 import { Button, Card, Chip, Row, Screen, Stepper, T, Tap } from '../src/ui';
@@ -154,16 +155,7 @@ export default function Reminders() {
           <View style={{ gap: 16 }}>
             <T v="h3">{edit.kind === 'meal' ? `${edit.label} reminder` : 'Workout reminder'}</T>
             <T v="display" style={{ textAlign: 'center' }}>{clock(edit.hour, edit.minute)}</T>
-            <Row style={{ justifyContent: 'space-around' }}>
-              <View style={{ alignItems: 'center', gap: 6 }}>
-                <T v="label">Hour</T>
-                <Stepper value={edit.hour} min={-1} onChange={(h) => change({ hour: wrap(h, 24) })} />
-              </View>
-              <View style={{ alignItems: 'center', gap: 6 }}>
-                <T v="label">Minute</T>
-                <Stepper value={edit.minute} min={-1} onChange={(m) => change({ minute: wrap(m, 60) })} />
-              </View>
-            </Row>
+            <TimePicker hour={edit.hour} minute={edit.minute} onChange={(hour, minute) => change({ hour, minute })} />
             <Row gap={6}>
               {JUMPS.map((j) => {
                 const on = j.at === edit.minute;

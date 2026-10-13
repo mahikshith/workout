@@ -8,6 +8,7 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, V
 import Animated, {
   cancelAnimation, Easing, FadeIn, FadeInDown, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { artFrames, frames, MEDIA, origin, type Exercise } from './data/exercises';
@@ -63,16 +64,37 @@ export function T({ v = 'body', color, style, ...p }: TextProps & { v?: V; color
   return <Text {...p} style={[tv[v], { color: color ?? def }, style]} />;
 }
 
-export function Screen({ children, scroll = true, pad = true }: { children: ReactNode; scroll?: boolean; pad?: boolean }) {
+export function Screen({ children, scroll = true, pad = true, onScroll }: {
+  children: ReactNode; scroll?: boolean; pad?: boolean; onScroll?: (y: number) => void;
+}) {
   const ins = useSafeAreaInsets();
   const style = { paddingTop: ins.top + 12, paddingHorizontal: pad ? 12 : 0, paddingBottom: ins.bottom + 120 };
   if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg }, style]}>{children}</View>;
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={style} showsVerticalScrollIndicator={false}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={style} showsVerticalScrollIndicator={false}
+      onScroll={onScroll ? (e) => onScroll(e.nativeEvent.contentOffset.y) : undefined} scrollEventThrottle={onScroll ? 100 : undefined}>
       {children}
     </ScrollView>
   );
 }
+
+// The profile button that sits at the top right of every tab.
+export function Avatar() {
+  const name = useStore((s) => s.profile.name);
+  return (
+    <Tap onPress={() => router.push('/you')} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accent }}>
+      {name ? <T v="h3" color={c.accentInk}>{name[0].toUpperCase()}</T> : <Ionicons name="person" size={18} color={c.accentInk} />}
+    </Tap>
+  );
+}
+
+// A tab's big title with the profile button beside it.
+export const TabTitle = ({ title }: { title: string }) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+    <T v="display" numberOfLines={1} style={{ flex: 1 }}>{title}</T>
+    <Avatar />
+  </View>
+);
 
 export const Rise = ({ i = 0, children, style }: { i?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) => (
   <Animated.View entering={FadeInDown.delay(i * 50).duration(380)} style={style}>{children}</Animated.View>
@@ -141,7 +163,8 @@ const NAME: Record<MediaPref, string> = { animated: 'Animation', drawing: 'Drawi
 // Animated figure, drawing (workout-guide), photo (free-exercise-db) or video (wger), with a switch in the corner.
 // The pick is remembered for every exercise. If a picture or video can't load, the pane quietly falls back to the
 // next kind (usually the animated figure, which needs no network) and says so; a failure never blanks the pane.
-export function Demo({ ex, height = 240, style, credit }: { ex: Exercise; height?: number; style?: StyleProp<ViewStyle>; credit?: boolean }) {
+// `paused` stops the animated figure (the screen passes it when the pane is scrolled out of view).
+export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise; height?: number; style?: StyleProp<ViewStyle>; credit?: boolean; paused?: boolean }) {
   const pref = useStore((s) => s.mediaPref);
   const setPref = useStore((s) => s.setMediaPref);
   const [w, setW] = useState(0);
@@ -163,8 +186,14 @@ export function Demo({ ex, height = 240, style, credit }: { ex: Exercise; height
         {!kind ? <Ionicons name="barbell-outline" size={height * 0.3} color={c.muted} /> : shown.map((k) => (
           <Animated.View key={ex.id + k} entering={k === kind && shown.length > 1 ? FadeIn.duration(200).easing(EASE) : undefined} style={StyleSheet.absoluteFill}>
             {k === 'animated' ? (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' }]}>
-                {w > 0 && <Figure pose={pose} primary={ex.primary} secondary={ex.secondary} height={height} width={w} />}
+              // The figure is drawn at exactly the pane's measured size, top-left anchored; the SVG viewBox centres the
+              // body inside it, so nothing depends on flex centring (which shifted it right on some Android phones).
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2 }]}>
+                {w > 0 && (
+                  <View style={{ position: 'absolute', left: 0, top: 0, width: w, height }}>
+                    <Figure pose={pose} primary={ex.primary} secondary={ex.secondary} height={height} width={w} paused={paused} />
+                  </View>
+                )}
               </View>
             ) : k === 'video' ? <Clip id={ex.id} onFail={() => fail('video')} />
               : <Loop uris={k === 'drawing' ? artFrames(ex.art!) : frames(ex.id)} solid={k === 'photo'} onFail={() => fail(k)} />}
@@ -188,7 +217,7 @@ export function Demo({ ex, height = 240, style, credit }: { ex: Exercise; height
       {credit && kind && (
         <T v="small" color={c.dim} style={{ marginTop: 8, textAlign: 'center' }}>
           {kind === 'animated'
-            ? matched ? 'The figure shows the movement pattern. Follow the steps below for the exact form.' : 'Dots mark the moving joints, the arc is the joint angle at the key point, and the dashed line is what to keep straight.'
+            ? `${matched ? 'Shows the movement pattern; follow the steps below for exact form. ' : ''}Blue dashed line: keep it straight. Coloured arc: the joint angle. Grey line: your balance point.`
             : kind === 'video' ? `Video: ${VIDEOS[ex.id].author}, wger.de, CC BY-SA 4.0` : CREDIT[kind]}
         </T>
       )}

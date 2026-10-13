@@ -12,7 +12,7 @@ import { Journey } from '../../src/journey';
 import { Sheet } from '../../src/sheet';
 import { useStore } from '../../src/store';
 import { c } from '../../src/theme';
-import { Button, Card, Chip, Rise, Row, Screen, Stat, Stepper, T, Tap } from '../../src/ui';
+import { Button, Card, Chip, Rise, Row, Screen, Stat, Stepper, T, Tap, TabTitle } from '../../src/ui';
 
 const DAY = 86400000;
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
@@ -105,7 +105,7 @@ export default function Progress() {
 
   return (
     <Screen>
-      <Rise><T v="display">Progress</T></Rise>
+      <Rise><TabTitle title="Progress" /></Rise>
       <Rise i={1}>
         <Card style={{ marginTop: 18 }}>
           <Row>

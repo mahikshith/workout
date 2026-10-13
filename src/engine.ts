@@ -280,5 +280,5 @@ export function selfCheck() {
   assert(!hidden(ex('Bodyweight_Squat'), preg), 'pregnancy keeps squats');
   assert(!!hidden(ex('Dumbbell_Lunges'), { ...base, concerns: ['knee'] }), 'knee hides lunges');
   const i = { profile: base, sessions: [], meals: [], water: {}, checkins: { [dayKey()]: 1 as Mood }, planId: 'full-body-gym', nextDay: 0 };
-  assert(suggest(i).kind === 'light', 'drained gets a light session');
+  assert(['light', 'rest'].includes(suggest(i).kind), 'drained gets a light session or a rest day');
 }

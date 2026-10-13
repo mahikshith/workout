@@ -34,6 +34,8 @@ export type Pose = {
   pin?: 'hands' | 'feet' | 'hand' | 'foot'; // these stay where they start (two-bone IK); singular = near side only
   box?: Key; // a block from the floor up to this point (step, bench, hands-on-bench)
   wall?: 'front' | 'back';
+  machine?: 'treadmill'; // drawn under the feet
+  incline?: number; // degrees the treadmill belt or the ground slopes up toward the front (the body stays upright)
   line?: [number, number]; // band or cable: fixed end, relative to the near hand at the start
   lift?: number; // jump: rises this much at the end
   hop?: number; // jump: rises this much mid-way
@@ -354,6 +356,15 @@ const bike = (spine: number, sh: number, el: number) => {
   const a = A(spine, [100, 55], [110, 45], [10, 20], sh, el);
   return side(a, alt(a), { ground: 'bench', pace: 'cycle', tempo: 0.5 });
 };
+// Running gaits, from an easy jog to a sprint: longer stride, higher knees, bigger arm swing and a faster cadence.
+const gait = (spine: number, hip: Pair, knee: Pair, sh: Pair, tempo: number, o: Partial<Pose> = {}) => {
+  const a = A(spine, hip, knee, [-5, 25], sh, 90);
+  return side(a, alt(a), { fix: 'pelvis', pace: 'cycle', tempo, guide: { axis: ['pelvis', 'neck'] }, ...o });
+};
+const JOG = (o: Partial<Pose> = {}) => gait(5, [30, -12], [30, 55], [-25, 30], 0.42, o);
+const RUN = (o: Partial<Pose> = {}) => gait(10, [45, -20], [40, 75], [-35, 40], 0.35, o);
+const SPRINT = (o: Partial<Pose> = {}) => gait(16, [72, -25], [60, 105], [-55, 65], 0.27, o);
+const TREAD = { machine: 'treadmill' as const };
 const hang = (start: Angles, end: Angles, o: Partial<Pose> = {}) => side(start, end, { ground: 'hang', prop: 'bar', ...o });
 const calf = (sh: number, el: number, o: Partial<Pose> = {}) => side(St(0, 0, 0, sh, el), A(0, 0, 0, 35, sh, el), { fix: 'toe0', ...o });
 const step = (endFar: [number, number], o: Partial<Pose> = {}) =>
@@ -535,9 +546,22 @@ export const POSES: Record<string, Pose> = {
   wg_burpee: side(A(80, 130, 130, 10, 80, 0), A(72, 0, 0, 15, 72, 0), { ground: 'floor', fix: 'wr0', pace: 'cycle', tempo: 0.6 }),
   Superman: side(A(90, 0, 0, 30, 175, 0), A(80, -12, 0, 30, 185, 0, { curve: -15, neck: -10 }), { ground: 'floor' }),
   // cardio
-  Walking_Treadmill: walk(0, [-15, 15], [15, 15]),
-  'wg_treadmill-incline-walk': walk(8, [-15, 15], [15, 15]),
-  Running_Treadmill: side(A(10, [45, -20], [40, 70], [-5, 25], [-35, 40], 90), alt(A(10, [45, -20], [40, 70], [-5, 25], [-35, 40], 90)), { fix: 'pelvis', pace: 'cycle', tempo: 0.35 }),
+  // Each treadmill and outdoor variant has its own gait: walk, incline walk (leaning in, shorter quicker steps on a
+  // sloped belt), jog, run, sprint, trail and hill walking, stairs.
+  Walking_Treadmill: walk(0, [-15, 15], [15, 15], TREAD),
+  'wg_treadmill-incline-walk': side(A(10, [32, -8], [12, 18], [-12, 18], [-12, 12], 15), alt(A(10, [32, -8], [12, 18], [-12, 18], [-12, 12], 15)),
+    { fix: 'pelvis', pace: 'cycle', tempo: 0.6, incline: 10, ...TREAD, guide: { axis: ['pelvis', 'neck'] } }),
+  Jogging_Treadmill: JOG(TREAD),
+  Running_Treadmill: RUN(TREAD),
+  Trail_Running_Walking: JOG({ incline: 6 }),
+  wg_hiking: side(A(12, [38, -8], [20, 18], [-12, 18], [-10, 15], 20), alt(A(12, [38, -8], [20, 18], [-12, 18], [-10, 15], 20)),
+    { fix: 'pelvis', pace: 'cycle', tempo: 0.7, incline: 12, guide: { axis: ['pelvis', 'neck'] } }),
+  Wind_Sprints: SPRINT(),
+  Bench_Sprint: SPRINT(),
+  'Single-Cone_Sprint_Drill': SPRINT(),
+  Prowler_Sprint: gait(45, [80, -10], [80, 40], [70, 70], 0.4, { guide: { axis: ['an1', 'neck'] } }),
+  Stairmaster: side(A(5, [70, 0], [85, 5], [-10, 15], [-15, 15], 30), alt(A(5, [70, 0], [85, 5], [-10, 15], [-15, 15], 30)), { fix: 'pelvis', pace: 'cycle', tempo: 0.65 }),
+  Step_Mill: side(A(8, [75, 0], [90, 5], [-10, 15], [-15, 15], 30), alt(A(8, [75, 0], [90, 5], [-10, 15], [-15, 15], 30)), { fix: 'pelvis', pace: 'cycle', tempo: 0.6 }),
   Elliptical_Trainer: walk(5, [30, -10], [60, 30], { tempo: 0.6 }),
   Bicycling_Stationary: bike(20, 65, 20),
   Recumbent_Bike: bike(-25, 30, 40),
@@ -585,9 +609,13 @@ function pattern(e: Ex): Pose {
     if (has(/bike|cycl/)) return P.Bicycling_Stationary;
     if (has(/row/)) return P.Rowing_Stationary;
     if (has(/jump|jack|rope|skip/)) return P['wg_jumping-jack'];
-    if (has(/ellip|stair|step|climb/)) return P.Elliptical_Trainer;
-    if (has(/walk/)) return P.Walking_Treadmill;
-    return P.Running_Treadmill;
+    if (has(/stair|step|climb/)) return P.Stairmaster;
+    if (has(/ellip/)) return P.Elliptical_Trainer;
+    if (has(/incline|hill|hik/)) return has(/treadmill/) ? P['wg_treadmill-incline-walk'] : P.wg_hiking;
+    if (has(/sprint/)) return P.Wind_Sprints;
+    if (has(/jog/)) return has(/treadmill/) ? P.Jogging_Treadmill : P.Trail_Running_Walking;
+    if (has(/walk/)) return has(/treadmill/) ? P.Walking_Treadmill : { ...P.Walking_Treadmill, machine: undefined };
+    return has(/treadmill/) ? P.Running_Treadmill : { ...P.Running_Treadmill, machine: undefined };
   }
   if (has(/burpee/)) return P.wg_burpee;
   if (has(/mountain climber/)) return P.Mountain_Climbers;

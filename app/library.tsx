@@ -6,9 +6,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { available, exercises, title, type Exercise } from '../src/data/exercises';
 import { dose, doseText, focusOf, GROUPS, groupFor, inGroup, office, restText } from '../src/data/muscles';
 import { gate } from '../src/engine';
+import { doneNote, doneRecently } from '../src/calc';
 import { useStore } from '../src/store';
 import { c, equip, f, r } from '../src/theme';
-import { Card, Chip, Row, T, Tap, Thumb } from '../src/ui';
+import { Avatar, Card, Chip, Row, T, Tap, Thumb } from '../src/ui';
 
 const LEVELS = ['beginner', 'intermediate', 'expert'] as const;
 const BLOCK = Math.floor((Math.min(Dimensions.get('window').width, 600) - 24 - 10) / 2); // two columns: 12 px gutters, one 10 px gap
@@ -31,7 +32,9 @@ export default function Library({ tab }: { tab?: boolean }) {
   const ins = useSafeAreaInsets();
   const { pick, muscle, equip: eq } = useLocalSearchParams<{ pick?: string; muscle?: string; equip?: string }>();
   const profile = useStore((s) => s.profile);
-  const done = useStore((s) => s.sessions.length);
+  const sessions = useStore((s) => s.sessions);
+  const done = sessions.length;
+  const recent = useMemo(() => doneRecently(sessions), [sessions]);
   const addItem = useStore((s) => s.addItem);
   const [q, setQ] = useState('');
   const [where, setWhere] = useState<Where>(profile.place === 'home' ? 'home' : 'gym');
@@ -76,6 +79,7 @@ export default function Library({ tab }: { tab?: boolean }) {
         {(g || !tab) && <Tap onPress={up} style={s.icon}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>}
         <T v={tab && !g ? 'display' : g ? 'h2' : 'h1'} style={{ flex: 1 }} numberOfLines={1}>{heading}</T>
         <T v="small">{words.length || fo ? list.length : inG.length}</T>
+        {tab && <Avatar />}
       </Row>
       <View style={s.search}>
         <Ionicons name="search" size={18} color={c.muted} />
@@ -97,7 +101,7 @@ export default function Library({ tab }: { tab?: boolean }) {
           contentContainerStyle={[pad, { gap: 8 }]}
           renderSectionHeader={({ section }) => <T v="h3" style={{ marginTop: 10 }}>{section.title}</T>}
           renderItem={({ item }) => (
-            <ExRow e={item} focus={focusOf(item, g?.id)?.label} locked={gate(item, profile, done).locked} pick={!!pick} onPress={() => open(item)} />
+            <ExRow e={item} focus={focusOf(item, g?.id)?.label} locked={gate(item, profile, done).locked} pick={!!pick} onPress={() => open(item)} at={recent.get(item.id)} />
           )}
           ListEmptyComponent={<T v="small" style={{ marginTop: 12 }}>Nothing here for this place yet. Try Gym.</T>}
         />
@@ -158,10 +162,10 @@ export default function Library({ tab }: { tab?: boolean }) {
   );
 }
 
-function ExRow({ e, focus, locked, pick, onPress }: { e: Exercise; focus?: string; locked: boolean; pick: boolean; onPress: () => void }) {
+function ExRow({ e, focus, locked, pick, onPress, at }: { e: Exercise; focus?: string; locked: boolean; pick: boolean; onPress: () => void; at?: number }) {
   const q = equip(e.equipment);
   return (
-    <Tap onPress={onPress} style={s.row} scale={0.98}>
+    <Tap onPress={onPress} style={[s.row, at !== undefined && { borderWidth: 1, borderColor: c.ok + '55' }]} scale={0.98}>
       <Thumb ex={e} size={56} />
       <View style={{ flex: 1, gap: 4 }}>
         <T v="h3" numberOfLines={1}>{e.name}</T>
@@ -170,6 +174,7 @@ function ExRow({ e, focus, locked, pick, onPress }: { e: Exercise; focus?: strin
           <View style={[s.tag, { backgroundColor: q.color + '22' }]}><T v="small" color={q.color}>{q.label}</T></View>
           {focus && <T v="small" numberOfLines={1}>{focus}</T>}
         </Row>
+        {at !== undefined && <Row gap={4}><Ionicons name="checkmark-circle" size={14} color={c.ok} /><T v="small" color={c.ok} numberOfLines={1}>{doneNote(at).text}</T></Row>}
       </View>
       {locked ? <Ionicons name="lock-closed" size={16} color={c.muted} />
         : <Ionicons name={pick ? 'add-circle' : 'chevron-forward'} size={pick ? 26 : 18} color={pick ? c.accent : c.muted} />}

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { Easing, FadeIn, FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fmtTime, isTimed, lastSets } from '../src/calc';
+import { fmtTime, isTimed, lastSets, secsOf } from '../src/calc';
 import { alternatives, byId, title } from '../src/data/exercises';
 import { reschedule, restAlert } from '../src/notify';
 import { gate } from '../src/engine';
@@ -47,8 +47,10 @@ export default function SessionScreen() {
   const it = active.items[Math.min(idx, active.items.length - 1)];
   const ex = byId[it.exId];
   const timed = isTimed(it.target); // '30s' targets log seconds; drills with a hold still count reps
-  const showWeight = !(['pelvic floor', 'stretching', 'mobility', 'eyes', 'desk', 'breathing'].includes(ex.category) || (ex.equipment === 'body only' && timed));
+  const showWeight = !(['pelvic floor', 'stretching', 'mobility', 'eyes', 'desk', 'breathing', 'cardio'].includes(ex.category) || timed);
   const prev = lastSets(sessions, it.exId);
+  const itemDone = it.sets.length > 0 && it.sets.every((x) => x.done);
+  const nextIt = active.items[idx + 1];
   const total = active.items.reduce((n, x) => n + x.sets.length, 0);
   const done = active.items.reduce((n, x) => n + x.sets.filter((y) => y.done).length, 0);
 
@@ -63,7 +65,6 @@ export default function SessionScreen() {
       setRestTotal(it.rest);
       setRestUntil(Date.now() + it.rest * 1000);
       restAlert(it.rest);
-      if (allDone && idx < active!.items.length - 1) setTimeout(() => setIdx(idx + 1), 600);
     }
   }
 
@@ -112,6 +113,13 @@ export default function SessionScreen() {
             Target {it.sets.length} × {it.target}{prev ? `  ·  Last ${prev.map((p) => (p.weight ? `${p.weight}×${p.reps}` : p.reps)).join(' · ')}` : ''}
           </T>
 
+          {!started && (
+            <Row gap={8} style={[s.ready, { borderColor: c.accent }]}>
+              <Ionicons name="hourglass-outline" size={18} color={c.accent} />
+              <T v="small" color={c.text} style={{ flex: 1 }}>Ready when you are. The clock starts only when you tap Start{timed ? ' or start a set timer' : ''}.</T>
+            </Row>
+          )}
+
           <Demo ex={ex} height={220} style={{ marginTop: 14 }} />
 
           <Row style={{ marginTop: 12 }} gap={10}>
@@ -123,7 +131,7 @@ export default function SessionScreen() {
           <View style={s.table}>
             <Row style={{ paddingHorizontal: 12, paddingBottom: 6 }}>
               <T v="label" style={{ width: 22 }}>#</T>
-              <T v="label" style={{ flex: 1, textAlign: 'center' }}>{timed ? 'Seconds' : 'Reps'}</T>
+              <T v="label" style={{ flex: 1, textAlign: 'center' }}>{timed ? 'Time' : 'Reps'}</T>
               {showWeight && <T v="label" style={{ flex: 1, textAlign: 'center' }}>Kg</T>}
               <View style={{ width: 44 }} />
             </Row>
@@ -131,7 +139,14 @@ export default function SessionScreen() {
               <Animated.View key={j} entering={FadeIn} style={[s.set, x.done && s.setDone]}>
                 <Tap onPress={() => it.sets.length > 1 && removeSet(idx, j)} feedback="none" style={{ width: 22 }}><T v="h3" color={x.done ? c.accent : c.muted}>{j + 1}</T></Tap>
                 <View style={{ flex: 1, alignItems: 'center' }}>
-                  <Stepper value={x.reps} step={timed ? 5 : 1} min={0} onChange={(reps) => updateSet(idx, j, { reps })} />
+                  {timed ? (
+                    <SetTimer key={`${it.exId}-${j}`} value={x.reps} target={secsOf(it.target) ?? x.reps} done={x.done}
+                      onChange={(reps) => updateSet(idx, j, { reps })}
+                      onStart={() => { if (!started) { begin(); haptic('success'); } else if (paused) doResume(); }}
+                      onFinish={(reps) => { updateSet(idx, j, { reps }); if (!x.done) toggle(j); }} />
+                  ) : (
+                    <Stepper value={x.reps} step={1} min={0} onChange={(reps) => updateSet(idx, j, { reps })} />
+                  )}
                 </View>
                 {showWeight && (
                   <View style={{ flex: 1, alignItems: 'center' }}>
@@ -144,6 +159,20 @@ export default function SessionScreen() {
               </Animated.View>
             ))}
           </View>
+
+          {itemDone && (
+            <Animated.View entering={FadeInDown.duration(300).easing(Easing.bezier(0.32, 0.72, 0, 1))} style={[s.next, { borderColor: c.accent }]}>
+              <Row gap={8}><Ionicons name="checkmark-circle" size={22} color={c.accent} /><T v="h3" style={{ flex: 1 }}>{ex.name} done</T></Row>
+              {nextIt ? (
+                <Button title={`Next: ${byId[nextIt.exId].name}`} icon="arrow-forward" onPress={() => setIdx(idx + 1)} />
+              ) : (
+                <>
+                  <Button title="Add another exercise" icon="add" kind="ghost" onPress={() => router.push({ pathname: '/library', params: { pick: '1' } })} />
+                  <Button title="Finish workout" icon="checkmark" onPress={() => setSheet('end')} />
+                </>
+              )}
+            </Animated.View>
+          )}
         </Animated.View>
       </ScrollView>
 
@@ -221,7 +250,50 @@ export default function SessionScreen() {
   );
 }
 
+// A set timer for holds and cardio: nothing runs until the user taps play. It counts up to the target, then logs the
+// set; stopping early logs what was done. Before starting, +/- adjusts the target time.
+function SetTimer({ value, target, done, onChange, onStart, onFinish }: {
+  value: number; target: number; done: boolean; onChange: (n: number) => void; onStart: () => void; onFinish: (secs: number) => void;
+}) {
+  const [since, setSince] = useState<number | null>(null);
+  const now = useNow(since ? 250 : 60000);
+  const secs = since ? Math.floor((now - since) / 1000) : value;
+  const goal = Math.max(target, value);
+  useEffect(() => {
+    if (since && secs >= goal) { setSince(null); haptic('success'); onFinish(goal); }
+  }, [secs, since]);
+  const step = goal >= 120 ? 60 : 5;
+  if (since)
+    return (
+      <Row gap={10}>
+        <View style={{ alignItems: 'center', minWidth: 76 }}>
+          <T style={{ fontFamily: f.display, fontSize: 24, color: c.accent }}>{fmtTime(secs)}</T>
+          <T v="small">of {fmtTime(goal)}</T>
+        </View>
+        <Tap onPress={() => { setSince(null); onFinish(Math.max(1, secs)); }} style={[s.play, { backgroundColor: c.warm }]} scale={0.9}>
+          <Ionicons name="stop" size={18} color={c.accentInk} />
+        </Tap>
+      </Row>
+    );
+  return (
+    <Row gap={6}>
+      {!done && <Tap onPress={() => onChange(Math.max(step, value - step))} style={s.tiny}><Ionicons name="remove" size={16} color={c.text} /></Tap>}
+      <T style={{ fontFamily: f.bold, fontSize: 17, color: c.text, minWidth: 48, textAlign: 'center' }}>{fmtTime(value)}</T>
+      {!done && <Tap onPress={() => onChange(value + step)} style={s.tiny}><Ionicons name="add" size={16} color={c.text} /></Tap>}
+      {!done && (
+        <Tap onPress={() => { onStart(); setSince(Date.now()); haptic('medium'); }} style={[s.play, { backgroundColor: c.accent }]} scale={0.9}>
+          <Ionicons name="play" size={18} color={c.accentInk} />
+        </Tap>
+      )}
+    </Row>
+  );
+}
+
 const s = StyleSheet.create({
+  ready: { marginTop: 12, padding: 12, borderRadius: r.md, borderWidth: 1, backgroundColor: c.card },
+  next: { marginTop: 16, gap: 10, padding: 16, borderRadius: r.lg, borderWidth: 1, backgroundColor: c.card },
+  play: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  tiny: { width: 28, height: 32, borderRadius: 10, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   finish: { height: 40, minWidth: 88, paddingHorizontal: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   live: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.danger },

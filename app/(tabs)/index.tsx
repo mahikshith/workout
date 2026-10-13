@@ -214,7 +214,7 @@ export default function Today() {
             {gentle ? (
               <RingStat progress={new Set(todays.map((m) => m.slot ?? m.id)).size / 4} color={c.pink} icon="restaurant" value={`${new Set(todays.map((m) => m.slot ?? m.id)).size} of 4`} label="Meals" />
             ) : (
-              <RingStat progress={protein / t.protein} color={c.pink} icon="nutrition" value={`${protein}/${t.protein}g`} label="Protein" />
+              <RingStat progress={protein / t.protein} color={c.pink} icon="nutrition" value={`${protein}/${t.protein}`} label="Protein (g)" />
             )}
             <RingStat progress={water / t.water} color={c.blue} icon="water" value={`${water}/${t.water}`} label="Water" />
           </Row>
@@ -342,7 +342,7 @@ function RingStat({ progress, color, icon, value, label }: { progress: number; c
       <Ring size={72} stroke={7} progress={progress} color={color}>
         <Ionicons name={icon} size={20} color={color} />
       </Ring>
-      <T v="h3" numberOfLines={1} adjustsFontSizeToFit>{value}</T>
+      <T v="h3" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ alignSelf: 'stretch', textAlign: 'center' }}>{value}</T>
       <T v="label">{label}</T>
     </View>
   );

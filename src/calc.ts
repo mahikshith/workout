@@ -99,8 +99,13 @@ export function prs(s: Session, history: Session[]) {
   });
 }
 
-export const parseReps = (r: string) => parseInt(r, 10) || 10;
-export const isTimed = (r: string) => /^\d+s(\/|$)/.test(r);
+// Duration targets ('30s', '20-30 s', '10 min', '30s/side') in seconds; null for rep targets ('8-12', '10/side').
+export const secsOf = (r: string) => {
+  const m = /^(\d+)(?:-\d+)?\s?(s|min)\b/.exec(r);
+  return m ? +m[1] * (m[2] === 'min' ? 60 : 1) : null;
+};
+export const parseReps = (r: string) => secsOf(r) ?? (parseInt(r, 10) || 10);
+export const isTimed = (r: string) => secsOf(r) !== null;
 
 export const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.max(0, sec % 60)).padStart(2, '0')}`;
 
@@ -120,6 +125,7 @@ export function selfCheck() {
   assert(pregnancyWeek(w({ mode: 'pregnant' })) === 14, 'unknown due date is cautious');
   assert(postpartumWeek(w({ mode: 'postpartum', date: '2026-01-01' }), '2026-02-12') === 6, 'postpartum week');
   assert(isTimed('30s') && !isTimed('10/side') && isTimed('30s/side') && !isTimed('8-12'), 'timed parse');
+  assert(secsOf('10 min') === 600 && secsOf('20-30 s') === 20 && secsOf('10 x 4 s') === null && parseReps('10 min') === 600, 'duration parse');
 }
 
 // Exercises with at least one logged set today, and plan days trained since Monday ("planId:dayIndex").
@@ -128,4 +134,21 @@ export const doneToday = (sessions: Session[], now = Date.now()) =>
 export function doneThisWeek(sessions: Session[], now = Date.now()) {
   const d = new Date(now); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   return new Set(sessions.filter((s) => s.startedAt >= d.getTime() && s.planId && s.dayIndex !== undefined).map((s) => `${s.planId}:${s.dayIndex}`));
+}
+
+// "Done recently": the last time each exercise had a logged set, kept for 7 days. Screens tint these rows and say
+// when they count as fresh again, so people can see what they already did this week without it looking locked.
+export function doneRecently(sessions: Session[], now = Date.now()) {
+  const out = new Map<string, number>();
+  for (const s of sessions) {
+    if (now - s.startedAt >= 7 * DAY) continue;
+    for (const it of s.items) if (it.sets.some((x) => x.done) && (out.get(it.exId) ?? 0) < s.startedAt) out.set(it.exId, s.startedAt);
+  }
+  return out;
+}
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export function doneNote(at: number, now = Date.now()) {
+  const day = dayKey(at) === dayKey(now) ? 'today' : WD[new Date(at).getDay()];
+  const left = Math.max(1, Math.ceil((startOfDay(at) + 7 * DAY - startOfDay(now)) / DAY));
+  return { day, left, text: `Done ${day} · fresh again in ${left} day${left > 1 ? 's' : ''}` };
 }
