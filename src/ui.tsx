@@ -145,11 +145,9 @@ export function Tile({ icon, color = c.accent, value, unit, label, onPress, prog
         {value}{unit ? <Text style={{ fontFamily: f.medium, fontSize: 13, color: c.muted }}> {unit}</Text> : null}
       </Text>
       <T v="small" numberOfLines={1}>{label}</T>
-      {progress !== undefined && (
-        <View style={{ height: 4, borderRadius: 2, backgroundColor: c.card2, marginTop: 10, overflow: 'hidden' }}>
-          <View style={{ width: `${Math.max(0, Math.min(1, progress)) * 100}%`, height: 4, borderRadius: 2, backgroundColor: color }} />
-        </View>
-      )}
+      <View style={{ height: 4, borderRadius: 2, backgroundColor: progress === undefined ? 'transparent' : c.card2, marginTop: 10, overflow: 'hidden' }}>
+        {progress !== undefined && <View style={{ width: `${Math.max(0, Math.min(1, progress)) * 100}%`, height: 4, borderRadius: 2, backgroundColor: color }} />}
+      </View>
     </Press>
   );
 }
@@ -282,8 +280,8 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
               // body inside it, so nothing depends on flex centring (which shifted it right on some Android phones).
               <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2 }]}>
                 {w > 0 && (
-                  <View style={{ position: 'absolute', left: 0, top: 0, width: w, height }}>
-                    <Figure pose={pose} primary={ex.primary} secondary={ex.secondary} height={height} width={w} paused={paused} />
+                  <View style={{ position: 'absolute', left: 0, top: 44, width: w, height: height - 52 }}>
+                    <Figure pose={pose} primary={ex.primary} secondary={ex.secondary} height={height - 52} width={w} paused={paused} />
                   </View>
                 )}
               </View>
@@ -309,7 +307,7 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
       {credit && kind && (
         <T v="small" color={c.dim} style={{ marginTop: 8, textAlign: 'center' }}>
           {kind === 'animated'
-            ? `${matched ? 'Shows the movement pattern; follow the steps below for exact form. ' : ''}Blue dashed line: keep it straight. Coloured arc: the joint angle. Grey line: your balance point.`
+            ? `${matched ? 'Movement pattern · ' : ''}Blue: keep straight · Arc: joint angle · Grey: balance`
             : kind === 'video' ? `Video: ${VIDEOS[ex.id].author}, wger.de, CC BY-SA 4.0` : CREDIT[kind]}
         </T>
       )}
@@ -492,7 +490,7 @@ export function Stepper({ value, onChange, step = 1, min = 0, suffix, big }: {
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', minWidth: big ? 120 : 34 }}>
         <TextInput value={txt ?? fmt(value)} onFocus={() => setTxt(fmt(value))} onChangeText={setTxt} onBlur={commit} onSubmitEditing={commit}
           keyboardType="decimal-pad" selectTextOnFocus maxLength={6} returnKeyType="done"
-          style={{ fontFamily: big ? f.display : f.bold, fontSize: big ? 48 : 17, color: c.text, textAlign: 'center', padding: 0, minWidth: big ? 80 : 30,
+          style={{ fontFamily: big ? f.display : f.bold, fontSize: big ? 48 : 17, color: c.text, textAlign: 'center', padding: 0, width: big ? 120 : 52,
             borderBottomWidth: txt !== null ? 1.5 : 0, borderBottomColor: c.accent }} />
         {suffix ? <Text style={{ fontFamily: f.semi, fontSize: big ? 18 : 12, color: c.muted }}>{suffix}</Text> : null}
       </View>

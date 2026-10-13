@@ -182,7 +182,7 @@ export default function Fuel() {
 
       {/* Occasional reading, closed until asked for. */}
       <Rise i={5} style={{ marginTop: 32, gap: 12 }}>
-        <Fold title="Today's plan" icon="calendar" open>
+        <Fold title="Today's plan" icon="calendar">
           <T v="small" color={c.text}>{gentle ? plan.title : `${plan.title} · about ${Math.round(t.protein / plan.items.length)} g protein each`}</T>
           {plan.items.map((it, n) => {
             const nth = plan.items.slice(0, n).filter((x) => x.slot === it.slot).length; // second snack of the day

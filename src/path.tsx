@@ -129,8 +129,10 @@ function Stop({ b, x, y, current, fresh, i, onPress }: { b: Badge; x: number; y:
         </Tap>
       </Animated.View>
       {current && (
-        <View style={{ position: 'absolute', top: -14, paddingHorizontal: 8, height: 20, borderRadius: 10, backgroundColor: c.accent, justifyContent: 'center' }}>
-          <T v="label" color={c.accentInk} style={{ fontSize: 10, lineHeight: 12 }}>You are here</T>
+        <View pointerEvents="none" style={{ position: 'absolute', top: -16, left: -50, right: -50, alignItems: 'center' }}>
+          <View style={{ paddingHorizontal: 8, height: 20, borderRadius: 10, backgroundColor: c.accent, justifyContent: 'center' }}>
+            <T v="label" color={c.accentInk} numberOfLines={1} style={{ fontSize: 10, lineHeight: 12 }}>You are here</T>
+          </View>
         </View>
       )}
       {fresh && <Burst />}
