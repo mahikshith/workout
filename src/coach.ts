@@ -1,10 +1,17 @@
 import { postpartumWeek, pregnancyWeek } from './calc';
 import type { Place } from './data/exercises';
-import { perWeek, plans, type Plan } from './data/plans';
-import type { Profile, Session } from './store';
+import { perWeek, planById, plans, type Plan } from './data/plans';
+import type { Concern, Profile, Session } from './store';
 
 // One best plan from goal, place, experience, days per week and body context. Women plans are only picked for women.
+// One-muscle plans are add-ons, never a main plan, so a pick that lands on one falls back to a full programme.
 export function recommend(p: Profile): string {
+  const id = pick(p);
+  if (planById[id]?.category !== 'One muscle') return id;
+  return p.place === 'home' ? 'home-beginner' : p.place === 'office' ? 'desk-reset' : 'full-body-gym';
+}
+
+function pick(p: Profile): string {
   if (pregnancyWeek(p) !== null) return 'pregnancy-safe';
   const pp = postpartumWeek(p);
   if (pp !== null && pp < 12) return 'after-birth'; // breathing, pelvic floor and walking come first after birth
@@ -12,6 +19,11 @@ export function recommend(p: Profile): string {
   if (p.concerns?.some((x) => x === 'endurance' || x === 'run') && p.goal !== 'build muscle') return 'cardio-aerobic';
   if (p.concerns?.includes('gain') && p.place !== 'home') return 'lean-gain';
   if (p.place === 'office') return 'desk-reset';
+  // Body type (optional): larger bodies start joint-friendly; lean or soft bodies wanting muscle start with full-body strength.
+  if (p.body === 'more') return p.place === 'home' ? 'home-beginner' : 'fat-loss-gym';
+  if (p.body === 'extra' && p.place === 'home' && p.goal === 'lose fat') return 'home-beginner'; // fat-burn-home is jump-heavy
+  if ((p.body === 'lean' || p.body === 'soft') && p.goal !== 'get stronger' && p.place !== 'home' && p.level === 'beginner')
+    return p.body === 'lean' && p.goal === 'build muscle' ? 'lean-gain' : 'full-body-gym';
   if (p.place === 'home') {
     if (p.goal === 'lose fat') return 'fat-burn-home';
     if (p.gear.includes('dumbbell')) return 'home-dumbbell';
@@ -32,6 +44,10 @@ export function recommend(p: Profile): string {
   return p.goal === 'get stronger' ? 'phul' : 'upper-lower-gym';
 }
 
+// One-muscle plans show in "Best for you" only when a concern clearly points at them, never by default.
+const ONE_MUSCLE: Record<string, Concern[]> = { 'glute-day': ['tone'], 'core-day': ['back', 'posture'], 'back-day': ['posture'] };
+const oneMuscleFits = (p: Profile, x: Plan) => (ONE_MUSCLE[x.id] ?? []).some((c) => p.concerns?.includes(c));
+
 // Plans that fit this person, best first. Women plans only for women; pregnancy and after-birth plans only when they apply.
 export const ranked = (p: Profile): Plan[] => {
   const best = recommend(p);
@@ -40,11 +56,11 @@ export const ranked = (p: Profile): Plan[] => {
   const fresh = pp !== null && pp < 12;
   const place = p.place === 'both' ? null : p.place;
   const ok = (x: Plan) =>
-    (x.category !== 'Women' || p.gender === 'female') && (x.id !== 'pregnancy-safe' || preg) && (x.id !== 'after-birth' || fresh) &&
+    (x.category !== 'Women' || p.gender === 'female') && (x.category !== 'One muscle' || (!preg && !fresh && oneMuscleFits(p, x))) && (x.id !== 'pregnancy-safe' || preg) && (x.id !== 'after-birth' || fresh) &&
     (!place || x.place === place || x.place === 'any');
   const score = (x: Plan) =>
     (x.id === best ? 100 : 0) + (x.tags.includes(p.goal) ? 10 : 0) - 2 * Math.abs(perWeek(x) - p.daysPerWeek) +
-    (x.level === 'intermediate' && p.level === 'beginner' ? -8 : 0) + ((preg || fresh) && x.category === 'Recovery' ? (x.id === 'pelvic-floor' ? 50 : 40) : 0);
+    (x.level === 'intermediate' && p.level === 'beginner' ? -8 : 0) + (x.category === 'One muscle' ? 15 : 0) + ((p.body === 'more' || p.body === 'extra') && ['functional', 'fat-burn-home'].includes(x.id) ? -15 : 0) + (p.body === 'muscular' && x.level === 'beginner' ? -6 : 0) + ((preg || fresh) && x.category === 'Recovery' ? (x.id === 'pelvic-floor' ? 50 : 40) : 0);
   return plans.filter(ok).sort((a, b) => score(b) - score(a));
 };
 

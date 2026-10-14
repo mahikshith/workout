@@ -7,9 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { recommend } from '../src/coach';
 import { HOME_GEAR, title } from '../src/data/exercises';
 import { askPermission, reschedule } from '../src/notify';
-import { useStore, type Goal, type Profile } from '../src/store';
+import { useStore, type Body, type Goal, type Profile } from '../src/store';
 import { c, f, r } from '../src/theme';
-import { BOX, ContextFields, GOALS, LEVELS, Pill, Tiles } from '../src/context';
+import { BODIES, BOX, ContextFields, GOALS, LEVELS, Pill, Tiles } from '../src/context';
 import { TimePicker } from '../src/timepicker';
 import { Button, Row, T, Tap } from '../src/ui';
 
@@ -117,6 +117,12 @@ export default function Onboarding() {
 
         <Section title="Your goal">
           <Tiles<Goal> opts={GOALS} on={(k) => p.goal === k} onPick={(goal) => up({ goal })} />
+          <T v="h3" style={s.label}>How would you describe your body right now?</T>
+          <T v="small">Optional. It helps us pick the right start. It stays on your phone.</T>
+          <Tiles<Body> opts={BODIES} on={(k) => p.body === k} onPick={(k) => up({ body: p.body === k ? undefined : k })} />
+          <View style={s.wrap}>
+            <Pill label="Prefer not to say" on={!p.body} onPress={() => up({ body: undefined })} />
+          </View>
           <T v="h3" style={s.label}>Where do you train?</T>
           <Seg<Profile['place']> value={p.place} onPick={(place) => up({ place })} opts={[['gym', 'Gym'], ['home', 'Home'], ['both', 'Both'], ['office', 'Office']]} />
           {(p.place === 'home' || p.place === 'both') && (

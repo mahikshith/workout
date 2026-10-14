@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -7,11 +8,11 @@ import { Bars, LineChart } from '../../src/charts';
 import { dayKey, doneSets, e1rm, streak, targets, volume } from '../../src/calc';
 import { byId, title } from '../../src/data/exercises';
 import { badges, level } from '../../src/data/badges';
-import { JourneyPath } from '../../src/path';
+import { Achievements } from '../../src/medals';
 import { Journey } from '../../src/journey';
 import { useStore } from '../../src/store';
 import { c } from '../../src/theme';
-import { Button, Card, Chip, Fold, haptic, IconBox, ListRow, Rise, Row, Screen, Section, Stat, Stepper, T, Tap, TabTitle, Tile } from '../../src/ui';
+import { Button, Card, Chip, Fold, haptic, ListRow, Rise, Row, Screen, Section, Stat, Stepper, T, Tap, TabTitle, Tile } from '../../src/ui';
 
 const DAY = 86400000;
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
@@ -37,6 +38,7 @@ export default function Progress() {
   const [pick, setPick] = useState<string | null>(null); // strength curve exercise
   const [trend, setTrend] = useState<Trend>('volume');
   const [fuel, setFuel] = useState<Fuel>('water');
+  const [logOpen, setLogOpen] = useState(false); // weight logger opened from the weight trend
   if (!profile) return null;
   const gentle = !!(profile.gentle || profile.concerns?.includes('food'));
   // No-numbers mode hides weight and calorie charts; fall back if one was picked before it was switched on.
@@ -75,7 +77,10 @@ export default function Progress() {
   const volTrend = Array.from({ length: 12 }, (_, i) => weekOf(11 - i).reduce((a, s) => a + volume(s), 0));
   // Four weeks back, this week in the middle, three weeks ahead.
   const perWeek = Array.from({ length: 8 }, (_, i) => ({ label: i === 4 ? 'Now' : String(back(4 - i).getDate()), value: i > 4 ? 0 : weekOf(4 - i).length }));
-  const lastW = weights.length ? [...weights].sort((a, b) => a.day.localeCompare(b.day))[weights.length - 1] : null;
+  const sortedW = [...weights].sort((a, b) => a.day.localeCompare(b.day));
+  const lastW = sortedW.length ? sortedW[sortedW.length - 1] : null;
+  // The last 5 weigh-ins, newest first, each with its change against the one before it.
+  const recentW = sortedW.map((x, i) => ({ ...x, diff: i > 0 ? x.kg - sortedW[i - 1].kg : null })).slice(-5).reverse();
   const loggedToday = lastW?.day === dayKey();
 
   const counts: Record<string, number> = {};
@@ -115,10 +120,9 @@ export default function Progress() {
   const now = new Date();
   const thisMonth = sessions.filter((s) => { const d = new Date(s.startedAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length;
 
-  // Achievements road and level, from the same store slices (no getState, so it re-renders when they change).
+  // Level and medals, from the same store slices (no getState, so it re-renders when they change).
   const all = { profile, sessions, meals, water };
   const lv = level(all), bs = badges(all);
-  const stops = bs.filter((x) => x.got).length;
 
   // Example projection: starts from the real top lift when there is one, else a sample 40 kg. Compounds 1.5% a week.
   const base = cur ? best[cur] : 40;
@@ -126,7 +130,7 @@ export default function Progress() {
   const proj = Array.from({ length: 13 }, (_, i) => base * Math.pow(1.015, i));
   const gain = base * (Math.pow(1.015, 12) - 1);
   const intro = cur ? `From your ${byId[cur]?.name ?? 'top lift'} · ${days} sessions a week` : `Sample 40 kg lift · ${days} sessions a week`;
-  const same = loggedToday && lastW?.kg === +kg.toFixed(1);
+  const logger = <WeightLog kg={kg} setKg={setKg} today={loggedToday && lastW ? lastW.kg : null} onLog={() => { logWeight(+kg.toFixed(1)); haptic('success'); }} />;
 
   return (
     <Screen>
@@ -171,10 +175,19 @@ export default function Progress() {
                 </>
               )}
               {tr === 'weight' && (
-                <Panel value={lastW ? lastW.kg.toFixed(1) : '-'} unit={lastW ? 'kg' : undefined} cap={`Goal ${profile.goalWeightKg} kg · ${weights.length} weigh-ins`}
-                  empty={!w.length && 'Log your weight below'}>
-                  <LineChart values={w.map((p) => p.kg)} goal={profile.goalWeightKg} fmt={(v) => `${v.toFixed(1)} kg`} height={120} />
-                </Panel>
+                <>
+                  <Panel value={lastW ? lastW.kg.toFixed(1) : '-'} unit={lastW ? 'kg' : undefined} cap={`Goal ${profile.goalWeightKg} kg · ${weights.length} weigh-ins`}
+                    empty={!w.length && 'No weigh-ins yet'}>
+                    <LineChart values={w.map((p) => p.kg)} goal={profile.goalWeightKg} fmt={(v) => `${v.toFixed(1)} kg`} height={120} />
+                  </Panel>
+                  {logOpen ? (
+                    <Animated.View entering={FadeIn.duration(220).easing(EASE)} style={{ gap: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: c.line }}>
+                      {logger}
+                    </Animated.View>
+                  ) : (
+                    <Button title="Log today's weight" icon="add" kind="ghost" onPress={() => setLogOpen(true)} style={{ height: 44 }} />
+                  )}
+                </>
               )}
             </Animated.View>
           </Card>
@@ -182,39 +195,28 @@ export default function Progress() {
       </Rise>
 
       <Rise i={3}>
-        <Section title="Journey">
-          <Card style={{ gap: 16 }}>
-            <View style={{ gap: 10 }}>
-              <Row gap={12}>
-                <IconBox icon="ribbon" />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <T v="h3" numberOfLines={1}>Level {lv.lvl} · {lv.name}</T>
-                  <T v="small" numberOfLines={1}>{lv.into}/{lv.need} XP · {stops} of {bs.length} stops</T>
-                </View>
-              </Row>
-              <View style={s.track}><View style={[s.fill, { width: `${Math.min(100, (lv.into / lv.need) * 100)}%`, backgroundColor: c.accent }]} /></View>
-            </View>
-            <JourneyPath badges={bs} />
-          </Card>
+        <Section title="Achievements">
+          <Card><Achievements lv={lv} badges={bs} /></Card>
         </Section>
       </Rise>
 
       {!gentle && (
         <Rise i={4}>
-          <Section title="Body weight">
-            <Card style={{ gap: 16 }}>
-              <Row gap={12}>
-                <IconBox icon="scale-outline" />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <T v="h3" numberOfLines={1}>{lastW ? `${lastW.kg.toFixed(1)} kg` : 'No weigh-ins yet'}</T>
-                  <T v="small" numberOfLines={1}>{lastW ? `${loggedToday ? 'Today' : short(lastW.day + 'T12:00:00')} · goal ${profile.goalWeightKg} kg` : `Goal ${profile.goalWeightKg} kg`}</T>
+          <Section title="Log today's weight">
+            <Card style={{ gap: 12 }}>
+              {logger}
+              {recentW.length > 0 && (
+                <View style={{ gap: 4, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.line }}>
+                  <T v="label" style={{ marginBottom: 4 }}>Last weigh-ins</T>
+                  {recentW.map((x) => (
+                    <Row key={x.day} style={{ height: 32 }}>
+                      <T v="small" color={c.text} style={{ flex: 1 }} numberOfLines={1}>{x.day === dayKey() ? 'Today' : short(x.day + 'T12:00:00')}</T>
+                      <T v="small" color={c.text} style={{ width: 72, textAlign: 'right' }}>{x.kg.toFixed(1)} kg</T>
+                      <T v="small" style={{ width: 56, textAlign: 'right' }}>{x.diff === null ? '-' : `${x.diff > 0 ? '+' : x.diff < 0 ? '−' : ''}${Math.abs(x.diff).toFixed(1)}`}</T>
+                    </Row>
+                  ))}
                 </View>
-              </Row>
-              <Row style={{ justifyContent: 'space-between' }}>
-                <Stepper value={kg} step={0.1} onChange={setKg} min={30} suffix=" kg" />
-                <Button title={same ? 'Logged' : loggedToday ? 'Update' : 'Log'} icon={same ? 'checkmark' : undefined}
-                  onPress={() => { logWeight(+kg.toFixed(1)); haptic('success'); }} style={{ height: 44, paddingHorizontal: 22 }} />
-              </Row>
+              )}
             </Card>
           </Section>
         </Rise>
@@ -337,6 +339,26 @@ export default function Progress() {
         </Section>
       </Rise>
     </Screen>
+  );
+}
+
+// Today's weight: the number field and Log button, the one-entry-per-day rule, and a tick once today is saved.
+function WeightLog({ kg, setKg, today, onLog }: { kg: number; setKg: (n: number) => void; today: number | null; onLog: () => void }) {
+  const same = today !== null && today === +kg.toFixed(1);
+  return (
+    <>
+      <Row style={{ justifyContent: 'space-between' }}>
+        <Stepper value={kg} step={0.1} onChange={setKg} min={30} suffix=" kg" />
+        <Button title={same ? 'Logged' : 'Log'} icon={same ? 'checkmark' : undefined} onPress={onLog} style={{ height: 44, paddingHorizontal: 22 }} />
+      </Row>
+      <T v="small">One entry per day · logging again today replaces today's</T>
+      {today !== null && (
+        <Row gap={8}>
+          <Ionicons name="checkmark-circle" size={18} color={c.ok} />
+          <T v="small" color={c.text}>Saved · {today.toFixed(1)} kg today</T>
+        </Row>
+      )}
+    </>
   );
 }
 

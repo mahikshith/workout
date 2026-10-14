@@ -60,9 +60,18 @@ const FUNNY = [
 export type Lock = { locked: boolean; title?: string; reason?: string; safety?: boolean; sessionsLeft?: number };
 
 // Level locks: beginners earn harder moves by training, so the first week doesn't end in soreness and an uninstall.
+// Larger bodies start joint-friendly: no jumping for roughly the first two weeks.
+export const JOINT_FRIENDLY = 6;
+const heavier = (p: Profile) => p.body === 'more' || p.body === 'extra';
+
 export function gate(e: Exercise, p: Profile, sessionsDone: number): Lock {
   const safe = hidden(e, p);
   if (safe) return { locked: true, title: 'Paused for your safety', reason: safe, safety: true };
+  if (heavier(p) && impact(e) && sessionsDone < JOINT_FRIENDLY) {
+    const left = JOINT_FRIENDLY - sessionsDone;
+    return { locked: true, sessionsLeft: left, title: 'Easy on the joints first',
+      reason: `Jumping moves open after ${left} more session${left > 1 ? 's' : ''}. Walking and strength build the base for them.` };
+  }
   if (e.level === 'intermediate' && p.level === 'beginner' && sessionsDone < UNLOCK.intermediate) {
     const left = UNLOCK.intermediate - sessionsDone;
     return {
@@ -107,6 +116,7 @@ export function quickFor(p: Profile, now = Date.now()): Quick[] {
     if (has('sleep') && hour >= 19 && t('calm')) s += 15;
     if (hour < 11 && t('morning')) s += 25;
     if (hour >= 19 && (t('calm') || t('mobility'))) s += 20;
+    if (heavier(p) && q.slots.some((sl) => byId[sl.id] && impact(byId[sl.id]))) s -= 30; // low-impact first
     return s;
   };
   return quick
@@ -181,6 +191,7 @@ export function suggest(i: EngineInput, now = Date.now()): Suggestion {
       : `${p.daysPerWeek - week} more this week to hit your goal.`;
   }
   if (pregnancyWeek(p) !== null) reason += ' Pregnancy-safe moves only.';
+  else if (heavier(p) && sessions.length < JOINT_FRIENDLY) reason += ' Joint-friendly moves for now.';
   return out('plan', day, reason, idx);
 }
 
@@ -230,15 +241,25 @@ export function insights(i: EngineInput, now = Date.now()): Insight[] {
     if (cardioMin > 150) out.push({ id: 'cardio-balance', icon: 'pulse', title: 'Lots of cardio this week', body: 'Keep cardio to two or three short sessions so your muscles have the fuel to grow.' });
   }
 
+  // Body type (optional): one gentle, evidence-based pointer.
+  const body = {
+    more: { title: 'Walking and strength', body: 'Daily walks plus strength twice a week is the best pair for steady, lasting change. No jumping in the first two weeks.' },
+    extra: { title: 'Walking and strength', body: 'Brisk walks plus strength work burn fat and keep muscle. We keep jumping out of your first two weeks.' },
+    soft: { title: 'Strength comes first', body: 'Strength training three times a week firms you up faster than cardio alone. Keep protein in every meal.' },
+    lean: { title: 'Eat enough to grow', body: gentle ? 'Muscle needs fuel. Regular meals and a snack after training help it grow.' : `Muscle needs fuel. Aim for about ${t.kcal} kcal and ${t.protein} g of protein a day.` },
+  }[p.body ?? ('' as never)];
+  if (body) out.push({ id: `body-${p.body}`, icon: p.body === 'lean' ? 'restaurant' : p.body === 'soft' ? 'barbell' : 'walk', ...body });
+  const seasoned = p.body === 'muscular'; // already training: skip the beginner hand-holding
+
   // The first two months: honest expectations, so a slow start never feels like failure.
   const first = sessions[0]?.startedAt;
-  if (first && now - first < 60 * DAY) {
+  if (!seasoned && first && now - first < 60 * DAY) {
     const wk = Math.floor((now - first) / (7 * DAY));
     out.push({ id: `expect-${wk}`, icon: 'hourglass', title: `Week ${wk + 1}: what to expect`, body: expectLine(wk) });
-  } else if (!first) out.push({ id: 'expect-start', icon: 'hourglass', title: 'Set realistic goals', body: 'Most people see visible change after 6 to 8 weeks of steady training. Consistency beats intensity.' });
+  } else if (!seasoned && !first) out.push({ id: 'expect-start', icon: 'hourglass', title: 'Set realistic goals', body: 'Most people see visible change after 6 to 8 weeks of steady training. Consistency beats intensity.' });
 
   // First gym visits: the unwritten rules, until a few sessions are logged.
-  if (sessions.length < 3 && p.place !== 'home' && p.place !== 'office')
+  if (!seasoned && sessions.length < 3 && p.place !== 'home' && p.place !== 'office')
     out.push({ id: 'etiquette', icon: 'people', title: 'New to the gym?', body: 'Wipe what you use, put weights back, and ask "how many sets left?" when you need a machine. More in your profile.' });
 
   const water = i.water[today] ?? 0;
@@ -281,4 +302,10 @@ export function selfCheck() {
   assert(!!hidden(ex('Dumbbell_Lunges'), { ...base, concerns: ['knee'] }), 'knee hides lunges');
   const i = { profile: base, sessions: [], meals: [], water: {}, checkins: { [dayKey()]: 1 as Mood }, planId: 'full-body-gym', nextDay: 0 };
   assert(['light', 'rest'].includes(suggest(i).kind), 'drained gets a light session or a rest day');
+  const jump = ex('Freehand_Jump_Squat');
+  assert(gate(jump, { ...base, body: 'more' }, 0).locked && !gate(jump, { ...base, body: 'more' }, JOINT_FRIENDLY).locked, 'heavier bodies: no jumping at first');
+  assert(!gate(jump, { ...base, body: 'lean' }, 0).locked || jump.level !== 'beginner', 'lean bodies can jump');
+  const ids = (b: Profile['body']) => insights({ ...i, profile: { ...base, body: b }, checkins: {} }).map((x) => x.id);
+  assert(ids('extra').includes('body-extra') && ids('soft').includes('body-soft') && ids('lean').includes('body-lean'), 'body insights');
+  assert(!ids('muscular').some((x) => x.startsWith('expect') || x === 'etiquette') && ids(undefined).includes('etiquette'), 'muscular skips beginner tips');
 }

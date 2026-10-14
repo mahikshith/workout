@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Text, View } from 'react-native';
 import { dayKey, postpartumWeek, pregnancyWeek } from './calc';
-import type { Concern, Goal, Lifestyle, Profile, Women } from './store';
+import type { Body, Concern, Goal, Lifestyle, Profile, Women } from './store';
 import { c, f } from './theme';
 import { Row, Stepper, T, Tap } from './ui';
 
@@ -24,6 +24,14 @@ export const LEVELS: Opt<Profile['level']>[] = [
   ['beginner', 'Just starting', 'leaf', 'Less than 6 months'],
   ['intermediate', 'Trained before', 'trending-up', '6 months to 2 years'],
   ['advanced', 'Train regularly', 'trophy', '2+ years'],
+];
+export const BODIES: Opt<Body>[] = [
+  ['lean', 'Slim', 'leaf', 'Low body fat, want more muscle'],
+  ['soft', 'Slim but soft', 'cloud', 'Not much muscle, a little fat'],
+  ['average', 'In between', 'person', 'Average build'],
+  ['extra', 'Some extra weight', 'trending-down', 'Want to lose a bit'],
+  ['more', 'Carrying more weight', 'heart', 'Want to lose more, gently'],
+  ['muscular', 'Muscular', 'barbell', 'Already training, want to refine'],
 ];
 export const optLabel = <K extends string>(opts: Opt<K>[], k: K) => opts.find((o) => o[0] === k)?.[1] ?? k;
 

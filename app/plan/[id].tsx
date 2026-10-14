@@ -85,6 +85,9 @@ export default function PlanDetail() {
           </Row>
         )}
         <T v="body" color={c.muted} style={{ marginTop: 4 }}>{plan.tagline}</T>
+        {!isCurrent && !welcome && (
+          <Button title="Start this plan" icon="play" style={{ marginTop: 16 }} onPress={() => { setPlan(plan.id); router.back(); }} />
+        )}
         {welcome && (
           <Row gap={8} style={{ marginTop: 12 }}>
             <Ionicons name="sparkles" size={16} color={c.accent} />
@@ -176,18 +179,12 @@ export default function PlanDetail() {
         </Section>
       </Rise>
 
-      <View style={{ marginTop: 32 }}>
-        {welcome ? (
-          <>
-            <Button title="Let’s go" icon="flash" onPress={() => router.replace('/')} />
-            <T v="small" color={c.dim} style={{ textAlign: 'center', marginTop: 12 }}>You can redo setup anytime in Profile</T>
-          </>
-        ) : isCurrent ? (
-          <Button title="Current plan" kind="ghost" icon="checkmark" disabled />
-        ) : (
-          <Button title="Start this plan" icon="play" onPress={() => { setPlan(plan.id); router.back(); }} />
-        )}
-      </View>
+      {welcome && (
+        <View style={{ marginTop: 32 }}>
+          <Button title="Let’s go" icon="flash" onPress={() => router.replace('/')} />
+          <T v="small" color={c.dim} style={{ textAlign: 'center', marginTop: 12 }}>You can redo setup anytime in Profile</T>
+        </View>
+      )}
     </Screen>
   );
 }

@@ -21,15 +21,15 @@ const APath = Animated.createAnimatedComponent(Path);
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 
 // Front and back side by side. Every region has a light outline; main muscles are red with a soft wide stroke behind
-// them as a glow; helpers are a still, lighter red. The main muscles pulse twice when the map appears, then hold still:
-// a constant pulse on these detailed paths made scrolling the exercise page stutter on Android.
+// them as a glow; helpers are a still, lighter red. The main muscles blink (0.9 s in, 0.9 s out) for as long as the map
+// is on screen; small grid maps pass `still`.
 // All main muscles share one glow path and one fill path, so the pulse animates two paths, not dozens.
 // `side` shows only the front or back figure (small icons); `still` skips the opening pulse (grids of many maps).
 export function MuscleMap({ primary, secondary, size = 200, side, still: quiet }: { primary: string[]; secondary: string[]; size?: number; side?: 'front' | 'back'; still?: boolean }) {
   const p = useSharedValue(0);
   const still = useReducedMotion();
   useEffect(() => {
-    p.value = still || quiet ? 1 : withRepeat(withTiming(1, { duration: 1200, easing: EASE }), 5, true);
+    p.value = still || quiet ? 1 : withRepeat(withTiming(1, { duration: 900, easing: EASE }), -1, true);
     return () => cancelAnimation(p);
   }, [still, quiet]);
   const parts = BODY.map(([region, d]) => {
@@ -51,11 +51,11 @@ export function MuscleMap({ primary, secondary, size = 200, side, still: quiet }
 }
 
 function Glow({ d, p }: { d: string; p: SharedValue<number> }) {
-  const a = useAnimatedProps(() => ({ strokeOpacity: 0.1 + 0.3 * p.value }));
+  const a = useAnimatedProps(() => ({ strokeOpacity: 0.05 + 0.5 * p.value }));
   return <APath d={d} fill="none" stroke={RED} strokeWidth={26} strokeLinejoin="round" animatedProps={a} />;
 }
 
 function Main({ d, p }: { d: string; p: SharedValue<number> }) {
-  const a = useAnimatedProps(() => ({ fillOpacity: 0.75 + 0.25 * p.value }));
+  const a = useAnimatedProps(() => ({ fillOpacity: 0.35 + 0.65 * p.value }));
   return <APath d={d} fill={RED} stroke="#FFB4AE" strokeOpacity={0.9} strokeWidth={5} strokeLinejoin="round" animatedProps={a} />;
 }

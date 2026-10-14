@@ -30,7 +30,9 @@ export type Profile = {
   women?: Women;
   gentle?: boolean; // no-numbers mode: hides calories, weight and BMI
   accent?: AccentId;
+  body?: Body; // "How would you describe your body right now?" (optional; unset = prefer not to say)
 };
+export type Body = 'lean' | 'soft' | 'average' | 'extra' | 'more' | 'muscular';
 
 export type Lifestyle = 'desk' | 'wfh' | 'standing' | 'active' | 'home' | 'parent' | 'driving' | 'travel' | 'shift' | 'student' | 'retired';
 export type Concern = 'stressed' | 'anger' | 'calm' | 'anxious' | 'sleep' | 'confidence' | 'breakup' | 'lose-weight' | 'gain' | 'tone' | 'endurance' | 'run'

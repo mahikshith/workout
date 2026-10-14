@@ -30,14 +30,25 @@ export function targets(p: Profile) {
   const activity = p.daysPerWeek <= 2 ? 1.3 : p.daysPerWeek <= 3 ? 1.4 : p.daysPerWeek <= 5 ? 1.55 : 1.7;
   const tdee = bmr * activity;
   let delta = { 'lose fat': -Math.min(500, tdee * 0.2), 'build muscle': tdee * 0.1, 'get stronger': tdee * 0.05, 'stay fit': 0 }[p.goal];
+  let proteinPerKg = { 'lose fat': 2, 'build muscle': 1.8, 'get stronger': 1.8, 'stay fit': 1.4 }[p.goal];
+  // Body type (optional). Protein for larger bodies uses goal weight, or the weight at BMI 25, so targets aren't inflated.
+  let proteinKg = p.weightKg;
+  if (p.body === 'more') {
+    proteinKg = p.goalWeightKg < p.weightKg ? p.goalWeightKg : Math.min(p.weightKg, 25 * (p.heightCm / 100) ** 2);
+    proteinPerKg = Math.max(proteinPerKg, 1.6);
+    delta = -Math.min(500, tdee * 0.15); // modest deficit: sustainable, keeps muscle
+  } else if (p.body === 'lean' && p.goal === 'build muscle') delta = Math.min(350, tdee * 0.1); // small surplus, mostly muscle
+  else if (p.body === 'soft') {
+    delta = Math.min(tdee * 0.05, Math.max(-tdee * 0.1, delta)); // recomposition: near maintenance
+    proteinPerKg = Math.max(proteinPerKg, 2);
+  }
   const pw = pregnancyWeek(p);
   if (pw !== null) delta = pw >= 28 ? 450 : pw >= 14 ? 340 : 0;
   else if (postpartumWeek(p) !== null || p.concerns?.includes('food')) delta = Math.max(delta, 0);
   else if (p.concerns?.includes('thyroid')) delta = Math.max(delta, -tdee * 0.1);
-  const proteinPerKg = { 'lose fat': 2, 'build muscle': 1.8, 'get stronger': 1.8, 'stay fit': 1.4 }[p.goal];
   return {
     kcal: Math.round((tdee + delta) / 10) * 10,
-    protein: Math.round(p.weightKg * proteinPerKg),
+    protein: Math.round(proteinKg * proteinPerKg),
     water: Math.round((p.weightKg * 35) / 250), // 250 ml glasses
     bmi: p.weightKg / (p.heightCm / 100) ** 2,
   };
@@ -124,6 +135,14 @@ export function selfCheck() {
   assert(pregnancyWeek(w({ mode: 'pregnant', date: '2026-03-01' }), '2026-01-04') === 32, 'pregnancy week');
   assert(pregnancyWeek(w({ mode: 'pregnant' })) === 14, 'unknown due date is cautious');
   assert(postpartumWeek(w({ mode: 'postpartum', date: '2026-01-01' }), '2026-02-12') === 6, 'postpartum week');
+  const me = { gender: 'female', age: 30, heightCm: 165, weightKg: 110, goalWeightKg: 110, goal: 'lose fat', daysPerWeek: 3 } as Profile;
+  assert(targets({ ...me, body: 'more' }).protein === Math.round(25 * 1.65 ** 2 * 2), 'more: protein from BMI-25 weight');
+  assert(targets({ ...me, body: 'more', goalWeightKg: 80 }).protein === 160, 'more: protein from goal weight');
+  assert(targets({ ...me, body: 'more' }).kcal > targets(me).kcal, 'more: gentler deficit');
+  const thin = { ...me, weightKg: 55, goalWeightKg: 55, goal: 'build muscle' } as Profile;
+  assert(targets({ ...thin, body: 'lean' }).kcal - targets({ ...thin, goal: 'stay fit' }).kcal <= 350, 'lean: small surplus');
+  const soft = targets({ ...me, weightKg: 65, body: 'soft' }), plain = targets({ ...me, weightKg: 65, goal: 'stay fit' });
+  assert(Math.abs(soft.kcal - plain.kcal) <= plain.kcal * 0.11 && soft.protein === 130, 'soft: near maintenance, more protein');
   assert(isTimed('30s') && !isTimed('10/side') && isTimed('30s/side') && !isTimed('8-12'), 'timed parse');
   assert(secsOf('10 min') === 600 && secsOf('20-30 s') === 20 && secsOf('10 x 4 s') === null && parseReps('10 min') === 600, 'duration parse');
 }

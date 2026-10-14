@@ -17,7 +17,7 @@ const WHERE: { k: Where; label: string; icon: 'barbell' | 'home' | 'briefcase' }
 
 // One icon per category, on every plan card and row.
 const ICON: Record<Category, Icon> = {
-  Muscle: 'barbell', Strength: 'trophy', 'Fat loss': 'flame', Cardio: 'pulse', Functional: 'fitness', Home: 'home', Women: 'female', Recovery: 'leaf',
+  Muscle: 'barbell', Strength: 'trophy', 'One muscle': 'locate', 'Fat loss': 'flame', Cardio: 'pulse', Functional: 'fitness', Home: 'home', Women: 'female', Recovery: 'leaf',
 };
 
 // Office shows recovery and desk-friendly plans only; gym and home hide desk-only plans.
@@ -29,6 +29,7 @@ function because(p: Profile, plan: Plan) {
   if (plan.id === 'pregnancy-safe') return 'Safe in pregnancy';
   if (plan.id === 'after-birth') return 'Gentle after birth';
   if (plan.category === 'Recovery' && (pregnancyWeek(p) !== null || postpartumWeek(p) !== null)) return 'Gentle and safe';
+  if (plan.category === 'One muscle') return 'Add-on to your plan';
   const days = perWeek(plan) === p.daysPerWeek;
   if (plan.tags.includes(p.goal)) return days ? 'Your goal, your days' : 'Fits your goal';
   if (plan.level === 'beginner' && p.level === 'beginner') return 'Beginner friendly';

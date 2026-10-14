@@ -2,7 +2,7 @@ import type { Place } from './exercises';
 
 export type Slot = { id: string; sets: number; reps: string; rest: number };
 export type Day = { name: string; focus: string; slots: Slot[] };
-export type Category = 'Strength' | 'Muscle' | 'Fat loss' | 'Cardio' | 'Functional' | 'Home' | 'Women' | 'Recovery';
+export type Category = 'Strength' | 'Muscle' | 'One muscle' | 'Fat loss' | 'Cardio' | 'Functional' | 'Home' | 'Women' | 'Recovery';
 export type Plan = {
   id: string;
   name: string;
@@ -22,7 +22,7 @@ export type Plan = {
   weeks: number; // suggested program length
 };
 
-export const CATEGORIES: Category[] = ['Muscle', 'Strength', 'Fat loss', 'Cardio', 'Functional', 'Home', 'Women', 'Recovery'];
+export const CATEGORIES: Category[] = ['Muscle', 'Strength', 'One muscle', 'Fat loss', 'Cardio', 'Functional', 'Home', 'Women', 'Recovery'];
 
 // reps is a string so plans can say "8-12", "30s", "10/side" or "20 min".
 // Each day runs big compound lifts first, then isolation, then core, then conditioning or stretches.
@@ -472,6 +472,113 @@ export const plans: Plan[] = [
       { name: 'Desk Reset', focus: 'Neck · Back · Wrists · Hips · Eyes', slots: [
         x('Desk_Neck_Tilt', 1, '5/side', 10), x('Desk_Chin_Tuck', 1, '8', 10), x('Desk_Seated_Twist', 1, '30s/side', 10),
         x('Desk_Wrist_Stretch', 1, '30s/side', 10), x('Desk_Figure_Four', 1, '30s/side', 10), x('Eye_20_20_20', 1, '20s', 10) ] },
+    ],
+  },
+  // One muscle: add-on days for one group. Never picked as a main plan (see coach.ts).
+  {
+    id: 'chest-day', name: 'Chest Day', tagline: 'One session for the chest, twice a week.',
+    place: 'gym', level: 'intermediate', tags: ['build muscle'], color: '', category: 'One muscle',
+    about: 'Presses from flat and incline angles work the whole chest, then flyes stretch and squeeze it. Push-ups at the end use up what is left.',
+    who: 'Lifters who want a bigger, stronger chest, or to bring it up next to their main plan.',
+    why: 'Two sessions with two or three rest days between gives the chest work twice a week and time to recover.',
+    benefits: ['Bigger, stronger chest', 'Better bench press', 'Done in about 45 minutes'],
+    tips: [PROTEIN, CREATINE, SLEEP, 'Keep your shoulder blades pulled back and down on every press.'],
+    week: [0, null, null, 0, null, null, null], weeks: 8,
+    days: [
+      { name: 'Chest Day', focus: 'Flat · Incline · Fly', slots: [
+        x('Barbell_Bench_Press_-_Medium_Grip', 4, '6-8', 150), x('Incline_Dumbbell_Press', 3, '8-10', 120),
+        x('Dips_-_Chest_Version', 3, '8-12'), x('Cable_Crossover', 3, '12-15', 60), x('Butterfly', 2, '12-15', 60),
+        x('Pushups', 2, '10-15', 60) ] },
+    ],
+  },
+  {
+    id: 'back-day', name: 'Back Day', tagline: 'Pull-ups, rows and pulldowns for a wide, thick back.',
+    place: 'gym', level: 'intermediate', tags: ['build muscle', 'get stronger'], color: '', category: 'One muscle',
+    about: 'Vertical pulls widen your back and rows thicken it. Face pulls finish the job for your rear shoulders and posture.',
+    who: 'Lifters who want a stronger back and better posture.',
+    why: 'Two sessions with two or three rest days between lets the back grow without sore, tired grip on the next one.',
+    benefits: ['Wider, thicker back', 'Better posture', 'Stronger grip and pull-ups'],
+    tips: [PROTEIN, CREATINE, SLEEP, 'Pull with your elbows, not your hands. Squeeze your shoulder blades at the top.'],
+    week: [null, 0, null, null, 0, null, null], weeks: 8,
+    days: [
+      { name: 'Back Day', focus: 'Pull-ups · Rows · Pulldowns', slots: [
+        x('Pullups', 4, '6-10', 120), x('Bent_Over_Barbell_Row', 4, '8', 120), x('Wide-Grip_Lat_Pulldown', 3, '10-12'),
+        x('Seated_Cable_Rows', 3, '10-12'), x('Straight-Arm_Pulldown', 2, '12-15', 60), x('Face_Pull', 2, '15', 60) ] },
+    ],
+  },
+  {
+    id: 'shoulder-day', name: 'Shoulder Day', tagline: 'Press, then raises from every side.',
+    place: 'gym', level: 'intermediate', tags: ['build muscle'], color: '', category: 'One muscle',
+    about: 'A heavy press builds the whole shoulder, then raises hit the front, side and rear on their own. Rounder shoulders make your waist look smaller.',
+    who: 'Lifters who want broader shoulders.',
+    why: 'Two sessions with two or three rest days between. Shoulders also work in every press, so more would be too much.',
+    benefits: ['Broader, rounder shoulders', 'Stronger overhead press', 'Healthier shoulder joints'],
+    tips: [PROTEIN, CREATINE, SLEEP, 'Go light on raises. Slow and controlled beats heavy and swinging.'],
+    week: [null, null, 0, null, null, 0, null], weeks: 8,
+    days: [
+      { name: 'Shoulder Day', focus: 'Front · Side · Rear', slots: [
+        x('Standing_Military_Press', 4, '6-8', 150), x('Arnold_Dumbbell_Press', 3, '10', 120), x('Side_Lateral_Raise', 4, '12-15', 60),
+        x('Reverse_Machine_Flyes', 3, '12-15', 60), x('Front_Dumbbell_Raise', 2, '12', 60), x('Face_Pull', 2, '15', 60) ] },
+    ],
+  },
+  {
+    id: 'arm-day', name: 'Arm Day', tagline: 'Biceps and triceps, back and forth.',
+    place: 'gym', level: 'beginner', tags: ['build muscle'], color: '', category: 'One muscle',
+    about: 'Triceps make up most of your upper arm, so they get the heavy press. Curls and extensions take turns, so one side rests while the other works.',
+    who: 'Anyone who wants bigger, stronger arms.',
+    why: 'Two sessions with two or three rest days between. Arms are small and recover fast, but they also work on chest and back days.',
+    benefits: ['Bigger arms', 'Stronger presses and pulls', 'Quick, simple session'],
+    tips: [PROTEIN, CREATINE, SLEEP, 'Keep your elbows still on curls and extensions. If they swing, the weight is too heavy.'],
+    week: [null, null, 0, null, null, 0, null], weeks: 8,
+    days: [
+      { name: 'Arm Day', focus: 'Biceps · Triceps', slots: [
+        x('Close-Grip_Barbell_Bench_Press', 3, '8', 120), x('Barbell_Curl', 3, '8-10'), x('EZ-Bar_Skullcrusher', 3, '10', 60),
+        x('Incline_Dumbbell_Curl', 3, '10-12', 60), x('Triceps_Pushdown', 3, '12', 60), x('Hammer_Curls', 2, '12', 60) ] },
+    ],
+  },
+  {
+    id: 'leg-day', name: 'Leg Day', tagline: 'Quads, hamstrings and calves in one hard session.',
+    place: 'gym', level: 'intermediate', tags: ['build muscle', 'get stronger'], color: '', category: 'One muscle',
+    about: 'Squats and Romanian deadlifts load the biggest muscles you have, then machines finish each one off. Strong legs carry every other lift.',
+    who: 'Lifters who want stronger, bigger legs.',
+    why: 'Once a week, because a hard leg day takes several days to recover from. Add a second if you still feel fresh after four days.',
+    benefits: ['Stronger, bigger legs', 'Better squat', 'Burns lots of calories'],
+    tips: [PROTEIN, CREATINE, CARBS, SLEEP, 'Warm up with two light sets of squats before your working sets.'],
+    week: [null, null, null, null, null, 0, null], weeks: 8,
+    days: [
+      { name: 'Leg Day', focus: 'Quads · Hamstrings · Calves', slots: [
+        x('Barbell_Squat', 4, '6-8', 180), x('Romanian_Deadlift', 3, '8-10', 120), x('Leg_Press', 3, '10-12', 120),
+        x('Lying_Leg_Curls', 3, '12', 60), x('Leg_Extensions', 3, '15', 60), x('Standing_Calf_Raises', 4, '12-15', 60) ] },
+    ],
+  },
+  {
+    id: 'glute-day', name: 'Glute Day', tagline: 'Lunges, bridges and side work. Anywhere.',
+    place: 'any', level: 'beginner', tags: ['build muscle', 'stay fit'], color: '', category: 'One muscle',
+    about: 'Lunges and step-ups work the glutes with your legs, then bridges and clamshells work them on their own. Stronger glutes protect your knees and lower back.',
+    who: 'Anyone who wants stronger, rounder glutes, at home or in the gym.',
+    why: 'Two sessions with two or three rest days between gives the glutes time to recover and grow.',
+    benefits: ['Stronger, shapelier glutes', 'Less knee and back pain', 'No equipment needed'],
+    tips: [PROTEIN, SLEEP, 'In the gym, swap the bridges for barbell hip thrusts and hold dumbbells on lunges and step-ups.'],
+    week: [0, null, null, 0, null, null, null], weeks: 8,
+    days: [
+      { name: 'Glute Day', focus: 'Lunge · Bridge · Side', slots: [
+        x('Bodyweight_Walking_Lunge', 3, '12/side'), x('Step-up_with_Knee_Raise', 3, '10/side'), x('Single_Leg_Glute_Bridge', 3, '12/side', 60),
+        x('Hyperextensions_With_No_Hyperextension_Bench', 3, '12', 60), x('wg_clamshell', 3, '15/side', 45), x('Butt_Lift_Bridge', 2, '20', 45) ] },
+    ],
+  },
+  {
+    id: 'core-day', name: 'Core Day', tagline: 'Abs, obliques and lower back. Twenty minutes.',
+    place: 'any', level: 'beginner', tags: ['stay fit', 'lose fat'], color: '', category: 'One muscle',
+    about: 'Holds teach your middle to stay still under load, and crunches and twists work the abs and sides. A strong core makes every lift and carry safer.',
+    who: 'Anyone who wants a stronger middle or a healthier lower back.',
+    why: 'Two sessions with two or three rest days between. Your core also works in most lifts, so more is not needed.',
+    benefits: ['Stronger, steadier core', 'Healthier lower back', 'No equipment needed'],
+    tips: [WATER, FIBRE, 'Visible abs come from lower body fat, not more crunches. Food matters more than reps here.'],
+    week: [null, 0, null, null, 0, null, null], weeks: 6,
+    days: [
+      { name: 'Core Day', focus: 'Hold · Crunch · Twist', slots: [
+        x('Plank', 3, '45s', 45), x('Dead_Bug', 3, '10/side', 45), x('Reverse_Crunch', 3, '15', 45),
+        x('Russian_Twist', 3, '20', 45), x('wg_bird-dog', 2, '8/side', 45), x('Flutter_Kicks', 2, '30s', 45) ] },
     ],
   },
 ];

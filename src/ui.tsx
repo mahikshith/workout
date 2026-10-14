@@ -115,9 +115,15 @@ export function Section({ title, action, onAction, first, children, style }: {
 }) {
   return (
     <View style={[{ marginTop: first ? 20 : 32 }, style]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <T v="h2">{title}</T>
-        {action && <Tap onPress={onAction} scale={0.95} style={{ paddingVertical: 4, paddingLeft: 12 }}><T v="small" color={c.accent}>{action}</T></Tap>}
+      {/* The action sits right beside the title as a small pill, so the eye never has to jump to the far edge. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <T v="h2" numberOfLines={1} style={{ flexShrink: 1 }}>{title}</T>
+        {action && (
+          <Tap onPress={onAction} scale={0.95} style={{ flexDirection: 'row', alignItems: 'center', gap: 2, height: 28, paddingLeft: 10, paddingRight: 6, borderRadius: 14, backgroundColor: c.card, borderWidth: 1, borderColor: c.line }}>
+            <T v="small" color={c.accent} numberOfLines={1}>{action}</T>
+            {onAction && <Ionicons name="chevron-forward" size={14} color={c.accent} />}
+          </Tap>
+        )}
       </View>
       {children}
     </View>
