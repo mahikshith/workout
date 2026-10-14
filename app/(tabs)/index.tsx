@@ -328,7 +328,7 @@ const Meta = ({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: stri
 );
 
 const s = StyleSheet.create({
-  card: { padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  card: { padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   hero: { marginTop: 20, padding: 20, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1 },
   tag: { paddingHorizontal: 10, height: 26, borderRadius: 13, justifyContent: 'center', maxWidth: '70%' },
   moodChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, height: 30, borderRadius: 15, backgroundColor: c.card2 },
@@ -343,6 +343,6 @@ const s = StyleSheet.create({
   quoteBar: { width: 3, borderRadius: 2 },
   mood: { flex: 1, height: 68, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center', gap: 6 },
   gotIt: { alignSelf: 'flex-start', paddingHorizontal: 14, height: 32, borderRadius: 16, backgroundColor: c.card2, justifyContent: 'center' },
-  quick: { width: 176, gap: 12, padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-  media: { width: 150, borderRadius: r.lg, overflow: 'hidden', backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  quick: { width: 176, gap: 12, padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  media: { width: 150, borderRadius: r.lg, overflow: 'hidden', backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
 });

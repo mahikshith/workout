@@ -178,7 +178,10 @@ export default function PlanDetail() {
 
       <View style={{ marginTop: 32 }}>
         {welcome ? (
-          <Button title="Let’s go" icon="flash" onPress={() => router.replace('/')} />
+          <>
+            <Button title="Let’s go" icon="flash" onPress={() => router.replace('/')} />
+            <T v="small" color={c.dim} style={{ textAlign: 'center', marginTop: 12 }}>You can redo setup anytime in Profile</T>
+          </>
         ) : isCurrent ? (
           <Button title="Current plan" kind="ghost" icon="checkmark" disabled />
         ) : (

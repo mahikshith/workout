@@ -3,14 +3,12 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 import { targets } from '../../src/calc';
-import { ContextFields, Tiles } from '../../src/context';
+import { ContextFields, GOALS, LEVELS, optLabel, Tiles } from '../../src/context';
 import { HOME_GEAR, title } from '../../src/data/exercises';
 import { UNLOCK } from '../../src/engine';
 import { useStore, type Profile } from '../../src/store';
 import { ACCENTS, c, type AccentId } from '../../src/theme';
 import { Button, Card, Chip, ListRow, Rise, Row, Screen, Section, T, Tap } from '../../src/ui';
-
-const LEVELS: [Profile['level'], string, keyof typeof Ionicons.glyphMap][] = [['beginner', 'New to training', 'leaf'], ['intermediate', 'Some experience', 'trending-up'], ['advanced', 'Seasoned', 'trophy']];
 
 export default function You() {
   const profile = useStore((s) => s.profile);
@@ -48,7 +46,7 @@ export default function You() {
       <Rise i={1}>
         <Section title="Your plan">
         <Card style={{ gap: 12 }}>
-          <Item icon="flag" label="Goal" value={title(profile.goal)} />
+          <Item icon="flag" label="Goal" value={optLabel(GOALS, profile.goal)} />
           <Item icon="restaurant" label="Diet" value={title(profile.diet)} />
           <Item icon="calendar" label="Days per week" value={String(profile.daysPerWeek)} />
           {!gentle && <Item icon="flame" label="Daily target" value={`${t.kcal} kcal · ${t.protein} g`} />}
@@ -62,6 +60,7 @@ export default function You() {
           <View style={{ gap: 8 }}>
             <ListRow icon="notifications" title="Reminders" sub="Workouts, water, meals, breaks" onPress={() => router.push('/reminders')} />
             <ListRow icon="people" title="Gym etiquette" sub="The unwritten rules" onPress={() => router.push('/etiquette')} />
+            <ListRow icon="refresh" color={c.muted} title="Redo setup" sub="Answer the questions again" onPress={() => router.push({ pathname: '/onboarding', params: { redo: '1' } })} />
           </View>
         </Section>
       </Rise>

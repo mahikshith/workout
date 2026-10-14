@@ -26,6 +26,10 @@ export default function SessionScreen() {
   const sessions = useStore((s) => s.sessions);
   const { updateSet, addSet, removeSet, swap, finish, discard, begin, pause, resume } = useStore.getState();
   const [idx, setIdx] = useState(0);
+  // When an exercise is added from the library, jump straight to it so the user sees it landed.
+  const count = useStore((s) => s.active?.items.length ?? 0);
+  const seen = useRef(count);
+  useEffect(() => { if (count > seen.current) setIdx(count - 1); seen.current = count; }, [count]);
   const [restUntil, setRestUntil] = useState<number | null>(null); // absolute deadline survives backgrounding
   const [restTotal, setRestTotal] = useState(90);
   const [sheet, setSheet] = useState<'swap' | 'end' | null>(null);
@@ -79,13 +83,18 @@ export default function SessionScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: ins.top + 8 }}>
+      {/* Header: close on the left, the clock in the middle once it runs. The name is on the page below. */}
       <Row style={{ paddingHorizontal: 12, justifyContent: 'space-between' }}>
         <Tap onPress={() => setSheet('end')} style={s.icon}><Ionicons name="close" size={22} color={c.text} /></Tap>
         <View style={{ alignItems: 'center', flex: 1 }}>
-          <Row gap={6}><View style={s.live} /><T v="label" color={c.text} numberOfLines={1} style={{ flexShrink: 1 }}>{active.title}</T></Row>
-          <T style={{ fontFamily: f.display, fontSize: 20 }}>{!started ? 'Ready' : paused ? 'Paused' : fmtTime(elapsed)}</T>
+          {started && (
+            <Row gap={6}>
+              {!paused && <View style={s.live} />}
+              <T style={{ fontFamily: f.display, fontSize: 20 }}>{paused ? 'Paused' : fmtTime(elapsed)}</T>
+            </Row>
+          )}
         </View>
-        <Tap onPress={() => setSheet('end')} style={[s.finish, { backgroundColor: c.accent }]}><T v="h3" color={c.accentInk} numberOfLines={1}>Finish</T></Tap>
+        <View style={{ width: 40 }} />
       </Row>
 
       <Row style={{ paddingHorizontal: 12, marginTop: 14 }} gap={4}>
@@ -103,7 +112,7 @@ export default function SessionScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 200 }} showsVerticalScrollIndicator={false}>
         <Animated.View key={it.exId + idx} entering={FadeInDown.duration(300)}>
-          <T v="label">Exercise {idx + 1} of {active.items.length} · {title(ex.primary[0])}</T>
+          <T v="label" style={{ textAlign: 'center' }}>Exercise {idx + 1} of {active.items.length} · {title(ex.primary[0])}</T>
           <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 4 }}>
             <T v="h1" style={{ flex: 1 }}>{ex.name}</T>
             <Tap onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: ex.id } })} style={s.icon}><Ionicons name="information" size={20} color={c.text} /></Tap>
@@ -125,7 +134,7 @@ export default function SessionScreen() {
           <Row style={{ marginTop: 12 }} gap={10}>
             <Tap onPress={() => setSheet('swap')} style={s.pill}><Ionicons name="swap-horizontal" size={16} color={c.text} /><T v="small" color={c.text}>Alternatives</T></Tap>
             <Tap onPress={() => addSet(idx)} style={s.pill}><Ionicons name="add" size={16} color={c.text} /><T v="small" color={c.text}>Add set</T></Tap>
-            <Tap onPress={() => router.push({ pathname: '/library', params: { pick: '1' } })} style={s.pill}><Ionicons name="list" size={16} color={c.text} /><T v="small" color={c.text}>Exercise</T></Tap>
+            <Tap onPress={() => router.push({ pathname: '/library', params: { pick: '1' } })} style={s.pill}><Ionicons name="add-circle-outline" size={16} color={c.text} /><T v="small" color={c.text}>Add exercise</T></Tap>
           </Row>
 
           <View style={s.table}>
@@ -179,11 +188,18 @@ export default function SessionScreen() {
       <View style={[s.bottom, { paddingBottom: ins.bottom + 12 }]}>
         {!started || paused ? (
           <Animated.View entering={FadeInDown.duration(260).easing(Easing.bezier(0.32, 0.72, 0, 1))} style={{ gap: 8 }}>
-            {paused && <T v="small" style={{ textAlign: 'center' }}>Paused at {fmtTime(elapsed)}. Take your time.</T>}
-            <Tap onPress={() => { if (!started) { begin(); haptic('success'); } else doResume(); }} style={[s.big, { backgroundColor: c.accent }]} scale={0.98} feedback="none">
-              <Ionicons name="play" size={26} color={c.accentInk} />
-              <T v="h2" color={c.accentInk}>{started ? 'Resume' : 'Start workout'}</T>
-            </Tap>
+            {paused && <T v="small" style={{ textAlign: 'center' }}>Paused at {fmtTime(elapsed)}</T>}
+            {/* Start (or Resume) and Finish side by side, same size, one line. */}
+            <Row gap={10}>
+              <Tap onPress={() => { if (!started) { begin(); haptic('success'); } else doResume(); }} style={[s.big, { flex: 1, backgroundColor: c.accent }]} scale={0.98} feedback="none">
+                <Ionicons name="play" size={22} color={c.accentInk} />
+                <T v="h3" color={c.accentInk}>{started ? 'Resume' : 'Start workout'}</T>
+              </Tap>
+              <Tap onPress={() => setSheet('end')} style={[s.big, { flex: 1, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line }]} scale={0.98}>
+                <Ionicons name="flag" size={20} color={c.text} />
+                <T v="h3">Finish</T>
+              </Tap>
+            </Row>
           </Animated.View>
         ) : resting ? (
           <Animated.View entering={FadeInDown.duration(320).easing(Easing.bezier(0.32, 0.72, 0, 1))} exiting={FadeOutDown.duration(200)} style={s.rest}>
@@ -298,7 +314,7 @@ const s = StyleSheet.create({
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   live: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.danger },
   seg: { height: 4, borderRadius: 2, backgroundColor: c.card2, overflow: 'hidden' },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: c.card2 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 14, borderRadius: 19, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
   table: { marginTop: 16, backgroundColor: c.card, borderRadius: r.lg, paddingVertical: 12, paddingHorizontal: 6, gap: 6 },
   set: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 8, borderRadius: 16 },
   setDone: { backgroundColor: '#1C2410' },

@@ -3,7 +3,7 @@ import { useEvent } from 'expo';
 import { Image, type ImageProps } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
 import Animated, {
   cancelAnimation, Easing, FadeIn, FadeInDown, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
@@ -64,11 +64,12 @@ export function T({ v = 'body', color, style, ...p }: TextProps & { v?: V; color
   return <Text {...p} style={[tv[v], { color: color ?? def }, style]} />;
 }
 
-export function Screen({ children, scroll = true, pad = true, onScroll }: {
-  children: ReactNode; scroll?: boolean; pad?: boolean; onScroll?: (y: number) => void;
+// `top` overrides the top padding (screens with their own pinned header pass 0).
+export function Screen({ children, scroll = true, pad = true, onScroll, top }: {
+  children: ReactNode; scroll?: boolean; pad?: boolean; onScroll?: (y: number) => void; top?: number;
 }) {
   const ins = useSafeAreaInsets();
-  const style = { paddingTop: ins.top + 12, paddingHorizontal: pad ? 12 : 0, paddingBottom: ins.bottom + 120 };
+  const style = { paddingTop: top ?? ins.top + 12, paddingHorizontal: pad ? 12 : 0, paddingBottom: ins.bottom + 120 };
   if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg }, style]}>{children}</View>;
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={style} showsVerticalScrollIndicator={false}
@@ -260,8 +261,15 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
   const [w, setW] = useState(0);
   const [failed, setFailed] = useState<MediaPref[]>([]);
   const [prev, setPrev] = useState<MediaPref | null>(null); // stays under the new pick while it fades in
+  const [online, setOnline] = useState(false); // "Needs internet" hint, shown for a moment on photo, drawing or video
   useEffect(() => setFailed([]), [ex.id]);
   useEffect(() => { if (!prev) return; const t = setTimeout(() => setPrev(null), 250); return () => clearTimeout(t); }, [prev]);
+  useEffect(() => {
+    if (pref === 'animated') return;
+    setOnline(true);
+    const t = setTimeout(() => setOnline(false), 3500);
+    return () => clearTimeout(t);
+  }, [pref, ex.id]);
   if (ex.noImages) return <Breath ex={ex} height={height} style={style} />;
   const kinds = mediaKinds(ex).filter((m) => !failed.includes(m.k));
   const kind = kinds.find((m) => m.k === pref)?.k ?? kinds[0]?.k;
@@ -271,8 +279,21 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
   const { pose, matched } = poseFor(ex);
   return (
     <View style={style}>
+      {/* The media switch sits above the pane, so its labels never cover the animation or photo. */}
+      {kinds.length > 1 && (
+        <View style={md.switch}>
+          {kinds.map(({ k, label }) => (
+            <Pressable key={k} hitSlop={6} accessibilityRole="button" accessibilityState={{ selected: k === kind }}
+              onPress={() => { if (!kind || k === kind) return; haptic(); setPrev(kind); setPref(k); }}
+              style={[md.opt, k === kind && { backgroundColor: c.accent }]}>
+              {k !== 'animated' && <Ionicons name="cloud-outline" size={12} color={k === kind ? c.accentInk : c.muted} />}
+              <T v="small" color={k === kind ? c.accentInk : c.text}>{label}</T>
+            </Pressable>
+          ))}
+        </View>
+      )}
       <View onLayout={(e) => setW(Math.round(e.nativeEvent.layout.width))}
-        style={{ height, borderRadius: r.lg, backgroundColor: c.card2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+        style={{ height, borderRadius: r.lg, backgroundColor: c.card2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.line }}>
         {!kind ? <Ionicons name="barbell-outline" size={height * 0.3} color={c.muted} /> : shown.map((k) => (
           <Animated.View key={ex.id + k} entering={k === kind && shown.length > 1 ? FadeIn.duration(200).easing(EASE) : undefined} style={StyleSheet.absoluteFill}>
             {k === 'animated' ? (
@@ -280,8 +301,8 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
               // body inside it, so nothing depends on flex centring (which shifted it right on some Android phones).
               <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2 }]}>
                 {w > 0 && (
-                  <View style={{ position: 'absolute', left: 0, top: 44, width: w, height: height - 52 }}>
-                    <Figure pose={pose} primary={ex.primary} secondary={ex.secondary} height={height - 52} width={w} paused={paused} />
+                  <View style={{ position: 'absolute', left: 0, top: 8, width: w, height: height - 16 }}>
+                    <Figure pose={pose} primary={ex.primary} secondary={ex.secondary} height={height - 16} width={w} paused={paused} />
                   </View>
                 )}
               </View>
@@ -289,16 +310,11 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
               : <Loop uris={k === 'drawing' ? artFrames(ex.art!) : frames(ex.id)} solid={k === 'photo'} onFail={() => fail(k)} />}
           </Animated.View>
         ))}
-        {kinds.length > 1 && (
-          <View style={md.switch}>
-            {kinds.map(({ k, label }) => (
-              <Pressable key={k} hitSlop={10} accessibilityRole="button" accessibilityState={{ selected: k === kind }}
-                onPress={() => { if (!kind || k === kind) return; haptic(); setPrev(kind); setPref(k); }}
-                style={[md.opt, k === kind && { backgroundColor: c.accent }]}>
-                <T v="label" color={k === kind ? c.accentInk : c.text}>{label}</T>
-              </Pressable>
-            ))}
-          </View>
+        {online && kind && kind !== 'animated' && (
+          <Animated.View entering={FadeIn.duration(200)} style={md.hint}>
+            <Ionicons name="cloud-outline" size={14} color={c.text} />
+            <T v="small" color={c.text}>Needs internet once · then saved on your phone</T>
+          </Animated.View>
         )}
         {missed && kind && (
           <View style={md.note}><T v="small" color={c.text}>{`${NAME[missed]} didn’t load, so here’s the ${NAME[kind].toLowerCase()}.`}</T></View>
@@ -386,8 +402,9 @@ function ClipView({ uri, onError }: { uri: string; onError: () => void }) {
 }
 
 const md = StyleSheet.create({
-  switch: { position: 'absolute', top: 10, right: 10, flexDirection: 'row', gap: 2, padding: 3, borderRadius: 16, backgroundColor: 'rgba(10,10,11,0.72)' },
-  opt: { height: 26, paddingHorizontal: 10, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  switch: { flexDirection: 'row', gap: 4, padding: 4, marginBottom: 10, borderRadius: 14, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  opt: { flex: 1, height: 34, borderRadius: 10, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center' },
+  hint: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: 'rgba(10,10,11,0.75)' },
   note: { position: 'absolute', left: 10, bottom: 10, right: 10, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: 'rgba(10,10,11,0.72)' },
 });
 
@@ -412,49 +429,68 @@ export function Thumb({ ex, size = 56 }: { ex: Exercise; size?: number }) {
     : <Pic uri={frames(ex.id)[0]} onError={() => setBad(true)} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.media }} contentFit="cover" cachePolicy="disk" transition={150} />;
 }
 
-// Drills without a figure (pelvic floor, breathing, eyes, desk): a circle that grows for the hold and shrinks for the
-// rest, with the reps counting down in the middle (10 to 1), the phase word under it, and a dot per rep around it.
-// After the last rep it shows "Set done" for a moment and starts over.
-export function Breath({ ex, height, style }: { ex: Exercise; height: number; style?: StyleProp<ViewStyle> }) {
+// Drills without a figure (pelvic floor, breathing, eyes, desk): a breathing circle in the app's accent with the reps
+// counting down in the middle. Nothing runs until the user taps play; pause freezes the circle and the countdown
+// together (one clock, so there are never two timers drifting apart); after the last rep it stops on "Set done"
+// with a button to go again.
+export function Breath({ ex, height, style, reps = 10 }: { ex: Exercise; height: number; style?: StyleProp<ViewStyle>; reps?: number }) {
   const { hold, rest } = ex.timed ?? { hold: 4, rest: 4 };
-  const reps = 10;
-  const s = useSharedValue(0.55);
-  const [k, setK] = useState(0); // reps finished in this set; reps means the set is done
-  const [phase, setPhase] = useState<'in' | 'out'>('in');
+  const s = useSharedValue(0.6);
+  const [run, setRun] = useState(false);
+  const [k, setK] = useState(0); // reps finished
+  const [ph, setPh] = useState<'in' | 'out'>('in');
+  const [left, setLeft] = useState(hold); // seconds left in this phase
+  const end = useRef(0); // when this phase ends, while running
+  const animate = (p: 'in' | 'out', ms: number) => { s.value = withTiming(p === 'in' ? 1 : 0.6, { duration: ms, easing: Easing.inOut(Easing.sin) }); };
+  const reset = () => { setRun(false); cancelAnimation(s); s.value = withTiming(0.6, { duration: 300 }); setK(0); setPh('in'); setLeft(hold); };
+  useEffect(() => { reset(); return () => cancelAnimation(s); }, [ex.id, hold, rest]);
+  const done = k >= reps;
+  const play = () => {
+    if (done) { setK(0); setPh('in'); setLeft(hold); end.current = Date.now() + hold * 1000; animate('in', hold * 1000); }
+    else { end.current = Date.now() + left * 1000; animate(ph, left * 1000); }
+    setRun(true); haptic('medium');
+  };
+  const pause = () => { setRun(false); cancelAnimation(s); setLeft(Math.max(0.2, (end.current - Date.now()) / 1000)); haptic('medium'); };
   useEffect(() => {
-    s.value = withRepeat(withSequence(
-      withTiming(1, { duration: hold * 1000, easing: Easing.inOut(Easing.sin) }),
-      withTiming(0.55, { duration: rest * 1000, easing: Easing.inOut(Easing.sin) }),
-    ), -1);
-    let alive = true, n = 0, t: ReturnType<typeof setTimeout>;
-    const tick = (ph: 'in' | 'out') => {
-      if (!alive) return;
-      setPhase(ph);
-      t = setTimeout(() => {
-        if (ph === 'out') { n = (n + 1) % (reps + 1); setK(n); }
-        tick(ph === 'in' ? 'out' : 'in');
-      }, (ph === 'in' ? hold : rest) * 1000);
-    };
-    tick('in');
-    return () => { alive = false; clearTimeout(t); cancelAnimation(s); };
-  }, [hold, rest]);
-  const a = useAnimatedStyle(() => ({ transform: [{ scale: s.value }], opacity: 0.35 + (s.value - 0.55) }));
-  const inner = useAnimatedStyle(() => ({ transform: [{ scale: s.value * 0.7 }] }));
-  const word = ex.category === 'pelvic floor' ? (phase === 'in' ? 'Squeeze' : 'Release') : ex.category === 'breathing' ? (phase === 'in' ? 'Breathe in' : 'Breathe out') : phase === 'in' ? 'Hold' : 'Rest';
-  const D = height * 0.8, ring = D / 2 + 10;
+    if (!run) return;
+    const t = setInterval(() => {
+      const rem = (end.current - Date.now()) / 1000;
+      if (rem > 0) { setLeft(rem); return; }
+      if (ph === 'in') { setPh('out'); setLeft(rest); end.current = Date.now() + rest * 1000; animate('out', rest * 1000); haptic(); return; }
+      const n = k + 1;
+      setK(n); setPh('in'); setLeft(hold);
+      if (n >= reps) { setRun(false); haptic('success'); return; }
+      end.current = Date.now() + hold * 1000; animate('in', hold * 1000); haptic();
+    }, 200);
+    return () => clearInterval(t);
+  }, [run, ph, k]);
+  const outer = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
+  const inner = useAnimatedStyle(() => ({ transform: [{ scale: 0.55 + (s.value - 0.6) * 0.8 }] }));
+  const pelvic = ex.category === 'pelvic floor', breathing = ex.category === 'breathing';
+  const word = ph === 'in' ? (pelvic ? 'Squeeze' : breathing ? 'Breathe in' : 'Hold') : pelvic ? 'Release' : breathing ? 'Breathe out' : 'Rest';
+  const D = Math.min(height * 0.62, 220);
   return (
-    <View style={[{ height, borderRadius: r.lg, backgroundColor: '#140F1C', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, style]}>
-      <Animated.View style={[{ position: 'absolute', width: D, height: D, borderRadius: height, backgroundColor: '#BF8CFF' }, a]} />
-      <Animated.View style={[{ position: 'absolute', width: D, height: D, borderRadius: height, backgroundColor: '#E2CCFF' }, inner]} />
-      {Array.from({ length: reps }, (_, i) => {
-        const ang = (i / reps) * Math.PI * 2 - Math.PI / 2;
-        return <View key={i} style={{ position: 'absolute', width: 8, height: 8, borderRadius: 4, left: '50%', top: '50%', marginLeft: Math.cos(ang) * ring - 4, marginTop: Math.sin(ang) * ring - 4, backgroundColor: i < k ? '#BF8CFF' : '#3A2D4D' }} />;
-      })}
+    <View style={[{ height, borderRadius: r.lg, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, style]}>
+      <Animated.View style={[{ position: 'absolute', width: D, height: D, borderRadius: D, backgroundColor: c.accent + '18' }, outer]} />
+      <Animated.View style={[{ position: 'absolute', width: D, height: D, borderRadius: D, backgroundColor: c.accent + '30' }, inner]} />
       <View style={{ alignItems: 'center' }}>
-        <Text style={{ fontFamily: f.display, fontSize: 44, lineHeight: 50, color: '#251B33' }}>{k >= reps ? '✓' : reps - k}</Text>
-        <T v="label" color="#251B33">{k >= reps ? 'Set done' : `${word} · ${phase === 'in' ? hold : rest}s`}</T>
+        <Text style={{ fontFamily: f.display, fontSize: 48, lineHeight: 54, color: c.text }}>{done ? '✓' : reps - k}</Text>
+        <T v="small" color={c.text}>{done ? 'Set done' : run ? `${word} · ${Math.ceil(left)}s` : k ? 'Paused' : `${reps} reps`}</T>
       </View>
-      <T v="small" color="#E2CCFF" style={{ position: 'absolute', bottom: 12 }}>{k >= reps ? 'Rest, then go again' : `${reps - k} rep${reps - k === 1 ? '' : 's'} to go`}</T>
+      <T v="small" style={{ position: 'absolute', top: 12, left: 14 }}>{`${pelvic ? 'Squeeze' : breathing ? 'In' : 'Hold'} ${hold}s · ${pelvic ? 'release' : breathing ? 'out' : 'rest'} ${rest}s`}</T>
+      <View style={{ position: 'absolute', left: 14, bottom: 18, flexDirection: 'row', gap: 4 }}>
+        {Array.from({ length: reps }, (_, i) => <View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: i < k ? c.accent : c.line }} />)}
+      </View>
+      <View style={{ position: 'absolute', right: 10, bottom: 10, flexDirection: 'row', gap: 8 }}>
+        {(k > 0 || run) && !done && (
+          <Tap onPress={reset} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="refresh" size={18} color={c.text} />
+          </Tap>
+        )}
+        <Tap onPress={run ? pause : play} feedback="none" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name={run ? 'pause' : done ? 'refresh' : 'play'} size={20} color={c.accentInk} />
+        </Tap>
+      </View>
     </View>
   );
 }
@@ -506,9 +542,9 @@ export const Row = ({ children, style, gap = 12 }: { children: ReactNode; style?
 );
 
 export const st = StyleSheet.create({
-  card: { backgroundColor: c.card, borderRadius: r.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-  tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-  listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: r.md, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  card: { backgroundColor: c.card, borderRadius: r.lg, padding: 16, borderWidth: 1, borderColor: c.line },
+  tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: 1, borderColor: c.line },
+  listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   banner: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1 },
   btn: { height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 24 },
   chip: { paddingHorizontal: 16, height: 40, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },

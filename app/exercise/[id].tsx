@@ -65,12 +65,15 @@ export default function ExerciseDetail() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Screen onScroll={onScroll}>
-        <Row style={{ justifyContent: 'space-between' }}>
-          <Tap onPress={() => router.back()} style={s.icon}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
-          <T v="label">{title(ex.category)}</T>
-          <View style={{ width: 40 }} />
-        </Row>
+      {/* Pinned header: the exercise name stays in view while the page scrolls. */}
+      <View style={[s.head, { paddingTop: ins.top + 8 }]}>
+        <Tap onPress={() => router.back()} style={s.icon}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
+        <View style={{ flex: 1 }}>
+          <T v="h2" numberOfLines={2}>{ex.name}</T>
+          <T v="small" numberOfLines={1}>{title(ex.category)}</T>
+        </View>
+      </View>
+      <Screen onScroll={onScroll} top={0}>
 
         <Rise>
           {start && depth > 1 && (
@@ -79,8 +82,7 @@ export default function ExerciseDetail() {
               <T v="small" color={c.text} numberOfLines={1} style={{ flexShrink: 1 }}>Back to {start.name}</T>
             </Tap>
           )}
-          <T v="h1" style={{ marginTop: 14 }}>{ex.name}</T>
-          <Row style={{ flexWrap: 'wrap', marginTop: 8 }} gap={8}>
+          <Row style={{ flexWrap: 'wrap', marginTop: 12 }} gap={8}>
             <View style={s.tag}><T v="small" color={c.text}>{title(ex.level)}</T></View>
             <View style={[s.tag, { backgroundColor: eq.color + '22' }]}><T v="small" color={eq.color}>{eq.label}</T></View>
             {places(ex).map((b) => <View key={b} style={s.tag}><T v="small" color={c.text}>{b}</T></View>)}
@@ -232,6 +234,7 @@ function Alt({ a, tag, locked, note, onPress }: { a: Exercise; tag?: string; loc
 }
 
 const s = StyleSheet.create({
+  head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingBottom: 10, backgroundColor: c.bg, borderBottomWidth: 1, borderBottomColor: c.line },
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   origin: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingHorizontal: 12, height: 34, borderRadius: 17, borderWidth: 1, backgroundColor: c.card, maxWidth: '100%' },
   done: { marginTop: 10, padding: 10, borderRadius: r.md, borderWidth: 1, backgroundColor: c.card },
@@ -240,7 +243,7 @@ const s = StyleSheet.create({
   section: { marginTop: 32, marginBottom: 12 },
   num: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: RED },
-  tabs: { flexDirection: 'row', padding: 4, borderRadius: 22, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  tabs: { flexDirection: 'row', padding: 4, borderRadius: 22, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   tab: { flex: 1, height: 40, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   alt: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.md, backgroundColor: c.card },
   bottom: {

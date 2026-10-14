@@ -3,7 +3,7 @@ export const c = {
   // Surfaces step up clearly from the page so every block reads as a block: page, card, inset.
   card: '#151518',
   card2: '#1F1F23',
-  line: '#2A2A30',
+  line: '#26262C', // 1px borders in this colour: present, never loud
   text: '#F5F5F7',
   muted: '#8E8E93',
   dim: '#55555C',

@@ -138,5 +138,5 @@ const Meta = ({ icon, text }: { icon: Icon; text: string }) => (
 const s = StyleSheet.create({
   hero: { marginTop: 20, padding: 20, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1 },
   pip: { flex: 1, height: 8, borderRadius: 4 },
-  pick: { width: 168, gap: 12, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
+  pick: { width: 168, gap: 12, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
 });
