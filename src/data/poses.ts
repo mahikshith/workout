@@ -519,7 +519,7 @@ export const POSES: Record<string, Pose> = {
   f_pullover: benchP(90, 10, 185, 10, { prop: 'dumbbell', guide: { joint: 'sh0' } }),
   f_pullover_bent: benchP(90, 60, 185, 60, { prop: 'barbell', guide: { joint: 'sh0' } }),
   // Upside-down pressing.
-  f_pike_pushup: side(A(140, 105, 12, 35, 140, 0), A(130, 118, 12, 40, 100, 95), { ground: 'floor', fix: 'wr0', pin: 'feet', con: 'back', guide: { joint: 'el0' } }),
+  f_pike_pushup: side(A(135, 110, 0, 35, 140, 15), A(142, 108, 0, 40, 100, 95), { ground: 'floor', fix: 'toe0', pin: 'hands', con: 'back', guide: { joint: 'el0' } }),
   f_handstand_pushup: side(A(180, 0, 0, 30, 180, 0), A(180, 0, 0, 30, 140, 110), { ground: 'floor', fix: 'wr0', pin: 'hands', wall: 'back', con: 'back', guide: { joint: 'el0' } }),
   // Medicine ball throws and slams.
   f_slam: side(St(-5, 0, 3, 175, 10), St(55, 90, 60, 75, 0), { prop: 'ball', pace: 'cycle', tempo: 0.6 }),
@@ -545,6 +545,21 @@ export const POSES: Record<string, Pose> = {
   f_lateral_stretch: front(A(0, 5, 0, 0, [5, 5], [5, 5]), A(-20, [25, -15], 0, 0, [170, 5], [15, 5]), { pace: 'hold' }),
   f_arms_back: side(St(0, 0, 3, 0, 0), St(0, 0, 3, -55, 60, { curve: -6 }), { pace: 'hold' }),
   f_butterfly_stretch: front(A(0, 50, 135, 0, [20, 20], [20, 20]), A(0, 62, 135, 0, [20, 20], [20, 20]), { ground: 'floor', pace: 'hold' }),
+  f_ghr: side(A(0, 0, 90, 90, 10, 140), A(65, 0, 90, 90, 10, 140), { ground: 'floor', fix: 'kn0', lock: true, con: 'back', guide: { axis: ['kn0', 'neck'] } }),
+  f_seated_tuck: side(A(-35, 25, 10, 20, -35, 10), A(-30, 115, 120, 20, -30, 10, { curve: 10 }), { ground: 'bench', guide: { joint: 'hp0' } }),
+  f_spider_curl: side(A(45, 45, 90, 0, 45, 0), A(45, 45, 90, 0, 45, 130), { ground: 'bench', prop: 'barbell', guide: { joint: 'el0', axis: ['sh0', 'el0'] } }),
+  f_incline_row: side(A(45, 45, 90, 0, 45, 0), A(45, 45, 90, 0, -30, 110), { ground: 'bench', prop: 'barbell', guide: { joint: 'el0' } }),
+  f_drag_curl: side(St(0, 0, 3, 0, 8), St(0, 0, 3, -35, 125), { prop: 'barbell', guide: { joint: 'el0' } }),
+  f_overhead_curl: front(A(0, 5, 0, 0, 90, 5), A(0, 5, 0, 0, 90, 125), { guide: { joint: 'el0' } }),
+  f_wrist_roller: side(St(0, 0, 3, 90, 0), St(0, 0, 3, 90, 0), { prop: 'barbell', flex: [35, -35], pace: 'cycle', tempo: 0.5 }),
+  f_stone: side(St(55, 110, 95, 60, 40), St(0, 0, 3, 35, 125), { prop: 'ball', guide: { axis: ['pelvis', 'neck'] } }),
+  f_rope_climb: hang(A(0, [10, 40], [10, 50], 15, [175, 145], [5, 60]), A(0, [40, 10], [50, 10], 15, [145, 175], [60, 5]), { pace: 'cycle', tempo: 0.8 }),
+  f_arm_drill: side(A(0, 0, 90, 90, [-40, 50], 90), A(0, 0, 90, 90, [50, -40], 90), { ground: 'floor', fix: 'kn0', lock: true, pace: 'cycle', tempo: 0.3 }),
+  f_leg_swing: side(A(0, [-25, 0], [5, 3], [10, -3], [10, -10], 10), A(0, [60, 0], [5, 3], [0, -3], [-10, 10], 10), { fix: 'an1', lock: true, pace: 'cycle', tempo: 0.7 }),
+  f_hip_flexion: side(St(0, 0, 3, 5, 5), A(0, [60, 0], [10, 3], [10, -3], 5, 5), { fix: 'an1', lock: true, guide: { joint: 'hp0' } }),
+  f_landmine: side(St(15, 15, 15, 60, 125), St(20, 15, 15, 135, 5), { prop: 'barbell', guide: { joint: 'el0' } }),
+  f_fast_feet: gait(15, [30, 10], [45, 30], [-20, 20], 0.18),
+  f_crucifix: front(A(0, 5, 0, 0, 88, 5), A(0, 5, 0, 0, 86, 5), { prop: 'dumbbell', pace: 'hold', guide: { joint: 'sh0' } }),
   Seated_Head_Harness_Neck_Resistance: side(A(40, 130, 95, 0, 45, 5, { neck: 40 }), A(40, 130, 95, 0, 45, 5, { neck: -25 }), { ground: 'bench', guide: { axis: ['neck', 'head'] } }),
   // back
   Bent_Over_Barbell_Row: ROW,
@@ -663,7 +678,7 @@ function pattern(e: Ex): Pose {
     if (has(/triceps stretch|overhead triceps/)) return P.f_triceps_stretch;
     if (has(/upward stretch|overhead stretch/)) return P.f_reach_up;
     if (has(/lateral stretch/)) return P.f_lateral_stretch;
-    if (has(/elbows back/)) return P.f_arms_back;
+    if (has(/elbows back|standing biceps stretch|dynamic chest stretch|chest and front of shoulder/)) return P.f_arms_back;
     if (has(/butterfly stretch/)) return P.f_butterfly_stretch;
     if (m === 'hamstrings') return P['wg_hamstring-stretch'];
     if (m === 'calves') return P.Calf_Stretch_Hands_Against_Wall;
@@ -719,6 +734,52 @@ function pattern(e: Ex): Pose {
   if (has(/donkey kick/)) return P.f_donkey_kick;
   if (has(/prone y/)) return P.f_prone_y;
   if (has(/frog pump/)) return P.Butt_Lift_Bridge;
+  if (has(/glute.?ham raise/)) return P.f_ghr;
+  if (has(/leg pull-in|leg tucks/) && !has(/ball/)) return P.f_seated_tuck;
+  if (has(/spider curl/)) return P.f_spider_curl;
+  if (has(/incline bench pull/)) return P.f_incline_row;
+  if (has(/drag curl/)) return P.f_drag_curl;
+  if (has(/overhead cable curl|high cable curl/)) return P.f_overhead_curl;
+  if (has(/wrist roller/)) return P.f_wrist_roller;
+  if (has(/atlas stone|keg load|sandbag load|tire flip/)) return P.f_stone;
+  if (has(/log lift|circus bell/)) return P.f_clean_press;
+  if (has(/rope climb/)) return P.f_rope_climb;
+  if (has(/arm drill/)) return P.f_arm_drill;
+  if (has(/leg swing/)) return P.f_leg_swing;
+  if (has(/hip flexion/)) return P.f_hip_flexion;
+  if (has(/hip extension/)) return P['One-Legged_Cable_Kickback'];
+  if (has(/landmine (press|linear)|linear jammer/)) return P.f_landmine;
+  if (has(/fast feet/)) return P.f_fast_feet;
+  if (has(/crucifix/)) return P.f_crucifix;
+  if (has(/chins?|pull ups/)) return has(/chin/) ? P['Chin-Up'] : P.Pullups;
+  if (has(/behind (the )?neck/)) return has(/pulldown/) ? P['Wide-Grip_Lat_Pulldown'] : P.Standing_Military_Press;
+  if (has(/machine.*(shoulder|military|overhead).*press|smith machine overhead/)) return P.Standing_Military_Press;
+  if (has(/row to neck/)) return P.Face_Pull;
+  if (has(/neck press|pin press/)) return P['Barbell_Bench_Press_-_Medium_Grip'];
+  if (has(/jm press/)) return P['Close-Grip_Barbell_Bench_Press'];
+  if (has(/press to chin/)) return P.Lying_Triceps_Press;
+  if (has(/incline dumbbell bench/)) return P.Incline_Dumbbell_Press;
+  if (has(/^dumbbell raise|single dumbbell raise|scaption/)) return P.Front_Dumbbell_Raise;
+  if (has(/side laterals|power partials|^iron cross/)) return P.Side_Lateral_Raise;
+  if (has(/cable iron cross|cross over - with bands|^butterfly$/)) return has(/butterfly/) ? { ...P.Cable_Crossover, prop: 'none', ground: 'bench' } : P.Cable_Crossover;
+  if (has(/around the worlds/)) return P.Dumbbell_Flyes;
+  if (has(/bent-knee hip raise|bottoms up/)) return P.Reverse_Crunch;
+  if (has(/elbow to knee/)) return P.Crunches;
+  if (has(/cocoons/)) return P['Leg_Pull-In'];
+  if (has(/scissor kick/)) return P.Flutter_Kicks;
+  if (has(/sprawl/)) return P.wg_burpee;
+  if (has(/step-down|power stairs/)) return P['Step-up_with_Knee_Raise'];
+  if (has(/sit squats/)) return P.Bodyweight_Squat;
+  if (has(/frog hops/)) return P.Freehand_Jump_Squat;
+  if (has(/quick leap/)) return P.Front_Box_Jump;
+  if (has(/return push|drop push|heavy bag thrust/)) return P.f_chest_pass;
+  if (has(/one knee to chest/)) return P.Hug_Knees_To_Chest;
+  if (has(/banded clamshell/)) return P.wg_clamshell;
+  if (has(/dead bug/)) return P.Dead_Bug;
+  if (has(/lower back curl|half locust/)) return P.Superman;
+  if (has(/speed band overhead triceps/)) return P.Triceps_Overhead_Extension_with_Rope;
+  if (has(/crossover reverse lunge/)) return P.Bodyweight_Walking_Lunge;
+  if (has(/3-part start/)) return P.Wind_Sprints;
   if (has(/mountain climber/)) return P.Mountain_Climbers;
   if (has(/\bjacks?\b/)) return P['wg_jumping-jack'];
   if (has(/chin-?up/)) return P['Chin-Up'];
@@ -812,7 +873,7 @@ const matchedCache: Record<string, Pose> = {};
 export function poseFor(e: Ex): { pose: Pose; matched: boolean } {
   if (P[e.id]) return { pose: P[e.id], matched: false };
   // Neck moves without their own pose (rollers, harness variants) never borrow the standing head tilt.
-  const neck = /neck/i.test(e.name) && !/stretch|tilt/i.test(e.name);
+  const neck = e.primary[0] === 'neck' && !/stretch|tilt/i.test(e.name);
   return { pose: (matchedCache[e.id] ??= neck ? W(P.Side_Neck_Stretch) : withProp(pattern(e), e.equipment)), matched: true };
 }
 
