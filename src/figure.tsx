@@ -5,7 +5,7 @@ import Animated, {
 import Svg, { Defs, G, Line, LinearGradient, Path, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { RED, SOFT } from './body';
 import {
-  anchorOf, angle, arm, at, barAt, base, cap, circ, cycleSeconds, FRONT_M, L, leg, n2, NECK, phase, R, SIDE_M, sledAt, solve, spindle, torso, viewBox,
+  anchorOf, angle, arm, at, barAt, base, handAt, cap, circ, cycleSeconds, FRONT_M, L, leg, n2, NECK, phase, R, SIDE_M, sledAt, solve, spindle, torso, viewBox,
   type Angles, type Key, type MuscleSpec, type Pose, type Pts, type Seg,
 } from './data/poses';
 import { c, f } from './theme';
@@ -311,11 +311,12 @@ function Gear({ fr, pose, b, n }: { fr: FV; pose: Pose; b: Pts; n: 0 | 1 }) {
   const front = pose.view === 'front';
   const anchor = anchorOf(pose, b, n);
   const ap = useAnimatedProps(() => {
-    const o = fr.value.o, w = o[`wr${n}` as Key];
+    const o = fr.value.o, w = handAt(pose, o, n, fr.value.p);
     if (pose.prop === 'dumbbell') return { d: circ(w, 5) };
+    if (pose.prop === 'ball') return { d: front ? (n === 0 ? circ([(o.wr0[0] + o.wr1[0]) / 2, (o.wr0[1] + o.wr1[1]) / 2 - 3], 6) : '') : n === 0 ? circ(w, 6) : '' };
     if (pose.prop === 'kettlebell') return { d: circ(at(w, angle(o[`el${n}` as Key], w), 5.5), 5.5) };
     if (pose.prop === 'barbell') {
-      if (!front) return { d: n === 0 ? circ(barAt(pose, o), 9) : '' };
+      if (!front) return { d: n === 0 ? circ(barAt(pose, o, fr.value.p), pose.flex ? 4.5 : 9) : '' };
       if (n === 1) return { d: '' };
       const t = angle(o.wr1, o.wr0), e0 = at(o.wr0, t, 12), e1 = at(o.wr1, t, -12);
       return { d: cap(e0, e1, 1.1, 1.1) + cap(at(e0, t + 90, 7), at(e0, t - 90, 7), 2.6, 2.6) + cap(at(e1, t + 90, 7), at(e1, t - 90, 7), 2.6, 2.6) };
