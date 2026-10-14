@@ -1,0 +1,18 @@
+# Typecheck and self-checks only, no web or APK build. Push to `verify` first; merge into main once it is green.
+name: Verify
+
+on:
+  push:
+    branches: [verify]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: bash scripts/ci.sh npm install --no-audit --no-fund --legacy-peer-deps
+      - run: bash scripts/ci.sh npx tsc --noEmit
+      - run: node scripts/check.mjs
+      - run: node --experimental-strip-types --no-warnings scripts/selfcheck.mjs
