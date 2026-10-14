@@ -242,7 +242,7 @@ export function insights(i: EngineInput, now = Date.now()): Insight[] {
   }
 
   // Body type (optional): one gentle, evidence-based pointer.
-  const body = {
+  const body: Partial<Record<NonNullable<Profile['body']>, { title: string; body: string }>> = {
     more: { title: 'Walking and strength', body: 'Daily walks plus strength twice a week is the best pair for steady, lasting change. No jumping in the first two weeks.' },
     extra: { title: 'Walking and strength', body: 'Brisk walks plus strength work burn fat and keep muscle. We keep jumping out of your first two weeks.' },
     soft: { title: 'Strength comes first', body: 'Strength training three times a week firms you up faster than cardio alone. Keep protein in every meal.' },
