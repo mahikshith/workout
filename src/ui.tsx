@@ -4,7 +4,7 @@ import { Image, type ImageProps } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
+import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
 import Animated, {
   cancelAnimation, Easing, FadeIn, FadeInDown, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
@@ -251,11 +251,29 @@ export function Ring({ size = 120, stroke = 10, progress, color = c.accent, trac
 
 const VIDEOS: Record<string, { url: string; author: string }> = videos;
 const KINDS: { k: MediaPref; label: string }[] = [{ k: 'animated', label: 'Animated' }, { k: 'drawing', label: 'Drawing' }, { k: 'photo', label: 'Photo' }, { k: 'video', label: 'Video' }];
+// A borrowed animation of a different movement is never offered; those exercises show their photo or drawing.
 export const mediaKinds = (ex: Exercise) =>
-  KINDS.filter(({ k }) => (k === 'animated' ? !ex.noImages : k === 'drawing' ? !!ex.art : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
+  KINDS.filter(({ k }) => (k === 'animated' ? !ex.noImages && !poseFor(ex).pose.weak : k === 'drawing' ? !!ex.art : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
 const CREDIT = { drawing: 'Drawing: workout-guide by Bryl Lim, CC BY-SA 4.0, based on Everkinetic', photo: 'Photo: free-exercise-db, public domain' };
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 const NAME: Record<MediaPref, string> = { animated: 'Animation', drawing: 'Drawing', photo: 'Photo', video: 'Video' };
+
+// Pictures and videos that failed (usually no internet) wait here. One shared check asks the media host every 5 s, and
+// when the app comes back to the front, whether it answers; any answer means we are online, and every waiting picture
+// reloads in place, so nobody has to leave the page and come back.
+const waiters = new Set<() => void>();
+let timer: ReturnType<typeof setInterval> | undefined;
+const stop = () => { if (timer) clearInterval(timer); timer = undefined; };
+const ping = () => fetch(`${MEDIA}?t=${Date.now()}`, { method: 'HEAD' }).then(() => { const ws = [...waiters]; waiters.clear(); stop(); ws.forEach((w) => w()); }, () => {});
+AppState.addEventListener('change', (st) => { if (st === 'active' && waiters.size) ping(); });
+function useBackOnline(waiting: boolean, retry: () => void) {
+  useEffect(() => {
+    if (!waiting) return;
+    waiters.add(retry);
+    timer ??= setInterval(ping, 5000);
+    return () => { waiters.delete(retry); if (!waiters.size) stop(); };
+  }, [waiting]);
+}
 
 // Animated figure, drawing (workout-guide), photo (free-exercise-db) or video (wger), with a switch in the corner.
 // The pick is remembered for every exercise. If a picture or video can't load, the pane quietly falls back to the
@@ -268,7 +286,9 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
   const [failed, setFailed] = useState<MediaPref[]>([]);
   const [prev, setPrev] = useState<MediaPref | null>(null); // stays under the new pick while it fades in
   const [online, setOnline] = useState(false); // "Needs internet" hint, shown for a moment on photo, drawing or video
+  const [tries, setTries] = useState(0); // bumps to reload pictures once the internet is back
   useEffect(() => setFailed([]), [ex.id]);
+  useBackOnline(failed.length > 0, () => { setFailed([]); setTries((t) => t + 1); });
   useEffect(() => { if (!prev) return; const t = setTimeout(() => setPrev(null), 250); return () => clearTimeout(t); }, [prev]);
   useEffect(() => {
     if (pref === 'animated') return;
@@ -277,7 +297,8 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
     return () => clearTimeout(t);
   }, [pref, ex.id]);
   if (ex.noImages) return <Breath ex={ex} height={height} style={style} />;
-  const kinds = mediaKinds(ex).filter((m) => !failed.includes(m.k));
+  const all = mediaKinds(ex);
+  const kinds = all.filter((m) => !failed.includes(m.k));
   const kind = kinds.find((m) => m.k === pref)?.k ?? kinds[0]?.k;
   const missed = pref !== kind && failed.includes(pref) ? pref : null;
   const shown = prev && prev !== kind && kinds.some((m) => m.k === prev) ? [prev, kind] : [kind];
@@ -286,22 +307,34 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
   return (
     <View style={style}>
       {/* The media switch sits above the pane, so its labels never cover the animation or photo. */}
-      {kinds.length > 1 && (
+      {/* Every kind stays in the switch, even one that failed offline; tapping it tries again. */}
+      {all.length > 1 && (
         <View style={md.switch}>
-          {kinds.map(({ k, label }) => (
+          {all.map(({ k, label }) => (
             <Pressable key={k} hitSlop={6} accessibilityRole="button" accessibilityState={{ selected: k === kind }}
-              onPress={() => { if (!kind || k === kind) return; haptic(); setPrev(kind); setPref(k); }}
+              onPress={() => {
+                if (k === kind) return;
+                haptic();
+                if (failed.includes(k)) { setFailed((f) => f.filter((x) => x !== k)); setTries((t) => t + 1); }
+                else if (kind) setPrev(kind);
+                setPref(k);
+              }}
               style={[md.opt, k === kind && { backgroundColor: c.accent }]}>
-              {k !== 'animated' && <Ionicons name="cloud-outline" size={12} color={k === kind ? c.accentInk : c.muted} />}
-              <T v="small" color={k === kind ? c.accentInk : c.text}>{label}</T>
+              {k !== 'animated' && <Ionicons name={failed.includes(k) ? 'cloud-offline-outline' : 'cloud-outline'} size={12} color={k === kind ? c.accentInk : c.muted} />}
+              <T v="small" color={k === kind ? c.accentInk : failed.includes(k) ? c.muted : c.text}>{label}</T>
             </Pressable>
           ))}
         </View>
       )}
       <View onLayout={(e) => setW(Math.round(e.nativeEvent.layout.width))}
         style={{ height, borderRadius: r.lg, backgroundColor: c.card2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.line }}>
-        {!kind ? <Ionicons name="barbell-outline" size={height * 0.3} color={c.muted} /> : shown.map((k) => (
-          <Animated.View key={ex.id + k} entering={k === kind && shown.length > 1 ? FadeIn.duration(200).easing(EASE) : undefined} style={StyleSheet.absoluteFill}>
+        {!kind ? (
+          <View style={{ alignItems: 'center', gap: 8, padding: 24 }}>
+            <Ionicons name="cloud-offline-outline" size={40} color={c.muted} />
+            <T v="small" style={{ textAlign: 'center' }}>No internet. The photo loads here by itself once you are back online.</T>
+          </View>
+        ) : shown.map((k) => (
+          <Animated.View key={ex.id + k + tries} entering={k === kind && shown.length > 1 ? FadeIn.duration(200).easing(EASE) : undefined} style={StyleSheet.absoluteFill}>
             {k === 'animated' ? (
               // The figure is drawn at exactly the pane's measured size, top-left anchored; the SVG viewBox centres the
               // body inside it, so nothing depends on flex centring (which shifted it right on some Android phones).
@@ -323,7 +356,7 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
           </Animated.View>
         )}
         {missed && kind && (
-          <View style={md.note}><T v="small" color={c.text}>{`${NAME[missed]} didn’t load, so here’s the ${NAME[kind].toLowerCase()}.`}</T></View>
+          <View style={md.note}><T v="small" color={c.text}>{`${NAME[missed]} didn’t load, so here’s the ${NAME[kind].toLowerCase()}. It switches back by itself once you’re online.`}</T></View>
         )}
       </View>
       {credit && kind && (
@@ -418,6 +451,7 @@ const md = StyleSheet.create({
 export function Thumb({ ex, size = 56 }: { ex: Exercise; size?: number }) {
   const [bad, setBad] = useState(false);
   useEffect(() => setBad(false), [ex.id]);
+  useBackOnline(bad, () => setBad(false));
   if (ex.noImages)
     return (
       <View style={{ width: size, height: size, borderRadius: 14, backgroundColor: '#251B33', alignItems: 'center', justifyContent: 'center' }}>

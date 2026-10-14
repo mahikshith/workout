@@ -5,7 +5,7 @@ import Animated, {
 import Svg, { Defs, G, Line, LinearGradient, Path, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { RED, SOFT } from './body';
 import {
-  angle, arm, at, base, cap, circ, cycleSeconds, FRONT_M, L, leg, n2, NECK, phase, R, SIDE_M, solve, spindle, torso,
+  anchorOf, angle, arm, at, barAt, base, cap, circ, cycleSeconds, FRONT_M, L, leg, n2, NECK, phase, R, SIDE_M, sledAt, solve, spindle, torso, viewBox,
   type Angles, type Key, type MuscleSpec, type Pose, type Pts, type Seg,
 } from './data/poses';
 import { c, f } from './theme';
@@ -17,7 +17,6 @@ import { c, f } from './theme';
 
 const APath = Animated.createAnimatedComponent(Path);
 const AG = Animated.createAnimatedComponent(G);
-type P2 = [number, number];
 type Frame = { o: Pts; g: number; p: number; breath: number; shadow: [number, number, number] };
 type FV = { readonly value: Frame };
 // Joints whose angle changes are dotted; the arc shows the angle between these two neighbours.
@@ -25,7 +24,8 @@ const JOINTS: [keyof Angles, string][] = [['hip', 'hp'], ['knee', 'kn'], ['ankle
 const NB: Record<string, [Key, Key]> = { kn0: ['hp0', 'an0'], hp0: ['kn0', 'neck'], el0: ['sh0', 'wr0'], sh0: ['hp0', 'el0'], an0: ['kn0', 'toe0'] };
 
 const BODY = { near: ['url(#__N)', '#9A9AA2'], far: ['url(#__F)', '#5A5A62'] } as const;
-const GEAR = { fill: '#36363D', stroke: '#8E8E93' };
+// Equipment (weights, benches, bars, machines) is outlined in amber so it never reads as part of the body.
+const GEAR = { fill: '#3A2E14', stroke: '#FFB340' };
 const BAND = '#64D2FF';
 const AXIS = '#64D2FF'; // alignment lines are blue, so they never read as the (accent) angle
 
@@ -155,6 +155,7 @@ export function Figure({ pose, primary, secondary, height, width, paused }: {
         {flat && <Shadow fr={fr} fill={`url(#${uid}S)`} />}
         {flat && <Balance fr={fr} top={box[1]} />}
         <Scenery pose={pose} b={b} top={box[1]} />
+        {pose.machine === 'sled' && <Sled fr={fr} />}
         {front ? (
           <>
             {layer(layers.back)}
@@ -314,10 +315,15 @@ function Gear({ fr, pose, b, n }: { fr: FV; pose: Pose; b: Pts; n: 0 | 1 }) {
     if (pose.prop === 'dumbbell') return { d: circ(w, 5) };
     if (pose.prop === 'kettlebell') return { d: circ(at(w, angle(o[`el${n}` as Key], w), 5.5), 5.5) };
     if (pose.prop === 'barbell') {
-      if (!front) return { d: circ(w, 9) };
+      if (!front) return { d: n === 0 ? circ(barAt(pose, o), 9) : '' };
       if (n === 1) return { d: '' };
       const t = angle(o.wr1, o.wr0), e0 = at(o.wr0, t, 12), e1 = at(o.wr1, t, -12);
       return { d: cap(e0, e1, 1.1, 1.1) + cap(at(e0, t + 90, 7), at(e0, t - 90, 7), 2.6, 2.6) + cap(at(e1, t + 90, 7), at(e1, t - 90, 7), 2.6, 2.6) };
+    }
+    if (pose.prop === 'plate') { // edge-on plate across the top of the head
+      if (n === 1) return { d: '' };
+      const t = angle(o.neck, o.head), up = Math.cos(((t + 90) * Math.PI) / 180) > 0 ? t + 90 : t - 90, mid = at(o.head, up, L.head + 2);
+      return { d: cap(at(mid, t, -9), at(mid, t, 9), 2, 2) };
     }
     if (pose.prop === 'band') {
       if (anchor) return { d: `M${n2(w)}L${n2(anchor)}` };
@@ -330,16 +336,18 @@ function Gear({ fr, pose, b, n }: { fr: FV; pose: Pose; b: Pts; n: 0 | 1 }) {
   return <APath animatedProps={ap} fill={GEAR.fill} stroke={GEAR.stroke} strokeWidth={0.8} />;
 }
 
-const anchorOf = (pose: Pose, b: Pts, n: 0 | 1): P2 | null => {
-  if (!pose.line || (n === 1 && pose.view !== 'front')) return null;
-  const w = b[`wr${n}` as Key];
-  return [w[0] + (n === 1 ? -pose.line[0] : pose.line[0]), w[1] + pose.line[1]];
-};
+
+// The leg-press plate moves with the feet, so it is animated like the body.
+function Sled({ fr }: { fr: FV }) {
+  const ap = useAnimatedProps(() => { const [a, b] = sledAt(fr.value.o); return { d: cap(a, b, 1.6, 1.6) }; });
+  return <APath animatedProps={ap} fill={GEAR.fill} stroke={GEAR.stroke} strokeWidth={0.8} />;
+}
 
 // Fixed things, placed from the start pose: bench, box, wall, bar, treadmill, sloped ground.
 function Scenery({ pose, b, top }: { pose: Pose; b: Pts; top: number }) {
   const els: ReactNode[] = [];
-  const kit = { fill: '#232328', stroke: '#3C3C43', strokeWidth: 0.8 };
+  const kit = { fill: '#2A2416', stroke: GEAR.stroke, strokeWidth: 0.8, strokeOpacity: 0.8 };
+  const post = { stroke: GEAR.stroke, strokeOpacity: 0.55, strokeWidth: 1.6 };
   const x = b.pelvis[0], tilt = pose.incline ? `rotate(${-pose.incline} ${x} 0)` : undefined;
   if (pose.machine === 'treadmill') {
     // deck and belt (tilted for incline walks), front upright and the handrail the hands sit near
@@ -347,9 +355,9 @@ function Scenery({ pose, b, top }: { pose: Pose; b: Pts; top: number }) {
       <G key="tread" transform={tilt}>
         <Rect x={x - 36} y={0.6} width={72} height={4} rx={2} {...kit} />
         <Line x1={x - 34} x2={x + 34} y1={0.6} y2={0.6} stroke="#55555C" strokeWidth={1} />
-        <Path d={circ([x - 34, 2.6], 2) + circ([x + 34, 2.6], 2)} fill="#3C3C43" />
-        <Line x1={x + 34} x2={x + 38} y1={0} y2={-58} stroke="#3C3C43" strokeWidth={2.4} strokeLinecap="round" />
-        <Line x1={x + 38} x2={x + 22} y1={-58} y2={-56} stroke="#3C3C43" strokeWidth={2} strokeLinecap="round" />
+        <Path d={circ([x - 34, 2.6], 2) + circ([x + 34, 2.6], 2)} fill={GEAR.stroke} fillOpacity={0.5} />
+        <Line x1={x + 34} x2={x + 38} y1={0} y2={-58} {...post} strokeLinecap="round" />
+        <Line x1={x + 38} x2={x + 22} y1={-58} y2={-56} {...post} strokeLinecap="round" />
         <Rect x={x + 32} y={-66} width={12} height={8} rx={2} {...kit} />
       </G>,
     );
@@ -358,13 +366,13 @@ function Scenery({ pose, b, top }: { pose: Pose; b: Pts; top: number }) {
   }
   if (pose.ground === 'bench') {
     const P = b.pelvis, y = P[1] + (R.pelvis ?? 7) + 2.6, t = pose.start.spine;
-    els.push(<Line key="leg" x1={P[0]} x2={P[0]} y1={y} y2={0} stroke="#3C3C43" strokeWidth={2.4} />);
+    els.push(<Line key="leg" x1={P[0]} x2={P[0]} y1={y} y2={0} {...post} />);
     els.push(<Path key="seat" d={cap([P[0] - (pose.view === 'front' ? 15 : 12), y], [P[0] + (pose.view === 'front' ? 15 : 12), y], 2.6, 2.6)} {...kit} />);
     if (pose.view === 'side' && Math.abs(t) >= 25) {
       const down = (d: number) => -Math.cos((d * Math.PI) / 180);
       const nrm = Math.abs(down(t + 90)) < 0.3 ? t - 90 : down(t + 90) > down(t - 90) ? t + 90 : t - 90;
       const e = at(at(P, t, L.torso - 2), nrm, 10);
-      if (e[1] < -3) els.push(<Line key="leg2" x1={e[0]} x2={e[0]} y1={e[1]} y2={0} stroke="#3C3C43" strokeWidth={2.4} />);
+      if (e[1] < -3) els.push(<Line key="leg2" x1={e[0]} x2={e[0]} y1={e[1]} y2={0} {...post} />);
       els.push(<Path key="pad" d={cap(at(P, nrm, 10), e, 2.6, 2.6)} {...kit} />);
     }
   }
@@ -374,33 +382,11 @@ function Scenery({ pose, b, top }: { pose: Pose; b: Pts; top: number }) {
   }
   if (pose.wall) {
     const x = pose.wall === 'front' ? b.wr0[0] + 3.6 : Math.min(b.pelvis[0], b.neck[0]) - 9.5;
-    els.push(<Line key="wall" x1={x} x2={x} y1={0} y2={top} stroke={c.line} strokeWidth={2} />);
+    els.push(<Line key="wall" x1={x} x2={x} y1={0} y2={top} {...post} />);
   }
   if (pose.prop === 'bar') {
-    if (pose.view === 'front') els.push(<Line key="bar" x1={b.wr0[0] - 14} x2={b.wr1[0] + 14} y1={b.wr0[1]} y2={b.wr0[1]} stroke={c.muted} strokeWidth={2.2} strokeLinecap="round" />);
-    else els.push(<Path key="bar" d={circ(b.wr0, 2.4)} fill={c.muted} />);
+    if (pose.view === 'front') els.push(<Line key="bar" x1={b.wr0[0] - 14} x2={b.wr1[0] + 14} y1={b.wr0[1]} y2={b.wr0[1]} stroke={GEAR.stroke} strokeWidth={2.2} strokeLinecap="round" />);
+    else els.push(<Path key="bar" d={circ(b.wr0, 2.4)} fill={GEAR.stroke} />);
   }
   return <>{els}</>;
-}
-
-// Frame the whole movement, plus whatever is drawn around it.
-function viewBox(pose: Pose, b: Pts): [number, number, number, number] {
-  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-  const grow = (p: P2, r: number) => { x0 = Math.min(x0, p[0] - r); x1 = Math.max(x1, p[0] + r); y0 = Math.min(y0, p[1] - r); y1 = Math.max(y1, p[1] + r); };
-  const gear = pose.prop === 'barbell' ? 9.5 : pose.prop === 'dumbbell' || pose.prop === 'kettlebell' ? 11 : 3.3;
-  let mid = 0; // the body's own centre, averaged over the rep, so the figure sits in the middle of the pane
-  for (let i = 0; i <= 16; i++) {
-    const o = solve(pose, b, i / 16);
-    let lo = 1e9, hi = -1e9;
-    for (const k of Object.keys(o) as Key[]) {
-      grow(o[k], k.startsWith('wr') ? gear : (R[k] ?? 4));
-      if (!k.startsWith('wr') && !k.startsWith('el')) { lo = Math.min(lo, o[k][0]); hi = Math.max(hi, o[k][0]); }
-    }
-    mid += (lo + hi) / 2 / 17;
-  }
-  for (const n of [0, 1] as const) { const a = anchorOf(pose, b, n); if (a) grow(a, 2); }
-  if (pose.ground !== 'hang' && pose.ground !== 'mat') grow([b.pelvis[0], 0], 2);
-  if (pose.machine === 'treadmill') { grow([b.pelvis[0] - 38, 6], 0); grow([b.pelvis[0] + 46, -68], 0); }
-  const pad = 9, w = Math.max(2 * Math.max(mid - x0, x1 - mid) + 2 * pad, 80), h = Math.max(y1 - y0 + 2 * pad, 80);
-  return [mid - w / 2, (y0 + y1) / 2 - h / 2, w, h].map((v) => Math.round(v * 10) / 10) as [number, number, number, number];
 }

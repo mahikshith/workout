@@ -10,7 +10,7 @@ import { fit, recommend, type Fit, type Planned } from '../src/data/pairing';
 import { gate } from '../src/engine';
 import { doneNote, doneRecently } from '../src/calc';
 import { useStore } from '../src/store';
-import { c, equip, f, r } from '../src/theme';
+import { c, equip, EQUIP, f, r } from '../src/theme';
 import { Avatar, Banner, Card, Chip, ListRow, Row, Section, T, Tap, Thumb } from '../src/ui';
 
 const LEVELS = ['beginner', 'intermediate', 'expert'] as const;
@@ -55,6 +55,10 @@ export default function Library({ tab }: { tab?: boolean }) {
   const [bare, setBare] = useState(eq === 'none');
   const [gid, setGid] = useState<string | null>(muscle ? groupFor(muscle) : null);
   const [focus, setFocus] = useState<string | null>(null);
+  // Inside a muscle group: filter by level and by equipment (chips at the top), reset when the group changes.
+  const [lvl, setLvl] = useState<string>(ALL);
+  const [kit, setKit] = useState<string>(ALL);
+  useEffect(() => { setLvl(ALL); setKit(ALL); }, [gid]);
   useEffect(() => { if (eq === 'none') { setBare(true); setGid(null); setFocus(null); } }, [eq]);
   useEffect(() => { if (muscle) { setGid(groupFor(muscle)); setFocus(null); } }, [muscle]);
 
@@ -75,7 +79,9 @@ export default function Library({ tab }: { tab?: boolean }) {
   // What the active workout already holds, for the fit tags and suggestions in pick mode.
   const planned = useMemo<Planned[]>(() => (active?.items ?? []).flatMap((it) => (byId[it.exId] ? [{ ex: byId[it.exId], sets: it.sets.length }] : [])), [active]);
   const picks = useMemo(() => (pick ? recommend(planned, place, profile.gear, profile, done) : []), [pick, planned, place, profile, done]);
-  const inG = useMemo(() => (g ? pool.filter((e) => inGroup(g, e)) : pool), [pool, g]);
+  const whole = useMemo(() => (g ? pool.filter((e) => inGroup(g, e)) : pool), [pool, g]);
+  const kits = useMemo(() => [...new Set(whole.map((e) => equip(e.equipment).label))], [whole]);
+  const inG = useMemo(() => whole.filter((e) => (lvl === ALL || e.level === lvl) && (kit === ALL || equip(e.equipment).label === kit)), [whole, lvl, kit]);
 
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
   const list = words.length || fo
@@ -128,6 +134,21 @@ export default function Library({ tab }: { tab?: boolean }) {
         {WHERE.map((w) => <Chip key={w.k} label={w.label} icon={w.icon} on={where === w.k} onPress={() => setWhere(w.k)} />)}
         {bare && <Chip label="No equipment" icon="close" on color={c.ok} onPress={() => setBare(false)} />}
       </Row>
+      {g && (
+        <View style={{ gap: 8, paddingBottom: 12 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+            {[ALL, ...LEVELS].map((l) => <Chip key={l} label={title(l)} on={lvl === l} onPress={() => setLvl(l)} />)}
+          </ScrollView>
+          {kits.length > 1 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+              {[ALL, ...kits].map((k) => {
+                const col = k === ALL ? c.accent : Object.values(EQUIP).find((x) => x.label === k)?.color;
+                return <Chip key={k} label={k === ALL ? 'All equipment' : k} on={kit === k} color={col} onPress={() => setKit(k)} />;
+              })}
+            </ScrollView>
+          )}
+        </View>
+      )}
       {pick && note && (
         <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
           <Banner icon={note.kind === 'locked' ? 'lock-closed' : 'alert-circle'} color={c.warm} title={note.text}
@@ -149,7 +170,7 @@ export default function Library({ tab }: { tab?: boolean }) {
             <ExRow e={item} focus={focusOf(item, g?.id)?.label} locked={gate(item, profile, done).locked} match={pick ? fit(item, planned) : undefined}
               onPress={() => open(item)} at={recent.get(item.id)} />
           )}
-          ListEmptyComponent={<T v="small" style={{ marginTop: 12 }}>Nothing here for this place yet. Try Gym.</T>}
+          ListEmptyComponent={<T v="small" style={{ marginTop: 12 }}>{lvl !== ALL || kit !== ALL ? "Nothing matches these filters. Try All." : "Nothing here for this place yet. Try Gym."}</T>}
         />
       ) : !g ? (
         <ScrollView contentContainerStyle={pad} showsVerticalScrollIndicator={false}>
@@ -260,5 +281,6 @@ const s = StyleSheet.create({
   focus: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: LINE },
   start: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: LINE },
+  chips: { paddingHorizontal: 12, gap: 8 },
   tag: { paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: c.card2, justifyContent: 'center' },
 });

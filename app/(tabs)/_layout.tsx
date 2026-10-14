@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { Redirect, Tabs } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../src/store';
 import { Tap } from '../../src/ui';
@@ -10,8 +10,8 @@ import { c, f } from '../../src/theme';
 
 const TABS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
   index: { label: 'Today', icon: 'flash' },
-  train: { label: 'Plans', icon: 'barbell' },
   exercises: { label: 'Exercises', icon: 'body' },
+  train: { label: 'Plans', icon: 'barbell' },
   progress: { label: 'Progress', icon: 'stats-chart' },
   fuel: { label: 'Fuel', icon: 'nutrition' },
 };
@@ -19,9 +19,10 @@ const TABS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap
 function Bar({ state, navigation }: BottomTabBarProps) {
   const ins = useSafeAreaInsets();
   return (
-    <View style={[s.wrap, { bottom: Math.max(ins.bottom, 12) }]}>
-      {/* Frosted glass: content scrolls underneath and stays readable through the blur. */}
-      <BlurView intensity={40} tint="dark" experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFill} />
+    <View style={[s.wrap, Platform.OS !== 'ios' && { backgroundColor: 'rgba(24,24,27,0.96)' }, { bottom: Math.max(ins.bottom, 12) }]}>
+      {/* Frosted glass on iOS. Android's blur re-draws the whole page under the bar on every scroll frame, which made
+          long pages stutter, so there the bar is a solid tint instead. */}
+      {Platform.OS === 'ios' && <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />}
       <View style={s.glassEdge} pointerEvents="none" />
       {state.routes.map((route, i) => {
         const on = state.index === i;
@@ -45,8 +46,8 @@ export default function TabsLayout() {
   return (
     <Tabs tabBar={(p) => <Bar {...p} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: c.bg }, animation: 'shift' }}>
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="train" />
       <Tabs.Screen name="exercises" />
+      <Tabs.Screen name="train" />
       <Tabs.Screen name="progress" />
       <Tabs.Screen name="fuel" />
       <Tabs.Screen name="you" />
