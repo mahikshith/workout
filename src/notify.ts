@@ -125,7 +125,7 @@ export function plan(s: NudgeState, now = Date.now()): Req[] {
 
   // Weekly weigh-in for weight goals (never in no-numbers mode): Monday morning, same time every week.
   if (!p.gentle && !p.concerns?.includes('food') && (p.goal === 'lose fat' || Math.abs(p.goalWeightKg - p.weightKg) >= 1))
-    repeat('Weekly weigh-in', 'Same day, same time, before breakfast. Log it in Progress to see your trend.', { type: K.WEEKLY, weekday: 2, hour: 7, minute: 30, channelId: 'nudges' }, '/progress');
+    repeat('Weekly weigh-in', 'Same day, same time, before breakfast. Tap to log it and see your trend.', { type: K.WEEKLY, weekday: 2, hour: 7, minute: 30, channelId: 'nudges' }, '/chart/weight');
 
   // Milestones measured from the first workout: honest encouragement at the points where people usually give up.
   const firstAt = s.sessions[0]?.startedAt;

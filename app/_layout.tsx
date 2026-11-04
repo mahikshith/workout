@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useHealthSync } from '../src/health';
 import { useNudgeSync } from '../src/notify';
 import { useStore } from '../src/store';
 import { c, setAccent } from '../src/theme';
@@ -18,6 +19,7 @@ export default function Root() {
   useEffect(() => useStore.persist.onFinishHydration(() => setHydrated(true)), []);
   const ready = fonts && hydrated;
   useNudgeSync(); // keeps every reminder, hydration and motivation nudge in step with the store
+  useHealthSync(); // Health Connect sync on launch/foreground, strap reconnect, finished workouts written back
   useEffect(() => { if (ready) SplashScreen.hideAsync(); }, [ready]);
 
   const accent = useStore((s) => s.profile.accent ?? 'lime');

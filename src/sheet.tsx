@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,12 +41,15 @@ export function Sheet({ open, onClose, children }: { open: boolean; onClose: () 
         <Animated.View style={[StyleSheet.absoluteFill, s.scrim, scrim]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
         </Animated.View>
-        <GestureDetector gesture={pan}>
+        {/* Drag starts on the grab strip only, so lists inside the sheet keep scrolling normally. */}
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.kav} pointerEvents="box-none">
           <Animated.View onLayout={(e) => setH(e.nativeEvent.layout.height)} style={[s.sheet, { paddingBottom: ins.bottom + 20 }, body]}>
-            <View style={s.handle} />
+            <GestureDetector gesture={pan}>
+              <View style={s.grab} accessibilityLabel="Drag down to close"><View style={s.handle} /></View>
+            </GestureDetector>
             {children}
           </Animated.View>
-        </GestureDetector>
+        </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
   );
@@ -54,9 +57,11 @@ export function Sheet({ open, onClose, children }: { open: boolean; onClose: () 
 
 const s = StyleSheet.create({
   scrim: { backgroundColor: 'rgba(0,0,0,0.55)' },
+  kav: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'flex-end' },
   sheet: {
-    position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '92%', backgroundColor: c.card, paddingHorizontal: 20, paddingTop: 10,
+    maxHeight: '92%', backgroundColor: c.card, paddingHorizontal: 20, paddingTop: 0,
     borderTopLeftRadius: r.xl + 4, borderTopRightRadius: r.xl + 4, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line,
   },
-  handle: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: '#3A3A40', marginBottom: 14 },
+  grab: { height: 30, marginHorizontal: -20, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#3A3A40' },
 });

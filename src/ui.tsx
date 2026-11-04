@@ -6,7 +6,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
 import Animated, {
-  cancelAnimation, Easing, FadeIn, FadeInDown, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
+  cancelAnimation, Easing, FadeIn, FadeInDown, useAnimatedProps, useReducedMotion, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -233,8 +233,13 @@ export function Ring({ size = 120, stroke = 10, progress, color = c.accent, trac
   const rad = (size - stroke) / 2;
   const len = 2 * Math.PI * rad;
   const p = useSharedValue(0);
-  useEffect(() => { p.value = withTiming(Math.min(1, Math.max(0, progress)), { duration: 700, easing: Easing.out(Easing.cubic) }); }, [progress]);
-  const props = useAnimatedProps(() => ({ strokeDashoffset: len * (1 - p.value) }));
+  const still = useReducedMotion();
+  useEffect(() => {
+    const to = Math.min(1, Math.max(0, progress || 0));
+    p.value = still ? to : withTiming(to, { duration: 700, easing: Easing.bezier(0.23, 1, 0.32, 1) });
+  }, [progress, still]);
+  // At zero the round cap would still paint a dot, so the arc hides until there is something to show.
+  const props = useAnimatedProps(() => ({ strokeDashoffset: len * (1 - p.value), strokeOpacity: p.value > 0.002 ? 1 : 0 }));
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>

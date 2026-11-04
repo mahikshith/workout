@@ -3,7 +3,7 @@
 // Rules they enforce live in docs/REDESIGN.md (section 2 and 3).
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import Animated, {
   Easing, FadeInDown, FadeOutDown, runOnJS, useAnimatedReaction, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming, useAnimatedStyle,
@@ -102,8 +102,16 @@ export function useElapsed() {
 // Today's workout, the same one everywhere (centre button, Today hero, Train's plan card). One tap starts it; while a
 // workout is running the same action reopens it.
 export function useToday() {
-  const st = useStore();
-  const sug = suggest(st);
+  const profile = useStore((s) => s.profile);
+  const sessions = useStore((s) => s.sessions);
+  const meals = useStore((s) => s.meals);
+  const water = useStore((s) => s.water);
+  const checkins = useStore((s) => s.checkins);
+  const planId = useStore((s) => s.planId);
+  const nextDay = useStore((s) => s.nextDay);
+  const active = useStore((s) => s.active);
+  const st = { profile, sessions, meals, water, checkins, planId, nextDay, active, start: useStore.getState().start };
+  const sug = useMemo(() => suggest({ profile, sessions, meals, water, checkins, planId, nextDay }), [profile, sessions, meals, water, checkins, planId, nextDay]);
   const desk = quickById.desk;
   const office = st.profile.place === 'office' && !!desk;
   const day = office ? asDay(desk) : sug.day;

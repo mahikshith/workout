@@ -1,164 +1,156 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
-import { targets } from '../src/calc';
-import { ContextFields, GOALS, LEVELS, optLabel, Tiles } from '../src/context';
-import { HOME_GEAR, title } from '../src/data/exercises';
-import { UNLOCK } from '../src/engine';
-import { useStore, type Profile } from '../src/store';
-import { ACCENTS, c, type AccentId } from '../src/theme';
-import { Button, Card, Chip, ListRow, Rise, Row, Screen, Section, T, Tap } from '../src/ui';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GOALS, optLabel } from '../src/context';
+import { title } from '../src/data/exercises';
+import { planById } from '../src/data/plans';
+import { EASE, Header } from '../src/kit';
+import { Sheet } from '../src/sheet';
+import { useStore } from '../src/store';
+import { ACCENTS, c, r, type AccentId } from '../src/theme';
+import { useTracker } from '../src/tracker';
+import { Button, IconBox, T, Tap } from '../src/ui';
 
+type Icon = keyof typeof Ionicons.glyphMap;
+const clock12 = (h: number, m: number) => `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+
+// Profile and settings, behind the avatar on every tab: a profile card, then one grouped list. Rows open a section of
+// /profile, a sheet (appearance, data) or their own page (watch, reminders, etiquette).
 export default function You() {
+  const ins = useSafeAreaInsets();
+  const still = useReducedMotion();
   const profile = useStore((s) => s.profile);
+  const planId = useStore((s) => s.planId);
+  const reminders = useStore((s) => s.reminders);
   const setProfile = useStore((s) => s.setProfile);
   const reset = useStore((s) => s.reset);
+  const connected = useTracker((s) => s.hc.connected);
+  const periods = useStore((s) => s.periods);
+  const logPeriod = useStore((s) => s.logPeriod);
+  const [sheet, setSheet] = useState<'look' | 'data' | null>(null);
   const [confirm, setConfirm] = useState(false);
-  const t = targets(profile);
+
+  const accent = profile.accent ?? 'lime';
+  // Changing the accent remounts the app from the root (new colours everywhere), which drops the screen stack.
+  // Come back here once it has remounted.
+  const pickAccent = (id: AccentId) => {
+    if (id === accent) return;
+    setSheet(null);
+    setProfile({ ...useStore.getState().profile, accent: id });
+    setTimeout(() => router.replace('/you'), 60);
+  };
+  const closeData = () => { setSheet(null); setConfirm(false); };
+  const erase = () => { closeData(); reset();
+    useTracker.setState({ daily: {}, workouts: {}, hc: { connected: false, granted: [] }, strap: null, strapHrv: {} });
+    router.replace('/');
+  };
+
+  const next = reminders.filter((x) => x.kind === 'workout' && x.on).sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute))[0];
   const gentle = profile.gentle || profile.concerns?.includes('food');
-  const save = (patch: Partial<Profile>) => setProfile({ ...profile, ...patch });
-  // Changing the accent remounts the app from the root; come straight back here afterwards.
-  const pickAccent = (accent: AccentId) => { if (accent === (profile.accent ?? 'lime')) return; save({ accent }); setTimeout(() => router.push('/you'), 60); };
+  const about = [profile.age ? `${profile.age} y` : '', `${profile.heightCm} cm`, gentle ? '' : `${profile.weightKg} kg`].filter(Boolean).join(' · ');
+  const place = profile.place === 'both' ? 'Gym and home' : title(profile.place);
+
+  // Cycle tracking's permanent home (Today only keeps a dismissible shortcut). Same rule as Today: a period counts as
+  // running for up to 10 days after its logged start.
+  const last = periods[periods.length - 1];
+  const inPeriod = !!last && !last.end && Date.now() - Date.parse(last.start) < 10 * 86400000;
+  const cycle = profile.women?.mode === 'cycle';
+  const dayLabel = (d: string) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+
+  const rows: { icon: Icon; color?: string; t: string; v?: string; go: () => void; act?: boolean }[] = [
+    { icon: 'watch-outline', color: c.blue, t: 'Watch & health', v: connected ? 'Connected' : 'Not connected', go: () => router.push('/watch') },
+    { icon: 'flag-outline', t: 'Plan and goal', v: optLabel(GOALS, profile.goal), go: () => router.push({ pathname: '/profile', params: { s: 'plan' } }) },
+    { icon: 'person-outline', t: 'About you', v: about, go: () => router.push({ pathname: '/profile', params: { s: 'about' } }) },
+    ...(cycle ? [{ icon: 'water-outline' as Icon, color: c.pink, t: inPeriod ? 'Period ended' : 'Log period start',
+      v: last ? `${inPeriod ? 'Started' : 'Last'} ${dayLabel(last.start)}` : 'Today', go: () => logPeriod(inPeriod ? 'end' : 'start'), act: true }] : []),
+    { icon: 'location-outline', t: 'Where you train', v: place, go: () => router.push({ pathname: '/profile', params: { s: 'place' } }) },
+    { icon: 'notifications-outline', t: 'Reminders', v: next ? clock12(next.hour, next.minute) : 'Off', go: () => router.push('/reminders') },
+    { icon: 'color-palette-outline', t: 'Appearance', v: ACCENTS[accent]?.name, go: () => setSheet('look') },
+    { icon: 'people-outline', t: 'Gym etiquette', go: () => router.push('/etiquette') },
+    { icon: 'server-outline', color: c.muted, t: 'Your data', v: 'On this phone', go: () => setSheet('data') },
+  ];
+  const enter = (i: number) => (still ? undefined : FadeInDown.delay(i * 60).duration(380).easing(EASE));
 
   return (
-    <Screen>
-      <Row style={{ justifyContent: 'space-between' }}>
-        <Tap onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={s.icon}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
-        <T v="h2">Profile</T>
-        <View style={{ width: 40 }} />
-      </Row>
-
-      <Rise>
-        <Row style={{ marginTop: 14 }}>
-          <View style={[s.avatar, { backgroundColor: c.accent }]}>
-            {profile.name ? <T v="h1" color={c.accentInk}>{profile.name[0].toUpperCase()}</T> : <Ionicons name="person" size={28} color={c.accentInk} />}
-          </View>
-          <View style={{ flex: 1 }}>
-            <T v="h1" numberOfLines={1}>{profile.name || 'Guest'}</T>
-            <T v="small" numberOfLines={1}>
-              {profile.age} y · {profile.heightCm} cm{gentle ? '' : ` · ${profile.weightKg} kg`}
-            </T>
-          </View>
-        </Row>
-      </Rise>
-
-      <Rise i={1}>
-        <Section title="Your plan">
-        <Card style={{ gap: 12 }}>
-          <Item icon="flag" label="Goal" value={optLabel(GOALS, profile.goal)} />
-          <Item icon="restaurant" label="Diet" value={title(profile.diet)} />
-          <Item icon="calendar" label="Days per week" value={String(profile.daysPerWeek)} />
-          {!gentle && <Item icon="flame" label="Daily target" value={`${t.kcal} kcal · ${t.protein} g`} />}
-          <Button title={profile.name ? 'Edit profile' : 'Set up your profile'} kind="ghost" icon="create-outline" onPress={() => router.push('/onboarding')} />
-        </Card>
-        </Section>
-      </Rise>
-
-      <Rise i={2}>
-        <Section title="Settings">
-          <View style={{ gap: 8 }}>
-            <ListRow icon="notifications" title="Reminders" sub="Workouts, water, meals, breaks" onPress={() => router.push('/reminders')} />
-            <ListRow icon="people" title="Gym etiquette" sub="The unwritten rules" onPress={() => router.push('/etiquette')} />
-            <ListRow icon="refresh" color={c.muted} title="Redo setup" sub="Answer the questions again" onPress={() => router.push({ pathname: '/onboarding', params: { redo: '1' } })} />
-          </View>
-        </Section>
-      </Rise>
-
-      <Rise i={3}>
-        <Section title="Experience">
-        <Card style={{ gap: 12 }}>
-          <Tiles<Profile['level']> opts={LEVELS} on={(v) => profile.level === v} onPick={(level) => save({ level })} />
-          <T v="small">
-            {profile.level === 'beginner' ? `Harder moves open after ${UNLOCK.intermediate} sessions`
-              : profile.level === 'intermediate' ? `Expert moves open after ${UNLOCK.expert} sessions` : 'Everything is open'}
-          </T>
-        </Card>
-        </Section>
-      </Rise>
-
-      <Rise i={4}>
-        <Section title="About you">
-        <Card style={{ gap: 12 }}>
-          <ContextFields p={profile} up={save} />
-          <Row style={{ justifyContent: 'space-between', marginTop: 8 }} gap={12}>
-            <View style={{ flex: 1 }}>
-              <T v="h3">Gentle mode</T>
-              <T v="small">Hide calories, weight and BMI</T>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Header title="You" />
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 40, gap: 16 }} showsVerticalScrollIndicator={false}>
+        <Animated.View entering={enter(0)}>
+          <Tap onPress={() => router.push({ pathname: '/profile', params: { s: 'about' } })} scale={0.98} style={s.card}>
+            <View style={[s.avatar, { backgroundColor: c.accent }]}>
+              {profile.name ? <T v="h2" color={c.accentInk}>{profile.name[0].toUpperCase()}</T> : <Ionicons name="person" size={24} color={c.accentInk} />}
             </View>
-            <Switch value={!!gentle} trackColor={{ true: c.accent, false: c.card2 }} thumbColor={c.text}
-              onValueChange={(on) => save({ gentle: on, concerns: on ? profile.concerns : profile.concerns?.filter((x) => x !== 'food') })} />
-          </Row>
-        </Card>
-        </Section>
-      </Rise>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <T v="h2" numberOfLines={1}>{profile.name || 'Guest'}</T>
+              <T v="small" numberOfLines={1}>{optLabel(GOALS, profile.goal)} · {profile.daysPerWeek} days a week</T>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={c.dim} />
+          </Tap>
+        </Animated.View>
 
-      <Rise i={5}>
-        <Section title="Accent colour">
-        <Card style={{ gap: 12 }}>
-          <Row style={{ flexWrap: 'wrap' }} gap={14}>
-            {(Object.keys(ACCENTS) as AccentId[]).map((id) => {
-              const on = (profile.accent ?? 'lime') === id;
-              return (
-                <Tap key={id} onPress={() => pickAccent(id)} style={{ alignItems: 'center', gap: 6, width: 60 }} scale={0.92}>
-                  <View style={[s.swatch, { backgroundColor: ACCENTS[id].hex, borderColor: on ? c.text : 'transparent' }]}>
-                    {on && <Ionicons name="checkmark" size={20} color={c.accentInk} />}
-                  </View>
-                  <T v="small" numberOfLines={2} style={{ textAlign: 'center' }} color={on ? c.text : c.muted}>{ACCENTS[id].name}</T>
-                </Tap>
-              );
-            })}
-          </Row>
-        </Card>
-        </Section>
-      </Rise>
+        <Animated.View entering={enter(1)} style={s.group}>
+          {rows.map((x, i) => (
+            <Tap key={x.t} onPress={x.go} scale={0.99} style={[s.row, i > 0 && s.rule]}>
+              <IconBox icon={x.icon} color={x.color} size={32} />
+              <T v="body" numberOfLines={1} style={{ flex: 1 }}>{x.t}</T>
+              {x.v ? <T v="small" numberOfLines={1} style={{ flexShrink: 1, maxWidth: '45%' }}>{x.v}</T> : null}
+              <Ionicons name={x.act ? 'add-circle-outline' : 'chevron-forward'} size={x.act ? 20 : 16} color={x.act ? c.pink : c.dim} />
+            </Tap>
+          ))}
+        </Animated.View>
 
-      <Rise i={6}>
-        <Section title="Where you train">
-        <Card style={{ gap: 14 }}>
-          <Row gap={8}>
-            {(['gym', 'home', 'both', 'office'] as const).map((p) => <Chip key={p} label={title(p)} on={profile.place === p} onPress={() => save({ place: p })} />)}
-          </Row>
-          <T v="h3" style={{ marginTop: 6 }}>Home equipment</T>
-          <Row style={{ flexWrap: 'wrap' }} gap={8}>
-            {HOME_GEAR.map((g) => (
-              <Chip key={g} label={title(g)} on={profile.gear.includes(g)} color={c.blue}
-                onPress={() => save({ gear: profile.gear.includes(g) ? profile.gear.filter((x) => x !== g) : [...profile.gear, g] })} />
-            ))}
-          </Row>
-        </Card>
-        </Section>
-      </Rise>
+        <Animated.View entering={enter(2)}>
+          <T v="small" color={c.dim} style={{ textAlign: 'center' }}>
+            {planById[planId] ? `Plan: ${planById[planId].name} · ` : ''}Not medical advice
+          </T>
+        </Animated.View>
+      </ScrollView>
 
-      <View style={{ marginTop: 32 }}>
-        {confirm ? (
-          <View style={{ gap: 10 }}>
-            <T v="body" color={c.danger}>This deletes your profile, workouts, meals and weights on this phone.</T>
-            <Button title="Yes, erase everything" kind="danger" onPress={() => { reset(); router.replace('/'); }} />
-            <Button title="Cancel" kind="ghost" onPress={() => setConfirm(false)} />
-          </View>
-        ) : (
-          <Tap onPress={() => setConfirm(true)}><T v="small" color={c.danger} style={{ textAlign: 'center' }}>Erase all data</T></Tap>
-        )}
-      </View>
-      <T v="small" color={c.dim} style={{ textAlign: 'center', marginTop: 24 }}>Data stays on this phone · Not medical advice</T>
-    </Screen>
+      <Sheet open={sheet === 'look'} onClose={() => setSheet(null)}>
+        <View style={{ gap: 16 }}>
+          <T v="h3">Accent colour</T>
+          {(Object.keys(ACCENTS) as AccentId[]).map((id) => {
+            const on = accent === id;
+            return (
+              <Tap key={id} onPress={() => pickAccent(id)} scale={0.98} style={s.swatchRow}>
+                <View style={[s.swatch, { backgroundColor: ACCENTS[id].hex }]}>
+                  {on && <Ionicons name="checkmark" size={18} color={c.accentInk} />}
+                </View>
+                <T v="body" style={{ flex: 1 }} color={on ? c.text : c.muted}>{ACCENTS[id].name}</T>
+              </Tap>
+            );
+          })}
+        </View>
+      </Sheet>
+
+      <Sheet open={sheet === 'data'} onClose={closeData}>
+        <View style={{ gap: 12 }}>
+          <T v="h3">Your data</T>
+          <T v="small">Everything stays on this phone. Nothing is uploaded.</T>
+          {confirm ? (
+            <>
+              <T v="body" color={c.danger}>This deletes your profile, workouts, meals, weights and watch data on this phone.</T>
+              <Button title="Yes, erase everything" kind="danger" onPress={erase} />
+              <Button title="Cancel" kind="ghost" onPress={() => setConfirm(false)} />
+            </>
+          ) : (
+            <Button title="Erase all data" kind="danger" icon="trash-outline" onPress={() => setConfirm(true)} />
+          )}
+        </View>
+      </Sheet>
+    </View>
   );
 }
 
-const Item = ({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) => (
-  <Row>
-    <View style={s.itemIcon}><Ionicons name={icon} size={16} color={c.accent} /></View>
-    <T v="body" color={c.muted} style={{ flex: 1 }}>{label}</T>
-    <T v="h3" numberOfLines={1} style={{ flexShrink: 1 }}>{value}</T>
-  </Row>
-);
-
 const s = StyleSheet.create({
-  icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
-  avatar: { width: 64, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  itemIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 24, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-  rowIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  swatch: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  avatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  group: { borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingHorizontal: 14, paddingVertical: 10 },
+  rule: { borderTopWidth: 1, borderTopColor: c.card2 },
+  swatchRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 48 },
+  swatch: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 });

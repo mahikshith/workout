@@ -1,320 +1,257 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown, FadeOut, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { Easing, FadeIn, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
-import { cycle, dayKey, doneToday, postpartumWeek, pregnancyWeek, streak as calcStreak, targets } from '../../src/calc';
-import { greeting } from '../../src/coach';
-import { available, byId, title, type Place } from '../../src/data/exercises';
+import Svg, { Circle } from 'react-native-svg';
+import { cycle, dayKey, postpartumWeek, pregnancyWeek, streak as calcStreak, targets } from '../../src/calc';
+import { byId, title } from '../../src/data/exercises';
 import { motivation } from '../../src/data/motivation';
-import { planById, type Day } from '../../src/data/plans';
-import { cardioFor } from '../../src/data/cardio';
-import { asDay, quickById } from '../../src/data/quick';
-import { gate, quickFor, suggest } from '../../src/engine';
+import { CountUp, EASE, useToday } from '../../src/kit';
 import { askPermission, hasPermission, reschedule } from '../../src/notify';
-import { useStore, type Mood } from '../../src/store';
-import { Rings } from '../../src/rings';
+import { useStore } from '../../src/store';
 import { c, f, r } from '../../src/theme';
-import { Avatar, Banner, Button, haptic, IconBox, ListRow, Rise, Row, Section, T, Tap, Thumb } from '../../src/ui';
+import { latest, sleepScore, useTracker } from '../../src/tracker';
+import { Avatar, Button, Ring, Row, T, Tap } from '../../src/ui';
 
+// Today (docs/REDESIGN.md, "Today"): header, one hero card, three rings, the week strip, one coach line.
+// Anything that needs a decision (setup, reminders, health context) collapses into one line at the very bottom.
+
+type Icon = keyof typeof Ionicons.glyphMap;
 const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const MOODS: { v: Mood; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { v: 1, label: 'Drained', icon: 'battery-dead' },
-  { v: 2, label: 'Meh', icon: 'cloudy' },
-  { v: 3, label: 'Good', icon: 'sunny' },
-  { v: 4, label: 'Fired up', icon: 'flash' },
-];
-const EASE = Easing.bezier(0.32, 0.72, 0, 1);
-type Spot = Place | 'office';
+const STEP_GOAL = 8000;
+const LABEL = { plan: 'Up next', light: 'Lighter today', rest: 'Rest day', gentle: 'Gentle today' } as const;
+
+// Sections rise in one after another, 60 ms apart.
+const Enter = ({ i, children, style }: { i: number; children: ReactNode; style?: object }) => (
+  <Animated.View entering={FadeInDown.delay(i * 60).duration(380).easing(EASE)} style={style}>{children}</Animated.View>
+);
+
+// The first sentence of the engine's reason, so a rest day explains itself in one short line.
+const firstSentence = (s: string) => (s.match(/^[^.]*\./)?.[0] ?? s).trim();
 
 export default function Today() {
-  const st = useStore();
-  const { profile, sessions, active, meals, checkins, start, checkIn, setupSkipped, addWater } = st;
   const ins = useSafeAreaInsets();
-  const [showList, setShowList] = useState(false);
-  const [spin, setSpin] = useState(0);
-  const [place, setPlace] = useState<Spot>(profile.place === 'home' || profile.place === 'office' ? profile.place : 'gym');
+  const profile = useStore((s) => s.profile);
+  const sessions = useStore((s) => s.sessions);
+  const meals = useStore((s) => s.meals);
+  const periods = useStore((s) => s.periods);
+  const logPeriod = useStore((s) => s.logPeriod);
+  const setupSkipped = useStore((s) => s.setupSkipped);
+  const dismissed = useStore((s) => s.dismissed);
+  const dismiss = useStore((s) => s.dismiss);
+  const hcOn = useTracker((s) => s.hc.connected);
+  const daily = useTracker((s) => s.daily);
+  const today = useToday();
+
   const [notifOff, setNotifOff] = useState(false);
   useEffect(() => { if (Platform.OS !== 'web') hasPermission().then((ok) => setNotifOff(!ok)); }, []);
 
-  const today = dayKey();
-  const mood = checkins[today];
-  const sug = suggest(st);
-  const plan = planById[st.planId] ?? planById['full-body-gym'];
-  const streak = calcStreak(sessions);
-  const t = targets(profile);
-  const gentle = profile.gentle || profile.concerns?.includes('food');
-  const todays = meals.filter((m) => m.day === today);
-  const protein = todays.reduce((a, m) => a + m.protein, 0);
-  const water = st.water[today] ?? 0;
-  const trainedToday = sessions.some((s) => dayKey(s.startedAt) === today);
+  const key = dayKey();
+  const now = new Date();
+  const monday = new Date(now); monday.setHours(0, 0, 0, 0); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
   const trained = new Set(sessions.map((s) => dayKey(s.startedAt)));
-  const done = doneToday(sessions);
-  const monday = new Date(); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-  const desk = quickById.desk;
-  const day = place === 'office' && desk ? asDay(desk) : sug.day;
-  const where: Place = place === 'office' ? 'home' : place;
-  const replaced = day.slots.filter((sl) => !available(byId[sl.id], where, profile.gear) || gate(byId[sl.id], profile, sessions.length).locked).length;
-  const muscles = [...new Set(day.slots.map((sl) => byId[sl.id]?.primary[0]).filter(Boolean))].slice(0, 4).map(title).join(', ');
-  const qs = quickFor(profile).slice(0, 6);
+  const trainedToday = trained.has(key);
+  const streak = calcStreak(sessions);
+
+  // Hero: today's workout from the shared useToday(), so this card, the centre button and Train always agree.
+  const { day, minutes, kind, reason, active, start } = today;
+  const rest = kind === 'rest';
+  const label = active ? 'In progress' : rest && trainedToday ? 'Done for today' : LABEL[kind];
+  const place = profile.place === 'office' ? 'Office' : today.where === 'home' ? 'Home' : 'Gym';
+  const muscles = [...new Set(day.slots.map((sl) => byId[sl.id]?.primary[0]).filter(Boolean))].slice(0, 3).map(title);
+  const button = active ? 'Resume' : rest ? 'Train anyway' : 'Start';
+
+  // Rings. Training: sessions since Monday against the weekly goal.
+  const week = sessions.filter((s) => s.startedAt >= monday.getTime()).length;
+  const goal = Math.max(1, profile.daysPerWeek);
+  // Fuel: protein, or meals in gentle mode (no grams for people who asked not to count).
+  const gentle = profile.gentle || !!profile.concerns?.includes('food');
+  const t = targets(profile);
+  const todays = meals.filter((m) => m.day === key);
+  const protein = Math.round(todays.reduce((a, m) => a + m.protein, 0));
+  const mealsIn = new Set(todays.map((m) => m.slot ?? m.id)).size;
+  // Body: sleep score from the watch, else steps, else an invitation to connect one.
+  const score = hcOn ? sleepScore(latest(daily, 'sleep', 1)) : undefined;
+  const steps = latest(daily, 'steps', 1);
+
+  // Coach line: one sentence that changes once a day.
   const lastAt = sessions[sessions.length - 1]?.startedAt;
   const daysOff = lastAt ? Math.floor((Date.now() - lastAt) / 86400000) : 0;
-  const quote = motivation(profile, daysOff, Math.floor(Date.now() / (3 * 3600000)) + spin);
-  const label = place === 'office' ? 'At your desk' : { plan: 'Up next', light: 'Lighter today', rest: 'Recovery day', gentle: 'Gentle today' }[sug.kind];
-  const setupNeeded = !profile.name && setupSkipped;
+  const quote = motivation(profile, daysOff, Math.floor(Date.now() / 86400000));
+
+  // The bottom line: at most one, in priority order, each dismissible for the day.
   const cyc = cycle(profile), pw = pregnancyWeek(profile), pp = postpartumWeek(profile);
-  const nextPeriod = cyc ? new Date(Date.now() + (cyc.length - cyc.day + 1) * 86400000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '';
-  const inPeriod = !!st.periods.length && !st.periods[st.periods.length - 1].end && Date.now() - Date.parse(st.periods[st.periods.length - 1].start) < 10 * 86400000;
+  const lastPeriod = periods[periods.length - 1];
+  const inPeriod = !!lastPeriod && !lastPeriod.end && Date.now() - Date.parse(lastPeriod.start) < 10 * 86400000;
+  const PHASE = { period: 'Period', follicular: 'Energy rising', ovulation: 'Peak energy', luteal: 'Pre-period' };
+  const notes: Note[] = [];
+  if (!profile.name && setupSkipped) notes.push({ id: 'today-setup', icon: 'sparkles', color: c.accent, text: 'Finish setting up your plan', action: '1 min', onAction: () => router.push('/onboarding') });
+  if (notifOff) notes.push({ id: 'today-notif', icon: 'notifications-off', color: c.warm, text: 'Reminders are off', action: 'Allow',
+    onAction: async () => { if (await askPermission()) { setNotifOff(false); reschedule(); } } });
+  if (pw !== null) notes.push({ id: 'today-health', icon: 'heart', color: c.pink, text: `Pregnancy · week ${pw} · plan adjusted` });
+  else if (pp !== null) notes.push({ id: 'today-health', icon: 'heart', color: c.pink, text: `After birth · week ${pp} · plan adjusted` });
+  else if (cyc) notes.push({ id: 'today-health', icon: 'water', color: c.pink, text: `Cycle day ${cyc.day} · ${PHASE[cyc.phase]}`,
+    action: inPeriod ? 'Period ended' : 'Log period', onAction: () => logPeriod(inPeriod ? 'end' : 'start') });
+  const note = notes.find((n) => dismissed[n.id] !== key);
 
-  const go = (d: Day, pl: Place, planId?: string, dayIndex?: number) => { start(d, pl, planId, dayIndex); router.push('/session'); };
-  const startMain = () => (active ? router.push('/session') : place === 'office' && desk ? go(asDay(desk), 'home') : go(sug.day, where, sug.planId, sug.dayIndex));
-  const ws = [...st.weights].sort((a, b) => a.day.localeCompare(b.day));
-  const lw = ws[ws.length - 1];
-  const ago = lw ? Math.round((Date.parse(today + 'T12:00:00') - Date.parse(lw.day + 'T12:00:00')) / 86400000) : 0;
-  const mealsIn = new Set(todays.map((m) => m.slot ?? m.id)).size;
-  const minutes = place === 'office' && desk ? desk.minutes : sug.minutes;
-  const cardio = cardioFor(profile, sessions);
-  // The daily loop: three things to close today. Training counts on rest days when the recovery session is done.
-  const eat = gentle ? mealsIn / 3 : protein / t.protein;
-  const drink = water / t.water;
-  const closed = [trainedToday, eat >= 1, drink >= 1].filter(Boolean).length;
-  const picks = [...cardio.picks.slice(0, 2).map((q) => ({ q, cardio: true })), ...qs.slice(0, 4).map((q) => ({ q, cardio: false }))];
-
-  // Camera: the big header drifts up and fades as you scroll, a slim bar fades in, the hero moves a touch slower.
-  const still = useReducedMotion(); // reduced motion: no drift or parallax, just the fade
-  const y = useSharedValue(0);
-  const onScroll = useAnimatedScrollHandler((e) => { y.value = e.contentOffset.y; });
-  const bigHead = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [0, 70], [1, 0], 'clamp'), transform: [{ translateY: still ? 0 : y.value * 0.35 }] }));
-  const bar = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [50, 90], [0, 1], 'clamp') }));
-  const hero = useAnimatedStyle(() => (still ? {} : { transform: [{ translateY: interpolate(y.value, [-120, 0, 400], [30, 0, -24], 'clamp') }, { scale: interpolate(y.value, [-120, 0], [1.03, 1], 'clamp') }] }));
+  const dateLabel = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16} showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: ins.top + 12, paddingHorizontal: 12, paddingBottom: ins.bottom + 120 }}>
-        {/* 1. Who and the streak. */}
-        <Animated.View style={bigHead}>
-          <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <T v="small">{greeting()}</T>
-              <T v="h1" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{profile.name || 'Ready to train'}</T>
-            </View>
-            <Row gap={8}>
-              <Tap onPress={() => router.push('/history')} style={s.pill}>
-                <Ionicons name="flame" size={18} color={streak ? c.warm : c.muted} />
-                <Count v={streak} style={s.pillNum} />
-              </Tap>
-              <Avatar />
-            </Row>
-          </Row>
-        </Animated.View>
-
-        {/* 2. Today's loop: one ring, three things to close. */}
-        <Rise i={1}>
-          <View style={[s.card, s.loop]}>
-            <Rings size={132} stroke={11} rings={[{ progress: trainedToday ? 1 : 0, color: c.accent }, { progress: eat, color: c.pink }, { progress: drink, color: c.blue }]}>
-              <Text style={s.loopNum}>{closed}<Text style={s.loopOf}>/3</Text></Text>
-            </Rings>
-            <View style={{ flex: 1, gap: 12 }}>
-              <Goal icon="barbell" color={c.accent} label="Train" done={trainedToday} value={trainedToday ? 'Done' : `${minutes} min`} onPress={startMain} />
-              <Goal icon={gentle ? 'restaurant' : 'nutrition'} color={c.pink} label={gentle ? 'Meals' : 'Protein'} done={eat >= 1}
-                value={gentle ? `${mealsIn}/3` : `${protein}/${t.protein} g`} onPress={() => router.push('/fuel')} />
-              <Goal icon="water" color={c.blue} label="Water" done={drink >= 1} value={`${water}/${t.water}`} onPress={() => { addWater(1); haptic(); }} action="+1" />
-            </View>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingTop: ins.top + 16, paddingHorizontal: 16, paddingBottom: ins.bottom + 170, gap: 24 }}>
+      {/* 1. Header: date, title, streak, profile. */}
+      <Enter i={0}>
+        <Row gap={12}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <T v="label" color={c.muted}>{dateLabel}</T>
+            <T v="display" numberOfLines={1}>Today</T>
           </View>
-          {/* This week at a glance: a dot per day, filled when you trained. Tap for the calendar. */}
-          <Tap onPress={() => router.push('/history')} scale={0.99} feedback="none" style={s.week}>
-            {WEEK.map((w, i) => {
-              const d = new Date(monday); d.setDate(monday.getDate() + i);
-              const k = dayKey(d), did = trained.has(k), now = k === today;
-              return (
-                <View key={i} style={{ alignItems: 'center', gap: 6, flex: 1 }}>
-                  <T v="label" color={now ? c.text : c.muted}>{w}</T>
-                  <View style={[s.dot, did && { backgroundColor: c.accent, borderColor: c.accent }, now && !did && { borderColor: c.accent }]} />
-                </View>
-              );
-            })}
+          <Tap onPress={() => router.push('/history')} style={[s.pill, { backgroundColor: streak ? '#2A1A0E' : c.card2 }]} scale={0.95}>
+            <Ionicons name="flame" size={15} color={streak ? c.warm : c.muted} />
+            <CountUp value={streak} suffix={streak === 1 ? ' day' : ' days'} style={[s.pillNum, { color: streak ? c.warm : c.muted }]} />
           </Tap>
-          <T v="small" style={{ marginTop: 8, textAlign: 'center' }}>
-            {closed === 3 ? 'Day closed. Streak safe.' : 'Close all three to keep your streak'}
-          </T>
-        </Rise>
+          <Avatar />
+        </Row>
+      </Enter>
 
-        {/* 3. The workout. One button. */}
-        <Rise i={2}>
-          <Animated.View style={[s.hero, hero, { borderColor: c.accent + '55' }]}>
-            <Row style={{ justifyContent: 'space-between' }}>
-              <View style={[s.tag, { backgroundColor: c.accent + '22' }]}><T v="label" color={c.accent} numberOfLines={1}>{label}</T></View>
-              <Row gap={4}>
-                {MOODS.map((m) => {
-                  const on = mood === m.v;
-                  return (
-                    <Tap key={m.v} onPress={() => checkIn(m.v)} scale={0.9} style={[s.moodDot, on && { backgroundColor: c.accent }]}>
-                      <Ionicons name={m.icon} size={15} color={on ? c.accentInk : mood ? c.dim : c.muted} />
-                    </Tap>
-                  );
-                })}
-              </Row>
+      {/* 2. Hero: today's workout. Only the button acts. */}
+      <Enter i={1}>
+        <View style={s.hero}>
+          <T v="label" color={c.accent} numberOfLines={1}>{label}</T>
+          <T v="h1" numberOfLines={2}>{day.name}</T>
+          <T v="small" numberOfLines={1}>{day.slots.length} exercises · {minutes} min · {place}</T>
+          {muscles.length > 0 && (
+            <Row gap={8} style={{ flexWrap: 'wrap' }}>
+              {muscles.map((m) => <View key={m} style={s.chip}><T v="small" color="#C9C9CE">{m}</T></View>)}
             </Row>
-            <T v="h1" style={{ marginTop: 12 }} numberOfLines={2}>{day.name}</T>
-            <Row gap={16} style={{ marginTop: 8, flexWrap: 'wrap' }}>
-              <Meta icon="time-outline" text={`${minutes} min`} />
-              <Meta icon="barbell-outline" text={`${day.slots.length} moves`} />
-              {!!muscles && <Meta icon="body-outline" text={muscles.split(', ').slice(0, 2).join(', ')} />}
-            </Row>
-            <Tap onPress={() => setShowList(!showList)} scale={0.99} feedback="none" style={{ marginTop: 16 }}>
-              {showList ? (
-                <Animated.View entering={FadeIn.duration(220)} style={{ gap: 8 }}>
-                  {day.slots.map((sl, i) => (
-                    <Tap key={sl.id + i} onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: sl.id } })} style={s.exRow} scale={0.99}>
-                      <Thumb ex={byId[sl.id]} size={40} />
-                      <T v="body" style={{ flex: 1 }} numberOfLines={1} color={done.has(sl.id) ? c.muted : c.text}>{byId[sl.id]?.name}</T>
-                      {done.has(sl.id) ? <Ionicons name="checkmark-circle" size={20} color={c.ok} /> : <T v="small" color={c.text}>{sl.sets} × {sl.reps}</T>}
-                    </Tap>
-                  ))}
-                </Animated.View>
-              ) : (
-                <Row style={{ justifyContent: 'space-between' }}>
-                  <Row gap={0}>
-                    {day.slots.slice(0, 5).map((sl, i) => (
-                      <View key={sl.id + i} style={[s.stack, { zIndex: 10 - i, marginLeft: i ? -10 : 0 }]}><Thumb ex={byId[sl.id]} size={40} /></View>
-                    ))}
-                  </Row>
-                  <Ionicons name="chevron-down" size={18} color={c.muted} />
-                </Row>
-              )}
+          )}
+          {!active && kind !== 'plan' && <T v="small" color="#C9C9CE" numberOfLines={1}>{firstSentence(reason)}</T>}
+          <Button title={button} icon="play" onPress={start} style={{ marginTop: 4 }} />
+        </View>
+      </Enter>
+
+      {/* 3. Three rings, each opens its own place. */}
+      <Enter i={2}>
+        <Row gap={12}>
+          <Dial i={0} progress={week / goal} color={c.accent} label="Training" onPress={() => router.navigate('/progress')}>
+            <CountUp value={week} suffix={`/${goal}`} style={s.ringNum} />
+          </Dial>
+          {gentle ? (
+            <Dial i={1} progress={mealsIn / 3} color={c.pink} label="Meals" onPress={() => router.navigate('/fuel')}>
+              <CountUp value={mealsIn} suffix="/3" style={s.ringNum} />
+            </Dial>
+          ) : (
+            <Dial i={1} progress={protein / Math.max(1, t.protein)} color={c.pink} label="Protein" onPress={() => router.navigate('/fuel')}>
+              <CountUp value={protein} suffix="g" style={s.ringNum} />
+            </Dial>
+          )}
+          {score !== undefined ? (
+            <Dial i={2} progress={score / 100} color={c.blue} label="Sleep score" onPress={() => router.push('/watch')}>
+              <CountUp value={score} style={s.ringNum} />
+            </Dial>
+          ) : steps !== undefined ? (
+            <Dial i={2} progress={steps / STEP_GOAL} color={c.blue} label="Steps" onPress={() => router.push('/watch')}>
+              {steps >= 1000
+                ? <CountUp value={Math.round(steps / 100) / 10} decimals={1} suffix="k" style={s.ringNum} />
+                : <CountUp value={steps} style={s.ringNum} />}
+            </Dial>
+          ) : (
+            <Tap onPress={() => router.push('/watch')} style={s.ringCard} scale={0.96}>
+              <View style={{ width: 72, height: 72, alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={72} height={72} style={StyleSheet.absoluteFill}>
+                  <Circle cx={36} cy={36} r={32} stroke={c.line} strokeWidth={8} strokeDasharray="6 6" fill="none" />
+                </Svg>
+                <Ionicons name="add" size={24} color={c.blue} />
+              </View>
+              <T v="small" color={c.blue} numberOfLines={1}>{hcOn ? 'No data yet' : 'Connect watch'}</T>
             </Tap>
-            <Row style={{ marginTop: 16 }} gap={6}>
-              {(['gym', 'home', 'office'] as const).map((k) => (
-                <Tap key={k} onPress={() => setPlace(k)} scale={0.96} style={[s.seg, place === k && { backgroundColor: c.text }]}>
-                  <Ionicons name={k === 'gym' ? 'barbell' : k === 'home' ? 'home' : 'briefcase'} size={14} color={place === k ? c.bg : c.muted} />
-                  <T v="small" color={place === k ? c.bg : c.muted}>{k === 'gym' ? 'Gym' : k === 'home' ? 'Home' : 'Office'}</T>
-                </Tap>
-              ))}
-            </Row>
-            {replaced > 0 && place !== 'office' && (
-              <Row gap={6} style={{ marginTop: 10 }}>
-                <Ionicons name="swap-horizontal" size={14} color={c.warm} />
-                <T v="small" color={c.warm}>{replaced} swapped for {place === 'home' ? 'home' : 'beginner'} versions</T>
-              </Row>
-            )}
-            <Button title={active ? 'Resume workout' : trainedToday ? 'Train again' : 'Start workout'} icon="play" style={{ marginTop: 16 }} onPress={startMain} />
+          )}
+        </Row>
+      </Enter>
+
+      {/* 4. This week: a dot per day, filled when you trained, a ring around today. */}
+      <Enter i={3}>
+        <Row gap={0} style={{ justifyContent: 'space-between' }}>
+          {WEEK.map((w, i) => {
+            const d = new Date(monday); d.setDate(monday.getDate() + i);
+            const k = dayKey(d), did = trained.has(k), isToday = k === key;
+            return (
+              <View key={i} style={{ alignItems: 'center', gap: 6, width: 40 }}>
+                <T v="small" color={isToday ? c.text : c.muted} style={{ fontSize: 12 }}>{w}</T>
+                <View style={[s.dayRing, isToday && { borderColor: c.accent }]}>
+                  <View style={[s.dot, did && { backgroundColor: c.accent, borderColor: c.accent }]} />
+                </View>
+              </View>
+            );
+          })}
+        </Row>
+      </Enter>
+
+      {/* 5. One coach line. */}
+      <Enter i={4}>
+        <Row gap={12} style={{ alignItems: 'flex-start' }}>
+          <Ionicons name="star-outline" size={20} color={c.accent} style={{ marginTop: 1 }} />
+          <T v="body" color="#C9C9CE" style={{ flex: 1, fontSize: 15, lineHeight: 21 }}>{quote}</T>
+        </Row>
+      </Enter>
+
+      {/* The one line that needs a decision, if any. */}
+      {note && (
+        <Enter i={5}>
+          <Animated.View key={note.id} exiting={FadeOut.duration(200)} style={[s.note, { borderColor: note.color + '55' }]}>
+            <Ionicons name={note.icon} size={18} color={note.color} />
+            <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1 }}>{note.text}</T>
+            {note.action && note.onAction ? (
+              <Tap onPress={note.onAction} style={s.noteAction} scale={0.95}><T v="small" color={note.color} style={{ fontFamily: f.semi }}>{note.action}</T></Tap>
+            ) : null}
+            <Tap onPress={() => dismiss(note.id)} style={s.noteClose} scale={0.9} feedback="none">
+              <Ionicons name="close" size={18} color={c.muted} />
+            </Tap>
           </Animated.View>
-        </Rise>
-
-        {/* Only what needs a decision today, one line each. */}
-        {(setupNeeded || notifOff || pw !== null || pp !== null || cyc) && (
-          <Rise i={3} style={{ marginTop: 16, gap: 8 }}>
-            {setupNeeded && <Banner icon="sparkles" title="Personalize your plan" action="1 min" onPress={() => router.push('/onboarding')} />}
-            {notifOff && <Banner icon="notifications-off" color={c.warm} title="Reminders are off" action="Allow"
-              onPress={async () => { if (await askPermission()) { setNotifOff(false); reschedule(); } }} />}
-            {(pw !== null || pp !== null) && <Banner icon="heart" color={c.pink} title={pw !== null ? `Pregnancy · week ${pw} · plan adjusted` : `After birth · week ${pp} · plan adjusted`} />}
-            {cyc && <Banner icon="water" color={c.pink} title={`Cycle day ${cyc.day} · ${{ period: 'Period', follicular: 'Energy rising', ovulation: 'Peak energy', luteal: 'Pre-period' }[cyc.phase]}`}
-              action={inPeriod ? 'Period ended' : 'Period started'} onPress={() => st.logPeriod(inPeriod ? 'end' : 'start')} />}
-          </Rise>
-        )}
-
-        {/* 4. Short extras: cardio from the ladder, then quick sessions. One swipeable row. */}
-        <Rise i={4}>
-          <Section title="Quick picks" action={`Cardio ${cardio.name}`} onAction={() => router.push({ pathname: '/exercises', params: { muscle: 'cardio' } })}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 24 }} style={{ marginHorizontal: -12, paddingLeft: 12 }}>
-              {picks.map(({ q, cardio: isCardio }) => (
-                <Tap key={q.id} onPress={() => (active ? router.push('/session') : go(asDay(q), q.where.includes('gym') ? 'gym' : 'home'))} style={s.quick} scale={0.97}>
-                  <IconBox icon={q.icon} color={isCardio ? c.blue : c.accent} />
-                  <View>
-                    <T v="h3" numberOfLines={1}>{q.name}</T>
-                    <T v="small" numberOfLines={1}>{q.minutes} min{isCardio ? ' · cardio' : ''}</T>
-                  </View>
-                </Tap>
-              ))}
-            </ScrollView>
-          </Section>
-        </Rise>
-
-        {/* 5. Body weight in one line, so a weigh-in visibly lands. */}
-        {!gentle && (
-          <Rise i={5} style={{ marginTop: 32 }}>
-            <ListRow icon="scale-outline" title={lw ? `${lw.kg.toFixed(1)} kg` : 'Log your weight'}
-              sub={lw ? (ago === 0 ? 'Weighed today' : `Weighed ${ago} day${ago > 1 ? 's' : ''} ago`) : 'Once a week is enough'} onPress={() => router.push('/progress')} />
-          </Rise>
-        )}
-
-        {/* A line to end on. Tap for another. */}
-        <Rise i={6}>
-          <Tap onPress={() => setSpin(spin + 1)} scale={0.99} feedback="none" style={s.quote}>
-            <View style={[s.quoteBar, { backgroundColor: c.accent }]} />
-            <Animated.View key={quote} entering={FadeIn.duration(350).easing(EASE)} style={{ flex: 1 }}>
-              <T v="body" color={c.muted}>{quote}</T>
-            </Animated.View>
-          </Tap>
-        </Rise>
-      </Animated.ScrollView>
-
-      {/* The slim bar that takes over once the big header has scrolled away. */}
-      <Animated.View pointerEvents="none" style={[s.bar, { paddingTop: ins.top + 6 }, bar]}>
-        <T v="h3" numberOfLines={1} style={{ flex: 1 }}>{profile.name || 'Today'}</T>
-        <Row gap={6}><Ionicons name="flame" size={16} color={streak ? c.warm : c.muted} /><T v="h3">{streak}</T></Row>
-        <Text style={[s.barRing, { color: closed === 3 ? c.ok : c.text }]}>{closed}/3</Text>
-      </Animated.View>
-    </View>
+        </Enter>
+      )}
+    </ScrollView>
   );
 }
 
-// One of today's three goals: icon, name, progress value, tap to act.
-function Goal({ icon, color, label, value, done, onPress, action }: {
-  icon: keyof typeof Ionicons.glyphMap; color: string; label: string; value: string; done: boolean; onPress: () => void; action?: string;
+type Note = { id: string; icon: Icon; color: string; text: string; action?: string; onAction?: () => void };
+
+// One ring card. The fill waits its turn (80 ms apart) so the three rings sweep in one after another.
+function Dial({ i, progress, color, label, onPress, children }: {
+  i: number; progress: number; color: string; label: string; onPress: () => void; children: ReactNode;
 }) {
+  const still = useReducedMotion();
+  const [go, setGo] = useState(still);
+  useEffect(() => { if (go) return; const t = setTimeout(() => setGo(true), 120 + i * 80); return () => clearTimeout(t); }, []);
+  const p = Math.min(1, Math.max(0, progress || 0));
   return (
-    <Tap onPress={onPress} scale={0.97} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <View style={{ width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? color : color + '22' }}>
-        <Ionicons name={done ? 'checkmark' : icon} size={15} color={done ? c.accentInk : color} />
+    <Tap onPress={onPress} style={s.ringCard} scale={0.96}>
+      <View style={{ width: 72, height: 72, alignItems: 'center', justifyContent: 'center' }}>
+        <RingFill progress={go ? p : 0} color={color} />
+        {children}
       </View>
-      <View style={{ flex: 1 }}>
-        <T v="small">{label}</T>
-        <T v="h3" numberOfLines={1}>{value}</T>
-      </View>
-      {action && !done && <View style={[s.plus, { borderColor: color + '66' }]}><T v="small" color={color}>{action}</T></View>}
+      <T v="small" numberOfLines={1}>{label}</T>
     </Tap>
   );
 }
 
-// A number that counts up when it changes.
-function Count({ v, style }: { v: number; style: object }) {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    const from = n, t0 = Date.now();
-    let raf = 0;
-    const step = () => { const k = Math.min(1, (Date.now() - t0) / 600); setN(Math.round(from + (v - from) * (1 - Math.pow(1 - k, 3)))); if (k < 1) raf = requestAnimationFrame(step); };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [v]);
-  return <Text style={style}>{n}</Text>;
-}
-
-const Meta = ({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) => (
-  <Row gap={6}><Ionicons name={icon} size={16} color={c.muted} /><T v="small" color={c.text}>{text}</T></Row>
+// Ring from src/ui.tsx sized for the Today dials (absolute, so the number sits on top).
+const RingFill = ({ progress, color }: { progress: number; color: string }) => (
+  <View style={StyleSheet.absoluteFill}><Ring size={72} stroke={8} progress={progress} color={color} track={c.line} /></View>
 );
 
 const s = StyleSheet.create({
-  card: { padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
-  loop: { marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 18, padding: 18 },
-  loopNum: { fontFamily: f.display, fontSize: 34, color: c.text },
-  loopOf: { fontFamily: f.semi, fontSize: 15, color: c.muted },
-  plus: { paddingHorizontal: 10, height: 28, borderRadius: 14, borderWidth: 1, justifyContent: 'center' },
-  hero: { marginTop: 20, padding: 20, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1 },
-  tag: { paddingHorizontal: 10, height: 26, borderRadius: 13, justifyContent: 'center', maxWidth: '55%' },
-  moodDot: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card2 },
-  exRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stack: { borderRadius: 16, borderWidth: 2, borderColor: c.card, overflow: 'hidden' },
-  seg: { flex: 1, height: 36, borderRadius: 18, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card2 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, paddingHorizontal: 14, height: 40, borderRadius: 20 },
-  pillNum: { fontFamily: f.semi, fontSize: 17, color: c.text },
-  quote: { marginTop: 32, flexDirection: 'row', gap: 12, paddingVertical: 2 },
-  quoteBar: { width: 3, borderRadius: 2 },
-  quick: { width: 176, gap: 12, padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
-  bar: { position: 'absolute', left: 0, right: 0, top: 0, flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingBottom: 10, backgroundColor: 'rgba(10,10,11,0.94)', borderBottomWidth: 1, borderBottomColor: c.line },
-  week: { flexDirection: 'row', marginTop: 12, paddingVertical: 12, paddingHorizontal: 8, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 16 },
+  pillNum: { fontFamily: f.semi, fontSize: 14, lineHeight: 18 },
+  hero: { gap: 12, padding: 20, borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: c.card2 },
+  ringCard: { flex: 1, minWidth: 0, alignItems: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 8, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  ringNum: { fontFamily: f.bold, fontSize: 18, lineHeight: 22 },
+  dayRing: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   dot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1.5, borderColor: c.line },
-  barRing: { fontFamily: f.semi, fontSize: 15 },
+  note: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingLeft: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1 },
+  noteAction: { height: 44, paddingHorizontal: 8, justifyContent: 'center' },
+  noteClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
 });

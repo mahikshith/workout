@@ -1,8 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, LinearTransition, useReducedMotion } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { EASE, Header } from '../src/kit';
 import { c, r } from '../src/theme';
-import { Rise, Row, Screen, T, Tap } from '../src/ui';
+import { IconBox, T, Tap } from '../src/ui';
 
 // Plain gym manners: what regulars expect, so a first visit feels less awkward.
 const RULES: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] = [
@@ -19,34 +22,43 @@ const RULES: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string
   { icon: 'heart', title: 'Be kind to beginners', body: 'Everyone was new once. A smile or a nod makes someone come back tomorrow.' },
 ];
 
+// One grouped list of short titles; tap a rule to read the one-line why.
 export default function Etiquette() {
+  const ins = useSafeAreaInsets();
+  const still = useReducedMotion();
+  const [open, setOpen] = useState<string | null>(null);
   return (
-    <Screen>
-      <Row style={{ justifyContent: 'space-between' }}>
-        <Tap onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={s.icon}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
-        <T v="h2">Gym etiquette</T>
-        <View style={{ width: 40 }} />
-      </Row>
-      <T v="body" color={c.muted} style={{ marginTop: 16 }}>The unwritten rules regulars follow. A few minutes here makes your first visits feel easy.</T>
-      <View style={{ gap: 10, marginTop: 16 }}>
-        {RULES.map((x, i) => (
-          <Rise key={x.title} i={Math.min(i, 6)}>
-            <Row style={s.card}>
-              <View style={[s.badge, { backgroundColor: c.accent + '22' }]}><Ionicons name={x.icon} size={18} color={c.accent} /></View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <T v="h3">{x.title}</T>
-                <T v="body" color={c.muted}>{x.body}</T>
-              </View>
-            </Row>
-          </Rise>
-        ))}
-      </View>
-    </Screen>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Header title="Gym etiquette" />
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 4, paddingBottom: ins.bottom + 40, gap: 12 }} showsVerticalScrollIndicator={false}>
+        <T v="small">The unwritten rules regulars follow</T>
+        <Animated.View entering={still ? undefined : FadeInDown.duration(380).easing(EASE)} style={s.group}>
+          {RULES.map((x, i) => {
+            const on = open === x.title;
+            return (
+              <Animated.View key={x.title} layout={still ? undefined : LinearTransition.duration(260).easing(EASE)} style={i > 0 && s.rule}>
+                <Tap onPress={() => setOpen(on ? null : x.title)} scale={0.99} style={s.row}>
+                  <IconBox icon={x.icon} size={32} />
+                  <T v="body" style={{ flex: 1 }}>{x.title}</T>
+                  <Ionicons name={on ? 'chevron-up' : 'chevron-down'} size={16} color={c.dim} />
+                </Tap>
+                {on && (
+                  <Animated.View entering={still ? undefined : FadeIn.duration(200)} style={s.body}>
+                    <T v="small">{x.body}</T>
+                  </Animated.View>
+                )}
+              </Animated.View>
+            );
+          })}
+        </Animated.View>
+      </ScrollView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
-  card: { alignItems: 'flex-start', padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
-  badge: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  group: { borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingHorizontal: 14, paddingVertical: 10 },
+  rule: { borderTopWidth: 1, borderTopColor: c.card2 },
+  body: { paddingLeft: 58, paddingRight: 14, paddingBottom: 14, marginTop: -4 },
 });

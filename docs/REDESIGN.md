@@ -160,7 +160,7 @@ react-native-ble-manager Apache-2.0, react-native-health-connect MIT, @garmin/fi
 re-implement clean-room (OpenStrap/research MIT, unstrapped MIT, whoop-reader MIT, Atria MIT, colmi_r02_client MIT,
 colmi_r06_fbp BSD-3, hrkit MIT, OpenTracks Apache-2.0, InfiniTime docs); user-side bridges that write to Health
 Connect (Gadgetbridge AGPL, openScale GPL, OpenStrap Edge AGPL); reference only, no code copied (RunnerUp,
-FitoTrack, GoldenCheetah, GarminDB GPL; OpenHRV LGPL; Polar SDK proprietary; NOOP unlicensed; galileo LGPL;
+FitoTrack, GoldenCheetah, GarminDB GPL; OpenHRV LGPL; Polar SDK proprietary; NOOP PolyForm-Noncommercial (writes WHOOP data to Health Connect, opt-in, so users of it are covered by Phase A); galileo LGPL;
 open-wearables MIT but needs a server). The Health Connect screen gets a help card: "Using Gadgetbridge,
 OpenStrap or openScale? Turn on its Health Connect sync" (Gadgetbridge's is off by default).
 

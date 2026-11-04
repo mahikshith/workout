@@ -1,16 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
-import { AppState, Linking, Platform, StyleSheet, Switch, View } from 'react-native';
-import Animated, { Easing, FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
+import { AppState, Linking, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, LinearTransition, useReducedMotion } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { EASE, Header } from '../src/kit';
 import { askPermission, hasPermission, rescheduleAll } from '../src/notify';
 import { Sheet } from '../src/sheet';
 import { TimePicker } from '../src/timepicker';
 import { useStore, type Interval, type NudgePrefs, type Reminder } from '../src/store';
 import { c } from '../src/theme';
-import { Button, Card, Chip, Row, Screen, Stepper, T, Tap } from '../src/ui';
+import { Button, Card, Chip, Row, Stepper, T, Tap } from '../src/ui';
 
-const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 const WEEK = [1, 2, 3, 4, 5, 6, 0]; // Monday first; the store counts 0 = Sunday
 const SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -28,8 +28,13 @@ const JUMPS: { label: string; to: (m: number) => number; at?: number }[] = [
 
 // Every change saves to the store straight away; useNudgeSync in the root layout reschedules.
 export default function Reminders() {
-  const st = useStore();
-  const { reminders, hydration, breaks, motivation, nudges } = st;
+  const ins = useSafeAreaInsets();
+  const reminders = useStore((x) => x.reminders);
+  const hydration = useStore((x) => x.hydration);
+  const breaks = useStore((x) => x.breaks);
+  const motivation = useStore((x) => x.motivation);
+  const nudges = useStore((x) => x.nudges);
+  const st = useStore.getState(); // setters only; they never change
   const [granted, setGranted] = useState(true);
   const [tried, setTried] = useState(false);
   const [edit, setEdit] = useState<Reminder | null>(null);
@@ -69,16 +74,10 @@ export default function Reminders() {
 
   return (
     <>
-      <Screen>
-        <Row style={{ justifyContent: 'space-between' }}>
-          <Tap onPress={() => router.back()} style={s.icon}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
-          <T v="h2">Reminders</T>
-          <View style={{ width: 40 }} />
-        </Row>
-        <Animated.View entering={FadeInDown.duration(380).easing(EASE)} style={{ marginTop: 18, gap: 4 }}>
-          <T v="h2">Nudges that fit your day</T>
-          <T v="small">Set on this phone, so they work offline. Changes save straight away.</T>
-        </Animated.View>
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
+        <Header title="Reminders" />
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: ins.bottom + 40 }} showsVerticalScrollIndicator={false}>
+        <T v="small" style={{ marginTop: 4 }}>Set on this phone, so they work offline. Changes save at once.</T>
 
         {!granted && (
           <Section i={1}>
@@ -89,7 +88,7 @@ export default function Reminders() {
             <T v="small">
               {web ? 'Reminders ring in the phone app. The browser version cannot send them.'
                 : tried ? 'Notifications are turned off for this app. You can turn them on in your phone settings.'
-                : 'Reminders, water breaks and the missed-workout nudge need your permission to show up. Nothing is sent anywhere.'}
+                : 'Reminders need your permission to show up. Nothing is sent anywhere.'}
             </T>
             {!web && <Button title={tried ? 'Open settings' : 'Allow notifications'} onPress={grant} />}
           </Section>
@@ -97,31 +96,31 @@ export default function Reminders() {
 
         <Section i={2}>
           <T v="h2">Workout reminders</T>
-          {!workouts.length && <T v="small">None yet. Add the times you like to train, up to five.</T>}
+          {!workouts.length && <T v="small">None yet. Add up to five.</T>}
           {workouts.map((r) => <Line key={r.id} r={r} sub={dayList(r.days)} onOpen={() => show(r)} onToggle={(on) => toggle(r, on)} />)}
           {workouts.length < 5 && <Button title="Add reminder" kind="ghost" icon="add" onPress={add} />}
         </Section>
 
         <Section i={3}>
-          <Toggle title="Missed workout nudge" sub="If a reminder passes without a workout, we suggest a 5 or 15 minute session two hours later."
+          <Toggle title="Missed workout nudge" sub="Two hours after a missed reminder, a short session"
             value={nudges.missed} onChange={(missed) => setN({ missed })} />
         </Section>
 
         <Section i={4}>
-          <Toggle title="Motivation and tips" sub="Every few hours: a line that fits how life is going, a mindset habit or a food tip."
+          <Toggle title="Motivation and tips" sub="Every few hours, a line or a food tip"
             value={motivation.on} onChange={(on) => { st.setMotivation({ ...motivation, on }); turnedOn(on); }} />
           {motivation.on && <Hours value={motivation} set={st.setMotivation} opts={[[120, '2 h'], [180, '3 h'], [240, '4 h']]} />}
         </Section>
 
         <Section i={5}>
           <Toggle title="Water"
-            sub={hydration.on ? `Every ${hydration.every} min from ${clock(hydration.from, 0)} to ${clock(hydration.to, 0)}. They stop once today's glasses are in.` : 'A few gentle reminders to drink through the day.'}
+            sub={hydration.on ? `Every ${hydration.every} min, ${clock(hydration.from, 0)}–${clock(hydration.to, 0)} · stops when you hit today's glasses` : 'Gentle reminders to drink'}
             value={hydration.on} onChange={(on) => { st.setHydration({ ...hydration, on }); turnedOn(on); }} />
           {hydration.on && <Hours value={hydration} set={st.setHydration} opts={[[60, '60 min'], [90, '90 min'], [120, '120 min']]} />}
         </Section>
 
         <Section i={6}>
-          <Toggle title="Desk and eye breaks" sub="On weekdays, a nudge to stand up or rest your eyes."
+          <Toggle title="Desk and eye breaks" sub="Weekdays: stand up, rest your eyes"
             value={breaks.on} onChange={(on) => { st.setBreaks({ ...breaks, on }); turnedOn(on); }} />
           {breaks.on && <Hours value={breaks} set={st.setBreaks} opts={[[45, '45 min'], [60, '60 min'], [90, '90 min']]} labels={['Work starts', 'Work ends']} />}
         </Section>
@@ -132,12 +131,12 @@ export default function Reminders() {
         </Section>
 
         <Section i={8}>
-          <Toggle title="Streak alert" sub="A heads-up after two days without a workout." value={nudges.streak} onChange={(streak) => setN({ streak })} />
-          <Toggle title="Weekly recap" sub="Sunday at 19:00, a look back at your week." value={nudges.recap} onChange={(recap) => setN({ recap })} />
+          <Toggle title="Streak alert" sub="After two days without a workout" value={nudges.streak} onChange={(streak) => setN({ streak })} />
+          <Toggle title="Weekly recap" sub="Sundays at 19:00" value={nudges.recap} onChange={(recap) => setN({ recap })} />
           <View style={s.rule} />
           <View style={{ gap: 2 }}>
             <T v="h3">Quiet hours</T>
-            <T v="small">{nudges.quietFrom === nudges.quietTo ? 'Off while both times match.' : 'Automatic nudges stay silent in this window. Reminders you set yourself still ring.'}</T>
+            <T v="small">{nudges.quietFrom === nudges.quietTo ? 'Off while both times match' : 'Automatic nudges stay silent · your own reminders still ring'}</T>
           </View>
           <Row style={{ justifyContent: 'space-between' }}>
             <T v="body">From</T>
@@ -148,7 +147,8 @@ export default function Reminders() {
             <Stepper value={nudges.quietTo} min={-1} onChange={(h) => setN({ quietTo: wrap(h, 24) })} suffix=":00" />
           </Row>
         </Section>
-      </Screen>
+        </ScrollView>
+      </View>
 
       <Sheet open={open} onClose={() => setOpen(false)}>
         {edit && (
@@ -193,8 +193,10 @@ export default function Reminders() {
 }
 
 function Section({ i, children }: { i: number; children: ReactNode }) {
+  const still = useReducedMotion();
   return (
-    <Animated.View entering={FadeInDown.delay(i * 50).duration(380).easing(EASE)} layout={LinearTransition.duration(260).easing(EASE)} style={{ marginTop: 14 }}>
+    <Animated.View entering={still ? undefined : FadeInDown.delay(Math.min(i, 6) * 60).duration(380).easing(EASE)}
+      layout={still ? undefined : LinearTransition.duration(260).easing(EASE)} style={{ marginTop: 12 }}>
       <Card style={{ gap: 12 }}>{children}</Card>
     </Animated.View>
   );
@@ -236,7 +238,7 @@ function Hours({ value, set, opts, labels = ['From', 'Until'] }: {
   value: Interval; set: (v: Interval) => void; opts: [number, string][]; labels?: [string, string];
 }) {
   return (
-    <Animated.View entering={FadeIn.duration(260).easing(EASE)} style={{ gap: 12 }}>
+    <Animated.View entering={useReducedMotion() ? undefined : FadeIn.duration(260).easing(EASE)} style={{ gap: 12 }}>
       <Row gap={8}>
         {opts.map(([m, label]) => <Chip key={m} label={label} on={value.every === m} onPress={() => set({ ...value, every: m })} />)}
       </Row>
@@ -253,7 +255,6 @@ function Hours({ value, set, opts, labels = ['From', 'Until'] }: {
 }
 
 const s = StyleSheet.create({
-  icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   pill: { flex: 1, height: 36, borderRadius: 18, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   day: { flex: 1, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   rule: { height: StyleSheet.hairlineWidth, backgroundColor: c.line },
