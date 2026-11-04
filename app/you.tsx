@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GOALS, optLabel } from '../src/context';
 import { title } from '../src/data/exercises';
 import { planById } from '../src/data/plans';
-import { EASE, Header } from '../src/kit';
+import { EASE, Header, toToday } from '../src/kit';
 import { Sheet } from '../src/sheet';
 import { useStore } from '../src/store';
 import { ACCENTS, c, r, type AccentId } from '../src/theme';
@@ -45,7 +45,7 @@ export default function You() {
   const closeData = () => { setSheet(null); setConfirm(false); };
   const erase = () => { closeData(); reset();
     useTracker.setState({ daily: {}, workouts: {}, hc: { connected: false, granted: [] }, strap: null, strapHrv: {} });
-    router.replace('/');
+    toToday();
   };
 
   const next = reminders.filter((x) => x.kind === 'workout' && x.on).sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute))[0];

@@ -7,7 +7,7 @@ import { byId, type Place } from '../../src/data/exercises';
 import { perWeek, planById, type Day } from '../../src/data/plans';
 import { program, WEEKDAYS } from '../../src/data/program';
 import { goalWeeks, timeline } from '../../src/data/expect';
-import { Header, Segmented } from '../../src/kit';
+import { Empty, Header, Segmented, openWorkout, toToday } from '../../src/kit';
 import { useStore } from '../../src/store';
 import { c, r } from '../../src/theme';
 import { Button, Card, Fold, haptic, IconBox, Row, Screen, Section, T, Tap, Thumb, Tile } from '../../src/ui';
@@ -37,11 +37,11 @@ export default function PlanDetail() {
   const start = useStore((s) => s.start);
   const toSession = useOpenSession();
   const [wk, setWk] = useState('0');
-  if (!plan) return null;
+  if (!plan) return <View style={{ flex: 1, backgroundColor: c.bg }}><Header title="Plan" /><Empty icon="calendar-outline" title="This page is no longer here" action="Back to Today" onPress={toToday} /></View>;
   const goal = goalWeeks(profile);
   const recent = doneRecently(sessions), doneWeek = doneThisWeek(sessions);
   const isCurrent = plan.id === planId;
-  const leave = () => (welcome ? router.replace('/') : router.canGoBack() ? router.back() : router.replace('/'));
+  const leave = () => (welcome ? toToday() : router.canGoBack() ? router.back() : toToday());
   const weeks = program(plan, 4);
   const week = weeks[Number(wk)] ?? weeks[0];
   const n = perWeek(plan);
@@ -58,7 +58,7 @@ export default function PlanDetail() {
     haptic('medium');
     if (!isCurrent) setPlan(plan.id);
     start(d, where, plan.id, i);
-    router.push('/session');
+    openWorkout();
   };
 
   // What to expect, then food: opened on the welcome screen, a closed fold in About otherwise.
@@ -201,7 +201,7 @@ export default function PlanDetail() {
 
         {welcome && (
           <View style={{ marginTop: 32 }}>
-            <Button title="Let’s go" icon="flash" onPress={() => router.replace('/')} />
+            <Button title="Let’s go" icon="flash" onPress={toToday} />
             <T v="small" color={c.dim} style={{ textAlign: 'center', marginTop: 12 }}>You can redo setup anytime in Profile</T>
           </View>
         )}

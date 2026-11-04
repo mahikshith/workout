@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Header, Segmented } from '../../src/kit';
+import { Empty, Header, Segmented, openWorkout, toToday } from '../../src/kit';
 import { Enter, useOpenSession } from '../library';
 import { mapped, MuscleMap, RED, SOFT } from '../../src/body';
 import { bestBefore, doneNote, doneRecently } from '../../src/calc';
@@ -49,7 +49,7 @@ export default function ExerciseDetail() {
   const [away, setAway] = useState(false);
   const awayRef = useRef(false);
   const onScroll = (y: number) => { const v = y > 340; if (v !== awayRef.current) { awayRef.current = v; setAway(v); } };
-  if (!ex) return null;
+  if (!ex) return <View style={{ flex: 1, backgroundColor: c.bg }}><Header title="Exercise" /><Empty icon="barbell-outline" title="This page is no longer here" action="Back to Today" onPress={toToday} /></View>;
   const g = GUIDE[ex.id];
   const steps = g?.steps?.length ? g.steps : ex.steps.slice(0, 5);
   const pose = POSE.filter(([k]) => g?.[k]);
@@ -178,7 +178,7 @@ export default function ExerciseDetail() {
             onPress={() => { if (!inWorkout) addItem(ex.id); toSession(); }} />
         ) : (
           <Button title="Train this now" icon="play"
-            onPress={() => { startSingle(ex.id, profile.place === 'home' ? 'home' : 'gym'); router.push('/session'); }} />
+            onPress={() => { startSingle(ex.id, profile.place === 'home' ? 'home' : 'gym'); openWorkout(); }} />
         )}
       </View>
 

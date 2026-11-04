@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { postpartumWeek, pregnancyWeek } from '../../src/calc';
@@ -54,7 +54,9 @@ export default function Train() {
   const sessions = useStore((s) => s.sessions);
   const today = useToday();
   const [q, setQ] = useState('');
-  const [where, setWhere] = useState<Where>(profile.place === 'office' ? 'office' : profile.place === 'home' ? 'home' : 'gym');
+  const home: Where = profile.place === 'office' ? 'office' : profile.place === 'home' ? 'home' : 'gym';
+  const [where, setWhere] = useState<Where>(home);
+  useEffect(() => setWhere(home), [home]); // follow the place set in your profile
 
   const cur: Plan | undefined = planById[planId];
   const n = cur ? perWeek(cur) : 0;

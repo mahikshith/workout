@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Redirect, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
@@ -92,7 +92,11 @@ export default function SessionScreen() {
   }, [now, restUntil, pausedAt]);
   const ringPulse = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
 
-  if (!active) return <Redirect href="/" />;
+  // Opened with no workout running (old link, notification): step back. After Finish or Discard the screen leaves on
+  // its own, so this must not also redirect (it would race the move to the summary).
+  const leaving = useRef(false);
+  useEffect(() => { if (!active && !leaving.current) goBack(); }, [!active]);
+  if (!active) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
   const paused = !!pausedAt;
   const idx = Math.min(active.idx ?? 0, active.items.length - 1);
   const it = active.items[idx];
@@ -127,13 +131,14 @@ export default function SessionScreen() {
 
   function save() {
     restAlert(null);
+    leaving.current = true;
     const s = finish();
     setSheet(null);
     reschedule(useStore.getState().profile, useStore.getState().sessions);
     if (s) router.replace({ pathname: '/summary', params: { id: s.id } });
     else goBack();
   }
-  function drop() { restAlert(null); discard(); setSheet(null); goBack(); }
+  function drop() { restAlert(null); leaving.current = true; discard(); setSheet(null); goBack(); }
   const short = done === 0 && elapsed < 120;
 
   return (

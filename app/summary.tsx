@@ -11,7 +11,7 @@ import { badges, level } from '../src/data/badges';
 import { byId } from '../src/data/exercises';
 import { FoodSheet } from '../src/foodsheet';
 import { sessionKcal } from '../src/journey';
-import { CountUp, EASE, EASE_POP } from '../src/kit';
+import { CountUp, EASE, EASE_POP, Empty, Header, toToday } from '../src/kit';
 import { useStore, type MealSlot } from '../src/store';
 import { c, r } from '../src/theme';
 import { Button, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb } from '../src/ui';
@@ -70,7 +70,7 @@ export default function Summary() {
   }, []);
   // The summary is the end of the workout: hardware Back goes to Today, never back into the finished session.
   useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { router.replace('/'); return true; });
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { toToday(); return true; });
     return () => sub.remove();
   }, []);
   const badge = useAnimatedStyle(() => ({ opacity: Math.min(1, pop.value * 2), transform: [{ scale: 0.4 + pop.value * 0.6 }] }));
@@ -90,7 +90,7 @@ export default function Summary() {
     };
   }, [s?.id]);
 
-  if (!s || !result) return null;
+  if (!s || !result) return <View style={{ flex: 1, backgroundColor: c.bg }}><Header title="Workout" /><Empty icon="checkmark-circle-outline" title="This page is no longer here" action="Back to Today" onPress={toToday} /></View>;
   const { records, fresh, lv, lvBefore } = result;
   const gentle = profile.gentle || profile.concerns?.includes('food');
   const mins = Math.max(1, Math.round(((s.endedAt ?? Date.now()) - s.startedAt) / 60000));
@@ -158,7 +158,7 @@ export default function Summary() {
         </Animated.View>
 
         <View style={{ flex: 1, minHeight: 32 }} />
-        <Button title="Done" onPress={() => router.replace('/')} />
+        <Button title="Done" onPress={toToday} />
       </ScrollView>
 
       {!still && (
