@@ -27,14 +27,13 @@ export default function Root() {
   return (
     <GestureHandlerRootView key={accent} style={{ flex: 1, backgroundColor: c.bg }}>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg }, animation: 'slide_from_right' }}>
+      {/* Pushed screens are places: slide in from the right, swipe back from the edge. The workout slides up and
+          swipes down to minimise (it keeps running in the mini bar). Summary is the end of a workout: no swipe back. */}
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg }, animation: 'slide_from_right', gestureEnabled: true, fullScreenGestureEnabled: true }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
-        <Stack.Screen name="session" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="session" options={{ animation: 'slide_from_bottom', gestureEnabled: true, gestureDirection: 'vertical', fullScreenGestureEnabled: false }} />
         <Stack.Screen name="summary" options={{ animation: 'fade', gestureEnabled: false }} />
-        <Stack.Screen name="exercise/[id]" />
-        <Stack.Screen name="library" />
-        <Stack.Screen name="plan/[id]" />
       </Stack>
     </GestureHandlerRootView>
   );

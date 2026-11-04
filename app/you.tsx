@@ -2,13 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
-import { targets } from '../../src/calc';
-import { ContextFields, GOALS, LEVELS, optLabel, Tiles } from '../../src/context';
-import { HOME_GEAR, title } from '../../src/data/exercises';
-import { UNLOCK } from '../../src/engine';
-import { useStore, type Profile } from '../../src/store';
-import { ACCENTS, c, type AccentId } from '../../src/theme';
-import { Button, Card, Chip, ListRow, Rise, Row, Screen, Section, T, Tap } from '../../src/ui';
+import { targets } from '../src/calc';
+import { ContextFields, GOALS, LEVELS, optLabel, Tiles } from '../src/context';
+import { HOME_GEAR, title } from '../src/data/exercises';
+import { UNLOCK } from '../src/engine';
+import { useStore, type Profile } from '../src/store';
+import { ACCENTS, c, type AccentId } from '../src/theme';
+import { Button, Card, Chip, ListRow, Rise, Row, Screen, Section, T, Tap } from '../src/ui';
 
 export default function You() {
   const profile = useStore((s) => s.profile);

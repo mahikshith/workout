@@ -49,9 +49,11 @@ export type MediaPref = 'animated' | 'drawing' | 'photo' | 'video';
 
 export type SetLog = { reps: number; weight: number; done: boolean };
 export type Item = { exId: string; target: string; rest: number; sets: SetLog[]; swappedFrom?: string };
-// running: false until the user taps Start. pausedAt is set while paused; pausedMs adds up finished pauses.
+// The clock runs from the moment a workout starts (one tap). pausedAt is set while paused; pausedMs adds up finished
+// pauses. idx is the exercise on screen, and restUntil/restTotal the rest timer, kept here (not in the screen) so the
+// mini bar can show them while the workout is minimised.
 export type Session = { id: string; title: string; planId?: string; dayIndex?: number; place: Place; startedAt: number; endedAt?: number; items: Item[];
-  running?: boolean; pausedAt?: number; pausedMs?: number };
+  running?: boolean; pausedAt?: number; pausedMs?: number; idx?: number; restUntil?: number; restTotal?: number };
 export type Meal = { id: string; day: string; name: string; kcal: number; protein: number; slot?: MealSlot };
 
 type State = {
@@ -96,6 +98,8 @@ type State = {
   swap: (i: number, exId: string) => void;
   addItem: (exId: string) => void;
   begin: () => void;
+  setIdx: (i: number) => void;
+  setRest: (until: number | null, total?: number) => void;
   pause: () => void;
   resume: () => void;
   finish: () => Session | null;
@@ -169,12 +173,12 @@ export const useStore = create<State>()(
           const sets = older ? Math.max(2, sl.sets - 1) : sl.sets;
           return { exId: ex.id, target: sl.reps, rest: sl.rest, sets: seedSets(ex.id, sl.reps, sets, sessions), swappedFrom };
         });
-        set({ active: { id: uid(), title: day.name, planId, dayIndex, place, startedAt: Date.now(), items, running: false } });
+        set({ active: { id: uid(), title: day.name, planId, dayIndex, place, startedAt: Date.now(), items, running: true, idx: 0 } });
       },
       startSingle: (exId, place) =>
         set((s) => s.active ? {} : ({
           // A single exercise gets its own dose: minutes for cardio, seconds for holds, reps otherwise.
-          active: { id: uid(), title: byId[exId].name, place, startedAt: Date.now(), running: false, items: [single(exId, s.sessions)] },
+          active: { id: uid(), title: byId[exId].name, place, startedAt: Date.now(), running: true, idx: 0, items: [single(exId, s.sessions)] },
         })),
       updateSet: (i, j, patch) =>
         set((s) => {
@@ -208,6 +212,9 @@ export const useStore = create<State>()(
       addItem: (exId) =>
         set((s) => s.active ? { active: { ...s.active, items: [...s.active.items, single(exId, s.sessions)] } } : {}),
       begin: () => set((s) => (s.active && !s.active.running ? { active: { ...s.active, running: true, startedAt: Date.now(), pausedAt: undefined, pausedMs: 0 } } : {})),
+      setIdx: (i) => set((s) => (s.active ? { active: { ...s.active, idx: Math.max(0, Math.min(i, s.active.items.length - 1)) } } : {})),
+      setRest: (until, total) =>
+        set((s) => (s.active ? { active: { ...s.active, restUntil: until ?? undefined, restTotal: total ?? s.active.restTotal } } : {})),
       pause: () => set((s) => (s.active?.running && !s.active.pausedAt ? { active: { ...s.active, pausedAt: Date.now() } } : {})),
       resume: () =>
         set((s) => (s.active?.pausedAt ? { active: { ...s.active, pausedMs: (s.active.pausedMs ?? 0) + Date.now() - s.active.pausedAt, pausedAt: undefined } } : {})),
@@ -217,7 +224,7 @@ export const useStore = create<State>()(
         const items = active.items.map((it) => ({ ...it, sets: it.sets.filter((x) => x.done) })).filter((it) => it.sets.length);
         if (!items.length) { set({ active: null }); return null; }
         const end = active.pausedAt ?? Date.now();
-        const done = { ...active, items, endedAt: end, startedAt: active.startedAt + (active.pausedMs ?? 0), pausedAt: undefined, pausedMs: 0, running: false };
+        const done = { ...active, items, endedAt: end, startedAt: active.startedAt + (active.pausedMs ?? 0), pausedAt: undefined, pausedMs: 0, running: false, idx: undefined, restUntil: undefined, restTotal: undefined };
         const plan = planById[planId];
         const advance = active.planId === planId && plan ? ((active.dayIndex ?? nextDay) + 1) % plan.days.length : nextDay;
         set({ sessions: [...sessions, done], active: null, nextDay: advance });
