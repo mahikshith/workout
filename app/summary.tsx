@@ -6,7 +6,7 @@ import Animated, {
   Easing, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { dayKey, doneSets, prs, streak, volume } from '../src/calc';
+import { dayKey, doneSets, isTimed, prs, streak, volume } from '../src/calc';
 import { badges, level } from '../src/data/badges';
 import { byId } from '../src/data/exercises';
 import { FoodSheet } from '../src/foodsheet';
@@ -98,7 +98,7 @@ export default function Summary() {
   const kcal = gentle ? 0 : sessionKcal(s, profile.weightKg);
   const levelUp = lv.lvl > lvBefore.lvl;
   const kg = Math.round(volume(s));
-  const reps = s.items.reduce((n, it) => n + it.sets.reduce((a, x) => a + (x.done ? x.reps : 0), 0), 0);
+  const reps = s.items.reduce((n, it) => n + (isTimed(it.target) ? 0 : it.sets.reduce((a, x) => a + (x.done ? x.reps : 0), 0)), 0);
   const colors = [c.accent, c.warm, c.pink, c.blue, '#BF8CFF'];
 
   return (

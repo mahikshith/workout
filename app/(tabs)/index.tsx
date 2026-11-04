@@ -116,7 +116,7 @@ export default function Today() {
           </View>
           <Tap onPress={() => router.push('/history')} style={[s.pill, { backgroundColor: streak ? '#2A1A0E' : c.card2 }]} scale={0.95}>
             <Ionicons name="flame" size={15} color={streak ? c.warm : c.muted} />
-            <CountUp value={streak} suffix={STREAK_SUFFIX} style={[s.pillNum, { color: streak ? c.warm : c.muted }]} />
+            {streak ? <CountUp value={streak} suffix={STREAK_SUFFIX} style={[s.pillNum, { color: c.warm }]} /> : <T v="small" style={[s.pillNum, { color: c.muted }]}>Start a streak</T>}
           </Tap>
           <Avatar />
         </Row>
@@ -126,8 +126,8 @@ export default function Today() {
       <Enter i={1}>
         <View style={s.hero}>
           <T v="label" color={c.accent} numberOfLines={1}>{label}</T>
-          <T v="h1" numberOfLines={2}>{day.name}</T>
-          <T v="small" numberOfLines={1}>{day.slots.length} exercises · {minutes} min · {place}</T>
+          <T v="h1" numberOfLines={2}>{active ? active.title : day.name}</T>
+          <T v="small" numberOfLines={1}>{active ? `${active.items.length} exercises` : `${day.slots.length} exercises · ${minutes} min`} · {place}</T>
           {muscles.length > 0 && (
             <Row gap={8} style={{ flexWrap: 'wrap' }}>
               {muscles.map((m) => <View key={m} style={s.chip}><T v="small" color="#C9C9CE">{m}</T></View>)}

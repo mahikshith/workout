@@ -57,6 +57,8 @@ export default function PlanDetail() {
   const where: Place = plan.place === 'any' ? (profile.place === 'gym' || profile.place === 'both' ? 'gym' : 'home') : plan.place;
 
   // Start one training day: switch to this plan if needed, then the workout runs at once. A running workout is resumed.
+  // Resume shows only on the day that is running; any other day's Start still opens the running workout (one at a time).
+  const here = (i: number) => !!active && active.planId === plan.id && active.dayIndex === i;
   const startDay = (i: number, d: Day) => {
     if (active) { toSession(); return; }
     haptic('medium');
@@ -164,8 +166,8 @@ export default function PlanDetail() {
                       : <T v="small" numberOfLines={1}>{d.focus}</T>}
                   </View>
                   <Tap onPress={() => startDay(i, d)} style={[s.go, { borderColor: c.accent }]} scale={0.94} feedback="none">
-                    <Ionicons name={active ? 'arrow-forward' : 'play'} size={14} color={c.accent} />
-                    <T v="h3" color={c.accent} style={{ fontSize: 15 }}>{active ? 'Resume' : 'Start'}</T>
+                    <Ionicons name={here(i) ? 'arrow-forward' : 'play'} size={14} color={c.accent} />
+                    <T v="h3" color={c.accent} style={{ fontSize: 15 }}>{here(i) ? 'Resume' : 'Start'}</T>
                   </Tap>
                 </Row>
                 <View style={{ gap: 12, marginTop: 16 }}>

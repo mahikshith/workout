@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
@@ -9,26 +9,6 @@ import { c, r } from './theme';
 // outside or Back. Only one is ever open. The grab handle shows they can be dragged.
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 
-// Web: browser Back closes an open sheet instead of leaving the page. Opening pushes a same-URL history entry marked
-// with a token; Back pops it (popstate) and closes the sheet. Closing any other way removes that entry again, unless a
-// navigation has already pushed over it (then it is left alone so the navigation is never undone).
-function useWebBackCloses(open: boolean, onClose: () => void) {
-  const close = useRef(onClose);
-  close.current = onClose;
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !open || typeof window === 'undefined') return;
-    const token = `sheet-${Date.now()}-${Math.random()}`;
-    let popped = false;
-    window.history.pushState({ ...(window.history.state ?? {}), __sheet: token }, '');
-    const onPop = () => { popped = true; close.current(); };
-    window.addEventListener('popstate', onPop);
-    return () => {
-      window.removeEventListener('popstate', onPop);
-      if (!popped && window.history.state?.__sheet === token) window.history.back();
-    };
-  }, [open]);
-}
-
 export function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
   const ins = useSafeAreaInsets();
   const [mounted, setMounted] = useState(open);
@@ -37,7 +17,6 @@ export function Sheet({ open, onClose, children }: { open: boolean; onClose: () 
   const p = useSharedValue(0); // 0 closed, 1 open
   const drag = useSharedValue(0); // px dragged down
   const still = useReducedMotion();
-  useWebBackCloses(open, onClose);
   const rise = () => {
     p.value = still ? withTiming(1, { duration: 1 }) : withSpring(1, { damping: 20, stiffness: 220, overshootClamping: true });
   };

@@ -8,7 +8,7 @@ import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mapped, MuscleMap } from '../../src/body';
 import { Bars, LineChart } from '../../src/charts';
-import { dayKey, e1rm, targets, volume } from '../../src/calc';
+import { dayKey, e1rm, isTimed, targets, volume } from '../../src/calc';
 import { badges, level } from '../../src/data/badges';
 import { byId, title } from '../../src/data/exercises';
 import { Journey } from '../../src/journey';
@@ -107,7 +107,7 @@ function Strength() {
   const volWeeks = volTrend.filter((v) => v > 0);
   const volAvg = volWeeks.length ? volWeeks.reduce((a, b) => a + b, 0) / volWeeks.length : 0;
   // Bodyweight-only training has no kg volume: chart reps a week instead, so a finished workout always shows up.
-  const repsOf = (s: (typeof sessions)[number]) => s.items.reduce((a, it) => a + it.sets.filter((x) => x.done).reduce((b, x) => b + x.reps, 0), 0);
+  const repsOf = (s: (typeof sessions)[number]) => s.items.reduce((a, it) => a + (isTimed(it.target) ? 0 : 1) * it.sets.filter((x) => x.done).reduce((b, x) => b + x.reps, 0), 0);
   const repTrend = Array.from({ length: 12 }, (_, i) => { const k = 11 - i; return sessions.filter((s) => s.startedAt >= back(k) && s.startedAt < back(k - 1)).reduce((a, s) => a + repsOf(s), 0); });
   const repWeeks = repTrend.filter((v) => v > 0);
   const byReps = !volWeeks.length && repWeeks.length > 0;
