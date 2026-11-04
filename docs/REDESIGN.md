@@ -147,11 +147,22 @@ on-device, for free, for almost every watch, is **Android Health Connect**.
 
 | Phase | Route | Watches covered | Data |
 |---|---|---|---|
-| **A (this round)** | Health Connect read + write our workouts back | Fitbit & Pixel (via the Fitbit/Google Health app), Samsung, Garmin (Connect 5.14+, Android 14+), Whoop, Amazfit/Zepp, Oura, Gadgetbridge bands | steps, heart rate, resting HR, HRV, sleep, exercise sessions, calories, SpO2, weight |
-| **B (this round)** | Bluetooth heart-rate strap / watch broadcast (standard 0x180D) | Polar, Wahoo, Coospo, Garmin "Broadcast HR", many Amazfit/Huawei | live heart rate in the workout, zones, rest cue |
-| C (next round) | File import: Garmin .FIT and export zip, Fitbit Google Takeout, GPX/TCX | anything that exports | history |
-| Later | Apple HealthKit (iOS build), Garmin personal API when public | | |
-| Skipped | Google Health API, Strava, Whoop cloud API | | need a server/secret, restricted scopes, or forbid offline caching |
+| **A (this round)** | Health Connect read + write our workouts back | Fitbit & Pixel (via the Fitbit/Google Health app), Samsung, Garmin (Connect 5.14+, Android 14+), Whoop, Amazfit/Zepp, Oura, plus open-source bridges: **Gadgetbridge** (300+ devices: Mi Band/Amazfit, Huawei, Garmin, PineTime, Bangle.js, Colmi, Fossil), **openScale-sync** (BLE scales) | steps, distance, heart rate, resting HR, HRV, SpO2, respiratory rate, skin temperature, VO2max, sleep, exercise sessions, calories, weight |
+| **B (this round)** | Bluetooth heart rate (standard 0x180D), behind a device-adapter interface | Polar, Wahoo, Coospo, Garmin "Broadcast HR", **WHOOP "Broadcast Heart Rate"**, PineTime/InfiniTime, Bangle.js (`bootgatthrm`), Wear OS broadcaster apps, many Amazfit/Huawei | live heart rate, zones, rest cue, **RR intervals → our own HRV (RMSSD)** after workouts and in the morning |
+| C (next round) | File import: Garmin .FIT and export zip, Fitbit Google Takeout, GPX/TCX (also Gadgetbridge and OpenTracks exports) | anything that exports | history |
+| C (next round) | **Colmi smart-ring adapter** (R02/R06/R10, ~$20, no pairing keys), clean-room from MIT `colmi_r02_client` + `colmi-docs` | Colmi rings | live HR, SpO2, steps, HR history |
+| Later | Apple HealthKit (iOS build), Garmin personal API when public, cycling/running BLE sensors (Apache-2.0 OpenTracks as reference) | | |
+| Later, opt-in only | Direct WHOOP protocol (MIT `OpenStrap/research`) behind an "experimental" switch | WHOOP 4.0 | HR/RR history. WHOOP's terms forbid reverse engineering and it sent takedowns in June 2026; preferred path is asking OpenStrap Edge to add Health Connect export |
+| Skipped | Google Health API, Strava, Whoop cloud API, Polar SDK (proprietary licence), direct Mi Band/Amazfit/Huawei (per-device keys, AGPL references) | | need a server/secret, restricted scopes, forbid offline caching, or licence conflicts; covered by Health Connect or 0x180D instead |
+
+Open-source projects surveyed (licences checked, 25+): usable as dependencies (react-native-ble-plx Apache-2.0,
+react-native-ble-manager Apache-2.0, react-native-health-connect MIT, @garmin/fitsdk); protocol references we may
+re-implement clean-room (OpenStrap/research MIT, unstrapped MIT, whoop-reader MIT, Atria MIT, colmi_r02_client MIT,
+colmi_r06_fbp BSD-3, hrkit MIT, OpenTracks Apache-2.0, InfiniTime docs); user-side bridges that write to Health
+Connect (Gadgetbridge AGPL, openScale GPL, OpenStrap Edge AGPL); reference only, no code copied (RunnerUp,
+FitoTrack, GoldenCheetah, GarminDB GPL; OpenHRV LGPL; Polar SDK proprietary; NOOP unlicensed; galileo LGPL;
+open-wearables MIT but needs a server). The Health Connect screen gets a help card: "Using Gadgetbridge,
+OpenStrap or openScale? Turn on its Health Connect sync" (Gadgetbridge's is off by default).
 
 Libraries (all MIT unless noted; licences checked):
 - `react-native-health-connect@3.5.3` + `expo-health-connect@0.1.1` (3.5.x is the line tested on RN 0.81;
