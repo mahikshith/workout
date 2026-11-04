@@ -1,21 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { FlatList, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  FadeIn, FadeInDown, FadeOutDown, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming,
+  FadeIn, FadeInDown, FadeOutDown, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fmtTime, isTimed, lastSets, secsOf } from '../src/calc';
-import { alternatives, byId, title, type Exercise } from '../src/data/exercises';
+import { alternatives, available, byId, exercises, title, type Exercise, type Place } from '../src/data/exercises';
 import guide from '../src/data/guide.json';
 import { gate } from '../src/engine';
 import { useLiveHr } from '../src/health/live';
 import { EASE, goBack, useElapsed } from '../src/kit';
 import { reschedule, restAlert } from '../src/notify';
 import { Sheet } from '../src/sheet';
-import { useStore, type SetLog } from '../src/store';
+import { useStore, type Profile, type Session, type SetLog } from '../src/store';
 import { c, f, r } from '../src/theme';
 import { Button, Demo, haptic, Ring, Row, Stepper, T, Tap, Thumb } from '../src/ui';
 
@@ -38,6 +39,20 @@ const restEndHaptic = () => {
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 };
 
+// Seconds of the running workout right now, without pauses (read when a sheet opens; the clock itself ticks in Clock).
+const elapsedOf = (a: Session | null) =>
+  !a || a.running === false ? 0 : Math.max(0, Math.floor(((a.pausedAt ?? Date.now()) - a.startedAt - (a.pausedMs ?? 0)) / 1000));
+
+// The live clock in the header. It is the only part of the header that re-renders every second.
+function Clock({ paused }: { paused: boolean }) {
+  const elapsed = useElapsed();
+  return (
+    <T style={{ fontFamily: f.bold, fontSize: 18, fontVariant: ['tabular-nums'] }} color={paused ? c.muted : c.text}>
+      {paused ? `Paused · ${fmtTime(elapsed)}` : fmtTime(elapsed)}
+    </T>
+  );
+}
+
 // "Last time 60 kg × 8": the heaviest set from the last session that had this exercise.
 function lastText(prev: SetLog[] | null, timed: boolean) {
   if (!prev?.length) return null;
@@ -52,11 +67,10 @@ export default function SessionScreen() {
   const active = useStore((s) => s.active);
   const profile = useStore((s) => s.profile);
   const sessions = useStore((s) => s.sessions);
-  const { updateSet, addSet, removeSet, swap, finish, discard, pause, resume, setIdx, setRest } = useStore.getState();
-  const elapsed = useElapsed();
+  const { updateSet, addSet, removeSet, swap, addItem, finish, discard, pause, resume, setIdx, setRest } = useStore.getState();
   const bpm = useLiveHr();
 
-  const [sheet, setSheet] = useState<'swap' | 'finish' | 'info' | null>(null);
+  const [sheet, setSheet] = useState<'swap' | 'finish' | 'info' | 'add' | null>(null);
   const last = useRef(sheet);
   if (sheet) last.current = sheet;
   const kind = last.current; // keeps sheet content on screen while it slides away
@@ -64,33 +78,42 @@ export default function SessionScreen() {
   const restUntil = active?.restUntil ?? null;
   const restTotal = active?.restTotal ?? 90;
   const pausedAt = active?.pausedAt;
-  const now = useNow(restUntil ? 250 : 1000);
-  const restLeft = restUntil ? Math.max(0, restUntil - (pausedAt ?? now)) : 0; // frozen while paused
-  const resting = restLeft > 0;
 
-  // When an exercise is added from the library, jump straight to it so the user sees it landed.
+  // When an exercise is added, jump straight to it so the user sees it landed.
   const count = active?.items.length ?? 0;
   const seen = useRef(count);
   useEffect(() => { if (count > seen.current) setIdx(count - 1); seen.current = count; }, [count]);
 
-  // Rest over: warning haptic and a ring pulse, then the bottom bar returns. A rest that ran out while the workout
-  // was minimised is cleared quietly.
+  // Rest over (RestPanel watches the clock): warning haptic, "Go" for a moment, then the bottom bar returns. A rest
+  // that ran out while the workout was minimised is cleared quietly.
   const [ending, setEnding] = useState(false);
-  const pulse = useSharedValue(1);
   const endTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (endTimer.current) clearTimeout(endTimer.current); }, []);
-  useEffect(() => {
-    if (!restUntil || pausedAt || restUntil > now) return;
-    const late = now - restUntil > 2000;
+  const restEnded = (late: boolean) => {
     setRest(null);
     if (late) return;
     restEndHaptic();
     setEnding(true);
-    if (!still) pulse.value = withSequence(withTiming(1.12, { duration: 160 }), withTiming(0.96, { duration: 160 }), withSpring(1, { damping: 10, stiffness: 220 }));
     if (endTimer.current) clearTimeout(endTimer.current);
     endTimer.current = setTimeout(() => setEnding(false), 900);
-  }, [now, restUntil, pausedAt]);
-  const ringPulse = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+  };
+
+  // Swipe down on the header minimises the workout, like the ⌄ button. The header follows the finger unless reduced
+  // motion is on.
+  const drag = useSharedValue(0);
+  const minimise = Gesture.Pan()
+    .activeOffsetY(12)
+    .failOffsetX([-24, 24])
+    .onUpdate((e) => { if (!still) drag.value = Math.max(0, e.translationY) * 0.5; })
+    .onEnd((e) => {
+      const go = e.translationY > 80 || e.velocityY > 800;
+      drag.value = still ? 0 : withSpring(0, { damping: 20, stiffness: 260 });
+      if (go) runOnJS(goBack)();
+    });
+  const headerDrag = useAnimatedStyle(() => ({ transform: [{ translateY: drag.value }] }));
+
+  // A fast second tap on the same ✓ (within 400 ms) is ignored, so a double tap never logs and un-logs a set.
+  const lastTick = useRef<{ key: string; at: number }>({ key: '', at: 0 });
 
   // Opened with no workout running (old link, notification): step back. After Finish or Discard the screen leaves on
   // its own, so this must not also redirect (it would race the move to the summary).
@@ -108,6 +131,7 @@ export default function SessionScreen() {
   const total = active.items.reduce((n, x) => n + x.sets.length, 0);
   const done = active.items.reduce((n, x) => n + x.sets.filter((y) => y.done).length, 0);
   const isLast = idx >= active.items.length - 1;
+  const elapsed = elapsedOf(active); // fresh whenever the screen re-renders (a sheet opening, a set logged)
 
   // Pausing freezes the rest countdown too: on resume its deadline moves by the paused time.
   const doPause = () => { pause(); restAlert(null); haptic('medium'); };
@@ -123,10 +147,15 @@ export default function SessionScreen() {
   const skipRest = () => { setRest(null); restAlert(null); };
 
   function toggle(j: number) {
+    const key = `${idx}:${j}`;
+    const t = Date.now();
+    if (lastTick.current.key === key && t - lastTick.current.at < 400) return;
+    lastTick.current = { key, at: t };
     const was = it.sets[j].done;
     if (paused) doResume();
     updateSet(idx, j, { done: !was });
     if (!was) { haptic('light'); startRest(it.rest); }
+    else { skipRest(); setEnding(false); } // un-logging a set cancels the rest it started
   }
 
   function save() {
@@ -144,6 +173,8 @@ export default function SessionScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: ins.top + 6 }}>
       {/* Header: minimise, live clock (and heart rate), Finish. */}
+      <GestureDetector gesture={minimise}>
+      <Animated.View style={headerDrag}>
       <Row style={{ paddingHorizontal: 12, height: 52 }} gap={8}>
         <Tap onPress={goBack} style={s.icon} scale={0.9} feedback="none">
           <Ionicons name="chevron-down" size={22} color={c.text} />
@@ -151,9 +182,7 @@ export default function SessionScreen() {
         <View style={{ flex: 1, alignItems: 'center' }}>
           <Row gap={6}>
             {!paused && <View style={s.live} />}
-            <T style={{ fontFamily: f.bold, fontSize: 18, fontVariant: ['tabular-nums'] }} color={paused ? c.muted : c.text}>
-              {paused ? `Paused · ${fmtTime(elapsed)}` : fmtTime(elapsed)}
-            </T>
+            <Clock paused={paused} />
           </Row>
         </View>
         {bpm != null && (
@@ -166,6 +195,8 @@ export default function SessionScreen() {
           <T style={{ fontFamily: f.bold, fontSize: 15 }} color={c.accentInk}>Finish</T>
         </Tap>
       </Row>
+      </Animated.View>
+      </GestureDetector>
 
       {/* One segment per exercise; tap to jump. */}
       <Row style={{ paddingHorizontal: 12, marginTop: 8 }} gap={4}>
@@ -187,7 +218,8 @@ export default function SessionScreen() {
           <Row style={{ alignItems: 'flex-start', marginTop: 4 }} gap={8}>
             <View style={{ flex: 1 }}>
               <T v="h2">{ex.name}</T>
-              {lastLine && <T v="small">{lastLine}</T>}
+              {lastLine ? <T v="small">{lastLine}</T>
+                : showWeight && it.sets[0]?.weight > 0 ? <T v="small">{`First time · start light at ${it.sets[0].weight} kg`}</T> : null}
               {it.swappedFrom && <T v="small" color={c.warm}>Alternative to {byId[it.swappedFrom].name}</T>}
             </View>
             <Tap onPress={() => setSheet('info')} style={s.info}>
@@ -223,7 +255,7 @@ export default function SessionScreen() {
             <Tap onPress={() => addSet(idx)} style={s.text}><T v="h3" color={c.accent}>+ Add set</T></Tap>
             <Tap onPress={() => setSheet('swap')} style={s.text}><T v="h3" color={c.accent}>Swap</T></Tap>
             <View style={{ flex: 1 }} />
-            <Tap onPress={() => router.push({ pathname: '/library', params: { pick: '1' } })} style={s.text}>
+            <Tap onPress={() => setSheet('add')} style={s.text}>
               <T v="h3" color={c.muted}>Add exercise</T>
             </Tap>
           </Row>
@@ -231,22 +263,11 @@ export default function SessionScreen() {
       </ScrollView>
 
       <View style={[s.bottom, { paddingBottom: ins.bottom + 12 }]}>
-        {resting || ending ? (
-          <Animated.View entering={FadeInDown.duration(320).easing(EASE)} exiting={FadeOutDown.duration(200)} style={s.rest}>
-            <Animated.View style={ringPulse}>
-              <Ring size={64} stroke={7} progress={restLeft / (restTotal * 1000)} color={c.warm}>
-                <T style={{ fontFamily: f.bold, fontSize: 16, fontVariant: ['tabular-nums'] }}>{ending ? 'Go' : fmtTime(Math.ceil(restLeft / 1000))}</T>
-              </Ring>
-            </Animated.View>
-            <View style={{ flex: 1, gap: 8 }}>
-              <T v="label" color={c.warm}>{ending ? 'Rest over' : paused ? 'Rest · paused' : 'Rest'}</T>
-              <Row gap={8}>
-                <Tap onPress={() => restUntil && changeRest(Math.max(Date.now() + 1000, restUntil - 15000))} disabled={ending} style={s.restBtn}><T v="h3">−15</T></Tap>
-                <Tap onPress={() => restUntil && changeRest(restUntil + 15000, restTotal + 15)} disabled={ending} style={s.restBtn}><T v="h3">+15</T></Tap>
-                <Tap onPress={() => { skipRest(); setEnding(false); }} style={[s.restBtn, { backgroundColor: c.warm }]}><T v="h3" color={c.accentInk}>Skip</T></Tap>
-              </Row>
-            </View>
-          </Animated.View>
+        {restUntil || ending ? (
+          <RestPanel until={restUntil} total={restTotal} pausedAt={pausedAt} ending={ending} still={still} onEnded={restEnded}
+            onLess={() => restUntil && changeRest(Math.max(Date.now() + 1000, restUntil - 15000))}
+            onMore={() => restUntil && changeRest(restUntil + 15000, restTotal + 15)}
+            onSkip={() => { skipRest(); setEnding(false); }} />
         ) : (
           <Row gap={10}>
             <Tap onPress={paused ? doResume : doPause} style={[s.nav, paused && { backgroundColor: c.accent }]} feedback="none">
@@ -291,6 +312,7 @@ export default function SessionScreen() {
           )
         )}
         {kind === 'info' && <InfoSheet ex={ex} />}
+        {kind === 'add' && <AddPicker place={active.place} profile={profile} sessions={sessions} onPick={(id) => { addItem(id); haptic('light'); setSheet(null); }} />}
         {kind === 'swap' && (
           <View style={{ gap: 10 }}>
             <T v="h2">Swap {ex.name}</T>
@@ -310,6 +332,76 @@ export default function SessionScreen() {
           </View>
         )}
       </Sheet>
+    </View>
+  );
+}
+
+// The rest timer at the bottom. It owns the 250 ms clock, so only this panel re-renders while resting; the countdown
+// freezes while paused. When it reaches zero it tells the screen (late = it ran out while minimised) and pulses.
+function RestPanel({ until, total, pausedAt, ending, still, onEnded, onLess, onMore, onSkip }: {
+  until: number | null; total: number; pausedAt?: number; ending: boolean; still: boolean; onEnded: (late: boolean) => void;
+  onLess: () => void; onMore: () => void; onSkip: () => void;
+}) {
+  const now = useNow(until && !pausedAt ? 250 : 1000);
+  const left = until ? Math.max(0, until - (pausedAt ?? now)) : 0;
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    if (!until || pausedAt || until > now) return;
+    const late = now - until > 2000;
+    onEnded(late);
+    if (!late && !still) pulse.value = withSequence(withTiming(1.12, { duration: 160 }), withTiming(0.96, { duration: 160 }), withSpring(1, { damping: 10, stiffness: 220 }));
+  }, [now, until, pausedAt]);
+  const ringPulse = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+  return (
+    <Animated.View entering={FadeInDown.duration(320).easing(EASE)} exiting={FadeOutDown.duration(200)} style={s.rest}>
+      <Animated.View style={ringPulse}>
+        <Ring size={64} stroke={7} progress={left / (total * 1000)} color={c.warm}>
+          <T style={{ fontFamily: f.bold, fontSize: 16, fontVariant: ['tabular-nums'] }}>{ending ? 'Go' : fmtTime(Math.ceil(left / 1000))}</T>
+        </Ring>
+      </Animated.View>
+      <View style={{ flex: 1, gap: 8 }}>
+        <T v="label" color={c.warm}>{ending ? 'Rest over' : pausedAt ? 'Rest · paused' : 'Rest'}</T>
+        <Row gap={8}>
+          <Tap onPress={onLess} disabled={ending} style={s.restBtn}><T v="h3">−15</T></Tap>
+          <Tap onPress={onMore} disabled={ending} style={s.restBtn}><T v="h3">+15</T></Tap>
+          <Tap onPress={onSkip} style={[s.restBtn, { backgroundColor: c.warm }]}><T v="h3" color={c.accentInk}>Skip</T></Tap>
+        </Row>
+      </View>
+    </Animated.View>
+  );
+}
+
+// Add an exercise without leaving the workout: search, tap, and it lands at the end. Only moves this place and this
+// person can do (gear, level and safety locks) are listed.
+function AddPicker({ place, profile, sessions, onPick }: { place: Place; profile: Profile; sessions: Session[]; onPick: (id: string) => void }) {
+  const [q, setQ] = useState('');
+  const pool = useMemo(
+    () => exercises.filter((e) => available(e, place, profile.gear) && !gate(e, profile, sessions.length).locked).sort((a, b) => a.name.localeCompare(b.name)),
+    [place, profile, sessions.length],
+  );
+  const needle = q.trim().toLowerCase();
+  const rows = needle ? pool.filter((e) => e.name.toLowerCase().includes(needle) || e.primary.some((m) => m.includes(needle))) : pool;
+  return (
+    <View style={{ gap: 10 }}>
+      <T v="h2">Add exercise</T>
+      <View style={s.search}>
+        <Ionicons name="search" size={18} color={c.muted} />
+        <TextInput value={q} onChangeText={setQ} placeholder="Search by name or muscle" placeholderTextColor={c.dim}
+          style={s.searchInput} returnKeyType="search" autoCorrect={false} />
+      </View>
+      <FlatList data={rows} keyExtractor={(e) => e.id} style={{ height: 420 }} keyboardShouldPersistTaps="handled"
+        initialNumToRender={10} windowSize={7} contentContainerStyle={{ gap: 8, paddingBottom: 8 }}
+        ListEmptyComponent={<T v="small" style={{ textAlign: 'center', marginTop: 24 }}>No match</T>}
+        renderItem={({ item: e }) => (
+          <Tap onPress={() => onPick(e.id)} style={s.alt} scale={0.98}>
+            <Thumb ex={e} size={44} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <T v="h3" numberOfLines={1}>{e.name}</T>
+              <T v="small" numberOfLines={1}>{title(e.primary[0] ?? '')} · {title(e.equipment)}</T>
+            </View>
+            <Ionicons name="add-circle" size={22} color={c.accent} />
+          </Tap>
+        )} />
     </View>
   );
 }
@@ -429,5 +521,7 @@ const s = StyleSheet.create({
   rest: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#1F140C', borderRadius: r.lg, padding: 12 },
   restBtn: { flex: 1, height: 44, borderRadius: 22, backgroundColor: '#3A2614', alignItems: 'center', justifyContent: 'center' },
   discard: { height: 48, alignItems: 'center', justifyContent: 'center' },
+  search: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, paddingHorizontal: 12, borderRadius: r.md, backgroundColor: c.card2 },
+  searchInput: { flex: 1, color: c.text, fontSize: 16, padding: 0 },
   alt: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.md, backgroundColor: c.card2 },
 });

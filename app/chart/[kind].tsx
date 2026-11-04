@@ -12,7 +12,7 @@ import { dayKey, e1rm, targets, volume } from '../../src/calc';
 import { badges, level } from '../../src/data/badges';
 import { byId, title } from '../../src/data/exercises';
 import { Journey } from '../../src/journey';
-import { EASE, Empty, goBack, Header, Segmented } from '../../src/kit';
+import { EASE, Empty, goBack, Header, Segmented, useMiniBarSpace } from '../../src/kit';
 import { Achievements } from '../../src/medals';
 import { useStore } from '../../src/store';
 import { c, r } from '../../src/theme';
@@ -43,10 +43,11 @@ export default function Chart() {
 // Pushed-screen frame: the shared Header, then the scrolling content.
 function Page({ title: t, children }: { title: string; children: ReactNode }) {
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Header title={t} />
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 120 + mini }} showsVerticalScrollIndicator={false}>
         {children}
       </ScrollView>
     </View>
@@ -105,6 +106,12 @@ function Strength() {
   const volTrend = Array.from({ length: 12 }, (_, i) => { const k = 11 - i; return sessions.filter((s) => s.startedAt >= back(k) && s.startedAt < back(k - 1)).reduce((a, s) => a + volume(s), 0); });
   const volWeeks = volTrend.filter((v) => v > 0);
   const volAvg = volWeeks.length ? volWeeks.reduce((a, b) => a + b, 0) / volWeeks.length : 0;
+  // Bodyweight-only training has no kg volume: chart reps a week instead, so a finished workout always shows up.
+  const repsOf = (s: (typeof sessions)[number]) => s.items.reduce((a, it) => a + it.sets.filter((x) => x.done).reduce((b, x) => b + x.reps, 0), 0);
+  const repTrend = Array.from({ length: 12 }, (_, i) => { const k = 11 - i; return sessions.filter((s) => s.startedAt >= back(k) && s.startedAt < back(k - 1)).reduce((a, s) => a + repsOf(s), 0); });
+  const repWeeks = repTrend.filter((v) => v > 0);
+  const byReps = !volWeeks.length && repWeeks.length > 0;
+  const repAvg = repWeeks.length ? repWeeks.reduce((a, b) => a + b, 0) / repWeeks.length : 0;
 
   // Muscles from the last 30 days: primary muscles count every set, helpers half. Top 3 main on the map, next 4 helpers.
   const split: Record<string, number> = {};
@@ -183,8 +190,12 @@ function Strength() {
       <Animated.View entering={enter(3)}>
         <Section title="Volume">
           <Card>
-            <Panel value={kgShort(volAvg)} unit="kg a week" cap="Average training week · 12 weeks" empty={!volWeeks.length && 'Finish a workout to see volume'}>
-              <Draw k="vol"><LineChart values={volTrend} fmt={(v) => `${kgShort(v)} kg`} height={120} /></Draw>
+            <Panel value={byReps ? Math.round(repAvg) : kgShort(volAvg)} unit={byReps ? 'reps a week' : 'kg a week'}
+              cap={byReps ? 'Bodyweight sets · average week · 12 weeks' : 'Average training week · 12 weeks'}
+              empty={!volWeeks.length && !repWeeks.length && 'Finish a workout to see volume'}>
+              <Draw k={byReps ? 'reps' : 'vol'}>
+                <LineChart values={byReps ? repTrend : volTrend} fmt={(v) => (byReps ? `${Math.round(v)} reps` : `${kgShort(v)} kg`)} height={120} />
+              </Draw>
               <Row style={{ justifyContent: 'space-between' }}><T v="small">12 weeks ago</T><T v="small">This week</T></Row>
             </Panel>
           </Card>
@@ -296,6 +307,9 @@ function Weight() {
 
 // ---------- Body & watch: today's watch numbers, 14-day steps and sleep, imported workouts ----------
 function BodyWatch() {
+  // Opened from Watch & health: its links go back there instead of stacking another copy (no watch -> chart -> watch loop).
+  const fromWatch = useLocalSearchParams<{ from?: string }>().from === 'watch';
+  const toWatch = () => (fromWatch ? goBack() : router.push({ pathname: '/watch', params: { from: 'chart' } }));
   const daily = useTracker((s) => s.daily);
   const workouts = useTracker((s) => s.workouts);
   const hcOn = useTracker((s) => s.hc.connected);
@@ -308,7 +322,7 @@ function BodyWatch() {
   const imported = Object.values(workouts).sort((a, b) => b.start.localeCompare(a.start));
   const hasData = Object.keys(daily).length > 0 || imported.length > 0 || Object.keys(strapHrv).length > 0;
   if (!hcOn && !strap && !hasData) {
-    return <Empty icon="watch-outline" title="No watch connected yet" action="Connect a watch" onPress={() => router.push('/watch' as never)} />;
+    return <Empty icon="watch-outline" title="No watch connected yet" action="Connect a watch" onPress={toWatch} />;
   }
 
   const steps = latest(daily, 'steps', 1);
@@ -400,7 +414,7 @@ function BodyWatch() {
       </Animated.View>
 
       <Section title="Source">
-        <ListRow icon="sync-outline" color={c.blue} title="Watch & health" onPress={() => router.push('/watch' as never)}
+        <ListRow icon="sync-outline" color={c.blue} title="Watch & health" onPress={toWatch}
           sub={hcOn ? `Health Connect${lastSync ? ` · synced ${short(lastSync)}` : ''}` : strap ? strap.name : 'Manage connections'} />
       </Section>
     </>

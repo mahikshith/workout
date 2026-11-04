@@ -1,14 +1,15 @@
 // Progress: this week at a glance, then four doors that each open one chart, then the achievements row.
 // Every number here is either this week's (its one home) or a one-line glance that links to its home.
-import { router } from 'expo-router';
-import type { ComponentProps } from 'react';
+import { router, type Href } from 'expo-router';
+import { useMemo, type ComponentProps } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { e1rm, streak, volume } from '../../src/calc';
 import { badges, level } from '../../src/data/badges';
 import { byId } from '../../src/data/exercises';
+import { sessionMinutes, streakLabel } from '../../src/glance';
 import { CountUp, DoorCard, EASE } from '../../src/kit';
-import { useStore } from '../../src/store';
+import { useStore, type Session } from '../../src/store';
 import { c, r } from '../../src/theme';
 import { latest, useTracker } from '../../src/tracker';
 import { Screen, Section, T, TabTitle } from '../../src/ui';
@@ -25,6 +26,13 @@ export default function Progress() {
   const hcOn = useTracker((s) => s.hc.connected);
   const strap = useTracker((s) => s.strap);
   const still = useReducedMotion();
+  // The heavy loops only rerun when what they read changes.
+  const strength = useMemo(() => strengthGlance(sessions), [sessions]);
+  const ach = useMemo(() => {
+    const all = { profile, sessions, meals, water };
+    const bs = badges(all);
+    return { lv: level(all), earned: bs.filter((b) => b.got).length, total: bs.length };
+  }, [profile, sessions, meals, water]);
   if (!profile) return null;
   const gentle = !!(profile.gentle || profile.concerns?.includes('food'));
   const enter = (i: number) => (still ? undefined : FadeInDown.delay(i * 60).duration(380).easing(EASE));
@@ -34,23 +42,7 @@ export default function Progress() {
   const week = sessions.filter((s) => s.startedAt >= mon.getTime());
   const vol = week.reduce((a, s) => a + volume(s), 0);
   const tonnes = vol >= 1000;
-  const minutes = Math.round(week.reduce((a, s) => a + Math.max(0, (s.endedAt ?? s.startedAt) - s.startedAt), 0) / 60000);
-
-  // Strength glance: the top lift's best set last time, and how much heavier it is than the first time.
-  const best: Record<string, number> = {};
-  for (const s of sessions) for (const it of s.items) for (const x of it.sets) if (x.done && x.weight) best[it.exId] = Math.max(best[it.exId] ?? 0, e1rm(x.weight, x.reps));
-  const top = Object.entries(best).sort((a, b) => b[1] - a[1])[0]?.[0];
-  let strength = 'Log sets with weight to see lifts';
-  if (top) {
-    const tops = sessions.flatMap((s) => {
-      const sets = s.items.filter((it) => it.exId === top).flatMap((it) => it.sets.filter((x) => x.done && x.weight));
-      return sets.length ? [sets.reduce((a, b) => (e1rm(b.weight, b.reps) > e1rm(a.weight, a.reps) ? b : a))] : [];
-    });
-    const last = tops[tops.length - 1];
-    const up = last.weight - tops[0].weight;
-    const name = (byId[top]?.name ?? 'Top lift').replace(/^(Barbell|Dumbbell|Machine|Cable) /, '');
-    strength = `${name} ${last.weight} kg × ${last.reps}${up > 0 ? ` · up ${+up.toFixed(1)} kg` : ''}`;
-  }
+  const minutes = week.reduce((a, s) => a + sessionMinutes(s), 0); // same rounding as Summary and History
 
   // Body weight glance.
   const lastW = [...weights].sort((a, b) => a.day.localeCompare(b.day)).pop();
@@ -60,7 +52,7 @@ export default function Progress() {
   const now = new Date();
   const thisMonth = sessions.filter((s) => { const d = new Date(s.startedAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length;
   const st = streak(sessions);
-  const consist = sessions.length ? `${st} session streak · ${thisMonth} this month` : 'Your calendar fills in as you train';
+  const consist = sessions.length ? `${streakLabel(st)} · ${thisMonth} this month` : 'Your calendar fills in as you train';
 
   // Body & watch glance: sleep and resting heart rate when we have them, else steps, else the way to connect.
   const sleep = latest(daily, 'sleep', 2);
@@ -71,11 +63,9 @@ export default function Progress() {
   const bodyMeta = parts.length ? parts.join(' · ') : hasWatch ? 'Waiting for the next sync' : 'Connect a watch';
 
   // Achievements glance.
-  const all = { profile, sessions, meals, water };
-  const lv = level(all), bs = badges(all);
-  const earned = bs.filter((b) => b.got).length;
+  const { lv, earned, total } = ach;
 
-  type Door = { icon: ComponentProps<typeof DoorCard>['icon']; color: string; title: string; meta: string; go: string };
+  type Door = { icon: ComponentProps<typeof DoorCard>['icon']; color: string; title: string; meta: string; go: Href };
   const doors: Door[] = [
     { icon: 'stats-chart', color: c.accent, title: 'Strength', meta: strength, go: '/chart/strength' },
     ...(gentle ? [] : [{ icon: 'trending-down', color: c.pink, title: 'Body weight', meta: weightMeta, go: '/chart/weight' } as Door]),
@@ -107,15 +97,15 @@ export default function Progress() {
       <View style={{ gap: 12, marginTop: 24 }}>
         {doors.map((d, i) => (
           <Animated.View key={d.title} entering={enter(i + 1)}>
-            <DoorCard icon={d.icon} color={d.color} title={d.title} meta={d.meta} onPress={() => router.push(d.go as never)} />
+            <DoorCard icon={d.icon} color={d.color} title={d.title} meta={d.meta} onPress={() => router.push(d.go)} />
           </Animated.View>
         ))}
       </View>
 
       <Section title="Achievements">
         <Animated.View entering={enter(doors.length + 1)}>
-          <DoorCard icon="trophy" color={c.warm} title={`Level ${lv.lvl} · ${lv.name}`} meta={`${earned} of ${bs.length} medals`}
-            onPress={() => router.push('/chart/achievements' as never)} />
+          <DoorCard icon="trophy" color={c.warm} title={`Level ${lv.lvl} · ${lv.name}`} meta={`${earned} of ${total} medals`}
+            onPress={() => router.push('/chart/achievements')} />
         </Animated.View>
       </Section>
     </Screen>
@@ -125,3 +115,23 @@ export default function Progress() {
 const s = StyleSheet.create({
   tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: 1, borderColor: c.line, gap: 2 },
 });
+
+// Strength glance: the top lift's best set last time, and how much heavier it is than the first time.
+function strengthGlance(sessions: Session[]) {
+  const best: Record<string, number> = {};
+  for (const s of sessions) for (const it of s.items) for (const x of it.sets) if (x.done && x.weight) best[it.exId] = Math.max(best[it.exId] ?? 0, e1rm(x.weight, x.reps));
+  const top = Object.entries(best).sort((a, b) => b[1] - a[1])[0]?.[0];
+  let strength = 'Log sets with weight to see lifts';
+  if (top) {
+    const tops = sessions.flatMap((s) => {
+      const sets = s.items.filter((it) => it.exId === top).flatMap((it) => it.sets.filter((x) => x.done && x.weight));
+      return sets.length ? [sets.reduce((a, b) => (e1rm(b.weight, b.reps) > e1rm(a.weight, a.reps) ? b : a))] : [];
+    });
+    const last = tops[tops.length - 1];
+    const up = last.weight - tops[0].weight;
+    const name = (byId[top]?.name ?? 'Top lift').replace(/^(Barbell|Dumbbell|Machine|Cable) /, '');
+    strength = `${name} ${last.weight} kg × ${last.reps}${up > 0 ? ` · up ${+up.toFixed(1)} kg` : ''}`;
+  }
+
+  return strength;
+}

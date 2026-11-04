@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Empty, Header, Segmented, openWorkout, toToday } from '../../src/kit';
-import { Enter, useOpenSession } from '../library';
+import { Empty, Header, Segmented, openWorkout, toToday, useMiniBarSpace } from '../../src/kit';
+import { Enter, plural, useOpenSession } from '../library';
 import { mapped, MuscleMap, RED, SOFT } from '../../src/body';
 import { bestBefore, doneNote, doneRecently } from '../../src/calc';
 import { alternatives, available, byId, HOME_GEAR, title, type Exercise } from '../../src/data/exercises';
@@ -37,13 +37,17 @@ export default function ExerciseDetail() {
   const hop = (to: string) => router.replace({ pathname: '/exercise/[id]', params: to === origin ? { id: to } : { id: to, origin: origin ?? id } });
   const toSession = useOpenSession();
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace();
   const ex = byId[id];
   const profile = useStore((s) => s.profile);
   const sessions = useStore((s) => s.sessions);
   const active = useStore((s) => s.active);
   const { startSingle, setProfile, addItem } = useStore.getState();
   const inWorkout = !!active?.items.some((x) => x.exId === id);
-  const [tab, setTab] = useState<'gym' | 'home'>(profile.place === 'home' ? 'home' : 'gym');
+  // Alternatives open on the place in your profile (its one home) and follow it when it changes.
+  const home = profile.place === 'home' ? 'home' : 'gym';
+  const [tab, setTab] = useState<'gym' | 'home'>(home);
+  useEffect(() => setTab(home), [home]);
   const [sheet, setSheet] = useState(false);
   // Pause the animated figure once it is scrolled out of view: the page below then scrolls without the figure redrawing.
   const [away, setAway] = useState(false);
@@ -70,7 +74,7 @@ export default function ExerciseDetail() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Header title={ex.name} />
-      <Screen onScroll={onScroll} top={4}>
+      <Screen onScroll={onScroll} top={4} bottom={lock.locked ? 0 : BAR}>
         {start && (
           <Enter>
             <Tap onPress={() => hop(start.id)} scale={0.97} style={[s.origin, { borderColor: c.accent }]}>
@@ -98,6 +102,18 @@ export default function ExerciseDetail() {
             <Tile icon="flame-outline" color={c.pink} value={`~${kcal(ex, profile.weightKg)}`} unit="kcal" label="All sets" />
           </Row>
           {best.e1rm > 0 && <View style={{ marginTop: 12 }}><Banner icon="trophy" title={`Your best · ${Math.round(best.e1rm)} kg 1RM`} /></View>}
+          {/* Locked: the card sits in the page (it used to float over the bottom of it). One short line, no paragraph. */}
+          {lock.locked && (
+            <View style={s.lock}>
+              <Row gap={10}><Ionicons name="lock-closed" size={18} color={c.muted} /><T v="h3" style={{ flex: 1 }}>{lock.title}</T></Row>
+              <T v="small" style={{ marginTop: 6 }}>{lock.safety || !lock.sessionsLeft ? lock.reason : `Opens after ${plural(lock.sessionsLeft, 'more session')}.`}</T>
+              {!lock.safety && (
+                <Tap onPress={() => setSheet(true)} feedback="none" style={{ marginTop: 6, paddingVertical: 6, alignSelf: 'flex-start' }}>
+                  <T v="small" color={c.text} style={{ textDecorationLine: 'underline' }}>{"I've trained before"}</T>
+                </Tap>
+              )}
+            </View>
+          )}
         </Enter>
 
         <Enter i={3} style={{ marginTop: 24, gap: 12 }}>
@@ -152,43 +168,30 @@ export default function ExerciseDetail() {
                 <>
                   <T v="h3" style={{ marginTop: 14 }}>Next level</T>
                   <Alt a={next} onPress={() => hop(next.id)} locked={nextLock?.locked}
-                    note={nextLock?.sessionsLeft ? `Opens after ${nextLock.sessionsLeft} more session${nextLock.sessionsLeft > 1 ? 's' : ''}` : undefined} />
+                    note={nextLock?.sessionsLeft ? `Opens after ${plural(nextLock.sessionsLeft, 'more session')}` : undefined} />
                 </>
               )}
             </Animated.View>
           </Section>
         </Enter>
-        <View style={{ height: lock.locked ? 90 : 60 }} />
       </Screen>
 
       {/* The one action. A running workout is never started twice: we go back to it (pop, never push). */}
-      <View style={[s.bottom, { paddingBottom: ins.bottom + 12 }]}>
-        {lock.locked ? (
-          <View style={s.lock}>
-            <Row gap={10}><Ionicons name="lock-closed" size={18} color={c.muted} /><T v="h3" style={{ flex: 1 }}>{lock.title}</T></Row>
-            <T v="small" style={{ marginTop: 6 }}>{lock.reason}</T>
-            {!lock.safety && (
-              <Tap onPress={() => setSheet(true)} feedback="none" style={{ marginTop: 6, paddingVertical: 6, alignSelf: 'flex-start' }}>
-                <T v="small" color={c.text} style={{ textDecorationLine: 'underline' }}>{"I've trained before"}</T>
-              </Tap>
-            )}
-          </View>
-        ) : active ? (
+      {/* A locked move has no action bar: its card is inline above. */}
+      {!lock.locked && <View style={[s.bottom, { paddingBottom: ins.bottom + 12 + mini }]}>
+        {active ? (
           <Button title={inWorkout ? 'Back to your workout' : 'Add to your workout'} icon={inWorkout ? 'arrow-forward' : 'add'}
             onPress={() => { if (!inWorkout) addItem(ex.id); toSession(); }} />
         ) : (
           <Button title="Train this now" icon="play"
             onPress={() => { startSingle(ex.id, profile.place === 'home' ? 'home' : 'gym'); openWorkout(); }} />
         )}
-      </View>
+      </View>}
 
       <Sheet open={sheet} onClose={() => setSheet(false)}>
         <View style={{ gap: 12 }}>
           <T v="h2">Trained before?</T>
-          <T color={c.muted}>
-            Most people who jump straight in get sore, frustrated and quit. Usually in that order. If you have trained for a while,
-            change your level and this move opens up.
-          </T>
+          <T color={c.muted}>Change your level and this move opens up.</T>
           <Button title="Keep it locked" onPress={() => setSheet(false)} />
           <Button title="Change my level" kind="ghost"
             onPress={() => { setProfile({ ...profile, level: ex.level === 'expert' ? 'advanced' : 'intermediate' }); setSheet(false); }} />
@@ -197,6 +200,9 @@ export default function ExerciseDetail() {
     </View>
   );
 }
+
+// The fixed action bar above the safe area: 12 top + button + 12 bottom. Screen pads the content by it.
+const BAR = 80;
 
 const Legend = ({ text, faint }: { text: string; faint?: boolean }) => (
   <Row gap={8}><View style={[s.dot, faint && { backgroundColor: SOFT, opacity: 0.7 }]} /><T v="small" style={{ flex: 1 }}>{text}</T></Row>
@@ -232,5 +238,5 @@ const s = StyleSheet.create({
     position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 12, paddingTop: 12,
     backgroundColor: 'rgba(10,10,11,0.92)', borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line,
   },
-  lock: { backgroundColor: c.card2, borderRadius: r.lg, padding: 16 },
+  lock: { backgroundColor: c.card2, borderRadius: r.lg, padding: 16, marginTop: 12 },
 });

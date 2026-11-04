@@ -10,7 +10,7 @@ import { recommend } from '../src/coach';
 import { GOALS, Pill, Tiles, type Opt } from '../src/context';
 import { HOME_GEAR, title } from '../src/data/exercises';
 import { perWeek, planById } from '../src/data/plans';
-import { EASE, goBack, Segmented } from '../src/kit';
+import { EASE, goBack, Segmented, toToday } from '../src/kit';
 import { askPermission, reschedule } from '../src/notify';
 import { useStore, type Goal, type Profile } from '../src/store';
 import { c, f, r } from '../src/theme';
@@ -60,7 +60,7 @@ function NumField({ label, value, onChange, min, max, step, unit, decimal }: {
 }
 
 // First launch: one question per screen. Goal, where you train, days a week, then the suggested plan with
-// "Start this plan" (4 taps). Name and body are an optional last step. An existing profile opens the same steps to
+// "Start this plan", which lands on Today (4 taps). Name and body are an optional last step. An existing profile opens the same steps to
 // edit them (?step= jumps to one); ?redo=1 answers again and picks a fresh plan.
 export default function Onboarding() {
   const ins = useSafeAreaInsets();
@@ -107,7 +107,8 @@ export default function Onboarding() {
   const plan = useMemo(() => recommend({ ...p, name: p.name.trim() }), [p]);
   const planInfo = planById[plan];
 
-  async function finish(from: Profile = p) {
+  // Saves the answers. A first setup ends on Today (4 taps); "See the full plan" ends on the plan's welcome page instead.
+  async function finish(from: Profile = p, view = false) {
     const final = { ...from, name: from.name.trim(), goalWeightKg: existing ? from.goalWeightKg : from.weightKg };
     const chosen = recommend(final);
     setProfile(final, fresh ? chosen : undefined);
@@ -123,7 +124,8 @@ export default function Onboarding() {
     if (final.reminder.on && !st.reminders.some((x) => x.kind === 'workout'))
       st.setReminders([...st.reminders, { id: 'setup', kind: 'workout', hour: final.reminder.hour, minute: final.reminder.minute, days: [], on: true }]);
     if (await askPermission()) reschedule(useStore.getState().profile, useStore.getState().sessions);
-    if (fresh) router.replace({ pathname: '/plan/[id]', params: { id: chosen, welcome: '1' } });
+    if (fresh && view) router.replace({ pathname: '/plan/[id]', params: { id: chosen, welcome: '1' } });
+    else if (fresh) toToday();
     else goBack();
   }
   function skip() { useStore.getState().skipSetup(true); if (router.canGoBack()) router.back(); else router.replace('/'); }
@@ -173,12 +175,13 @@ export default function Onboarding() {
       </Q>
     );
   } else if (step === 'plan') {
+    const n = planInfo ? perWeek(planInfo) : p.daysPerWeek;
     body = (
       <Q label="Your plan" title={planInfo?.name ?? 'Your plan'}>
         {planInfo && (
           <View style={s.card}>
             <T v="body" color={c.muted}>{planInfo.tagline}</T>
-            <T v="small" color={c.accent}>{perWeek(planInfo)} days a week · {title(planInfo.level)} · {planInfo.place === 'any' ? 'Anywhere' : title(planInfo.place)}</T>
+            <T v="small" color={c.accent}>{n} days a week · {title(planInfo.level)} · {planInfo.place === 'any' ? 'Anywhere' : title(planInfo.place)}</T>
             <View style={{ gap: 8, marginTop: 4 }}>
               {planInfo.days.slice(0, 6).map((d, i) => (
                 <Row key={d.name + i} gap={10}>
@@ -188,9 +191,13 @@ export default function Onboarding() {
                 </Row>
               ))}
             </View>
+            <Tap onPress={() => finish(p, true)} style={s.see} scale={0.97}>
+              <T v="h3" color={c.accent}>See the full plan</T>
+              <Ionicons name="chevron-forward" size={16} color={c.accent} />
+            </Tap>
           </View>
         )}
-        <T v="small">Picked from your answers. You can change it any time in Train.</T>
+        <T v="small">{n !== p.daysPerWeek ? `Built for ${n} days, so your weekly goal is ${n}. ` : ''}Change it any time in Train.</T>
       </Q>
     );
     cta = { title: 'Start this plan', on: () => finish() };
@@ -293,4 +300,5 @@ const s = StyleSheet.create({
   nudge: { width: 44, height: 44, borderRadius: r.sm, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' },
   bar: { gap: 4, paddingHorizontal: 16, paddingTop: 12, backgroundColor: c.bg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   link: { height: 44, alignItems: 'center', justifyContent: 'center' },
+  see: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, marginTop: 4 },
 });

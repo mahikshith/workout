@@ -9,11 +9,13 @@ import { mealPlan, perServing, suggest } from '../../src/data/recipes';
 import { FoodSheet, isGentle, SLOTS, type FoodTab } from '../../src/foodsheet';
 import { CountUp, DoorCard, EASE } from '../../src/kit';
 import { Sheet } from '../../src/sheet';
-import { useStore, type MealSlot } from '../../src/store';
+import { answered, setKey } from '../../src/glance';
+import { useStore, type MealSlot, type Profile } from '../../src/store';
 import { c, r } from '../../src/theme';
 import { Button, Card, Chip, Fold, IconBox, Ring, Row, Screen, T, TabTitle, Tap } from '../../src/ui';
 
 type Ask = { slot?: MealSlot; tab?: FoodTab; query?: string };
+const DIETS: [Profile['diet'], string][] = [['vegetarian', 'Veg'], ['vegan', 'Vegan'], ['eggetarian', 'Egg'], ['pescatarian', 'Fish'], ['non-veg', 'Non-veg']];
 
 export default function Fuel() {
   const profile = useStore((s) => s.profile);
@@ -24,6 +26,9 @@ export default function Fuel() {
   const addWater = useStore((s) => s.addWater);
   const pickSupplement = useStore((s) => s.pickSupplement);
   const takeSupplement = useStore((s) => s.takeSupplement);
+  const setProfile = useStore((s) => s.setProfile);
+  const dismissed = useStore((s) => s.dismissed);
+  const dismiss = useStore((s) => s.dismiss);
   const still = useReducedMotion();
   const [openSlot, setOpenSlot] = useState<MealSlot | null>(null);
   const [ask, setAsk] = useState<Ask | null>(null); // the food sheet, and what it opens on
@@ -48,14 +53,28 @@ export default function Fuel() {
   const enter = (i: number) => (still ? undefined : FadeInDown.delay(i * 60).duration(380).easing(EASE));
   const openFood = (a: Ask = {}) => { setSupOpen(false); setAsk(a); };
   const findFood = (fd: Food) => openFood({ tab: 'foods', query: fd.name });
+  // Diet is never assumed: until it is answered, one tap here sets it (food lists and tips follow it).
+  const askDiet = !answered(profile, dismissed, 'diet');
+  const pickDiet = (diet: Profile['diet']) => { setProfile({ ...useStore.getState().profile, diet }); dismiss(setKey('diet')); };
 
   return (
     <Screen>
       <Animated.View entering={enter(0)}><TabTitle title="Fuel" /></Animated.View>
 
+      {askDiet && (
+        <Animated.View entering={enter(1)}>
+          <Card style={{ marginTop: 20, gap: 12 }}>
+            <T v="h3">How do you eat?</T>
+            <Row gap={8} style={{ flexWrap: 'wrap' }}>
+              {DIETS.map(([v, label]) => <Chip key={v} label={label} onPress={() => pickDiet(v)} />)}
+            </Row>
+          </Card>
+        </Animated.View>
+      )}
+
       {/* Totals: the home of today's kcal, protein and water. Gentle mode counts meals instead. */}
       <Animated.View entering={enter(1)}>
-        <Card style={[s.totals, { marginTop: 20 }]}>
+        <Card style={[s.totals, { marginTop: askDiet ? 12 : 20 }]}>
           {gentle ? (
             <Total progress={eaten / 4} color={c.accent} value={eaten} label="of 4 meals" />
           ) : (
@@ -125,30 +144,6 @@ export default function Fuel() {
         </Card>
       </Animated.View>
 
-      {/* Supplements: tick what you took; tap the row to choose which you take. */}
-      {showSup && (
-        <Animated.View entering={enter(6)}>
-          <Card style={{ marginTop: 12, paddingVertical: 10 }}>
-            <Tap onPress={() => { setAsk(null); setSupOpen(true); }} scale={0.99} feedback="none" style={s.supRow}>
-              <IconBox icon="flask" color={c.ok} size={36} />
-              <View style={{ flex: 1 }}>
-                <T v="h3" numberOfLines={1}>Supplements</T>
-                <T v="small" numberOfLines={1}>{picked.length ? `${picked.filter((x) => taken.includes(x.name)).length} of ${picked.length} taken today` : 'Choose what you take'}</T>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={c.dim} />
-            </Tap>
-            {picked.length > 0 && (
-              <Row gap={8} style={{ flexWrap: 'wrap', marginTop: 10 }}>
-                {picked.map((x) => {
-                  const on = taken.includes(x.name);
-                  return <Chip key={x.name} label={x.short} icon={on ? 'checkmark' : 'ellipse-outline'} on={on} color={c.ok} onPress={() => takeSupplement(x.name)} />;
-                })}
-              </Row>
-            )}
-          </Card>
-        </Animated.View>
-      )}
-
       {/* Occasional reading, closed until asked for. */}
       <Animated.View entering={enter(6)} style={{ marginTop: 24 }}>
         <Fold title="Tips for you" icon="bulb">
@@ -194,6 +189,22 @@ export default function Fuel() {
 
           {showSup && (
             <Sub title="Supplements">
+              {/* Tick what you took today; choose which you take in the sheet. */}
+              {picked.length > 0 && (
+                <Row gap={8} style={{ flexWrap: 'wrap' }}>
+                  {picked.map((x) => {
+                    const on = taken.includes(x.name);
+                    return <Chip key={x.name} label={x.short} icon={on ? 'checkmark' : 'ellipse-outline'} on={on} color={c.ok} onPress={() => takeSupplement(x.name)} />;
+                  })}
+                </Row>
+              )}
+              <Tap onPress={() => { setAsk(null); setSupOpen(true); }} scale={0.98} style={s.pick}>
+                <Ionicons name="flask" size={14} color={c.ok} />
+                <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1 }}>
+                  {picked.length ? `${picked.filter((x) => taken.includes(x.name)).length} of ${picked.length} taken today · change` : 'Choose what you take'}
+                </T>
+                <Ionicons name="chevron-forward" size={14} color={c.dim} />
+              </Tap>
               {SUPPLEMENTS.map((x) => (
                 <View key={x.name} style={{ gap: 2 }}>
                   <T v="body">{x.name}</T>
@@ -282,7 +293,6 @@ const s = StyleSheet.create({
   sub: { gap: 10, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
   item: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 48, minHeight: 44 },
   x: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: -8 },
-  supRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   food: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
   pick: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, height: 44, borderRadius: r.sm, backgroundColor: c.card2 },
 });

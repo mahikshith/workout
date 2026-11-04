@@ -5,13 +5,14 @@ import { cycle, dayKey, postpartumWeek, pregnancyWeek, targets } from './calc';
 import { byId, title, type Exercise } from './data/exercises';
 import { proteinPicks } from './data/foods';
 import { planById, type Day } from './data/plans';
+import { phasedDay, planWeek, WEEKDAYS } from './data/program';
 import { quick, type Quick } from './data/quick';
 import { expectLine } from './data/expect';
 import type { Meal, Mood, Profile, Session } from './store';
 
 export type EngineInput = {
   profile: Profile; sessions: Session[]; meals: Meal[]; water: Record<string, number>;
-  checkins: Record<string, Mood>; planId: string; nextDay: number; dismissed?: Record<string, string>;
+  checkins: Record<string, Mood>; planId: string; nextDay: number; dismissed?: Record<string, string>; planStart?: number;
 };
 
 const DAY = 86400000;
@@ -142,8 +143,20 @@ export function suggest(i: EngineInput, now = Date.now()): Suggestion {
   const out = (kind: Suggestion['kind'], day: Day, reason: string, dayIndex?: number, planId = plan.id): Suggestion =>
     ({ kind, title: day.name, reason, day, dayIndex, planId, minutes: minutesOf(day) });
 
+  // Plan days run with this week's sets and reps (Learn, Build, Push, Deload), the same as the plan page shows.
+  const wk = planWeek(plan, i.planStart, sessions, now);
+  const planDay = (k: number) => phasedDay(plan, k, wk);
+  const weekday = (new Date(now).getDay() + 6) % 7; // Monday = 0
+  // Rest days point at the plan's own next day, so "Train anyway" and the next suggestion follow the plan's order.
+  const nextIdx = i.nextDay % plan.days.length;
+  const nextOn = () => {
+    if (plan.week?.length !== 7) return '';
+    for (let d = 1; d <= 7; d++) if (plan.week[(weekday + d) % 7] !== null) return d === 1 ? ' tomorrow' : ` ${WEEKDAYS[(weekday + d) % 7]}`;
+    return '';
+  };
+
   if (last && dayKey(last.startedAt) === today)
-    return out('rest', planById.mobility.days[0], 'You already trained today. A short stretch helps you recover for tomorrow.', undefined, 'mobility');
+    return out('rest', planDay(nextIdx), `Done for today · next: ${plan.days[nextIdx].name}${nextOn()}. Rest helps you come back stronger.`, nextIdx);
 
   const pp = postpartumWeek(p);
   if (pp !== null && pp < 6)
@@ -153,10 +166,10 @@ export function suggest(i: EngineInput, now = Date.now()): Suggestion {
   if (cyc?.phase === 'period' && (mood ?? 2) <= 2)
     return out('gentle', planById.mobility.days[0], 'Period days can feel heavy. Gentle movement like this can ease cramps.', undefined, 'mobility');
 
-  // The plan's own week: a rest day suggests recovery. Training days follow the rotation, so a missed day is never lost.
-  const weekday = (new Date(now).getDay() + 6) % 7; // Monday = 0
+  // The plan's own week: a rest day shows the next plan day (Start offers Train anyway, a quick session or a pick).
+  // Training days follow the rotation, so a missed day is never lost.
   if (plan.week?.length === 7 && plan.week[weekday] === null && mood !== 4)
-    return out('rest', planById.mobility.days[0], `Rest day in ${plan.name}. Muscles grow on rest; a short stretch keeps you loose. Feeling great? Pick any quick session below.`, undefined, 'mobility');
+    return out('rest', planDay(nextIdx), `Rest day · next: ${plan.days[nextIdx].name}${nextOn()}. Muscles grow on rest.`, nextIdx);
 
   // Rest the muscles trained in the last day and a half: pick the plan day that overlaps least.
   let idx = i.nextDay % plan.days.length;
@@ -172,7 +185,7 @@ export function suggest(i: EngineInput, now = Date.now()): Suggestion {
       }
     }
   }
-  const day = plan.days[idx];
+  const day = planDay(idx);
 
   if (mood === 1) {
     const light: Day = { ...day, name: `${day.name}, light`, slots: day.slots.map((s) => ({ ...s, sets: Math.max(1, s.sets - 1), rest: s.rest + 15 })) };
@@ -303,6 +316,14 @@ export function selfCheck() {
   assert(!!hidden(ex('Dumbbell_Lunges'), { ...base, concerns: ['knee'] }), 'knee hides lunges');
   const i = { profile: base, sessions: [], meals: [], water: {}, checkins: { [dayKey()]: 1 as Mood }, planId: 'full-body-gym', nextDay: 0 };
   assert(['light', 'rest'].includes(suggest(i).kind), 'drained gets a light session or a rest day');
+  // After a workout today, the next suggestion is the plan's next day, never a session from another plan.
+  const tue = Date.parse('2026-01-06T18:00:00');
+  const doneA = { id: 'a', title: 'Full Body A', planId: 'full-body-gym', dayIndex: 0, place: 'gym' as const, startedAt: tue - 3600000, endedAt: tue - 600000, items: [] };
+  const after = suggest({ ...i, checkins: {}, sessions: [doneA], nextDay: 1 }, tue);
+  assert(after.kind === 'rest' && after.planId === 'full-body-gym' && after.day.name === 'Full Body B', 'next follows the plan order');
+  const mon = Date.parse('2026-01-05T09:00:00');
+  const first = suggest({ ...i, checkins: {}, planStart: mon }, mon);
+  assert(first.day.slots[0].sets === planById['full-body-gym'].days[0].slots[0].sets, 'week 1 runs the plan as written');
   const jump = ex('Freehand_Jump_Squat');
   assert(gate(jump, { ...base, body: 'more' }, 0).locked && !gate(jump, { ...base, body: 'more' }, JOINT_FRIENDLY).locked, 'heavier bodies: no jumping at first');
   assert(!gate(jump, { ...base, body: 'lean' }, 0).locked || jump.level !== 'beginner', 'lean bodies can jump');

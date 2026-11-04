@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { FlatList, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut, useReducedMotion } from 'react-native-reanimated';
-import { foodsFor, type Food } from './data/foods';
+import { fits, foods, type Food } from './data/foods';
 import { GROUPS, groupFor, perServing, recipesFor, type Recipe } from './data/recipes';
 import { EASE, Segmented } from './kit';
 import { Sheet } from './sheet';
@@ -30,7 +30,7 @@ const TABS: { k: FoodTab; label: string }[] = [{ k: 'recipes', label: 'Recipes' 
 const KIND_ICON = { vegan: 'leaf', veg: 'nutrition', egg: 'egg', fish: 'fish', meat: 'flame' } as const;
 const EMPTY = { name: '', kcal: '', protein: '' };
 
-type RowItem = { key: string; icon: Icon; title: string; sub?: string; log: () => void; recipe?: string };
+type RowItem = { key: string; icon: Icon; title: string; sub?: string; log: () => void; recipe?: string; divider?: string };
 
 // Slot picker, tabs, search and a virtualised list. Tapping + logs to the chosen meal with a light haptic and a short
 // "Added" note. Tapping a recipe's name hands its id to onRecipe (the caller opens the recipe page).
@@ -74,13 +74,18 @@ export function FoodPicker({ slot: slot0, tab: tab0 = 'recipes', query: q0 = '',
         log: () => log('r:' + x.id, x.name, p.kcal, p.protein),
       };
     });
-  const foodRows: RowItem[] = foodsFor(profile.diet)
-    .filter((x) => x.name.toLowerCase().includes(needle))
-    .map((x: Food) => ({
-      key: 'f:' + x.name, icon: x.icon, title: x.name,
-      sub: gentle ? undefined : `${x.serving} · ${x.kcal} kcal · ${x.protein} g protein`,
-      log: () => log('f:' + x.name, x.name, x.kcal, x.protein),
-    }));
+  const foodRow = (x: Food): RowItem => ({
+    key: 'f:' + x.name, icon: x.icon, title: x.name,
+    sub: gentle ? undefined : `${x.serving} · ${x.kcal} kcal · ${x.protein} g protein`,
+    log: () => log('f:' + x.name, x.name, x.kcal, x.protein),
+  });
+  const matching = foods.filter((x) => x.name.toLowerCase().includes(needle));
+  // Foods for your diet first. A search also shows matches outside it, under a small divider, instead of "No match".
+  const outside = needle ? matching.filter((x) => !fits(profile.diet, x.kind)) : [];
+  const foodRows: RowItem[] = [
+    ...matching.filter((x) => fits(profile.diet, x.kind)).map(foodRow),
+    ...(outside.length ? [{ key: 'divider', icon: 'remove' as Icon, title: '', log: () => {}, divider: 'Not in your diet' }, ...outside.map(foodRow)] : []),
+  ];
   const rows = tab === 'recipes' ? recipeRows : foodRows;
 
   const addCustom = () => {
@@ -89,6 +94,15 @@ export function FoodPicker({ slot: slot0, tab: tab0 = 'recipes', query: q0 = '',
   };
 
   const renderRow = ({ item, index }: { item: RowItem; index: number }) => {
+    if (item.divider) {
+      return (
+        <View style={s.divider}>
+          <View style={s.rule} />
+          <T v="label" color={c.dim}>{item.divider}</T>
+          <View style={s.rule} />
+        </View>
+      );
+    }
     const done = added?.key === item.key;
     return (
       <Animated.View entering={!still && index < 6 ? FadeInDown.delay(index * 50).duration(320).easing(EASE) : undefined} style={s.row}>
@@ -199,6 +213,8 @@ const s = StyleSheet.create({
   input: { height: 48, borderRadius: r.md, backgroundColor: c.card2, paddingHorizontal: 14, color: c.text, fontFamily: f.medium, fontSize: 15 },
   row: { flexDirection: 'row', alignItems: 'center', borderRadius: r.md, backgroundColor: c.card2, paddingLeft: 10 },
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 8 },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8, paddingHorizontal: 4 },
+  rule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: c.line },
   plus: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
   toast: {
     position: 'absolute', bottom: 8, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8,

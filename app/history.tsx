@@ -3,12 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeOut, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bars } from '../src/charts';
 import { bestStreak, dayKey, doneSets, streak, targets, volume } from '../src/calc';
 import { byId } from '../src/data/exercises';
-import { CountUp, EASE, Header } from '../src/kit';
+import { sessionMinutes } from '../src/glance';
+import { CountUp, EASE, Header, useMiniBarSpace } from '../src/kit';
 import { useStore } from '../src/store';
 import { c, f, r } from '../src/theme';
 import { Card, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb, Tile } from '../src/ui';
@@ -21,6 +22,7 @@ export default function History() {
   const profile = useStore((s) => s.profile);
   const water = useStore((s) => s.water);
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
   const still = useReducedMotion();
   const enter = (i: number) => (still ? undefined : FadeInDown.delay(i * 60).duration(380).easing(EASE));
   const [month, setMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d; });
@@ -59,7 +61,7 @@ export default function History() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Header title="Consistency" />
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 120 + mini }} showsVerticalScrollIndicator={false}>
         {/* Hero: the streak. */}
         <Animated.View entering={enter(0)}>
           <Card style={{ gap: 8 }}>
@@ -67,7 +69,7 @@ export default function History() {
               <IconBox icon="flame" color={c.warm} size={56} />
               <View style={{ flex: 1 }}>
                 <CountUp value={streak(sessions)} style={{ fontFamily: f.display, fontSize: 56, lineHeight: 62 }} />
-                <T v="small">Session streak</T>
+                <T v="small">Day streak</T>
               </View>
             </Row>
             <T v="small" color={c.dim}>Rest days are fine · 3 days off ends it</T>
@@ -118,14 +120,13 @@ export default function History() {
           {picked.length === 0 && <ListRow icon="bed-outline" color={c.muted} title="Rest day" sub="No workout logged" />}
           <View style={{ gap: 12 }}>
             {picked.map((ss) => (
-              <Animated.View key={ss.id} entering={still ? undefined : FadeIn.duration(250)} exiting={still ? undefined : FadeOut.duration(200)}
-                layout={still ? undefined : LinearTransition.duration(250).easing(EASE)}>
+              <Animated.View key={ss.id} entering={still ? undefined : FadeIn.duration(250)} exiting={still ? undefined : FadeOut.duration(200)}>
                 <Card style={{ gap: 12 }}>
                   <Row gap={12}>
                     <IconBox icon={ss.place === 'home' ? 'home' : 'barbell'} />
                     <View style={{ flex: 1, gap: 2 }}>
                       <T v="h3" numberOfLines={1}>{ss.title}</T>
-                      <T v="small" numberOfLines={1}>{doneSets(ss)} sets · {Math.round(volume(ss))} kg · {Math.max(1, Math.round(((ss.endedAt ?? ss.startedAt) - ss.startedAt) / 60000))} min</T>
+                      <T v="small" numberOfLines={1}>{doneSets(ss)} sets · {Math.round(volume(ss))} kg · {sessionMinutes(ss)} min</T>
                     </View>
                     <Tap onPress={() => remove(ss.id)} style={[s.nav, confirm === ss.id && { backgroundColor: '#2A1210' }]}>
                       <Ionicons name="trash-outline" size={18} color={confirm === ss.id ? c.danger : c.muted} />
@@ -154,7 +155,7 @@ export default function History() {
         </Animated.View>
 
         <Section title="Habits">
-          <ListRow icon="water" color={c.blue} title="Fuel and water" sub={`Water on target ${waterDays} of 14 days`} onPress={() => router.push('/chart/fuel' as never)} />
+          <ListRow icon="water" color={c.blue} title="Fuel and water" sub={`Water on target ${waterDays} of 14 days`} onPress={() => router.push('/chart/fuel')} />
         </Section>
       </ScrollView>
     </View>

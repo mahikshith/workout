@@ -16,7 +16,7 @@ import { asDay, quickById } from './data/quick';
 import { suggest } from './engine';
 import { useStore } from './store';
 import { c, f, r } from './theme';
-import { haptic, T, Tap } from './ui';
+import { haptic, MINI_BAR_HEIGHT, MINI_GAP, T, TAB_BAR_HEIGHT, Tap, useMiniBarPlace } from './ui';
 
 export const EASE = Easing.bezier(0.32, 0.72, 0, 1); // pushes, sheets, the workout opening
 export const EASE_FILL = Easing.bezier(0.23, 1, 0.32, 1); // rings and bars
@@ -34,7 +34,7 @@ export function Header({ title, action, actionIcon, onAction, onBack, close }: {
   const ins = useSafeAreaInsets();
   return (
     <View style={[k.header, { paddingTop: ins.top + 6 }]}>
-      <Tap onPress={onBack ?? goBack} style={k.round} scale={0.9} feedback="none">
+      <Tap onPress={onBack ?? goBack} style={k.round} scale={0.9} feedback="none" accessibilityLabel={close ? 'Close' : 'Back'}>
         <Ionicons name={close ? 'chevron-down' : 'chevron-back'} size={22} color={c.text} />
       </Tap>
       <T v="h3" numberOfLines={1} style={{ flex: 1, fontSize: 18 }}>{title ?? ''}</T>
@@ -55,14 +55,16 @@ export function Segmented<K extends string>({ options, value, onChange, style }:
   const [w, setW] = useState(0);
   const i = Math.max(0, options.findIndex((o) => o.k === value));
   const x = useSharedValue(0);
+  const still = useReducedMotion();
   const cell = options.length ? (w - 8) / options.length : 0;
-  useEffect(() => { x.value = withTiming(i * cell, { duration: 260, easing: EASE }); }, [i, cell]);
+  useEffect(() => { x.value = still ? i * cell : withTiming(i * cell, { duration: 260, easing: EASE }); }, [i, cell, still]);
   const pill = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
     <View style={[k.seg, style]} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
       {w > 0 && <Animated.View style={[k.segPill, { width: cell, backgroundColor: c.accent }, pill]} />}
       {options.map((o) => (
-        <Tap key={o.k} onPress={() => o.k !== value && onChange(o.k)} style={k.segItem} scale={0.96}>
+        <Tap key={o.k} onPress={() => o.k !== value && onChange(o.k)} style={k.segItem} scale={0.96}
+          accessibilityRole="tab" accessibilityState={{ selected: o.k === value }} accessibilityLabel={o.label}>
           <Text numberOfLines={1} style={{ fontFamily: f.semi, fontSize: 14, color: o.k === value ? c.accentInk : c.muted }}>{o.label}</Text>
         </Tap>
       ))}
@@ -115,6 +117,16 @@ export function useElapsed() {
   return Math.max(0, Math.floor(((a.pausedAt ?? now) - a.startedAt - (a.pausedMs ?? 0)) / 1000));
 }
 
+// Rest-day hook point. On a rest day Start opens the rest-day sheet (src/restday.tsx: Train anyway / Quick 20 min /
+// Pick exercises) instead of starting. The sheet's host in app/_layout.tsx registers a handler here (restday.tsx
+// imports kit, so kit can't import it back); the handler returns true when today is a rest day and it opened the
+// sheet. With nothing registered, Start simply starts today's workout.
+let restDayHandler: (() => boolean) | null = null;
+export function registerRestDay(handler: () => boolean) {
+  restDayHandler = handler;
+  return () => { if (restDayHandler === handler) restDayHandler = null; };
+}
+
 // Today's workout, the same one everywhere (centre button, Today hero, Train's plan card). One tap starts it; while a
 // workout is running the same action reopens it.
 export function useToday() {
@@ -125,9 +137,10 @@ export function useToday() {
   const checkins = useStore((s) => s.checkins);
   const planId = useStore((s) => s.planId);
   const nextDay = useStore((s) => s.nextDay);
+  const planStart = useStore((s) => s.planStart);
   const active = useStore((s) => s.active);
   const st = { profile, sessions, meals, water, checkins, planId, nextDay, active, start: useStore.getState().start };
-  const sug = useMemo(() => suggest({ profile, sessions, meals, water, checkins, planId, nextDay }), [profile, sessions, meals, water, checkins, planId, nextDay]);
+  const sug = useMemo(() => suggest({ profile, sessions, meals, water, checkins, planId, nextDay, planStart }), [profile, sessions, meals, water, checkins, planId, nextDay, planStart]);
   const desk = quickById.desk;
   const office = st.profile.place === 'office' && !!desk;
   const day = office ? asDay(desk) : sug.day;
@@ -137,6 +150,7 @@ export function useToday() {
   // so a fast double tap opens exactly one.
   const start = () => {
     const now = useStore.getState();
+    if (!now.active && !office && restDayHandler?.()) { haptic(); return; }
     if (!now.active) {
       haptic('medium');
       if (office) now.start(day, 'home');
@@ -145,6 +159,18 @@ export function useToday() {
     openWorkout();
   };
   return { day, where, minutes, kind: office ? 'plan' as const : sug.kind, reason: sug.reason, active: st.active, start };
+}
+
+// The mini bar is rendered once, at the root (app/_layout.tsx). It sits 8 px above the tab bar on tabs and 8 px above
+// the bottom safe area on pushed screens; the workout, its summary and setup hide it.
+// Placement and the padding hook live in ui.tsx (Screen needs them); re-exported here for screens.
+export { MINI_BAR_HEIGHT, TAB_BAR_HEIGHT, useMiniBarSpace, useScrollTopRef } from './ui';
+export function DockedMiniBar() {
+  const { visible, tabs } = useMiniBarPlace();
+  const ins = useSafeAreaInsets();
+  if (!visible) return null;
+  const bottom = tabs ? Math.max(ins.bottom, 8) + TAB_BAR_HEIGHT + MINI_GAP : ins.bottom + MINI_GAP;
+  return <MiniBar bottom={bottom} />;
 }
 
 // Docked above the tab bar while a workout runs and its screen is minimised. Tap opens it; ✓ logs the next set.
@@ -179,7 +205,8 @@ export function MiniBar({ bottom }: { bottom: number }) {
   };
   return (
     <Animated.View entering={FadeInDown.duration(320).easing(EASE)} exiting={FadeOutDown.duration(200)} style={[k.mini, { bottom, borderColor: c.accent + '55' }]}>
-      <Tap onPress={openWorkout} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 14 }} scale={0.98}>
+      <Tap onPress={openWorkout} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 14 }} scale={0.98}
+        accessibilityLabel={`Open workout, ${ex?.name ?? a.title}, ${done} of ${total} sets`}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <T v="h3" numberOfLines={1} style={{ fontSize: 15 }}>{ex?.name ?? a.title}</T>
           <T v="small" color={rest ? c.warm : c.accent} numberOfLines={1} style={{ fontVariant: ['tabular-nums'] }}>
@@ -187,7 +214,7 @@ export function MiniBar({ bottom }: { bottom: number }) {
           </T>
         </View>
       </Tap>
-      <Tap onPress={tick} style={[k.miniTick, { backgroundColor: c.accent }]} scale={0.9} feedback="none">
+      <Tap onPress={tick} style={[k.miniTick, { backgroundColor: c.accent }]} scale={0.9} feedback="none" accessibilityLabel={j < 0 ? 'Open workout' : 'Log next set'}>
         <Ionicons name={j < 0 ? 'chevron-up' : 'checkmark'} size={22} color={c.accentInk} />
       </Tap>
     </Animated.View>
@@ -229,7 +256,7 @@ const k = StyleSheet.create({
   segPill: { position: 'absolute', top: 4, left: 4, bottom: 4, borderRadius: 9 },
   segItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   mini: {
-    position: 'absolute', left: 12, right: 12, height: 56, borderRadius: r.lg, flexDirection: 'row', alignItems: 'center', paddingRight: 8,
+    position: 'absolute', left: 12, right: 12, height: MINI_BAR_HEIGHT, borderRadius: r.lg, flexDirection: 'row', alignItems: 'center', paddingRight: 8,
     backgroundColor: '#17171B', borderWidth: 1,
     shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10,
   },

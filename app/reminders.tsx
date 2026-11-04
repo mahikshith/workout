@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AppState, Linking, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, LinearTransition, useReducedMotion } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { EASE, Header } from '../src/kit';
+import { EASE, Header, useMiniBarSpace } from '../src/kit';
 import { askPermission, hasPermission, rescheduleAll } from '../src/notify';
 import { Sheet } from '../src/sheet';
 import { TimePicker } from '../src/timepicker';
@@ -29,6 +29,7 @@ const JUMPS: { label: string; to: (m: number) => number; at?: number }[] = [
 // Every change saves to the store straight away; useNudgeSync in the root layout reschedules.
 export default function Reminders() {
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
   const reminders = useStore((x) => x.reminders);
   const hydration = useStore((x) => x.hydration);
   const breaks = useStore((x) => x.breaks);
@@ -76,7 +77,7 @@ export default function Reminders() {
     <>
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         <Header title="Reminders" />
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: ins.bottom + 40 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: ins.bottom + 40 + mini }} showsVerticalScrollIndicator={false}>
         <T v="small" style={{ marginTop: 4 }}>Set on this phone, so they work offline. Changes save at once.</T>
 
         {!granted && (
@@ -195,8 +196,7 @@ export default function Reminders() {
 function Section({ i, children }: { i: number; children: ReactNode }) {
   const still = useReducedMotion();
   return (
-    <Animated.View entering={still ? undefined : FadeInDown.delay(Math.min(i, 6) * 60).duration(380).easing(EASE)}
-      layout={still ? undefined : LinearTransition.duration(260).easing(EASE)} style={{ marginTop: 12 }}>
+    <Animated.View entering={still ? undefined : FadeInDown.delay(Math.min(i, 6) * 60).duration(380).easing(EASE)} style={{ marginTop: 12 }}>
       <Card style={{ gap: 12 }}>{children}</Card>
     </Animated.View>
   );

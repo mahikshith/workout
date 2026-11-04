@@ -8,7 +8,9 @@ import Svg, { Circle } from 'react-native-svg';
 import { cycle, dayKey, postpartumWeek, pregnancyWeek, streak as calcStreak, targets } from '../../src/calc';
 import { byId, title } from '../../src/data/exercises';
 import { motivation } from '../../src/data/motivation';
-import { CountUp, EASE, useToday } from '../../src/kit';
+import { FoodSheet } from '../../src/foodsheet';
+import { STREAK_SUFFIX } from '../../src/glance';
+import { CountUp, EASE, useMiniBarSpace, useScrollTopRef, useToday } from '../../src/kit';
 import { askPermission, hasPermission, reschedule } from '../../src/notify';
 import { useStore } from '../../src/store';
 import { c, f, r } from '../../src/theme';
@@ -33,6 +35,7 @@ const firstSentence = (s: string) => (s.match(/^[^.]*\./)?.[0] ?? s).trim();
 
 export default function Today() {
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
   const profile = useStore((s) => s.profile);
   const sessions = useStore((s) => s.sessions);
   const meals = useStore((s) => s.meals);
@@ -44,6 +47,8 @@ export default function Today() {
   const hcOn = useTracker((s) => s.hc.connected);
   const daily = useTracker((s) => s.daily);
   const today = useToday();
+  const scroll = useScrollTopRef<ScrollView>(); // tapping Today again scrolls back up
+  const [food, setFood] = useState(false); // the food ring opens the food sheet right here
 
   const [notifOff, setNotifOff] = useState(false);
   useEffect(() => { if (Platform.OS !== 'web') hasPermission().then((ok) => setNotifOff(!ok)); }, []);
@@ -99,8 +104,9 @@ export default function Today() {
   const dateLabel = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingTop: ins.top + 16, paddingHorizontal: 16, paddingBottom: ins.bottom + 170, gap: 24 }}>
+    <>
+    <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: c.bg }} showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingTop: ins.top + 16, paddingHorizontal: 16, paddingBottom: ins.bottom + 120 + mini, gap: 24 }}>
       {/* 1. Header: date, title, streak, profile. */}
       <Enter i={0}>
         <Row gap={12}>
@@ -110,7 +116,7 @@ export default function Today() {
           </View>
           <Tap onPress={() => router.push('/history')} style={[s.pill, { backgroundColor: streak ? '#2A1A0E' : c.card2 }]} scale={0.95}>
             <Ionicons name="flame" size={15} color={streak ? c.warm : c.muted} />
-            <CountUp value={streak} suffix={streak === 1 ? ' day' : ' days'} style={[s.pillNum, { color: streak ? c.warm : c.muted }]} />
+            <CountUp value={streak} suffix={STREAK_SUFFIX} style={[s.pillNum, { color: streak ? c.warm : c.muted }]} />
           </Tap>
           <Avatar />
         </Row>
@@ -139,20 +145,20 @@ export default function Today() {
             <CountUp value={week} suffix={`/${goal}`} style={s.ringNum} />
           </Dial>
           {gentle ? (
-            <Dial i={1} progress={mealsIn / 3} color={c.pink} label="Meals" onPress={() => router.navigate('/fuel')}>
+            <Dial i={1} progress={mealsIn / 3} color={c.pink} label="Meals" onPress={() => setFood(true)}>
               <CountUp value={mealsIn} suffix="/3" style={s.ringNum} />
             </Dial>
           ) : (
-            <Dial i={1} progress={protein / Math.max(1, t.protein)} color={c.pink} label="Protein" onPress={() => router.navigate('/fuel')}>
+            <Dial i={1} progress={protein / Math.max(1, t.protein)} color={c.pink} label="Protein" onPress={() => setFood(true)}>
               <CountUp value={protein} suffix="g" style={s.ringNum} />
             </Dial>
           )}
           {score !== undefined ? (
-            <Dial i={2} progress={score / 100} color={c.blue} label="Sleep score" onPress={() => router.push('/watch')}>
+            <Dial i={2} progress={score / 100} color={c.blue} label="Sleep score" onPress={() => router.push('/chart/body')}>
               <CountUp value={score} style={s.ringNum} />
             </Dial>
           ) : steps !== undefined ? (
-            <Dial i={2} progress={steps / STEP_GOAL} color={c.blue} label="Steps" onPress={() => router.push('/watch')}>
+            <Dial i={2} progress={steps / STEP_GOAL} color={c.blue} label="Steps" onPress={() => router.push('/chart/body')}>
               {steps >= 1000
                 ? <CountUp value={Math.round(steps / 100) / 10} decimals={1} suffix="k" style={s.ringNum} />
                 : <CountUp value={steps} style={s.ringNum} />}
@@ -213,6 +219,8 @@ export default function Today() {
         </Enter>
       )}
     </ScrollView>
+    <FoodSheet open={food} onClose={() => setFood(false)} />
+    </>
   );
 }
 

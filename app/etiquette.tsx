@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, LinearTransition, useReducedMotion } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { EASE, Header } from '../src/kit';
+import { EASE, Header, useMiniBarSpace } from '../src/kit';
 import { c, r } from '../src/theme';
 import { IconBox, T, Tap } from '../src/ui';
 
@@ -25,18 +25,19 @@ const RULES: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string
 // One grouped list of short titles; tap a rule to read the one-line why.
 export default function Etiquette() {
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
   const still = useReducedMotion();
   const [open, setOpen] = useState<string | null>(null);
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Header title="Gym etiquette" />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 4, paddingBottom: ins.bottom + 40, gap: 12 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 4, paddingBottom: ins.bottom + 40 + mini, gap: 12 }} showsVerticalScrollIndicator={false}>
         <T v="small">The unwritten rules regulars follow</T>
         <Animated.View entering={still ? undefined : FadeInDown.duration(380).easing(EASE)} style={s.group}>
           {RULES.map((x, i) => {
             const on = open === x.title;
             return (
-              <Animated.View key={x.title} layout={still ? undefined : LinearTransition.duration(260).easing(EASE)} style={i > 0 && s.rule}>
+              <View key={x.title} style={i > 0 && s.rule}>
                 <Tap onPress={() => setOpen(on ? null : x.title)} scale={0.99} style={s.row}>
                   <IconBox icon={x.icon} size={32} />
                   <T v="body" style={{ flex: 1 }}>{x.title}</T>
@@ -47,7 +48,7 @@ export default function Etiquette() {
                     <T v="small">{x.body}</T>
                   </Animated.View>
                 )}
-              </Animated.View>
+              </View>
             );
           })}
         </Animated.View>

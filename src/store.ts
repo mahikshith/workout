@@ -3,7 +3,8 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { alternatives, available, byId, type Place } from './data/exercises';
 import type { Diet } from './data/foods';
-import { planById, type Day } from './data/plans';
+import { perWeek, planById, type Day } from './data/plans';
+import { phasedDay, planWeek } from './data/program';
 import { dayKey, lastSets, parseReps } from './calc';
 import { gate } from './engine';
 import { dose } from './data/muscles';
@@ -59,6 +60,7 @@ export type Meal = { id: string; day: string; name: string; kcal: number; protei
 type State = {
   profile: Profile; // name === '' means the user hasn't set up a profile yet; the app works anyway
   planId: string;
+  planStart?: number; // when the current plan was picked: its week (Learn, Build, Push, Deload) counts from here
   nextDay: number; // rotation: the next session is the next day in the plan, however the week went
   sessions: Session[];
   active: Session | null;
@@ -114,18 +116,47 @@ type State = {
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-function single(exId: string, history: Session[]) {
+function single(exId: string, history: Session[], profile?: Profile) {
   const d = dose(byId[exId]);
-  return { exId, target: d.reps, rest: d.rest, sets: seedSets(exId, d.reps, d.sets, history) };
+  return { exId, target: d.reps, rest: d.rest, sets: seedSets(exId, d.reps, d.sets, history, profile) };
 }
 
-function seedSets(exId: string, target: string, sets: number, history: Session[]): SetLog[] {
+// A first-time starting weight, so the first workout logs real kilos. Bodyweight moves, holds and drills start at 0
+// (they count reps); loaded moves get a light, safe weight from the equipment, the person's level and body weight.
+// Dumbbell and kettlebell weights are per hand. Last time's weight always wins once there is history.
+const NO_LOAD = ['pelvic floor', 'stretching', 'mobility', 'eyes', 'desk', 'breathing', 'cardio', 'plyometrics'];
+const BASE: Record<string, number> = {
+  barbell: 20, 'e-z curl bar': 10, dumbbell: 6, kettlebells: 8, machine: 20, cable: 10, 'medicine ball': 4,
+};
+export function starterKg(exId: string, p?: Profile): number {
+  const e = byId[exId];
+  if (!e || NO_LOAD.includes(e.category) || !(e.equipment in BASE)) return 0;
+  let kg = BASE[e.equipment];
+  if (e.equipment !== 'barbell' || !/bench|squat|deadlift|row|press/i.test(e.name)) {
+    const lvl = p?.level === 'advanced' ? 1.8 : p?.level === 'intermediate' ? 1.4 : 1;
+    const body = Math.min(1.3, Math.max(0.7, (p?.weightKg ?? 70) / 75));
+    const big = /squat|deadlift|leg press|hip thrust/i.test(e.name) ? 1.5 : /raise|fly|flye|curl|kickback|extension/i.test(e.name) ? 0.6 : 1;
+    kg = kg * lvl * body * big;
+  } else if (p && p.level !== 'beginner') kg = /deadlift/i.test(e.name) ? 60 : /squat/i.test(e.name) ? 50 : 40; // the empty bar for beginners
+  const step = e.equipment === 'dumbbell' || e.equipment === 'kettlebells' || e.equipment === 'medicine ball' ? 2 : 2.5;
+  return Math.max(step, Math.round(kg / step) * step);
+}
+
+function seedSets(exId: string, target: string, sets: number, history: Session[], profile?: Profile): SetLog[] {
   const prev = lastSets(history, exId);
+  const kg = starterKg(exId, profile);
   return Array.from({ length: sets }, (_, k) => {
     const p = prev?.[Math.min(k, prev.length - 1)];
-    return { reps: p?.reps ?? parseReps(target), weight: p?.weight ?? 0, done: false };
+    return { reps: p?.reps ?? parseReps(target), weight: p?.weight ?? kg, done: false };
   });
 }
+
+// The weekly goal is the plan's own number of training days, so Today's ring and the plan never disagree.
+// One-muscle add-on plans keep the person's own number.
+const daysFor = (p: Profile, planId: string) => {
+  const plan = planById[planId];
+  return plan && plan.category !== 'One muscle' ? { ...p, daysPerWeek: perWeek(plan) } : p;
+};
 
 // Guest defaults: the app is usable straight away and personalizes once the user fills these in.
 export const GUEST: Profile = {
@@ -147,21 +178,29 @@ export const useStore = create<State>()(
     (set, get) => ({
       ...initial,
       setProfile: (p, planId) =>
-        set((s) => ({
-          profile: p,
-          planId: planId ?? s.planId,
-          nextDay: planId && planId !== s.planId ? 0 : s.nextDay,
-          weights: s.weights.length ? s.weights : [{ day: dayKey(), kg: p.weightKg }],
-        })),
-      setPlan: (id) => set({ planId: id, nextDay: 0 }),
+        set((s) => {
+          const fresh = !!planId && (planId !== s.planId || !s.planStart);
+          return {
+            profile: planId ? daysFor(p, planId) : p,
+            planId: planId ?? s.planId,
+            planStart: fresh ? Date.now() : s.planStart,
+            nextDay: planId && planId !== s.planId ? 0 : s.nextDay,
+            weights: s.weights.length ? s.weights : [{ day: dayKey(), kg: p.weightKg }],
+          };
+        }),
+      setPlan: (id) => set((s) => ({ planId: id, nextDay: 0, planStart: Date.now(), profile: daysFor(s.profile, id) })),
 
       // Exercises the place can't support, or that are locked for this person (level or safety), are replaced
       // up front by the best alternative that is allowed.
       start: (day, place, planId, dayIndex) => {
-        const { sessions, profile, active } = get();
+        const { sessions, profile, active, planStart } = get();
         if (active) return; // an unfinished workout is resumed, never silently replaced
         const gear = profile?.gear ?? [];
-        const older = (profile?.age ?? 30) >= 55 || profile?.level === 'beginner';
+        // A plan day passed as written (not already set for this week) gets this week's sets and reps, the same
+        // numbers the plan page shows.
+        const plan = planId ? planById[planId] : undefined;
+        if (plan && dayIndex !== undefined && plan.days[dayIndex] === day)
+          day = phasedDay(plan, dayIndex, planWeek(plan, planId === get().planId ? planStart : undefined, sessions));
         const items = order(day.slots).map((sl) => {
           let ex = byId[sl.id];
           let swappedFrom: string | undefined;
@@ -170,15 +209,14 @@ export const useStore = create<State>()(
             const alt = alternatives(ex, place, gear, 12).find(ok);
             if (alt) { swappedFrom = ex.id; ex = alt; }
           }
-          const sets = older ? Math.max(2, sl.sets - 1) : sl.sets;
-          return { exId: ex.id, target: sl.reps, rest: sl.rest, sets: seedSets(ex.id, sl.reps, sets, sessions), swappedFrom };
+          return { exId: ex.id, target: sl.reps, rest: sl.rest, sets: seedSets(ex.id, sl.reps, sl.sets, sessions, profile), swappedFrom };
         });
         set({ active: { id: uid(), title: day.name, planId, dayIndex, place, startedAt: Date.now(), items, running: true, idx: 0 } });
       },
       startSingle: (exId, place) =>
         set((s) => s.active ? {} : ({
           // A single exercise gets its own dose: minutes for cardio, seconds for holds, reps otherwise.
-          active: { id: uid(), title: byId[exId].name, place, startedAt: Date.now(), running: true, idx: 0, items: [single(exId, s.sessions)] },
+          active: { id: uid(), title: byId[exId].name, place, startedAt: Date.now(), running: true, idx: 0, items: [single(exId, s.sessions, s.profile)] },
         })),
       updateSet: (i, j, patch) =>
         set((s) => {
@@ -191,7 +229,7 @@ export const useStore = create<State>()(
           if (!s.active) return {};
           const items = s.active.items.map((it, a) => {
             if (a !== i) return it;
-            const last = it.sets[it.sets.length - 1] ?? { reps: parseReps(it.target), weight: 0 };
+            const last = it.sets[it.sets.length - 1] ?? { reps: parseReps(it.target), weight: starterKg(it.exId, s.profile) };
             return { ...it, sets: [...it.sets, { reps: last.reps, weight: last.weight, done: false }] };
           });
           return { active: { ...s.active, items } };
@@ -206,11 +244,11 @@ export const useStore = create<State>()(
         set((s) => {
           if (!s.active) return {};
           const items = s.active.items.map((it, a) =>
-            a !== i ? it : { ...it, exId, swappedFrom: it.swappedFrom ?? it.exId, sets: seedSets(exId, it.target, it.sets.length, s.sessions) });
+            a !== i ? it : { ...it, exId, swappedFrom: it.swappedFrom ?? it.exId, sets: seedSets(exId, it.target, it.sets.length, s.sessions, s.profile) });
           return { active: { ...s.active, items } };
         }),
       addItem: (exId) =>
-        set((s) => s.active ? { active: { ...s.active, items: [...s.active.items, single(exId, s.sessions)] } } : {}),
+        set((s) => s.active ? { active: { ...s.active, items: [...s.active.items, single(exId, s.sessions, s.profile)] } } : {}),
       begin: () => set((s) => (s.active && !s.active.running ? { active: { ...s.active, running: true, startedAt: Date.now(), pausedAt: undefined, pausedMs: 0 } } : {})),
       setIdx: (i) => set((s) => (s.active ? { active: { ...s.active, idx: Math.max(0, Math.min(i, s.active.items.length - 1)) } } : {})),
       setRest: (until, total) =>
@@ -270,7 +308,7 @@ export const useStore = create<State>()(
       reset: () => set(initial),
     }),
     {
-      name: 'gym-buddy', version: 4, storage: createJSONStorage(() => AsyncStorage),
+      name: 'gym-buddy', version: 5, storage: createJSONStorage(() => AsyncStorage),
       // Older saves lack the newer fields: fill them from `initial`, and turn the single setup reminder into the list.
       migrate: (old) => {
         const o = old as Partial<State> & { profile?: Profile | null };
@@ -278,7 +316,9 @@ export const useStore = create<State>()(
         const reminders = o.reminders ?? (profile.reminder?.on ? [{ id: 'setup', kind: 'workout' as const, ...profile.reminder, days: [] }] : []);
         // v4: the smooth animated figure becomes the default demo (the old 'drawing' value was only ever the default).
         const mediaPref = !o.mediaPref || o.mediaPref === 'drawing' ? 'animated' : o.mediaPref;
-        return { ...initial, ...o, profile, reminders, mediaPref } as State;
+        // v5: the weekly goal follows the plan's training days.
+        const planId = o.planId ?? initial.planId;
+        return { ...initial, ...o, profile: profile.name ? daysFor(profile, planId) : profile, reminders, mediaPref } as State;
       },
     },
   ),

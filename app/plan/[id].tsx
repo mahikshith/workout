@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, View } from 'react-native';
 import { doneNote, doneRecently, doneThisWeek } from '../../src/calc';
 import { byId, type Place } from '../../src/data/exercises';
 import { perWeek, planById, type Day } from '../../src/data/plans';
-import { program, WEEKDAYS } from '../../src/data/program';
+import { planWeek, program, WEEKDAYS } from '../../src/data/program';
 import { goalWeeks, timeline } from '../../src/data/expect';
 import { Empty, Header, Segmented, openWorkout, toToday } from '../../src/kit';
 import { useStore } from '../../src/store';
@@ -35,8 +36,11 @@ export default function PlanDetail() {
   const active = useStore((s) => s.active);
   const setPlan = useStore((s) => s.setPlan);
   const start = useStore((s) => s.start);
+  const planStart = useStore((s) => s.planStart);
   const toSession = useOpenSession();
-  const [wk, setWk] = useState('0');
+  const ins = useSafeAreaInsets();
+  // The schedule opens on the week you are in (for your current plan), so its sets match the workout's.
+  const [wk, setWk] = useState(() => (plan && plan.id === planId ? String(planWeek(plan, planStart, sessions) % 4) : '0'));
   if (!plan) return <View style={{ flex: 1, backgroundColor: c.bg }}><Header title="Plan" /><Empty icon="calendar-outline" title="This page is no longer here" action="Back to Today" onPress={toToday} /></View>;
   const goal = goalWeeks(profile);
   const recent = doneRecently(sessions), doneWeek = doneThisWeek(sessions);
@@ -199,13 +203,14 @@ export default function PlanDetail() {
           </Section>
         </Enter>
 
-        {welcome && (
-          <View style={{ marginTop: 32 }}>
-            <Button title="Let’s go" icon="flash" onPress={toToday} />
-            <T v="small" color={c.dim} style={{ textAlign: 'center', marginTop: 12 }}>You can redo setup anytime in Profile</T>
-          </View>
-        )}
+        {welcome && <T v="small" color={c.dim} style={{ textAlign: 'center', marginTop: 24 }}>You can redo setup anytime in Profile</T>}
       </Screen>
+      {/* Welcome: the commit button stays on screen, so setup never needs a scroll to finish. */}
+      {welcome && (
+        <View style={[s.bar, { paddingBottom: ins.bottom + 12 }]}>
+          <Button title="Start this plan" icon="checkmark" onPress={() => { if (!isCurrent) setPlan(plan.id); toToday(); }} />
+        </View>
+      )}
     </View>
   );
 }
@@ -215,5 +220,6 @@ const s = StyleSheet.create({
   slot: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: r.sm },
   day: { flex: 1, height: 56, borderRadius: r.sm, alignItems: 'center', justifyContent: 'center', gap: 2 },
   num: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  bar: { paddingHorizontal: 16, paddingTop: 12, backgroundColor: c.bg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   go: { height: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

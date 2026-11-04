@@ -8,7 +8,7 @@ import { dayKey } from '../src/calc';
 import { perServing, recipeById, totals, type Recipe } from '../src/data/recipes';
 import { swapFor } from '../src/data/swaps';
 import { FoodPicker, isGentle, slotName, slotNow, SLOTS } from '../src/foodsheet';
-import { EASE, goBack, Header } from '../src/kit';
+import { EASE, goBack, Header, useMiniBarSpace } from '../src/kit';
 import { useStore, type MealSlot } from '../src/store';
 import { c, r } from '../src/theme';
 import { Banner, Button, Card, haptic, Row, Section, Stepper, T, Tap, Tile } from '../src/ui';
@@ -30,10 +30,11 @@ export default function FoodPage() {
 
 function AllFoods({ slot }: { slot?: MealSlot }) {
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Header title="Add food" />
-      <View style={{ flex: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom }}>
+      <View style={{ flex: 1, paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + mini }}>
         <FoodPicker slot={slot} onRecipe={(id, at) => router.push({ pathname: '/food', params: { recipe: id, slot: at } })} />
       </View>
     </KeyboardAvoidingView>
@@ -42,6 +43,7 @@ function AllFoods({ slot }: { slot?: MealSlot }) {
 
 function RecipePage({ rc, slot: slotParam }: { rc: Recipe; slot?: MealSlot }) {
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
   const still = useReducedMotion();
   const profile = useStore((s) => s.profile);
   const meals = useStore((s) => s.meals);
@@ -151,7 +153,7 @@ function RecipePage({ rc, slot: slotParam }: { rc: Recipe; slot?: MealSlot }) {
       </ScrollView>
 
       {/* Footer: servings and the one primary button. */}
-      <Animated.View entering={FadeIn.duration(280).easing(EASE)} style={[s.foot, { paddingBottom: ins.bottom + 12 }]}>
+      <Animated.View entering={FadeIn.duration(280).easing(EASE)} style={[s.foot, { paddingBottom: ins.bottom + 12 + mini }]}>
         {already ? (
           <Row>
             <Row gap={6} style={{ flex: 1 }}>

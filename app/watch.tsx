@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
@@ -10,11 +10,11 @@ import {
   useBle, type Found, type HcStatus,
 } from '../src/health';
 import { useLiveHr } from '../src/health/live';
-import { EASE, Header } from '../src/kit';
+import { DoorCard, EASE, goBack, Header, useMiniBarSpace } from '../src/kit';
 import { Sheet } from '../src/sheet';
 import { c, r } from '../src/theme';
-import { latest, sleepScore, useTracker } from '../src/tracker';
-import { Button, IconBox, T, Tap, Tile } from '../src/ui';
+import { latest, useTracker } from '../src/tracker';
+import { Button, IconBox, T, Tap } from '../src/ui';
 
 const ANDROID = Platform.OS === 'android';
 
@@ -50,11 +50,14 @@ function Signal({ rssi }: { rssi: number | null }) {
 
 export default function Watch() {
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
   const still = useReducedMotion();
   const hc = useTracker((s) => s.hc);
   const daily = useTracker((s) => s.daily);
   const strap = useTracker((s) => s.strap);
   const ble = useBle();
+  // Opened from the Body & watch chart: the glance goes back to it instead of pushing another copy.
+  const fromChart = useLocalSearchParams<{ from?: string }>().from === 'chart';
   const bpm = useLiveHr();
   const [status, setStatus] = useState<HcStatus | 'checking'>(ANDROID ? 'checking' : 'unavailable');
   const [syncing, setSyncing] = useState(false);
@@ -80,16 +83,13 @@ export default function Watch() {
 
   const today = daily[dayKey()];
   const on = READ_TYPES.filter((t) => hc.granted.includes(t.type)).map((t) => t.label);
+  // One glance at today's numbers; their home is Progress › Body & watch (opened with from=watch so it links back here).
   const sleep = latest(daily, 'sleep', 1);
-  const tiles = [
-    { icon: 'footsteps', color: c.accent, value: today?.steps?.toLocaleString(), label: 'Steps' },
-    { icon: 'moon', color: c.blue, value: sleep ? `${Math.floor(sleep.minutes / 60)}h ${sleep.minutes % 60}m` : undefined, label: sleepScore(sleep) ? `Sleep · ${sleepScore(sleep)}` : 'Sleep' },
-    { icon: 'heart', color: c.pink, value: latest(daily, 'restingHr', 1), unit: 'bpm', label: 'Resting HR' },
-    { icon: 'pulse', color: c.warm, value: latest(daily, 'hrvMs', 1), unit: 'ms', label: 'HRV' },
-    { icon: 'water', color: c.blue, value: latest(daily, 'spo2Pct', 1), unit: '%', label: 'SpO2' },
-    { icon: 'flame', color: c.warm, value: today?.activeKcal, unit: 'kcal', label: 'Active' },
-  ] as const;
-  const shown = tiles.filter((t) => t.value !== undefined);
+  const glance = [
+    today?.steps !== undefined ? `${today.steps.toLocaleString()} steps` : null,
+    sleep ? `Sleep ${Math.floor(sleep.minutes / 60)}h ${sleep.minutes % 60}m` : null,
+    latest(daily, 'restingHr', 1) !== undefined ? `${Math.round(latest(daily, 'restingHr', 1)!)} bpm` : null,
+  ].filter(Boolean).join(' · ');
 
   const strapLine =
     ble.status === 'connected' ? (bpm ? 'Live now' : 'Connected · waiting for a beat')
@@ -104,7 +104,7 @@ export default function Watch() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Header title="Watch & health" />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: ins.bottom + 40, gap: 12 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: ins.bottom + 40 + mini, gap: 12 }} showsVerticalScrollIndicator={false}>
         {!ANDROID && (
           <View style={[s.note, { borderColor: c.blue + '55' }]}>
             <Ionicons name="phone-portrait-outline" size={18} color={c.blue} />
@@ -134,7 +134,7 @@ export default function Watch() {
               <T v="small" numberOfLines={3}>{on.length ? on.join(' · ') : 'No data types on'}</T>
             </View>
           ) : (
-            <T v="small">Reads steps, sleep, heart rate, HRV and workouts. Saves your gym sessions back.</T>
+            <T v="small">Reads steps, sleep and heart rate · saves workouts back</T>
           )}
 
           {hc.connected ? (
@@ -154,19 +154,13 @@ export default function Watch() {
           <T v="small" style={{ flex: 1 }}>Using NOOP, Gadgetbridge, OpenStrap or openScale? Turn on its Health Connect sync</T>
         </Animated.View>
 
-        {/* Today's numbers: a glance; their home is Progress › Body & watch */}
-        {hc.connected && (syncing ? (
-          <View style={s.grid}>{[0, 1, 2, 3].map((i) => <Shimmer key={i} height={112} style={s.cell} />)}</View>
-        ) : shown.length > 0 ? (
-          <Animated.View entering={enter(2)} style={s.grid}>
-            {shown.map((t) => (
-              <View key={t.label} style={s.cell}>
-                <Tile icon={t.icon} color={t.color} value={t.value!} unit={'unit' in t ? t.unit : undefined} label={t.label}
-                  onPress={() => router.push('/chart/body' as never)} />
-              </View>
-            ))}
+        {/* Today's numbers: one glance that opens their home, Progress › Body & watch */}
+        {hc.connected && (syncing ? <Shimmer height={72} /> : (
+          <Animated.View entering={enter(2)}>
+            <DoorCard icon="stats-chart" color={c.blue} title="Today's numbers" meta={glance || 'Waiting for the next sync'}
+              onPress={() => (fromChart ? goBack() : router.push({ pathname: '/chart/[kind]', params: { kind: 'body', from: 'watch' } }))} />
           </Animated.View>
-        ) : null)}
+        ))}
 
         {/* Heart-rate strap */}
         <Animated.View entering={enter(3)} style={s.card}>
@@ -235,8 +229,6 @@ const s = StyleSheet.create({
   card: { backgroundColor: c.card, borderRadius: r.lg, padding: 16, borderWidth: 1, borderColor: c.line, gap: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   note: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  cell: { width: '48%', flexGrow: 1 },
   pill: { height: 40, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: c.line, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   bpm: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   device: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: r.md, backgroundColor: c.card2 },

@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, Share, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GOALS, optLabel } from '../src/context';
 import { title } from '../src/data/exercises';
 import { planById } from '../src/data/plans';
-import { EASE, Header, toToday } from '../src/kit';
+import { EASE, Header, toToday, useMiniBarSpace } from '../src/kit';
 import { Sheet } from '../src/sheet';
+import { answered } from '../src/glance';
 import { useStore } from '../src/store';
 import { ACCENTS, c, r, type AccentId } from '../src/theme';
 import { useTracker } from '../src/tracker';
@@ -21,6 +22,7 @@ const clock12 = (h: number, m: number) => `${h % 12 || 12}:${String(m).padStart(
 // /profile, a sheet (appearance, data) or their own page (watch, reminders, etiquette).
 export default function You() {
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
   const still = useReducedMotion();
   const profile = useStore((s) => s.profile);
   const planId = useStore((s) => s.planId);
@@ -30,6 +32,8 @@ export default function You() {
   const connected = useTracker((s) => s.hc.connected);
   const periods = useStore((s) => s.periods);
   const logPeriod = useStore((s) => s.logPeriod);
+  const dismissed = useStore((s) => s.dismissed);
+  const weighIns = useStore((s) => s.weights.length);
   const [sheet, setSheet] = useState<'look' | 'data' | null>(null);
   const [confirm, setConfirm] = useState(false);
 
@@ -43,6 +47,20 @@ export default function You() {
     setTimeout(() => router.replace('/you'), 60);
   };
   const closeData = () => { setSheet(null); setConfirm(false); };
+  // Everything this app keeps, as one JSON file: the share sheet on a phone, a download on the web.
+  const exportData = async () => {
+    const plain = (o: object) => Object.fromEntries(Object.entries(o).filter(([, v]) => typeof v !== 'function'));
+    const json = JSON.stringify({ app: 'gym-buddy', exportedAt: new Date().toISOString(), store: plain(useStore.getState()), tracker: plain(useTracker.getState()) }, null, 2);
+    const name = `gym-buddy-${new Date().toISOString().slice(0, 10)}.json`;
+    if (Platform.OS === 'web') {
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = name; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } else {
+      await Share.share({ title: name, message: json }).catch(() => {});
+    }
+  };
   const erase = () => { closeData(); reset();
     useTracker.setState({ daily: {}, workouts: {}, hc: { connected: false, granted: [] }, strap: null, strapHrv: {} });
     toToday();
@@ -50,7 +68,12 @@ export default function You() {
 
   const next = reminders.filter((x) => x.kind === 'workout' && x.on).sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute))[0];
   const gentle = profile.gentle || profile.concerns?.includes('food');
-  const about = [profile.age ? `${profile.age} y` : '', `${profile.heightCm} cm`, gentle ? '' : `${profile.weightKg} kg`].filter(Boolean).join(' · ');
+  // Only what the person actually answered; untouched guest defaults are not shown as answers.
+  const has = (k: Parameters<typeof answered>[2]) => answered(profile, dismissed, k);
+  const about = [
+    has('age') ? `${profile.age} y` : '', has('heightCm') ? `${profile.heightCm} cm` : '',
+    gentle || !(has('weightKg') || weighIns > 1) ? '' : `${profile.weightKg} kg`,
+  ].filter(Boolean).join(' · ') || 'Not set';
   const place = profile.place === 'both' ? 'Gym and home' : title(profile.place);
 
   // Cycle tracking's permanent home (Today only keeps a dismissible shortcut). Same rule as Today: a period counts as
@@ -77,7 +100,7 @@ export default function You() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Header title="You" />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 40, gap: 16 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 40 + mini, gap: 16 }} showsVerticalScrollIndicator={false}>
         <Animated.View entering={enter(0)}>
           <Tap onPress={() => router.push({ pathname: '/profile', params: { s: 'about' } })} scale={0.98} style={s.card}>
             <View style={[s.avatar, { backgroundColor: c.accent }]}>
@@ -137,7 +160,10 @@ export default function You() {
               <Button title="Cancel" kind="ghost" onPress={() => setConfirm(false)} />
             </>
           ) : (
-            <Button title="Erase all data" kind="danger" icon="trash-outline" onPress={() => setConfirm(true)} />
+            <>
+              <Button title="Export data" kind="ghost" icon="download-outline" onPress={exportData} />
+              <Button title="Erase all data" kind="danger" icon="trash-outline" onPress={() => setConfirm(true)} />
+            </>
           )}
         </View>
       </Sheet>

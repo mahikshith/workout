@@ -7,7 +7,8 @@ import { BODIES, ContextFields, GOALS, LEVELS, Pill, Tiles } from '../src/contex
 import { HOME_GEAR, title } from '../src/data/exercises';
 import { planById } from '../src/data/plans';
 import { UNLOCK } from '../src/engine';
-import { EASE, Header, Segmented } from '../src/kit';
+import { EASE, Header, Segmented, useMiniBarSpace } from '../src/kit';
+import { answered, setKey, type Answerable } from '../src/glance';
 import { useStore, type Body, type Goal, type Profile } from '../src/store';
 import { c, f, r } from '../src/theme';
 import { Button, Row, Stepper, T } from '../src/ui';
@@ -22,12 +23,21 @@ type Part = keyof typeof TITLES;
 // One section of the profile, opened from a row on You. Every change saves straight away.
 export default function ProfilePage() {
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
   const raw = useLocalSearchParams<{ s?: string }>().s;
   const part: Part = raw === 'plan' || raw === 'place' ? raw : 'about';
   const p = useStore((st) => st.profile);
   const planId = useStore((st) => st.planId);
   const setProfile = useStore((st) => st.setProfile);
   const save = (patch: Partial<Profile>) => setProfile({ ...useStore.getState().profile, ...patch });
+  // Guest defaults (30 y, 170 cm...) read "Not set" until the person picks a value; picking marks the field as answered.
+  const dismissed = useStore((st) => st.dismissed);
+  const weighIns = useStore((st) => st.weights.length);
+  const isSet = (k: Answerable) => answered(p, dismissed, k) || (k === 'weightKg' && weighIns > 1);
+  const mark = (k: Answerable) => { if (!dismissed[setKey(k)]) useStore.getState().dismiss(setKey(k)); };
+  const answer = <K extends Answerable>(k: K, v: Profile[K]) => { save({ [k]: v } as Partial<Profile>); mark(k); };
+  // Weight has one home, the weigh-in history: the stepper logs today's weigh-in (which also updates the profile).
+  const logWeight = (kg: number) => { useStore.getState().logWeight(Math.min(250, kg)); mark('weightKg'); };
   // An empty name would send the app back to first-launch setup (see (tabs)/_layout), so mark setup as done-without-name.
   const setName = (name: string) => { save({ name }); if (!name.trim()) useStore.getState().skipSetup(true); };
   const gentle = !!(p.gentle || p.concerns?.includes('food'));
@@ -50,7 +60,7 @@ export default function ProfilePage() {
       <Block i={3} label="Your plan">
         <T v="body" color={c.muted}>{planById[planId]?.name ?? 'No plan yet'}</T>
         <Button title="Find a new plan" kind="ghost" icon="sparkles-outline"
-          onPress={() => router.push({ pathname: '/onboarding', params: { redo: '1' } })} />
+          onPress={() => router.replace({ pathname: '/onboarding', params: { redo: '1' } })} />
       </Block>
     </>
   );
@@ -62,11 +72,14 @@ export default function ProfilePage() {
           style={[s.input, { borderColor: c.line }]} maxLength={24} autoCapitalize="words" returnKeyType="done" />
       </Block>
       <Block i={1} label="Body">
-        <Segmented options={GENDERS} value={p.gender} onChange={(gender) => save({ gender })} />
-        <Field label="Age"><Stepper value={p.age} min={13} onChange={(age) => save({ age: Math.min(100, age) })} suffix=" y" /></Field>
-        <Field label="Height"><Stepper value={p.heightCm} min={120} onChange={(heightCm) => save({ heightCm: Math.min(230, heightCm) })} suffix=" cm" /></Field>
+        <View style={s.wrap}>
+          {GENDERS.map((g) => <Pill key={g.k} label={g.label} on={isSet('gender') && p.gender === g.k} onPress={() => answer('gender', g.k)} />)}
+        </View>
+        {!isSet('gender') && <T v="small">Not set</T>}
+        <Field label="Age" unset={!isSet('age')}><Stepper value={p.age} min={13} onChange={(age) => answer('age', Math.min(100, age))} suffix=" y" /></Field>
+        <Field label="Height" unset={!isSet('heightCm')}><Stepper value={p.heightCm} min={120} onChange={(h) => answer('heightCm', Math.min(230, h))} suffix=" cm" /></Field>
         {!gentle && (
-          <Field label="Weight"><Stepper value={p.weightKg} step={0.5} min={30} onChange={(weightKg) => save({ weightKg: Math.min(250, weightKg) })} suffix=" kg" /></Field>
+          <Field label="Weight" unset={!isSet('weightKg')}><Stepper value={p.weightKg} step={0.5} min={30} onChange={logWeight} suffix=" kg" /></Field>
         )}
         <T v="small" style={{ marginTop: 6 }}>How would you describe your body right now?</T>
         <Tiles<Body> opts={BODIES} on={(k) => p.body === k} onPick={(k) => save({ body: p.body === k ? undefined : k })} />
@@ -74,8 +87,9 @@ export default function ProfilePage() {
       </Block>
       <Block i={2} label="How you eat">
         <View style={s.wrap}>
-          {DIETS.map(([v, label]) => <Pill key={v} label={label} on={p.diet === v} onPress={() => save({ diet: v })} />)}
+          {DIETS.map(([v, label]) => <Pill key={v} label={label} on={isSet('diet') && p.diet === v} onPress={() => answer('diet', v)} />)}
         </View>
+        {!isSet('diet') && <T v="small">Not set</T>}
       </Block>
       <Block i={3}>
         <Row gap={12}>
@@ -115,7 +129,7 @@ export default function ProfilePage() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bg }}>
       <Header title={TITLES[part]} />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 40, gap: 12 }}
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 40 + mini, gap: 12 }}
         keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {part === 'plan' ? plan : part === 'place' ? place : about}
       </ScrollView>
@@ -134,9 +148,12 @@ function Block({ i, label, children }: { i: number; label?: string; children: Re
   );
 }
 
-const Field = ({ label, children }: { label: string; children: ReactNode }) => (
+const Field = ({ label, unset, children }: { label: string; unset?: boolean; children: ReactNode }) => (
   <Row style={{ justifyContent: 'space-between', minHeight: 44 }}>
-    <T v="body">{label}</T>
+    <View>
+      <T v="body">{label}</T>
+      {unset ? <T v="small">Not set</T> : null}
+    </View>
     {children}
   </Row>
 );

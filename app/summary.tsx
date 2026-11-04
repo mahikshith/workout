@@ -10,6 +10,7 @@ import { dayKey, doneSets, prs, streak, volume } from '../src/calc';
 import { badges, level } from '../src/data/badges';
 import { byId } from '../src/data/exercises';
 import { FoodSheet } from '../src/foodsheet';
+import { sessionMinutes } from '../src/glance';
 import { sessionKcal } from '../src/journey';
 import { CountUp, EASE, EASE_POP, Empty, Header, toToday } from '../src/kit';
 import { useStore, type MealSlot } from '../src/store';
@@ -20,9 +21,8 @@ import { Button, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb } from '.
 // food sheet in place and Add water counts up in place.
 
 const { width: W, height: H } = Dimensions.get('window');
-const COLORS = [c.accent, c.warm, c.pink, c.blue, '#BF8CFF'];
-
-function Confetti({ i }: { i: number }) {
+// Confetti colours are read at render (c.accent changes at runtime).
+function Confetti({ i, color }: { i: number; color: string }) {
   const p = useSharedValue(0);
   const x0 = W / 2, angle = (i / 36) * Math.PI * 2, dist = 120 + (i % 5) * 40;
   useEffect(() => { p.value = withDelay((i % 6) * 30, withTiming(1, { duration: 1600, easing: Easing.out(Easing.cubic) })); }, []);
@@ -34,7 +34,7 @@ function Confetti({ i }: { i: number }) {
       { rotate: `${p.value * 540 + i * 20}deg` },
     ],
   }));
-  return <Animated.View style={[{ position: 'absolute', width: 8, height: 14, borderRadius: 2, backgroundColor: COLORS[i % COLORS.length] }, a]} />;
+  return <Animated.View style={[{ position: 'absolute', width: 8, height: 14, borderRadius: 2, backgroundColor: color }, a]} />;
 }
 
 // A stat tile whose number counts up.
@@ -93,10 +93,13 @@ export default function Summary() {
   if (!s || !result) return <View style={{ flex: 1, backgroundColor: c.bg }}><Header title="Workout" /><Empty icon="checkmark-circle-outline" title="This page is no longer here" action="Back to Today" onPress={toToday} /></View>;
   const { records, fresh, lv, lvBefore } = result;
   const gentle = profile.gentle || profile.concerns?.includes('food');
-  const mins = Math.max(1, Math.round(((s.endedAt ?? Date.now()) - s.startedAt) / 60000));
+  const mins = sessionMinutes(s); // the same rounding as Progress and History
   const run = streak(sessions);
   const kcal = gentle ? 0 : sessionKcal(s, profile.weightKg);
   const levelUp = lv.lvl > lvBefore.lvl;
+  const kg = Math.round(volume(s));
+  const reps = s.items.reduce((n, it) => n + it.sets.reduce((a, x) => a + (x.done ? x.reps : 0), 0), 0);
+  const colors = [c.accent, c.warm, c.pink, c.blue, '#BF8CFF'];
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -116,7 +119,8 @@ export default function Summary() {
           <CountTile i={1} icon="checkmark-done" value={doneSets(s)} label="Sets" />
         </Row>
         <Row gap={12} style={{ marginTop: 12 }}>
-          <CountTile i={2} icon="barbell" value={Math.round(volume(s))} suffix=" kg" label="Volume" />
+          {kg > 0 ? <CountTile i={2} icon="barbell" value={kg} suffix=" kg" label="Volume" />
+            : <CountTile i={2} icon="repeat" value={reps} label="Reps" />}
           <CountTile i={3} icon="flame" color={c.warm} value={run} label="Streak" />
         </Row>
 
@@ -163,7 +167,7 @@ export default function Summary() {
 
       {!still && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          {Array.from({ length: 36 }, (_, i) => <Confetti key={i} i={i} />)}
+          {Array.from({ length: 36 }, (_, i) => <Confetti key={i} i={i} color={colors[i % colors.length]} />)}
         </View>
       )}
 

@@ -9,7 +9,7 @@ import { available, byId, exercises, title, type Exercise, type Place } from '..
 import { focusOf, GROUPS, groupFor, inGroup, office, type Group } from '../src/data/muscles';
 import { fit, recommend, type Fit, type Planned } from '../src/data/pairing';
 import { gate } from '../src/engine';
-import { EASE, Empty, Header } from '../src/kit';
+import { EASE, Empty, Header, useMiniBarSpace } from '../src/kit';
 import { useStore } from '../src/store';
 import { c, equip, EQUIP, f, r } from '../src/theme';
 import { Banner, Chip, ListRow, Row, T, Tap, Thumb } from '../src/ui';
@@ -37,6 +37,9 @@ const SORTED = [...GROUPS].sort((a, b) => (ORDER.indexOf(a.id) + 99) % 99 - (ORD
 const SIDE: Record<string, 'front' | 'back'> = { back: 'back', triceps: 'back', glutes: 'back', hamstrings: 'back', calves: 'back' };
 const ICON: Record<string, Icon> = { mobility: 'body', cardio: 'heart', pelvic: 'flower', desk: 'eye' };
 
+// "1 day", "3 days": every count in the Train area goes through this.
+export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
 // Exercises a place supports: home uses the person's gear, office only desk-friendly moves. Animated demos first.
 export function poolFor(where: Where, gear: string[], bare = false) {
   return exercises.filter((e) =>
@@ -63,32 +66,37 @@ export function useOpenSession() {
 }
 
 // The muscle blocks, shared with Train. Still maps (no animation hooks) and memoised tiles keep the page scrolling smooth.
+// Blocks with no moves for this place are left out (they would lead nowhere); spacers keep the last row aligned.
 export function MuscleGrid({ where, onOpen }: { where: Where; onOpen: (id: string) => void }) {
   const gear = useStore((s) => s.profile.gear);
   const counts = useMemo(() => {
     const pool = poolFor(where, gear);
     return Object.fromEntries(GROUPS.map((x) => [x.id, pool.filter((e) => inGroup(x, e)).length]));
   }, [where, gear]);
+  const shown = SORTED.filter((x) => (counts[x.id] ?? 0) > 0);
+  const pad = (3 - (shown.length % 3)) % 3;
   return (
     <View style={s.grid}>
-      {SORTED.map((x) => <Block key={x.id} g={x} n={counts[x.id] ?? 0} onOpen={onOpen} />)}
+      {shown.map((x) => <Block key={x.id} g={x} n={counts[x.id]} onOpen={onOpen} />)}
+      {Array.from({ length: pad }, (_, i) => <View key={`pad${i}`} style={s.spacer} />)}
     </View>
   );
 }
 
 const Block = memo(function Block({ g, n, onOpen }: { g: Group; n: number; onOpen: (id: string) => void }) {
   return (
-    <Tap disabled={!n} onPress={() => onOpen(g.id)} style={s.block} scale={0.96}>
+    <Tap onPress={() => onOpen(g.id)} style={s.block} scale={0.96}>
       {g.muscles ? <MuscleMap primary={g.muscles} secondary={NONE} size={56} side={SIDE[g.id] ?? 'front'} still />
         : <View style={s.circle}><Ionicons name={ICON[g.id] ?? 'fitness'} size={24} color={RED} /></View>}
       <T v="h3" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ marginTop: 6, textAlign: 'center', fontSize: 15 }}>{g.label}</T>
-      <T v="small" style={{ textAlign: 'center', fontSize: 12 }}>{n} moves</T>
+      <T v="small" style={{ textAlign: 'center', fontSize: 12 }}>{plural(n, 'move')}</T>
     </Tap>
   );
 });
 
 export default function Library() {
   const { pick, muscle, equip: eq } = useLocalSearchParams<{ pick?: string; muscle?: string; equip?: string }>();
+  const mini = useMiniBarSpace();
   const profile = useStore((s) => s.profile);
   const sessions = useStore((s) => s.sessions);
   const active = useStore((s) => s.active);
@@ -100,7 +108,10 @@ export default function Library() {
   const fixed = muscle ? (GROUPS.some((x) => x.id === muscle) ? muscle : groupFor(muscle)) : null;
 
   const [q, setQ] = useState('');
-  const [where, setWhere] = useState<Where>(pick ? place : profile.place === 'office' ? 'office' : profile.place === 'home' ? 'home' : 'gym');
+  // The place follows your profile (its one home); the chips only look somewhere else for this visit.
+  const home: Where = profile.place === 'office' ? 'office' : profile.place === 'home' ? 'home' : 'gym';
+  const [where, setWhere] = useState<Where>(pick ? place : home);
+  useEffect(() => { if (!pick) setWhere(home); }, [home, pick]);
   const [bare, setBare] = useState(eq === 'none');
   const [gid, setGid] = useState<string | null>(fixed);
   const [focus, setFocus] = useState(ALL);
@@ -141,7 +152,7 @@ export default function Library() {
     if (lock.locked) {
       if (again) return details(e);
       const left = lock.sessionsLeft ?? 0;
-      return setNote({ id: e.id, kind: 'locked', text: lock.safety ? lock.reason ?? 'Paused for your safety.' : `${e.name} unlocks after ${left} more session${left === 1 ? '' : 's'}.` });
+      return setNote({ id: e.id, kind: 'locked', text: lock.safety ? lock.reason ?? 'Paused for your safety.' : `${e.name} unlocks after ${plural(left, 'more session')}.` });
     }
     const m = fit(e, planned);
     if (m.level === 'later' && !again) return setNote({ id: e.id, kind: 'later', text: `${e.name} · ${m.reason}` });
@@ -155,16 +166,16 @@ export default function Library() {
     <View style={{ gap: 12, paddingBottom: 12 }}>
       {g && !words.length && <Enter><T color={c.muted}>{g.does}</T></Enter>}
       <Enter i={1}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips} style={s.bleed}>
+        <View style={s.wrap}>
           {WHERE.map((w) => <Chip key={w.k} label={w.label} icon={w.icon} on={where === w.k} onPress={() => setWhere(w.k)} />)}
           {bare && <Chip label="No equipment" icon="close" on color={c.ok} onPress={() => setBare(false)} />}
-        </ScrollView>
+        </View>
       </Enter>
       {g && g.focus.length > 0 && (
         <Enter i={2}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips} style={s.bleed}>
+          <View style={s.wrap}>
             {[ALL, ...g.focus.map((x) => x.label)].map((x) => <Chip key={x} label={x === ALL ? 'All areas' : x} on={focus === x} onPress={() => setFocus(x)} />)}
-          </ScrollView>
+          </View>
         </Enter>
       )}
       {picks.length > 0 && !words.length && !gid && (
@@ -176,7 +187,7 @@ export default function Library() {
           ))}
         </Enter>
       )}
-      <T v="small">{list.length} {list.length === 1 ? 'move' : 'moves'}</T>
+      <T v="small">{plural(list.length, 'move')}</T>
     </View>
   );
 
@@ -197,9 +208,9 @@ export default function Library() {
             {SORTED.map((x) => <Chip key={x.id} label={x.label} on={gid === x.id} onPress={() => setGid(x.id)} />)}
           </ScrollView>
         )}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+        <View style={[s.wrap, { paddingHorizontal: 12 }]}>
           {[ALL, ...LEVELS].map((l) => <Chip key={l} label={l === ALL ? 'All levels' : title(l)} on={lvl === l} onPress={() => setLvl(l)} />)}
-        </ScrollView>
+        </View>
         {kits.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
             {[ALL, ...kits].map((k) => {
@@ -225,7 +236,7 @@ export default function Library() {
         removeClippedSubviews={Platform.OS === 'android'}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={s.list}
+        contentContainerStyle={[s.list, { paddingBottom: 120 + mini }]}
         ItemSeparatorComponent={Gap}
         ListHeaderComponent={head}
         ListEmptyComponent={
@@ -270,10 +281,12 @@ const ExRow = memo(function ExRow({ e, focus, locked, match, onPress, at }: { e:
 const s = StyleSheet.create({
   search: { marginHorizontal: 12, height: 48, borderRadius: 14, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: c.line },
   input: { flex: 1, color: c.text, fontFamily: f.medium, fontSize: 16, height: 48 },
-  chips: { paddingHorizontal: 12, gap: 8 },
-  bleed: { marginHorizontal: -12 },
+  // Long chip rows scroll sideways and end with the same 12 px gutter they start with; short rows wrap instead.
+  chips: { paddingLeft: 12, paddingRight: 24, gap: 8 },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   list: { paddingHorizontal: 12, paddingTop: 4, paddingBottom: 120 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
+  spacer: { width: '31.5%' },
   block: { width: '31.5%', height: 118, padding: 8, borderRadius: r.lg, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: LINE },
   circle: { width: 56, height: 56, borderRadius: 28, backgroundColor: RED + '22', alignItems: 'center', justifyContent: 'center' },
   edge: { borderWidth: 1, borderColor: LINE, borderRadius: r.lg },

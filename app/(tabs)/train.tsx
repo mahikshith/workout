@@ -1,17 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useScrollToTop } from '@react-navigation/native';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { postpartumWeek, pregnancyWeek } from '../../src/calc';
 import { ranked } from '../../src/coach';
 import { exercises, title, type Exercise } from '../../src/data/exercises';
 import { perWeek, planById, plans, type Category, type Plan } from '../../src/data/plans';
-import { Segmented, useToday } from '../../src/kit';
+import { Segmented, useMiniBarSpace, useToday } from '../../src/kit';
 import { useStore, type Profile } from '../../src/store';
 import { c, equip, f, r } from '../../src/theme';
 import { Avatar, ListRow, Row, Section, T, Tap, Thumb } from '../../src/ui';
-import { Enter, MuscleGrid } from '../library';
+import { Enter, MuscleGrid, plural } from '../library';
 
 // Train: your plan, the whole exercise library (search + muscle grid) and every other plan, in one place.
 // Depth: Train -> plan / muscle page / exercise -> exercise (alternatives replace, never stack).
@@ -42,18 +43,24 @@ function because(p: Profile, plan: Plan) {
 }
 
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
-const meta = (p: Plan) => `${perWeek(p)} days · ${cap(p.level)}`;
+const meta = (p: Plan) => `${plural(perWeek(p), 'day')} · ${cap(p.level)}`;
 const openPlan = (id: string) => router.push({ pathname: '/plan/[id]', params: { id } });
 const openEx = (id: string) => router.push({ pathname: '/exercise/[id]', params: { id } });
 const openMuscle = (id: string) => router.push({ pathname: '/library', params: { muscle: id } });
 
 export default function Train() {
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace();
   const profile = useStore((s) => s.profile);
   const planId = useStore((s) => s.planId);
   const sessions = useStore((s) => s.sessions);
   const today = useToday();
   const [q, setQ] = useState('');
+  // Tapping the Train tab again scrolls back to the top (only one of the two lists is mounted at a time).
+  const browseRef = useRef<FlatList<Plan>>(null);
+  const searchRef = useRef<FlatList<Exercise>>(null);
+  useScrollToTop(browseRef);
+  useScrollToTop(searchRef);
   const home: Where = profile.place === 'office' ? 'office' : profile.place === 'home' ? 'home' : 'gym';
   const [where, setWhere] = useState<Where>(home);
   useEffect(() => setWhere(home), [home]); // follow the place set in your profile
@@ -88,7 +95,7 @@ export default function Train() {
   }, [q]);
   const searching = words.length > 0;
   const placeLabel = profile.place === 'both' ? 'Gym and home' : cap(profile.place);
-  const bottom = ins.bottom + 150; // clears the tab bar and the workout mini bar
+  const bottom = ins.bottom + 120 + mini; // clears the tab bar, plus the workout mini bar while it shows
 
   const header = (
     <View style={{ paddingTop: ins.top + 12, paddingHorizontal: 12, gap: 14, paddingBottom: 12, backgroundColor: c.bg }}>
@@ -114,6 +121,7 @@ export default function Train() {
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         {header}
         <FlatList
+          ref={searchRef}
           key="search"
           data={exHits}
           keyExtractor={(e) => e.id}
@@ -142,6 +150,7 @@ export default function Train() {
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       {header}
       <FlatList
+        ref={browseRef}
         key="browse"
         data={others}
         keyExtractor={(p) => p.id}
