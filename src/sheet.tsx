@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { c, r } from './theme';
 
@@ -15,12 +15,13 @@ export function Sheet({ open, onClose, children }: { open: boolean; onClose: () 
   const [h, setH] = useState(600);
   const p = useSharedValue(0); // 0 closed, 1 open
   const drag = useSharedValue(0); // px dragged down
+  const still = useReducedMotion();
   useEffect(() => {
     if (open) {
       setMounted(true);
       drag.value = 0;
-      p.value = withSpring(1, { damping: 20, stiffness: 220, overshootClamping: true });
-    } else p.value = withTiming(0, { duration: 240, easing: EASE }, (done) => { if (done) runOnJS(setMounted)(false); });
+      p.value = still ? withTiming(1, { duration: 1 }) : withSpring(1, { damping: 20, stiffness: 220, overshootClamping: true });
+    } else p.value = withTiming(0, { duration: still ? 1 : 240, easing: EASE }, (done) => { if (done) runOnJS(setMounted)(false); });
   }, [open]);
 
   const pan = Gesture.Pan()
@@ -56,7 +57,7 @@ export function Sheet({ open, onClose, children }: { open: boolean; onClose: () 
 }
 
 const s = StyleSheet.create({
-  scrim: { backgroundColor: 'rgba(0,0,0,0.55)' },
+  scrim: { backgroundColor: 'rgba(0,0,0,0.45)' },
   kav: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'flex-end' },
   sheet: {
     maxHeight: '92%', backgroundColor: c.card, paddingHorizontal: 20, paddingTop: 0,

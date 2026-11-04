@@ -228,7 +228,7 @@ export function useNudgeSync() {
     later();
     const sub = Notifications.addNotificationResponseReceivedListener((r) => {
       const url = r.notification.request.content.data?.url;
-      if (typeof url === 'string') router.push(url as Href);
+      if (typeof url === 'string') router.navigate(url as Href);
     });
     return () => { clearTimeout(t); unsub(); sub.remove(); };
   }, []);

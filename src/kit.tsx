@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fmtTime } from './calc';
+import { restAlert } from './notify';
 import { byId, type Place } from './data/exercises';
 import { asDay, quickById } from './data/quick';
 import { suggest } from './engine';
@@ -90,6 +91,21 @@ export function CountUp({ value, decimals = 0, prefix = '', suffix = '', style }
   return <Animated.Text style={[{ fontFamily: f.display, fontSize: 28, color: c.text }, style, pop]}>{txt}</Animated.Text>;
 }
 
+// Opens the running workout. navigate() reuses an existing /session screen instead of pushing a second one, and a
+// short lock swallows the second tap of a double tap.
+let opening = 0;
+export function openWorkout() {
+  if (Date.now() - opening < 600) return;
+  opening = Date.now();
+  router.navigate('/session');
+}
+
+// Back to Today from anywhere (summary Done, erase): pops every pushed screen instead of stacking a new tab set.
+export function toToday() {
+  if (router.canDismiss()) router.dismissAll();
+  router.navigate('/');
+}
+
 // Live clock of the running workout, in seconds, excluding pauses.
 export function useElapsed() {
   const a = useStore((s) => s.active);
@@ -117,12 +133,16 @@ export function useToday() {
   const day = office ? asDay(desk) : sug.day;
   const where: Place = st.profile.place === 'home' || office ? 'home' : 'gym';
   const minutes = office ? desk.minutes : sug.minutes;
+  // Reads the store at tap time (not the last render), and openWorkout() never stacks a second workout screen,
+  // so a fast double tap opens exactly one.
   const start = () => {
-    if (st.active) { router.push('/session'); return; }
-    haptic('medium');
-    if (office) st.start(day, 'home');
-    else st.start(day, where, sug.planId, sug.dayIndex);
-    router.push('/session');
+    const now = useStore.getState();
+    if (!now.active) {
+      haptic('medium');
+      if (office) now.start(day, 'home');
+      else now.start(day, where, sug.planId, sug.dayIndex);
+    }
+    openWorkout();
   };
   return { day, where, minutes, kind: office ? 'plan' as const : sug.kind, reason: sug.reason, active: st.active, start };
 }
@@ -141,16 +161,25 @@ export function MiniBar({ bottom }: { bottom: number }) {
   const done = a.items.reduce((n, x) => n + x.sets.filter((y) => y.done).length, 0);
   const total = a.items.reduce((n, x) => n + x.sets.length, 0);
   const rest = a.restUntil && a.restUntil > now ? Math.ceil((a.restUntil - now) / 1000) : 0;
+  // Logs the next unfinished set anywhere in the workout, the same way the workout screen does.
   const tick = () => {
-    if (!it || j < 0) { router.push('/session'); return; }
-    const { updateSet, setRest } = useStore.getState();
-    updateSet(i, j, { done: true });
-    setRest(Date.now() + it.rest * 1000, it.rest);
+    const { active, updateSet, setRest, setIdx, resume } = useStore.getState();
+    if (!active) return;
+    const order = [...active.items.keys()].sort((x, y) => (x === i ? -1 : y === i ? 1 : x - y));
+    const ii = order.find((n) => active.items[n].sets.some((x) => !x.done));
+    if (ii === undefined) { openWorkout(); return; }
+    const item = active.items[ii];
+    const jj = item.sets.findIndex((x) => !x.done);
+    if (active.pausedAt) resume();
+    if (ii !== i) setIdx(ii);
+    updateSet(ii, jj, { done: true });
+    setRest(Date.now() + item.rest * 1000, item.rest);
+    restAlert(item.rest);
     haptic('success');
   };
   return (
     <Animated.View entering={FadeInDown.duration(320).easing(EASE)} exiting={FadeOutDown.duration(200)} style={[k.mini, { bottom, borderColor: c.accent + '55' }]}>
-      <Tap onPress={() => router.push('/session')} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 14 }} scale={0.98}>
+      <Tap onPress={openWorkout} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 14 }} scale={0.98}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <T v="h3" numberOfLines={1} style={{ fontSize: 15 }}>{ex?.name ?? a.title}</T>
           <T v="small" color={rest ? c.warm : c.accent} numberOfLines={1} style={{ fontVariant: ['tabular-nums'] }}>

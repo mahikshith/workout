@@ -18,9 +18,10 @@ import videos from './data/videos.json';
 import { useStore, type MediaPref } from './store';
 import { c, f, r } from './theme';
 
-export const haptic = (kind: 'light' | 'medium' | 'success' = 'light') => {
+export const haptic = (kind: 'light' | 'medium' | 'success' | 'warning' = 'light') => {
   if (Platform.OS === 'web') return;
-  if (kind === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  if (kind === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  else if (kind === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   else Haptics.impactAsync(kind === 'medium' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
 };
 
@@ -83,7 +84,7 @@ export function Screen({ children, scroll = true, pad = true, onScroll, top }: {
 export function Avatar() {
   const name = useStore((s) => s.profile.name);
   return (
-    <Tap onPress={() => router.push('/you')} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accent }}>
+    <Tap onPress={() => router.push('/you')} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accent }}>
       {name ? <T v="h3" color={c.accentInk}>{name[0].toUpperCase()}</T> : <Ionicons name="person" size={18} color={c.accentInk} />}
     </Tap>
   );
