@@ -1,398 +1,137 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
-import { mapped, MuscleMap } from '../../src/body';
-import { Bars, LineChart } from '../../src/charts';
-import { dayKey, doneSets, e1rm, streak, targets, volume } from '../../src/calc';
-import { byId, title } from '../../src/data/exercises';
+// Progress: this week at a glance, then four doors that each open one chart, then the achievements row.
+// Every number here is either this week's (its one home) or a one-line glance that links to its home.
+import { router, type Href } from 'expo-router';
+import { useMemo, type ComponentProps } from 'react';
+import { StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
+import { e1rm, streak, volume } from '../../src/calc';
 import { badges, level } from '../../src/data/badges';
-import { Achievements } from '../../src/medals';
-import { Journey } from '../../src/journey';
-import { useStore } from '../../src/store';
-import { c } from '../../src/theme';
-import { Button, Card, Chip, Fold, haptic, ListRow, Rise, Row, Screen, Section, Stat, Stepper, T, Tap, TabTitle, Tile } from '../../src/ui';
+import { byId } from '../../src/data/exercises';
+import { sessionMinutes, streakLabel } from '../../src/glance';
+import { CountUp, DoorCard, EASE } from '../../src/kit';
+import { useStore, type Session } from '../../src/store';
+import { c, r } from '../../src/theme';
+import { latest, useTracker } from '../../src/tracker';
+import { Screen, Section, T, TabTitle } from '../../src/ui';
 
-const DAY = 86400000;
-const EASE = Easing.bezier(0.32, 0.72, 0, 1);
-const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const kgShort = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`);
-const kgLabel = (v: number) => `${kgShort(v)} kg`;
-const short = (t: number | string) => new Date(t).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-
-type Trend = 'volume' | 'sessions' | 'strength' | 'weight';
-type Fuel = 'water' | 'protein' | 'kcal' | 'meals';
-const TRENDS: { k: Trend; label: string }[] = [{ k: 'volume', label: 'Volume' }, { k: 'sessions', label: 'Sessions' }, { k: 'strength', label: 'Strength' }, { k: 'weight', label: 'Weight' }];
-const FUELS: { k: Fuel; label: string }[] = [{ k: 'water', label: 'Water' }, { k: 'protein', label: 'Protein' }, { k: 'kcal', label: 'Calories' }, { k: 'meals', label: 'Meals' }];
+const hm = (min: number) => `${Math.floor(min / 60)}h ${Math.round(min % 60)}m`;
 
 export default function Progress() {
   const sessions = useStore((s) => s.sessions);
   const weights = useStore((s) => s.weights);
   const profile = useStore((s) => s.profile);
-  const logWeight = useStore((s) => s.logWeight);
   const meals = useStore((s) => s.meals);
   const water = useStore((s) => s.water);
-  const [kg, setKg] = useState(profile?.weightKg ?? 70);
-  const [wide, setWide] = useState(false); // activity heatmap: 2 weeks, or 12 when expanded
-  const [pick, setPick] = useState<string | null>(null); // strength curve exercise
-  const [trend, setTrend] = useState<Trend>('volume');
-  const [fuel, setFuel] = useState<Fuel>('water');
-  const [logOpen, setLogOpen] = useState(false); // weight logger opened from the weight trend
+  const daily = useTracker((s) => s.daily);
+  const hcOn = useTracker((s) => s.hc.connected);
+  const strap = useTracker((s) => s.strap);
+  const still = useReducedMotion();
+  // The heavy loops only rerun when what they read changes.
+  const strength = useMemo(() => strengthGlance(sessions), [sessions]);
+  const ach = useMemo(() => {
+    const all = { profile, sessions, meals, water };
+    const bs = badges(all);
+    return { lv: level(all), earned: bs.filter((b) => b.got).length, total: bs.length };
+  }, [profile, sessions, meals, water]);
   if (!profile) return null;
   const gentle = !!(profile.gentle || profile.concerns?.includes('food'));
-  // No-numbers mode hides weight and calorie charts; fall back if one was picked before it was switched on.
-  const tr: Trend = gentle && trend === 'weight' ? 'volume' : trend;
-  const fu: Fuel = gentle && (fuel === 'protein' || fuel === 'kcal') ? 'water' : fuel;
-  const trends = TRENDS.filter((o) => !gentle || o.k !== 'weight');
-  const fuels = FUELS.filter((o) => !gentle || o.k === 'water' || o.k === 'meals');
+  const enter = (i: number) => (still ? undefined : FadeInDown.delay(i * 60).duration(380).easing(EASE));
 
-  // Fuel and water, last 14 days, oldest first. Noon anchors keep DST changes from shifting a day.
-  const fortnight = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - (13 - i)); return d; });
-  const keys = fortnight.map((d) => dayKey(d));
-  const t = targets(profile);
-  const glasses = keys.map((k) => water[k] ?? 0);
-  const hitWater = glasses.filter((g) => g >= t.water).length;
-  const dayMeals = keys.map((k) => meals.filter((m) => m.day === k));
-  const kcal = dayMeals.map((ms) => ms.reduce((a, m) => a + m.kcal, 0));
-  const protein = dayMeals.map((ms) => ms.reduce((a, m) => a + m.protein, 0));
-  const mealCounts = dayMeals.map((ms) => ms.length);
-  const kcalLogged = kcal.filter((_, i) => mealCounts[i] > 0);
-  const kcalAvg = kcalLogged.length ? Math.round(kcalLogged.reduce((a, b) => a + b, 0) / kcalLogged.length) : 0;
-  const totalMeals = mealCounts.reduce((a, b) => a + b, 0);
-  const avgMeals = totalMeals / 14;
-  const fullDays = mealCounts.filter((n) => n >= 3).length;
-  // Day charts are centred on today: the 7 days before, today, then 6 days still to come.
-  const around = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + i - 7); return d; });
-  const aKeys = around.map((d) => dayKey(d));
-  const aLabels = around.map((d) => String(d.getDate())); // today's bar and label are in the accent colour
-  const aWater = aKeys.map((k) => water[k] ?? 0);
-  const aProtein = aKeys.map((k) => meals.filter((m) => m.day === k).reduce((a, m) => a + m.protein, 0));
-
-  // Weeks run Monday to Sunday. back(k, d) is day d (0 = Monday) of the week k weeks before this one.
+  // This week, Monday to now.
   const mon = new Date(); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
-  const back = (k: number, d = 0) => { const x = new Date(mon); x.setDate(mon.getDate() - 7 * k + d); return x; };
-  const weekOf = (k: number) => { const a = back(k).getTime(), b = back(k - 1).getTime(); return sessions.filter((s) => s.startedAt >= a && s.startedAt < b); };
+  const week = sessions.filter((s) => s.startedAt >= mon.getTime());
+  const vol = week.reduce((a, s) => a + volume(s), 0);
+  const tonnes = vol >= 1000;
+  const minutes = week.reduce((a, s) => a + sessionMinutes(s), 0); // same rounding as Summary and History
 
-  const volTrend = Array.from({ length: 12 }, (_, i) => weekOf(11 - i).reduce((a, s) => a + volume(s), 0));
-  // Four weeks back, this week in the middle, three weeks ahead.
-  const perWeek = Array.from({ length: 8 }, (_, i) => ({ label: i === 4 ? 'Now' : String(back(4 - i).getDate()), value: i > 4 ? 0 : weekOf(4 - i).length }));
-  const sortedW = [...weights].sort((a, b) => a.day.localeCompare(b.day));
-  const lastW = sortedW.length ? sortedW[sortedW.length - 1] : null;
-  // The last 5 weigh-ins, newest first, each with its change against the one before it.
-  const recentW = sortedW.map((x, i) => ({ ...x, diff: i > 0 ? x.kg - sortedW[i - 1].kg : null })).slice(-5).reverse();
-  const loggedToday = lastW?.day === dayKey();
+  // Body weight glance.
+  const lastW = [...weights].sort((a, b) => a.day.localeCompare(b.day)).pop();
+  const weightMeta = lastW ? `${lastW.kg.toFixed(1)} kg · goal ${profile.goalWeightKg}` : 'Log your first weigh-in';
 
-  const counts: Record<string, number> = {};
-  for (const s of sessions) { const k = dayKey(s.startedAt); counts[k] = (counts[k] ?? 0) + doneSets(s); }
-  const weeksBack = Array.from({ length: wide ? 12 : 2 }, (_, i) => (wide ? 12 : 2) - 1 - i); // oldest first
-
-  // Muscles from the last 30 days: primary muscles count every set, helpers half. Top 3 are primary on the map, next 4 helpers.
-  const split: Record<string, number> = {};
-  for (const s of sessions) {
-    if (Date.now() - s.startedAt >= 30 * DAY) continue;
-    for (const it of s.items) {
-      const ex = byId[it.exId];
-      if (!ex) continue;
-      const n = it.sets.filter((x) => x.done).length;
-      for (const m of ex.primary) split[m] = (split[m] ?? 0) + n;
-      for (const m of ex.secondary) split[m] = (split[m] ?? 0) + n / 2;
-    }
-  }
-  const ranked = Object.entries(split).filter(([m]) => mapped(m)).sort((a, b) => b[1] - a[1]);
-  const splitRows = ranked.slice(0, 8);
-  const maxS = Math.max(1, ...splitRows.map((x) => x[1]));
-  const mainMuscles = ranked.slice(0, 3).map((x) => x[0]);
-  const helperMuscles = ranked.slice(3, 7).map((x) => x[0]);
-
-  // Best estimated 1RM per exercise, and the strength curve of the picked one.
-  const best: Record<string, number> = {};
-  for (const s of sessions) for (const it of s.items) for (const x of it.sets) if (x.weight) best[it.exId] = Math.max(best[it.exId] ?? 0, e1rm(x.weight, x.reps));
-  const lifts = Object.entries(best).sort((a, b) => b[1] - a[1]);
-  const topIds = lifts.slice(0, 6).map((x) => x[0]);
-  const cur = pick && topIds.includes(pick) ? pick : topIds[0];
-  const curve = cur ? sessions.flatMap((s) => {
-    const v = Math.max(0, ...s.items.filter((it) => it.exId === cur).flatMap((it) => it.sets.filter((x) => x.done && x.weight).map((x) => e1rm(x.weight, x.reps))));
-    return v > 0 ? [v] : [];
-  }).slice(-20) : [];
-
-  const w = weights.slice(-30);
+  // Consistency glance.
   const now = new Date();
   const thisMonth = sessions.filter((s) => { const d = new Date(s.startedAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length;
+  const st = streak(sessions);
+  const consist = sessions.length ? `${streakLabel(st)} · ${thisMonth} this month` : 'Your calendar fills in as you train';
 
-  // Level and medals, from the same store slices (no getState, so it re-renders when they change).
-  const all = { profile, sessions, meals, water };
-  const lv = level(all), bs = badges(all);
+  // Body & watch glance: sleep and resting heart rate when we have them, else steps, else the way to connect.
+  const sleep = latest(daily, 'sleep', 2);
+  const rhr = latest(daily, 'restingHr', 3);
+  const steps = latest(daily, 'steps', 1);
+  const parts = [sleep ? `Sleep ${hm(sleep.minutes)}` : null, rhr ? `${Math.round(rhr)} bpm` : null, !sleep && steps !== undefined ? `${steps.toLocaleString()} steps` : null].filter(Boolean);
+  const hasWatch = hcOn || !!strap || Object.keys(daily).length > 0;
+  const bodyMeta = parts.length ? parts.join(' · ') : hasWatch ? 'Waiting for the next sync' : 'Connect a watch';
 
-  // Example projection: starts from the real top lift when there is one, else a sample 40 kg. Compounds 1.5% a week.
-  const base = cur ? best[cur] : 40;
-  const days = Math.max(1, profile.daysPerWeek);
-  const proj = Array.from({ length: 13 }, (_, i) => base * Math.pow(1.015, i));
-  const gain = base * (Math.pow(1.015, 12) - 1);
-  const intro = cur ? `From your ${byId[cur]?.name ?? 'top lift'} · ${days} sessions a week` : `Sample 40 kg lift · ${days} sessions a week`;
-  const logger = <WeightLog kg={kg} setKg={setKg} today={loggedToday && lastW ? lastW.kg : null} onLog={() => { logWeight(+kg.toFixed(1)); haptic('success'); }} />;
+  // Achievements glance.
+  const { lv, earned, total } = ach;
+
+  type Door = { icon: ComponentProps<typeof DoorCard>['icon']; color: string; title: string; meta: string; go: Href };
+  const doors: Door[] = [
+    { icon: 'stats-chart', color: c.accent, title: 'Strength', meta: strength, go: '/chart/strength' },
+    ...(gentle ? [] : [{ icon: 'trending-down', color: c.pink, title: 'Body weight', meta: weightMeta, go: '/chart/weight' } as Door]),
+    { icon: 'calendar', color: c.warm, title: 'Consistency', meta: consist, go: '/history' },
+    { icon: 'heart', color: c.blue, title: 'Body & watch', meta: bodyMeta, go: '/chart/body' },
+  ];
 
   return (
     <Screen>
-      <Rise><TabTitle title="Progress" /></Rise>
+      <TabTitle title="Progress" />
 
-      <Rise i={1}>
-        <Row gap={12} style={{ marginTop: 20 }}>
-          <Tile icon="barbell" value={sessions.length} label="Workouts" />
-          <Tile icon="calendar" value={thisMonth} label="This month" />
-          <Tile icon="flame" color={c.warm} value={streak(sessions)} label="Streak" onPress={() => router.push('/history')} />
-        </Row>
-      </Rise>
+      <Section title="This week" first>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <Animated.View entering={enter(0)} style={s.tile}>
+            <CountUp value={week.length} />
+            <T v="small" numberOfLines={1}>workouts</T>
+          </Animated.View>
+          <Animated.View entering={enter(1)} style={s.tile}>
+            <CountUp value={tonnes ? vol / 1000 : Math.round(vol)} decimals={tonnes ? 1 : 0} suffix={tonnes ? ' t' : ' kg'} />
+            <T v="small" numberOfLines={1}>volume</T>
+          </Animated.View>
+          <Animated.View entering={enter(2)} style={s.tile}>
+            <CountUp value={minutes} suffix=" min" />
+            <T v="small" numberOfLines={1}>minutes</T>
+          </Animated.View>
+        </View>
+      </Section>
 
-      {/* Hero: one chart at a time, picked with the switch. */}
-      <Rise i={2}>
-        <Section title="Trends">
-          <Card style={{ gap: 16 }}>
-            <Seg opts={trends} value={tr} onChange={setTrend} />
-            <Animated.View key={tr} entering={FadeIn.duration(220).easing(EASE)} style={{ gap: 12 }}>
-              {tr === 'volume' && (
-                <Panel value={kgShort(volTrend[11])} unit="kg" cap="This week · 12-week trend" empty={!volTrend.some((v) => v > 0) && 'Finish a workout to see volume'}>
-                  <LineChart values={volTrend} fmt={kgLabel} height={120} />
-                  <Row style={{ justifyContent: 'space-between' }}><T v="small">12 weeks ago</T><T v="small">This week</T></Row>
-                </Panel>
-              )}
-              {tr === 'sessions' && (
-                <Panel value={perWeek[4].value} cap="Sessions this week" empty={!sessions.length && 'No sessions yet'}>
-                  <Bars items={perWeek} now={4} />
-                </Panel>
-              )}
-              {tr === 'strength' && (
-                <>
-                  {topIds.length > 0 && (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
-                      {topIds.map((id) => <Chip key={id} label={byId[id]?.name ?? id} on={id === cur} onPress={() => setPick(id)} />)}
-                    </ScrollView>
-                  )}
-                  <Panel value={cur ? Math.round(best[cur]) : '-'} unit={cur ? 'kg' : undefined} cap={`Best est. 1RM · ${curve.length} session${curve.length === 1 ? '' : 's'}`}
-                    empty={!topIds.length && 'Log sets with weight to see this'}>
-                    <LineChart values={curve} fmt={(v) => `${Math.round(v)} kg`} height={120} />
-                  </Panel>
-                </>
-              )}
-              {tr === 'weight' && (
-                <>
-                  <Panel value={lastW ? lastW.kg.toFixed(1) : '-'} unit={lastW ? 'kg' : undefined} cap={`Goal ${profile.goalWeightKg} kg · ${weights.length} weigh-ins`}
-                    empty={!w.length && 'No weigh-ins yet'}>
-                    <LineChart values={w.map((p) => p.kg)} goal={profile.goalWeightKg} fmt={(v) => `${v.toFixed(1)} kg`} height={120} />
-                  </Panel>
-                  {logOpen ? (
-                    <Animated.View entering={FadeIn.duration(220).easing(EASE)} style={{ gap: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: c.line }}>
-                      {logger}
-                    </Animated.View>
-                  ) : (
-                    <Button title="Log today's weight" icon="add" kind="ghost" onPress={() => setLogOpen(true)} style={{ height: 44 }} />
-                  )}
-                </>
-              )}
-            </Animated.View>
-          </Card>
-        </Section>
-      </Rise>
+      <View style={{ gap: 12, marginTop: 24 }}>
+        {doors.map((d, i) => (
+          <Animated.View key={d.title} entering={enter(i + 1)}>
+            <DoorCard icon={d.icon} color={d.color} title={d.title} meta={d.meta} onPress={() => router.push(d.go)} />
+          </Animated.View>
+        ))}
+      </View>
 
-      <Rise i={3}>
-        <Section title="Achievements">
-          <Card><Achievements lv={lv} badges={bs} /></Card>
-        </Section>
-      </Rise>
-
-      {!gentle && (
-        <Rise i={4}>
-          <Section title="Log today's weight">
-            <Card style={{ gap: 12 }}>
-              {logger}
-              {recentW.length > 0 && (
-                <View style={{ gap: 4, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.line }}>
-                  <T v="label" style={{ marginBottom: 4 }}>Last weigh-ins</T>
-                  {recentW.map((x) => (
-                    <Row key={x.day} style={{ height: 32 }}>
-                      <T v="small" color={c.text} style={{ flex: 1 }} numberOfLines={1}>{x.day === dayKey() ? 'Today' : short(x.day + 'T12:00:00')}</T>
-                      <T v="small" color={c.text} style={{ width: 72, textAlign: 'right' }}>{x.kg.toFixed(1)} kg</T>
-                      <T v="small" style={{ width: 56, textAlign: 'right' }}>{x.diff === null ? '-' : `${x.diff > 0 ? '+' : x.diff < 0 ? '−' : ''}${Math.abs(x.diff).toFixed(1)}`}</T>
-                    </Row>
-                  ))}
-                </View>
-              )}
-            </Card>
-          </Section>
-        </Rise>
-      )}
-
-      {!gentle && (profile.goal === 'lose fat' || profile.concerns?.some((x) => x === 'lose-weight' || x === 'gain') || Math.abs(profile.goalWeightKg - profile.weightKg) >= 1) && (
-        <Rise i={4}><Journey p={profile} sessions={sessions} meals={meals} weights={weights} /></Rise>
-      )}
-
-      <Rise i={5}>
-        <Section title="Muscles">
-          {splitRows.length ? (
-            <Card style={{ gap: 12 }}>
-              <T v="small">Sets · last 30 days</T>
-              <View style={{ alignItems: 'center', marginVertical: 4 }}>
-                <MuscleMap primary={mainMuscles} secondary={helperMuscles} size={180} />
-              </View>
-              {splitRows.map(([m, n]) => (
-                <Row key={m} gap={12}>
-                  <T v="small" color={c.text} style={{ width: 90 }} numberOfLines={1}>{title(m)}</T>
-                  <View style={[s.track, { flex: 1 }]}><View style={[s.fill, { width: `${(n / maxS) * 100}%`, backgroundColor: c.accent }]} /></View>
-                  <T v="small" style={{ width: 28, textAlign: 'right' }}>{Math.round(n)}</T>
-                </Row>
-              ))}
-            </Card>
-          ) : <ListRow icon="body-outline" title="No muscle data yet" sub="Train this month to fill it in" />}
-        </Section>
-      </Rise>
-
-      {lifts.length > 0 && (
-        <Rise i={6}>
-          <Section title="Top lifts">
-            <View style={{ gap: 8 }}>
-              {lifts.slice(0, 5).map(([id, v], i) => (
-                <ListRow key={id} icon={i === 0 ? 'trophy' : 'barbell'} title={byId[id]?.name ?? id} sub={`#${i + 1} · est. 1RM`}
-                  right={<T v="h3" color={c.accent}>{Math.round(v)} kg</T>} />
-              ))}
-            </View>
-          </Section>
-        </Rise>
-      )}
-
-      <Rise i={7}>
-        <Section title="Activity" action={wide ? 'Collapse' : 'Expand'} onAction={() => setWide(!wide)}>
-          <Card>
-            <Animated.View layout={LinearTransition.duration(320).easing(EASE)} style={{ gap: 6, overflow: 'hidden' }}>
-              <Row gap={6}>{DAYS.map((d, i) => <T key={i} v="label" style={{ flex: 1, textAlign: 'center' }}>{d}</T>)}</Row>
-              {weeksBack.map((k) => (
-                <Animated.View key={k} entering={FadeIn.duration(260)} exiting={FadeOut.duration(160)} style={{ flexDirection: 'row', gap: 6 }}>
-                  {DAYS.map((_, j) => {
-                    const d = back(k, j);
-                    const n = counts[dayKey(d)] ?? 0;
-                    const future = d.getTime() > Date.now();
-                    return <View key={j} style={[s.cell, { backgroundColor: future ? 'transparent' : n === 0 ? c.card2 : n < 8 ? c.accent + '55' : n < 16 ? c.accent + 'AA' : c.accent }]} />;
-                  })}
-                </Animated.View>
-              ))}
-            </Animated.View>
-            {!sessions.length && <T v="small" style={{ marginTop: 12 }}>Fills in as you train</T>}
-          </Card>
-        </Section>
-      </Rise>
-
-      <Rise i={8}>
-        <Section title="Fuel and water" action="Fuel" onAction={() => router.push('/fuel')}>
-          <Card style={{ gap: 16 }}>
-            <Seg opts={fuels} value={fu} onChange={setFuel} />
-            <Animated.View key={fu} entering={FadeIn.duration(220).easing(EASE)}>
-              {fu === 'water' && (
-                <Panel value={hitWater} unit="/ 14 days" cap={`On target · ${t.water} glasses a day`} empty={!glasses.some((g) => g > 0) && 'Log water on the Fuel tab'}>
-                  <Bars items={aWater.map((g, i) => ({ label: aLabels[i], value: g }))} goal={t.water} height={100} now={7} color={c.blue} />
-                </Panel>
-              )}
-              {fu === 'protein' && (
-                <Panel value={Math.round(aProtein[7])} unit={`/ ${t.protein} g`} cap="Protein today" empty={!protein.some((p) => p > 0) && 'Log meals on the Fuel tab'}>
-                  <Bars items={aProtein.map((p, i) => ({ label: aLabels[i], value: Math.round(p) }))} goal={t.protein} height={100} now={7} color={c.pink} />
-                </Panel>
-              )}
-              {fu === 'kcal' && (
-                <Panel value={kcalAvg || '-'} unit={kcalAvg ? 'kcal' : undefined} cap={`Average logged day · target ${t.kcal}`} empty={kcalLogged.length < 2 && 'Log meals on two days to see this'}>
-                  <LineChart values={kcalLogged} goal={t.kcal} fmt={(v) => `${Math.round(v)}`} height={120} color={c.pink} />
-                </Panel>
-              )}
-              {fu === 'meals' && (
-                <Panel value={avgMeals.toFixed(1)} cap={`Meals a day · 3+ on ${fullDays} of 14 days`} empty={!totalMeals && 'Log meals on the Fuel tab'} />
-              )}
-            </Animated.View>
-          </Card>
-        </Section>
-      </Rise>
-
-      <Rise i={9}>
-        <Section title="Preview">
-          <Fold title="12-week example" icon="eye-outline">
-            <T v="label" color={c.warm}>Example, not a promise</T>
-            <T v="small" numberOfLines={1}>{intro}</T>
-            <T v="label">Strength · about 1.5% a week</T>
-            <LineChart values={proj} fmt={(v) => `${Math.round(v)} kg`} height={110} />
-            <T v="label">Sessions per week</T>
-            <Bars items={Array.from({ length: 12 }, (_, i) => ({ label: String(i + 1), value: days }))} height={90} />
-            <Row>
-              <Stat label="Sessions" value={days * 12} />
-              <Stat label="Streak" value="12 wks" color={c.accent} />
-              <Stat label="Strength" value={`+${Math.round(gain)} kg`} />
-            </Row>
-          </Fold>
-        </Section>
-      </Rise>
-
-      <Rise i={10}>
-        <Section title="History" action="Calendar" onAction={() => router.push('/history')}>
-          {sessions.length === 0 ? <ListRow icon="time-outline" title="No workouts yet" sub="Finished workouts show up here" /> : (
-            <View style={{ gap: 8 }}>
-              {[...sessions].reverse().slice(0, 20).map((ss) => (
-                <ListRow key={ss.id} icon={ss.place === 'home' ? 'home' : 'barbell'} title={ss.title}
-                  sub={`${short(ss.startedAt)} · ${doneSets(ss)} sets · ${kgLabel(volume(ss))}`} />
-              ))}
-            </View>
-          )}
-        </Section>
-      </Rise>
+      <Section title="Achievements">
+        <Animated.View entering={enter(doors.length + 1)}>
+          <DoorCard icon="trophy" color={c.warm} title={`Level ${lv.lvl} · ${lv.name}`} meta={`${earned} of ${total} medals`}
+            onPress={() => router.push('/chart/achievements')} />
+        </Animated.View>
+      </Section>
     </Screen>
   );
 }
 
-// Today's weight: the number field and Log button, the one-entry-per-day rule, and a tick once today is saved.
-function WeightLog({ kg, setKg, today, onLog }: { kg: number; setKg: (n: number) => void; today: number | null; onLog: () => void }) {
-  const same = today !== null && today === +kg.toFixed(1);
-  return (
-    <>
-      <Row style={{ justifyContent: 'space-between' }}>
-        <Stepper value={kg} step={0.1} onChange={setKg} min={30} suffix=" kg" />
-        <Button title={same ? 'Logged' : 'Log'} icon={same ? 'checkmark' : undefined} onPress={onLog} style={{ height: 44, paddingHorizontal: 22 }} />
-      </Row>
-      <T v="small">One entry per day · logging again today replaces today's</T>
-      {today !== null && (
-        <Row gap={8}>
-          <Ionicons name="checkmark-circle" size={18} color={c.ok} />
-          <T v="small" color={c.text}>Saved · {today.toFixed(1)} kg today</T>
-        </Row>
-      )}
-    </>
-  );
-}
-
-// A segmented switch: one option on at a time, same look as the place switch on Today.
-function Seg<K extends string>({ opts, value, onChange }: { opts: { k: K; label: string }[]; value: K; onChange: (k: K) => void }) {
-  return (
-    <View style={s.segs}>
-      {opts.map((o) => (
-        <Tap key={o.k} onPress={() => onChange(o.k)} scale={0.96} style={[s.seg, value === o.k && { backgroundColor: c.text }]}>
-          <T v="small" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} color={value === o.k ? c.bg : c.muted}>{o.label}</T>
-        </Tap>
-      ))}
-    </View>
-  );
-}
-
-// One chart panel: a big number, one caption line, then the chart. With nothing logged yet, just the empty line.
-function Panel({ value, unit, cap, empty, children }: { value: string | number; unit?: string; cap: string; empty?: string | false; children?: ReactNode }) {
-  if (empty) return <T v="body" color={c.muted}>{empty}</T>;
-  return (
-    <View style={{ gap: 12 }}>
-      <View>
-        <T v="num">{value}{unit ? <T v="small"> {unit}</T> : null}</T>
-        <T v="small" numberOfLines={1}>{cap}</T>
-      </View>
-      {children}
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
-  cell: { flex: 1, aspectRatio: 1, borderRadius: 4 },
-  track: { height: 8, borderRadius: 4, backgroundColor: c.card2, overflow: 'hidden' },
-  fill: { height: 8, borderRadius: 4 },
-  segs: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: 24, backgroundColor: c.card2 },
-  seg: { flex: 1, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: 1, borderColor: c.line, gap: 2 },
 });
+
+// Strength glance: the top lift's best set last time, and how much heavier it is than the first time.
+function strengthGlance(sessions: Session[]) {
+  const best: Record<string, number> = {};
+  for (const s of sessions) for (const it of s.items) for (const x of it.sets) if (x.done && x.weight) best[it.exId] = Math.max(best[it.exId] ?? 0, e1rm(x.weight, x.reps));
+  const top = Object.entries(best).sort((a, b) => b[1] - a[1])[0]?.[0];
+  let strength = 'Log sets with weight to see lifts';
+  if (top) {
+    const tops = sessions.flatMap((s) => {
+      const sets = s.items.filter((it) => it.exId === top).flatMap((it) => it.sets.filter((x) => x.done && x.weight));
+      return sets.length ? [sets.reduce((a, b) => (e1rm(b.weight, b.reps) > e1rm(a.weight, a.reps) ? b : a))] : [];
+    });
+    const last = tops[tops.length - 1];
+    const up = last.weight - tops[0].weight;
+    const name = (byId[top]?.name ?? 'Top lift').replace(/^(Barbell|Dumbbell|Machine|Cable) /, '');
+    strength = `${name} ${last.weight} kg × ${last.reps}${up > 0 ? ` · up ${+up.toFixed(1)} kg` : ''}`;
+  }
+
+  return strength;
+}

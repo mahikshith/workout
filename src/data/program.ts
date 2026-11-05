@@ -44,4 +44,22 @@ export function selfCheck() {
   assert(pr.length === 4 && pr[0].days.length === 7 && pr[0].days[1].day === null, 'seven days, rest is null');
   assert(pr[1].days[0].day!.slots[0].reps === '11' && pr[2].days[0].day!.slots[0].sets === 4, 'reps then sets go up');
   assert(pr[3].days[0].day!.slots[0].sets === 2, 'deload drops a set');
+  assert(phasedDay(p, 0, 0).slots[0].sets === 3 && phasedDay(p, 0, 2).slots[0].sets === pr[2].days[0].day!.slots[0].sets, 'phased day matches the week view');
+  const t0 = Date.parse('2026-01-05T12:00:00');
+  assert(planWeek(p, t0, [], t0 + 3 * 86400000) === 0 && planWeek(p, t0, [], t0 + 9 * 86400000) === 1 && planWeek(p, t0, [], t0 + 29 * 86400000) === 0, 'plan week counts from the start and repeats');
+}
+
+// Which week of the plan this is (0-based, repeating over plan.weeks). Counted from when the plan was picked; older
+// saves without that date count from the first session logged on the plan, else from now.
+export function planWeek(plan: Plan, start: number | undefined, sessions: { planId?: string; startedAt: number }[] = [], now = Date.now()) {
+  const from = start ?? sessions.find((s) => s.planId === plan.id)?.startedAt ?? now;
+  const w = Math.max(0, Math.floor((now - from) / (7 * 86400000)));
+  return w % Math.max(1, plan.weeks || 4);
+}
+
+// One plan day as it runs in a given week: the same sets and reps the plan page shows for that week.
+export function phasedDay(plan: Plan, dayIndex: number, week: number): Day {
+  const d = plan.days[dayIndex];
+  if (!d || gentle(plan)) return d;
+  return { ...d, slots: d.slots.map(PHASES[week % 4].slot) };
 }

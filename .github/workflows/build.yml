@@ -28,6 +28,7 @@ jobs:
 
   web:
     needs: check
+    if: github.ref == 'refs/heads/main' # branch test builds (workflow_dispatch) never touch the live web preview
     runs-on: ubuntu-latest
     continue-on-error: true # stays optional until GitHub Pages is switched on in repo settings
     environment: { name: github-pages, url: '${{ steps.deploy.outputs.page_url }}' }
@@ -63,7 +64,9 @@ jobs:
       - run: cp android/app/build/outputs/apk/release/app-release.apk gym-buddy.apk
       - uses: actions/upload-artifact@v4
         with: { name: gym-buddy-apk, path: gym-buddy.apk }
-      - uses: softprops/action-gh-release@v2
+      # Only main publishes the APK link. A test build dispatched on another branch keeps its APK as a run artifact.
+      - if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Gym Buddy (latest build)

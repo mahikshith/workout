@@ -4,11 +4,12 @@ import { Image, type ImageProps } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
+import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type AccessibilityRole, type AccessibilityState, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
 import Animated, {
-  cancelAnimation, Easing, FadeIn, FadeInDown, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
+  cancelAnimation, Easing, FadeIn, FadeInDown, useAnimatedProps, useReducedMotion, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
-import { router } from 'expo-router';
+import { useScrollToTop } from '@react-navigation/native';
+import { router, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { artFrames, frames, MEDIA, origin, type Exercise } from './data/exercises';
@@ -18,28 +19,35 @@ import videos from './data/videos.json';
 import { useStore, type MediaPref } from './store';
 import { c, f, r } from './theme';
 
-export const haptic = (kind: 'light' | 'medium' | 'success' = 'light') => {
+export const haptic = (kind: 'light' | 'medium' | 'success' | 'warning' = 'light') => {
   if (Platform.OS === 'web') return;
-  if (kind === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  if (kind === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  else if (kind === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   else Haptics.impactAsync(kind === 'medium' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
 };
 
 const APress = Animated.createAnimatedComponent(Pressable);
 
-// Every tappable surface springs down a little and ticks a haptic.
-export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback = 'light' }: {
+// Every tappable surface springs down a little and ticks a haptic (no scale with reduced motion).
+// Accessibility props pass through; the role defaults to button.
+export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback = 'light', accessibilityRole = 'button', accessibilityLabel, accessibilityHint, accessibilityState }: {
   onPress?: () => void; style?: StyleProp<ViewStyle>; children: ReactNode; disabled?: boolean; scale?: number; feedback?: 'light' | 'medium' | 'none';
+  accessibilityRole?: AccessibilityRole; accessibilityLabel?: string; accessibilityHint?: string; accessibilityState?: AccessibilityState;
 }) {
   const s = useSharedValue(1);
+  const still = useReducedMotion();
   const a = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   return (
     <APress
       disabled={disabled}
-      onPressIn={() => (s.value = withTiming(scale, { duration: 120, easing: Easing.out(Easing.quad) }))}
-      onPressOut={() => (s.value = withTiming(1, { duration: 220, easing: Easing.bezier(0.32, 0.72, 0, 1) }))}
+      onPressIn={() => { if (!still) s.value = withTiming(scale, { duration: 120, easing: Easing.out(Easing.quad) }); }}
+      onPressOut={() => { if (!still) s.value = withTiming(1, { duration: 220, easing: Easing.bezier(0.32, 0.72, 0, 1) }); }}
       onPress={() => { if (feedback !== 'none') haptic(feedback); onPress?.(); }}
       style={[a, style, disabled && { opacity: 0.4 }]}
-      accessibilityRole="button"
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={disabled ? { ...accessibilityState, disabled: true } : accessibilityState}
     >
       {children}
     </APress>
@@ -64,15 +72,43 @@ export function T({ v = 'body', color, style, ...p }: TextProps & { v?: V; color
   return <Text {...p} style={[tv[v], { color: color ?? def }, style]} />;
 }
 
-// `top` overrides the top padding (screens with their own pinned header pass 0).
-export function Screen({ children, scroll = true, pad = true, onScroll, top }: {
-  children: ReactNode; scroll?: boolean; pad?: boolean; onScroll?: (y: number) => void; top?: number;
+// --- Workout mini bar placement (the bar itself is MiniBar in kit.tsx, rendered once in app/_layout.tsx).
+export const TAB_BAR_HEIGHT = 64;
+export const MINI_BAR_HEIGHT = 56;
+export const MINI_GAP = 8;
+const NO_MINI_BAR = ['session', 'summary', 'onboarding'];
+export function useMiniBarPlace() {
+  const seg = useSegments() as string[];
+  const running = useStore((s) => !!s.active);
+  return { visible: running && !NO_MINI_BAR.includes(seg[0] ?? ''), tabs: !seg.length || seg[0] === '(tabs)' };
+}
+// Extra bottom padding a scrolling screen adds on top of its usual padding, so its last item ends 8 px above the
+// mini bar. 0 when no workout is running or the bar is hidden. Fixed bottom bars on pushed screens add it too.
+export function useMiniBarSpace() {
+  return useMiniBarPlace().visible ? MINI_BAR_HEIGHT + MINI_GAP * 2 : 0;
+}
+
+// For screens with their own ScrollView or FlatList: pass the returned ref to it, and tapping the current tab scrolls
+// it to the top (react-navigation's useScrollToTop).
+// Usage: `const ref = useScrollTopRef<FlatList<Row>>();` then `<FlatList ref={ref} ... />`.
+export function useScrollTopRef<V = ScrollView>() {
+  const ref = useRef<V>(null);
+  useScrollToTop(ref as unknown as Parameters<typeof useScrollToTop>[0]);
+  return ref;
+}
+
+// `top` overrides the top padding (screens with their own pinned header pass 0). `bottom` adds room for a fixed
+// bottom bar. Tapping the current tab scrolls a Screen to the top. Bottom padding always includes the mini bar.
+export function Screen({ children, scroll = true, pad = true, onScroll, top, bottom = 0 }: {
+  children: ReactNode; scroll?: boolean; pad?: boolean; onScroll?: (y: number) => void; top?: number; bottom?: number;
 }) {
   const ins = useSafeAreaInsets();
-  const style = { paddingTop: top ?? ins.top + 12, paddingHorizontal: pad ? 12 : 0, paddingBottom: ins.bottom + 120 };
+  const mini = useMiniBarSpace();
+  const ref = useScrollTopRef<ScrollView>();
+  const style = { paddingTop: top ?? ins.top + 12, paddingHorizontal: pad ? 12 : 0, paddingBottom: ins.bottom + 120 + mini + bottom };
   if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg }, style]}>{children}</View>;
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={style} showsVerticalScrollIndicator={false}
+    <ScrollView ref={ref} style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={style} showsVerticalScrollIndicator={false}
       onScroll={onScroll ? (e) => onScroll(e.nativeEvent.contentOffset.y) : undefined} scrollEventThrottle={onScroll ? 100 : undefined}>
       {children}
     </ScrollView>
@@ -83,7 +119,7 @@ export function Screen({ children, scroll = true, pad = true, onScroll, top }: {
 export function Avatar() {
   const name = useStore((s) => s.profile.name);
   return (
-    <Tap onPress={() => router.push('/you')} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accent }}>
+    <Tap onPress={() => router.push('/you')} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accent }}>
       {name ? <T v="h3" color={c.accentInk}>{name[0].toUpperCase()}</T> : <Ionicons name="person" size={18} color={c.accentInk} />}
     </Tap>
   );
@@ -233,8 +269,13 @@ export function Ring({ size = 120, stroke = 10, progress, color = c.accent, trac
   const rad = (size - stroke) / 2;
   const len = 2 * Math.PI * rad;
   const p = useSharedValue(0);
-  useEffect(() => { p.value = withTiming(Math.min(1, Math.max(0, progress)), { duration: 700, easing: Easing.out(Easing.cubic) }); }, [progress]);
-  const props = useAnimatedProps(() => ({ strokeDashoffset: len * (1 - p.value) }));
+  const still = useReducedMotion();
+  useEffect(() => {
+    const to = Math.min(1, Math.max(0, progress || 0));
+    p.value = still ? to : withTiming(to, { duration: 700, easing: Easing.bezier(0.23, 1, 0.32, 1) });
+  }, [progress, still]);
+  // At zero the round cap would still paint a dot, so the arc hides until there is something to show.
+  const props = useAnimatedProps(() => ({ strokeDashoffset: len * (1 - p.value), strokeOpacity: p.value > 0.002 ? 1 : 0 }));
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>

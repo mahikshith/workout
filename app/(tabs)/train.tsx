@@ -1,21 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useScrollToTop } from '@react-navigation/native';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { doneThisWeek, postpartumWeek, pregnancyWeek } from '../../src/calc';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Platform, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { postpartumWeek, pregnancyWeek } from '../../src/calc';
 import { ranked } from '../../src/coach';
-import { CATEGORIES, perWeek, planById, plans, type Category, type Plan } from '../../src/data/plans';
+import { exercises, title, type Exercise } from '../../src/data/exercises';
+import { perWeek, planById, plans, type Category, type Plan } from '../../src/data/plans';
+import { Segmented, useMiniBarSpace, useToday } from '../../src/kit';
 import { useStore, type Profile } from '../../src/store';
-import { c, r } from '../../src/theme';
-import { Button, Chip, IconBox, ListRow, Rise, Row, Screen, Section, T, Tap, TabTitle } from '../../src/ui';
+import { c, equip, f, r } from '../../src/theme';
+import { Avatar, ListRow, Row, Section, T, Tap, Thumb } from '../../src/ui';
+import { Enter, MuscleGrid, plural } from '../library';
+
+// Train: your plan, the whole exercise library (search + muscle grid) and every other plan, in one place.
+// Depth: Train -> plan / muscle page / exercise -> exercise (alternatives replace, never stack).
 
 type Icon = keyof typeof Ionicons.glyphMap;
 type Where = 'gym' | 'home' | 'office';
-const WHERE: { k: Where; label: string; icon: 'barbell' | 'home' | 'briefcase' }[] = [
-  { k: 'gym', label: 'Gym', icon: 'barbell' }, { k: 'home', label: 'Home', icon: 'home' }, { k: 'office', label: 'Office', icon: 'briefcase' },
-];
+const WHERE: { k: Where; label: string }[] = [{ k: 'gym', label: 'Gym' }, { k: 'home', label: 'Home' }, { k: 'office', label: 'Office' }];
 
-// One icon per category, on every plan card and row.
+// One icon per category, on every plan row.
 const ICON: Record<Category, Icon> = {
   Muscle: 'barbell', Strength: 'trophy', 'One muscle': 'locate', 'Fat loss': 'flame', Cardio: 'pulse', Functional: 'fitness', Home: 'home', Women: 'female', Recovery: 'leaf',
 };
@@ -37,107 +43,183 @@ function because(p: Profile, plan: Plan) {
 }
 
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
-const meta = (p: Plan) => `${perWeek(p)} days · ${cap(p.level)}`;
-const open = (id: string) => router.push({ pathname: '/plan/[id]', params: { id } });
+const meta = (p: Plan) => `${plural(perWeek(p), 'day')} · ${cap(p.level)}`;
+const openPlan = (id: string) => router.push({ pathname: '/plan/[id]', params: { id } });
+const openEx = (id: string) => router.push({ pathname: '/exercise/[id]', params: { id } });
+const openMuscle = (id: string) => router.push({ pathname: '/library', params: { muscle: id } });
 
 export default function Train() {
+  const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace();
   const profile = useStore((s) => s.profile);
   const planId = useStore((s) => s.planId);
   const sessions = useStore((s) => s.sessions);
-  const [where, setWhere] = useState<Where>(profile?.place === 'home' ? 'home' : 'gym');
-  if (!profile) return null;
+  const today = useToday();
+  const [q, setQ] = useState('');
+  // Tapping the Train tab again scrolls back to the top (only one of the two lists is mounted at a time).
+  const browseRef = useRef<FlatList<Plan>>(null);
+  const searchRef = useRef<FlatList<Exercise>>(null);
+  useScrollToTop(browseRef);
+  useScrollToTop(searchRef);
+  const home: Where = profile.place === 'office' ? 'office' : profile.place === 'home' ? 'home' : 'gym';
+  const [where, setWhere] = useState<Where>(home);
+  useEffect(() => setWhere(home), [home]); // follow the place set in your profile
+
   const cur: Plan | undefined = planById[planId];
   const n = cur ? perWeek(cur) : 0;
-  const wk = [...doneThisWeek(sessions)].filter((k) => k.startsWith(planId + ':')).length;
-  const best = ranked(profile).filter((p) => p.id !== planId).slice(0, 3); // the current plan has its own card above
-  const shown = plans.filter((p) => fits(p, where) && (p.category !== 'Women' || profile.gender !== 'male'));
+  // This week's training days done for the plan, and which week of the plan you are in (sessions done / days a week).
+  const mine = useMemo(() => sessions.filter((x) => x.planId === planId && x.dayIndex !== undefined), [sessions, planId]);
+  const wk = useMemo(() => {
+    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return new Set(mine.filter((x) => x.startedAt >= d.getTime()).map((x) => x.dayIndex)).size;
+  }, [mine]);
+  const weekNo = cur ? Math.min(cur.weeks, Math.floor(mine.length / Math.max(1, n)) + 1) : 1;
+
+  // Other plans: best fit first (the coach's ranking), then the rest; the current plan has its own card.
+  const rank = useMemo(() => new Map(ranked(profile).map((p, i) => [p.id, i])), [profile]);
+  const others = useMemo(() => plans
+    .filter((p) => p.id !== planId && fits(p, where) && (p.category !== 'Women' || profile.gender !== 'male'))
+    .sort((a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999)), [planId, where, profile.gender, rank]);
+
+  // Search: plans and exercises together; results replace everything below the field while typing.
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const planHits = useMemo(() => (words.length ? plans.filter((p) => {
+    const hay = `${p.name} ${p.category} ${p.tags.join(' ')}`.toLowerCase();
+    return words.every((w) => hay.includes(w));
+  }).slice(0, 4) : []), [q]);
+  const exHits = useMemo(() => {
+    if (!words.length) return [];
+    const hits = exercises.filter((e) => words.every((w) => e.name.toLowerCase().includes(w) || e.equipment.includes(w) || e.primary.some((m) => m.includes(w))));
+    const head = words[0];
+    return hits.sort((a, b) => Number(b.name.toLowerCase().startsWith(head)) - Number(a.name.toLowerCase().startsWith(head)));
+  }, [q]);
+  const searching = words.length > 0;
+  const placeLabel = profile.place === 'both' ? 'Gym and home' : cap(profile.place);
+  const bottom = ins.bottom + 120 + mini; // clears the tab bar, plus the workout mini bar while it shows
+
+  const header = (
+    <View style={{ paddingTop: ins.top + 12, paddingHorizontal: 12, gap: 14, paddingBottom: 12, backgroundColor: c.bg }}>
+      <Row gap={10}>
+        <T v="display" numberOfLines={1} style={{ flex: 1 }}>Train</T>
+        <Tap onPress={() => router.push('/you')} style={s.place} scale={0.95}>
+          <Ionicons name={profile.place === 'office' ? 'briefcase-outline' : profile.place === 'home' ? 'home-outline' : 'barbell-outline'} size={14} color={c.muted} />
+          <T v="small" color={c.text}>{placeLabel}</T>
+        </Tap>
+        <Avatar />
+      </Row>
+      <View style={s.search}>
+        <Ionicons name="search" size={18} color={c.muted} />
+        <TextInput value={q} onChangeText={setQ} placeholder={`Search ${exercises.length} exercises and plans`} placeholderTextColor={c.dim}
+          style={s.input} returnKeyType="search" autoCorrect={false} />
+        {!!q && <Tap onPress={() => setQ('')} feedback="none"><Ionicons name="close-circle" size={18} color={c.muted} /></Tap>}
+      </View>
+    </View>
+  );
+
+  if (searching) {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
+        {header}
+        <FlatList
+          ref={searchRef}
+          key="search"
+          data={exHits}
+          keyExtractor={(e) => e.id}
+          initialNumToRender={10}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: bottom }}
+          ItemSeparatorComponent={Gap}
+          ListHeaderComponent={
+            <View style={{ gap: 8, paddingBottom: 12 }}>
+              {planHits.length > 0 && <T v="label">Plans</T>}
+              {planHits.map((p) => <ListRow key={p.id} icon={ICON[p.category]} title={p.name} sub={meta(p)} onPress={() => openPlan(p.id)} />)}
+              {exHits.length > 0 && <T v="label" style={{ marginTop: planHits.length ? 12 : 0 }}>{`Exercises · ${exHits.length}`}</T>}
+            </View>
+          }
+          ListEmptyComponent={planHits.length ? null : <T v="small" style={{ marginTop: 8 }}>Nothing matches. Try a muscle or a piece of kit.</T>}
+          renderItem={({ item }) => <Hit e={item} />}
+        />
+      </View>
+    );
+  }
 
   return (
-    <Screen>
-      <Rise><TabTitle title="Plans" /></Rise>
-
-      {/* Hero: the plan you are on, this week's progress, one way in. */}
-      {cur && (
-        <Rise i={1}>
-          <View style={[s.hero, { borderColor: c.accent + '55' }]}>
-            <Row gap={8}>
-              <Ionicons name="checkmark-circle" size={16} color={c.accent} />
-              <T v="label" color={c.accent}>Current plan</T>
-            </Row>
-            <T v="h1" numberOfLines={2} style={{ marginTop: 12 }}>{cur.name}</T>
-            <Row gap={16} style={{ marginTop: 8, flexWrap: 'wrap' }}>
-              <Meta icon="calendar-outline" text={`${n} days/week`} />
-              <Meta icon="flag-outline" text={`${cur.weeks} weeks`} />
-            </Row>
-            <Row gap={12} style={{ marginTop: 16 }}>
-              <Row gap={4} style={{ flex: 1 }}>
-                {Array.from({ length: n }, (_, i) => <View key={i} style={[s.pip, { backgroundColor: i < wk ? c.accent : c.card2 }]} />)}
-              </Row>
-              <T v="small" color={wk >= n ? c.ok : c.text}>{wk >= n ? 'Week done' : `${wk}/${n} this week`}</T>
-            </Row>
-            <Button title="Open plan" icon="arrow-forward" style={{ marginTop: 16 }} onPress={() => open(cur.id)} />
-          </View>
-        </Rise>
-      )}
-
-      {best.length > 0 && (
-        <Rise i={2}>
-          <Section title="Best for you">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 12 }} style={{ marginHorizontal: -12, paddingLeft: 12 }}>
-              {best.map((p) => (
-                <Tap key={p.id} onPress={() => open(p.id)} style={s.pick} scale={0.97}>
-                  <IconBox icon={ICON[p.category]} />
-                  <T v="h3" numberOfLines={2} style={{ flexGrow: 1 }}>{p.name}</T>
-                  <View style={{ gap: 4 }}>
-                    <T v="small" numberOfLines={1}>{meta(p)}</T>
-                    <T v="small" color={c.accent} numberOfLines={1}>{because(profile, p)}</T>
-                  </View>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      {header}
+      <FlatList
+        ref={browseRef}
+        key="browse"
+        data={others}
+        keyExtractor={(p) => p.id}
+        initialNumToRender={8}
+        windowSize={7}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: bottom }}
+        ItemSeparatorComponent={Gap}
+        ListHeaderComponent={
+          <View>
+            {/* Your plan: name, this week's pips, next day, one Start (Resume while a workout runs). */}
+            {cur && (
+              <Enter>
+                <Tap onPress={() => openPlan(cur.id)} style={s.plan} scale={0.98}>
+                  <T v="label">Your plan</T>
+                  <Row gap={12}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <T v="h2" numberOfLines={1} style={{ fontSize: 19 }}>{cur.name}</T>
+                      <T v="small" numberOfLines={1}>{`Week ${weekNo} · next: ${today.day.name}`}</T>
+                    </View>
+                    <Tap onPress={today.start} style={[s.start, { backgroundColor: c.accent }]} scale={0.94} feedback="none">
+                      <Ionicons name="play" size={16} color={c.accentInk} />
+                      <T v="h3" color={c.accentInk} style={{ fontSize: 16 }}>{today.active ? 'Resume' : 'Start'}</T>
+                    </Tap>
+                  </Row>
+                  <Row gap={6}>
+                    {Array.from({ length: n }, (_, i) => <View key={i} style={[s.pip, { backgroundColor: i < wk ? c.accent : c.line }]} />)}
+                  </Row>
                 </Tap>
-              ))}
-            </ScrollView>
-          </Section>
-        </Rise>
-      )}
+              </Enter>
+            )}
 
-      <Rise i={3}>
-        <Section title="All plans">
-          <Row gap={8}>
-            {WHERE.map((w) => <Chip key={w.k} label={w.label} icon={w.icon} on={where === w.k} onPress={() => setWhere(w.k)} />)}
-          </Row>
-          {CATEGORIES.map((cat) => {
-            const list = shown.filter((p) => p.category === cat);
-            if (!list.length) return null;
-            return (
-              <Section key={cat} title={cat} style={{ marginTop: 24 }}>
-                <View style={{ gap: 8 }}>
-                  {list.map((p) => {
-                    const on = p.id === planId;
-                    return (
-                      <ListRow key={p.id} icon={ICON[cat]} title={p.name} sub={meta(p)} onPress={() => open(p.id)}
-                        right={on ? <Ionicons name="checkmark-circle" size={22} color={c.accent} /> : undefined}
-                        style={on ? { borderColor: c.accent, borderWidth: 1 } : undefined} />
-                    );
-                  })}
-                </View>
+            <Enter i={1}>
+              <Section title="Muscles" action="All exercises" onAction={() => router.push('/library')} style={{ marginTop: 28 }}>
+                <MuscleGrid where={where} onOpen={openMuscle} />
               </Section>
-            );
-          })}
-        </Section>
-      </Rise>
+            </Enter>
 
-      <Rise i={4} style={{ marginTop: 32 }}>
-        <ListRow icon="search" title="Exercise library" sub="Demos and alternatives" onPress={() => router.push('/library')} />
-      </Rise>
-    </Screen>
+            <Enter i={2}>
+              <Section title="Other plans" style={{ marginTop: 28 }}>
+                <Segmented options={WHERE} value={where} onChange={setWhere} style={{ marginBottom: 12 }} />
+              </Section>
+            </Enter>
+          </View>
+        }
+        renderItem={({ item: p, index }) => (
+          <ListRow icon={ICON[p.category]} title={p.name} sub={index < 3 ? `${meta(p)} · ${because(profile, p)}` : meta(p)} onPress={() => openPlan(p.id)} />
+        )}
+        ListEmptyComponent={<T v="small">No other plans for this place.</T>}
+      />
+    </View>
   );
 }
 
-const Meta = ({ icon, text }: { icon: Icon; text: string }) => (
-  <Row gap={8}><Ionicons name={icon} size={16} color={c.muted} /><T v="small" color={c.text}>{text}</T></Row>
-);
+const Gap = () => <View style={{ height: 8 }} />;
+
+function Hit({ e }: { e: Exercise }) {
+  const q = equip(e.equipment);
+  return (
+    <ListRow thumb={<Thumb ex={e} size={44} />} title={e.name} sub={`${q.label} · ${title(e.level)}`} onPress={() => openEx(e.id)} />
+  );
+}
 
 const s = StyleSheet.create({
-  hero: { marginTop: 20, padding: 20, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1 },
-  pip: { flex: 1, height: 8, borderRadius: 4 },
-  pick: { width: 168, gap: 12, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  place: { height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: c.card2, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  search: { height: 48, borderRadius: 14, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: c.line },
+  input: { flex: 1, color: c.text, fontFamily: f.medium, fontSize: 16, height: 48 },
+  plan: { gap: 12, padding: 16, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  start: { height: 44, paddingHorizontal: 18, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pip: { flex: 1, height: 6, borderRadius: 3 },
 });

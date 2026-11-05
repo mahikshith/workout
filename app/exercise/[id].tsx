@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Empty, Header, Segmented, openWorkout, toToday, useMiniBarSpace } from '../../src/kit';
+import { Enter, plural, useOpenSession } from '../library';
 import { mapped, MuscleMap, RED, SOFT } from '../../src/body';
 import { bestBefore, doneNote, doneRecently } from '../../src/calc';
 import { alternatives, available, byId, HOME_GEAR, title, type Exercise } from '../../src/data/exercises';
@@ -13,7 +15,7 @@ import { gate, hidden } from '../../src/engine';
 import { Sheet } from '../../src/sheet';
 import { useStore } from '../../src/store';
 import { c, equip, r } from '../../src/theme';
-import { Banner, Button, Card, Demo, Fold, Rise, Row, Screen, Section, T, Tap, Thumb, Tile } from '../../src/ui';
+import { Banner, Button, Card, Demo, Fold, Row, Screen, Section, T, Tap, Thumb, Tile } from '../../src/ui';
 
 // Hand-written coaching per exercise (src/data/guide.json); anything missing falls back to the dataset's steps.
 type Guide = { steps?: string[]; hands?: string; arms?: string; legs?: string; back?: string; breathe?: string; mistake?: string };
@@ -28,26 +30,30 @@ const places = (e: Exercise) =>
   : ['Gym', ...(available(e, 'home', [...HOME_GEAR]) ? ['Home'] : []), ...(office(e) ? ['Office'] : [])];
 
 export default function ExerciseDetail() {
-  // origin/depth: when people hop from alternative to alternative, each page remembers where the chain started and how
-  // many pages deep it is, so one tap on "Back to ..." returns there instead of pressing back again and again.
-  const { id, origin, depth: d0 } = useLocalSearchParams<{ id: string; origin?: string; depth?: string }>();
-  const depth = Number(d0) || 0;
+  // Alternatives replace this page instead of stacking another one (depth stays at most 2 below a tab). `origin`
+  // remembers where the chain started, so "Back to ..." returns there in one tap.
+  const { id, origin } = useLocalSearchParams<{ id: string; origin?: string }>();
   const start = origin && origin !== id ? byId[origin] : undefined;
-  const hop = (to: string) => router.push({ pathname: '/exercise/[id]', params: { id: to, origin: origin ?? id, depth: String(depth + 1) } });
+  const hop = (to: string) => router.replace({ pathname: '/exercise/[id]', params: to === origin ? { id: to } : { id: to, origin: origin ?? id } });
+  const toSession = useOpenSession();
   const ins = useSafeAreaInsets();
+  const mini = useMiniBarSpace();
   const ex = byId[id];
   const profile = useStore((s) => s.profile);
   const sessions = useStore((s) => s.sessions);
   const active = useStore((s) => s.active);
   const { startSingle, setProfile, addItem } = useStore.getState();
   const inWorkout = !!active?.items.some((x) => x.exId === id);
-  const [tab, setTab] = useState<'gym' | 'home'>(profile.place === 'home' ? 'home' : 'gym');
+  // Alternatives open on the place in your profile (its one home) and follow it when it changes.
+  const home = profile.place === 'home' ? 'home' : 'gym';
+  const [tab, setTab] = useState<'gym' | 'home'>(home);
+  useEffect(() => setTab(home), [home]);
   const [sheet, setSheet] = useState(false);
   // Pause the animated figure once it is scrolled out of view: the page below then scrolls without the figure redrawing.
   const [away, setAway] = useState(false);
   const awayRef = useRef(false);
-  const onScroll = (y: number) => { const v = y > 420; if (v !== awayRef.current) { awayRef.current = v; setAway(v); } };
-  if (!ex) return null;
+  const onScroll = (y: number) => { const v = y > 340; if (v !== awayRef.current) { awayRef.current = v; setAway(v); } };
+  if (!ex) return <View style={{ flex: 1, backgroundColor: c.bg }}><Header title="Exercise" /><Empty icon="barbell-outline" title="This page is no longer here" action="Back to Today" onPress={toToday} /></View>;
   const g = GUIDE[ex.id];
   const steps = g?.steps?.length ? g.steps : ex.steps.slice(0, 5);
   const pose = POSE.filter(([k]) => g?.[k]);
@@ -63,66 +69,54 @@ export default function ExerciseDetail() {
   const eq = equip(ex.equipment);
   const fo = focusOf(ex);
 
+  const muscle = ex.primary[0];
+
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      {/* Pinned header: the exercise name stays in view while the page scrolls. */}
-      <View style={[s.head, { paddingTop: ins.top + 8 }]}>
-        <Tap onPress={() => router.back()} style={s.icon}><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
-        <View style={{ flex: 1 }}>
-          <T v="h2" numberOfLines={2}>{ex.name}</T>
-          <T v="small" numberOfLines={1}>{title(ex.category)}</T>
-        </View>
-      </View>
-      <Screen onScroll={onScroll} top={0}>
-
-        <Rise>
-          {start && depth > 1 && (
-            <Tap onPress={() => router.dismiss(depth)} scale={0.97} style={[s.origin, { borderColor: c.accent }]}>
+      <Header title={ex.name} />
+      <Screen onScroll={onScroll} top={4} bottom={lock.locked ? 0 : BAR}>
+        {start && (
+          <Enter>
+            <Tap onPress={() => hop(start.id)} scale={0.97} style={[s.origin, { borderColor: c.accent }]}>
               <Ionicons name="return-up-back" size={16} color={c.accent} />
               <T v="small" color={c.text} numberOfLines={1} style={{ flexShrink: 1 }}>Back to {start.name}</T>
             </Tap>
-          )}
-          <Row style={{ flexWrap: 'wrap', marginTop: 12 }} gap={8}>
-            <View style={s.tag}><T v="small" color={c.text}>{title(ex.level)}</T></View>
+          </Enter>
+        )}
+        {/* Media first, then the tags and numbers, then instructions on demand. */}
+        <Enter i={1}><Demo ex={ex} height={260} credit paused={away} style={{ marginTop: 8 }} /></Enter>
+
+        <Enter i={2}>
+          <Row style={{ flexWrap: 'wrap', marginTop: 14 }} gap={8}>
             <View style={[s.tag, { backgroundColor: eq.color + '22' }]}><T v="small" color={eq.color}>{eq.label}</T></View>
-            {places(ex).map((b) => <View key={b} style={s.tag}><T v="small" color={c.text}>{b}</T></View>)}
+            <View style={s.tag}><T v="small" color={c.text}>{title(ex.level)}</T></View>
+            {muscle && <View style={s.tag}><T v="small" color={c.text}>{title(muscle)}</T></View>}
+            <View style={s.tag}><T v="small" color={c.text}>{effort(ex)}</T></View>
           </Row>
           {at !== undefined && (
             <View style={{ marginTop: 12 }}><Banner icon="checkmark-circle" color={c.ok} title={`Done ${doneNote(at).day} · fresh in ${doneNote(at).left}d`} /></View>
           )}
-        </Rise>
-        {/* Media first, then the numbers, then instructions on demand. */}
-        <Rise i={1}><Demo ex={ex} height={300} credit paused={away} style={{ marginTop: 16 }} /></Rise>
+          <Row gap={10} style={{ marginTop: 16 }}>
+            <Tile icon="repeat" value={doseText(d)} label={d.sets > 1 ? 'Sets × reps' : 'Do'} />
+            <Tile icon="timer-outline" color={c.blue} value={restText(d)} label="Rest" />
+            <Tile icon="flame-outline" color={c.pink} value={`~${kcal(ex, profile.weightKg)}`} unit="kcal" label="All sets" />
+          </Row>
+          {best.e1rm > 0 && <View style={{ marginTop: 12 }}><Banner icon="trophy" title={`Your best · ${Math.round(best.e1rm)} kg 1RM`} /></View>}
+          {/* Locked: the card sits in the page (it used to float over the bottom of it). One short line, no paragraph. */}
+          {lock.locked && (
+            <View style={s.lock}>
+              <Row gap={10}><Ionicons name="lock-closed" size={18} color={c.muted} /><T v="h3" style={{ flex: 1 }}>{lock.title}</T></Row>
+              <T v="small" style={{ marginTop: 6 }}>{lock.safety || !lock.sessionsLeft ? lock.reason : `Opens after ${plural(lock.sessionsLeft, 'more session')}.`}</T>
+              {!lock.safety && (
+                <Tap onPress={() => setSheet(true)} feedback="none" style={{ marginTop: 6, paddingVertical: 6, alignSelf: 'flex-start' }}>
+                  <T v="small" color={c.text} style={{ textDecorationLine: 'underline' }}>{"I've trained before"}</T>
+                </Tap>
+              )}
+            </View>
+          )}
+        </Enter>
 
-        <Rise i={2}>
-          <Section title="Your dose">
-            <Row gap={12}>
-              <Tile icon="repeat" value={doseText(d)} label={d.sets > 1 ? 'Sets × reps' : 'Do'} />
-              <Tile icon="timer-outline" color={c.blue} value={restText(d)} label="Rest" />
-            </Row>
-            <Row gap={12} style={{ marginTop: 12 }}>
-              <Tile icon="speedometer-outline" color={c.warm} value={effort(ex)} label="Effort" />
-              <Tile icon="flame-outline" color={c.pink} value={`~${kcal(ex, profile.weightKg)}`} unit="kcal" label="All sets" />
-            </Row>
-            {best.e1rm > 0 && <View style={{ marginTop: 12 }}><Banner icon="trophy" title={`Your best · ${Math.round(best.e1rm)} kg 1RM`} /></View>}
-          </Section>
-        </Rise>
-
-        {ex.primary.some(mapped) && (
-          <Rise i={3}>
-            <Section title="Muscles">
-              <Card style={{ alignItems: 'center', gap: 14 }}>
-                <MuscleMap primary={ex.primary} secondary={ex.secondary} size={200} />
-                <View style={{ alignSelf: 'stretch', gap: 6 }}>
-                  <Legend text={ex.primary.map(title).join(', ')} />
-                  {ex.secondary.length > 0 && <Legend faint text={ex.secondary.map(title).join(', ')} />}
-                </View>
-              </Card>
-            </Section>
-          </Rise>
-        )}
-
-        <Rise i={4} style={{ marginTop: 32, gap: 12 }}>
+        <Enter i={3} style={{ marginTop: 24, gap: 12 }}>
           {steps.length > 0 && (
             <Fold title="How to do it" icon="list" open>
               {steps.map((step, i) => (
@@ -146,61 +140,58 @@ export default function ExerciseDetail() {
           <Fold title="Why it helps" icon="sparkles">
             <T color={c.muted}>{benefit(ex)}</T>
             {fo && <T v="small">Focus: {fo.label}. {fo.about}</T>}
+            <T v="small">Where: {places(ex).join(', ')}</T>
           </Fold>
-        </Rise>
+        </Enter>
 
-        <Rise i={5}>
-          <T v="h2" style={s.section}>Alternatives</T>
-          <View style={s.tabs}>
-            {(['gym', 'home'] as const).map((k) => (
-              <Tap key={k} onPress={() => setTab(k)} scale={0.98} style={[s.tab, tab === k && { backgroundColor: c.line }]}>
-                <T v="h3" color={tab === k ? c.text : c.muted}>{k === 'gym' ? 'At the gym' : 'At home'}</T>
-              </Tap>
-            ))}
-          </View>
-          <Animated.View key={tab} entering={FadeIn.duration(200)} style={{ gap: 8, marginTop: 10 }}>
-            {alts.length ? alts.map((a, i) => <Alt key={a.id} a={a} onPress={() => hop(a.id)} tag={i === 0 && alts.length > 1 ? 'Easiest' : undefined} />)
-              : <T v="small">No close match {tab === 'home' ? 'with your home gear' : 'here'} yet.</T>}
-            {next && (
-              <>
-                <T v="h3" style={{ marginTop: 14 }}>Next level</T>
-                <Alt a={next} onPress={() => hop(next.id)} locked={nextLock?.locked}
-                  note={nextLock?.sessionsLeft ? `Opens after ${nextLock.sessionsLeft} more session${nextLock.sessionsLeft > 1 ? 's' : ''}` : undefined} />
-              </>
-            )}
-          </Animated.View>
-        </Rise>
-        <View style={{ height: lock.locked ? 70 : active ? 60 : 0 }} />
+        {ex.primary.some(mapped) && (
+          <Enter i={4}>
+            <Section title="Muscles">
+              <Card style={{ alignItems: 'center', gap: 14 }}>
+                <MuscleMap primary={ex.primary} secondary={ex.secondary} size={200} />
+                <View style={{ alignSelf: 'stretch', gap: 6 }}>
+                  <Legend text={ex.primary.map(title).join(', ')} />
+                  {ex.secondary.length > 0 && <Legend faint text={ex.secondary.map(title).join(', ')} />}
+                </View>
+              </Card>
+            </Section>
+          </Enter>
+        )}
+
+        <Enter i={5}>
+          <Section title="Alternatives">
+            <Segmented options={[{ k: 'gym', label: 'At the gym' }, { k: 'home', label: 'At home' }]} value={tab} onChange={setTab} />
+            <Animated.View key={tab} entering={FadeIn.duration(200)} style={{ gap: 8, marginTop: 10 }}>
+              {alts.length ? alts.map((a, i) => <Alt key={a.id} a={a} onPress={() => hop(a.id)} tag={i === 0 && alts.length > 1 ? 'Easiest' : undefined} />)
+                : <T v="small">No close match {tab === 'home' ? 'with your home gear' : 'here'} yet.</T>}
+              {next && (
+                <>
+                  <T v="h3" style={{ marginTop: 14 }}>Next level</T>
+                  <Alt a={next} onPress={() => hop(next.id)} locked={nextLock?.locked}
+                    note={nextLock?.sessionsLeft ? `Opens after ${plural(nextLock.sessionsLeft, 'more session')}` : undefined} />
+                </>
+              )}
+            </Animated.View>
+          </Section>
+        </Enter>
       </Screen>
 
-      <View style={[s.bottom, { paddingBottom: ins.bottom + 12 }]}>
-          {lock.locked ? (
-            <View style={s.lock}>
-              <Row gap={10}><Ionicons name="lock-closed" size={18} color={c.muted} /><T v="h3" style={{ flex: 1 }}>{lock.title}</T></Row>
-              <T v="small" style={{ marginTop: 6 }}>{lock.reason}</T>
-              {!lock.safety && (
-                <Tap onPress={() => setSheet(true)} feedback="none" style={{ marginTop: 6, paddingVertical: 6, alignSelf: 'flex-start' }}>
-                  <T v="small" color={c.text} style={{ textDecorationLine: 'underline' }}>{"I've trained before"}</T>
-                </Tap>
-              )}
-            </View>
-          ) : active ? (
-            // A workout is already open: add this move to it (or go back to it) instead of hiding the button.
-            <Button title={inWorkout ? 'Back to your workout' : 'Add to your workout'} icon={inWorkout ? 'arrow-forward' : 'add'}
-              onPress={() => { if (!inWorkout) addItem(ex.id); router.push('/session'); }} />
-          ) : (
-            <Button title="Train this now" icon="play"
-              onPress={() => { startSingle(ex.id, profile.place === 'home' ? 'home' : 'gym'); router.push('/session'); }} />
-          )}
-      </View>
+      {/* The one action. A running workout is never started twice: we go back to it (pop, never push). */}
+      {/* A locked move has no action bar: its card is inline above. */}
+      {!lock.locked && <View style={[s.bottom, { paddingBottom: ins.bottom + 12 + mini }]}>
+        {active ? (
+          <Button title={inWorkout ? 'Back to your workout' : 'Add to your workout'} icon={inWorkout ? 'arrow-forward' : 'add'}
+            onPress={() => { if (!inWorkout) addItem(ex.id); toSession(); }} />
+        ) : (
+          <Button title="Train this now" icon="play"
+            onPress={() => { startSingle(ex.id, profile.place === 'home' ? 'home' : 'gym'); openWorkout(); }} />
+        )}
+      </View>}
 
       <Sheet open={sheet} onClose={() => setSheet(false)}>
         <View style={{ gap: 12 }}>
           <T v="h2">Trained before?</T>
-          <T color={c.muted}>
-            Most people who jump straight in get sore, frustrated and quit. Usually in that order. If you have trained for a while,
-            change your level and this move opens up.
-          </T>
+          <T color={c.muted}>Change your level and this move opens up.</T>
           <Button title="Keep it locked" onPress={() => setSheet(false)} />
           <Button title="Change my level" kind="ghost"
             onPress={() => { setProfile({ ...profile, level: ex.level === 'expert' ? 'advanced' : 'intermediate' }); setSheet(false); }} />
@@ -209,6 +200,9 @@ export default function ExerciseDetail() {
     </View>
   );
 }
+
+// The fixed action bar above the safe area: 12 top + button + 12 bottom. Screen pads the content by it.
+const BAR = 80;
 
 const Legend = ({ text, faint }: { text: string; faint?: boolean }) => (
   <Row gap={8}><View style={[s.dot, faint && { backgroundColor: SOFT, opacity: 0.7 }]} /><T v="small" style={{ flex: 1 }}>{text}</T></Row>
@@ -234,21 +228,15 @@ function Alt({ a, tag, locked, note, onPress }: { a: Exercise; tag?: string; loc
 }
 
 const s = StyleSheet.create({
-  head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingBottom: 10, backgroundColor: c.bg, borderBottomWidth: 1, borderBottomColor: c.line },
-  icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   origin: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingHorizontal: 12, height: 34, borderRadius: 17, borderWidth: 1, backgroundColor: c.card, maxWidth: '100%' },
-  done: { marginTop: 10, padding: 10, borderRadius: r.md, borderWidth: 1, backgroundColor: c.card },
   tag: { paddingHorizontal: 12, height: 30, borderRadius: 15, backgroundColor: c.card2, justifyContent: 'center' },
   mini: { paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: c.card2, justifyContent: 'center' },
-  section: { marginTop: 32, marginBottom: 12 },
   num: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: RED },
-  tabs: { flexDirection: 'row', padding: 4, borderRadius: 22, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
-  tab: { flex: 1, height: 40, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   alt: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.md, backgroundColor: c.card },
   bottom: {
     position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 12, paddingTop: 12,
     backgroundColor: 'rgba(10,10,11,0.92)', borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line,
   },
-  lock: { backgroundColor: c.card2, borderRadius: r.lg, padding: 16 },
+  lock: { backgroundColor: c.card2, borderRadius: r.lg, padding: 16, marginTop: 12 },
 });
