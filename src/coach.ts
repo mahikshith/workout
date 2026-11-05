@@ -1,47 +1,14 @@
 import { postpartumWeek, pregnancyWeek } from './calc';
 import type { Place } from './data/exercises';
-import { perWeek, planById, plans, type Plan } from './data/plans';
+import { planById, plans, type Plan } from './data/plans';
+import { planFor, scorePlan } from './planner';
 import type { Concern, Profile, Session } from './store';
 
-// One best plan from goal, place, experience, days per week and body context. Women plans are only picked for women.
-// One-muscle plans are add-ons, never a main plan, so a pick that lands on one falls back to a full programme.
+// One best plan for the profile, from the plan reasoning engine (src/planner.ts): life stage first, then hard
+// constraints (place, gear, women-only plans, injuries, exactly the chosen days a week), then goal, level and body
+// context. Use planFor() when the reasons are needed too.
 export function recommend(p: Profile): string {
-  const id = pick(p);
-  if (planById[id]?.category !== 'One muscle') return id;
-  return p.place === 'home' ? 'home-beginner' : p.place === 'office' ? 'desk-reset' : 'full-body-gym';
-}
-
-function pick(p: Profile): string {
-  if (pregnancyWeek(p) !== null) return 'pregnancy-safe';
-  const pp = postpartumWeek(p);
-  if (pp !== null && pp < 12) return 'after-birth'; // breathing, pelvic floor and walking come first after birth
-  const female = p.gender === 'female';
-  if (p.concerns?.some((x) => x === 'endurance' || x === 'run') && p.goal !== 'build muscle') return 'cardio-aerobic';
-  if (p.concerns?.includes('gain') && p.place !== 'home') return 'lean-gain';
-  if (p.place === 'office') return 'desk-reset';
-  // Body type (optional): larger bodies start joint-friendly; lean or soft bodies wanting muscle start with full-body strength.
-  if (p.body === 'more') return p.place === 'home' ? 'home-beginner' : 'fat-loss-gym';
-  if (p.body === 'extra' && p.place === 'home' && p.goal === 'lose fat') return 'home-beginner'; // fat-burn-home is jump-heavy
-  if ((p.body === 'lean' || p.body === 'soft') && p.goal !== 'get stronger' && p.place !== 'home' && p.level === 'beginner')
-    return p.body === 'lean' && p.goal === 'build muscle' ? 'lean-gain' : 'full-body-gym';
-  if (p.place === 'home') {
-    if (p.goal === 'lose fat') return 'fat-burn-home';
-    if (p.gear.includes('dumbbell')) return 'home-dumbbell';
-    return p.level === 'beginner' ? 'home-beginner' : 'home-bodyweight';
-  }
-  const days = p.daysPerWeek;
-  const thin = p.weightKg / (p.heightCm / 100) ** 2 < 20;
-  if (p.goal === 'lose fat') return days >= 4 || p.level === 'beginner' ? 'fat-loss-gym' : 'functional';
-  if (p.level === 'beginner' || days <= 3) {
-    if (p.goal === 'get stronger') return 'strength-5x5';
-    if (p.goal === 'build muscle' && thin) return 'lean-gain';
-    if (female && days >= 5 && p.goal !== 'stay fit') return 'glutes-legs-gym';
-    return 'full-body-gym';
-  }
-  if (p.goal === 'stay fit') return days >= 5 && female ? 'glutes-legs-gym' : 'functional';
-  if (days >= 6) return p.goal === 'get stronger' ? 'phul' : 'ppl-gym';
-  if (days === 5) return p.goal === 'get stronger' ? 'phul' : female ? 'glutes-legs-gym' : 'bro-split';
-  return p.goal === 'get stronger' ? 'phul' : 'upper-lower-gym';
+  return planFor(p).planId;
 }
 
 // One-muscle plans show in "Best for you" only when a concern clearly points at them, never by default.
@@ -49,8 +16,10 @@ const ONE_MUSCLE: Record<string, Concern[]> = { 'glute-day': ['tone'], 'core-day
 const oneMuscleFits = (p: Profile, x: Plan) => (ONE_MUSCLE[x.id] ?? []).some((c) => p.concerns?.includes(c));
 
 // Plans that fit this person, best first. Women plans only for women; pregnancy and after-birth plans only when they apply.
+// The engine's pick (or the plan it was fitted from) leads; main plans follow by the engine's score for the chosen days.
 export const ranked = (p: Profile): Plan[] => {
-  const best = recommend(p);
+  const pick = planFor(p);
+  const lead = [pick.planId, ...pick.alternatives.map((a) => a.planId)].map((id) => planById[id]?.base ?? id);
   const preg = pregnancyWeek(p) !== null;
   const pp = postpartumWeek(p);
   const fresh = pp !== null && pp < 12;
@@ -58,9 +27,13 @@ export const ranked = (p: Profile): Plan[] => {
   const ok = (x: Plan) =>
     (x.category !== 'Women' || p.gender === 'female') && (x.category !== 'One muscle' || (!preg && !fresh && oneMuscleFits(p, x))) && (x.id !== 'pregnancy-safe' || preg) && (x.id !== 'after-birth' || fresh) &&
     (!place || x.place === place || x.place === 'any');
-  const score = (x: Plan) =>
-    (x.id === best ? 100 : 0) + (x.tags.includes(p.goal) ? 10 : 0) - 2 * Math.abs(perWeek(x) - p.daysPerWeek) +
-    (x.level === 'intermediate' && p.level === 'beginner' ? -8 : 0) + (x.category === 'One muscle' ? 15 : 0) + ((p.body === 'more' || p.body === 'extra') && ['functional', 'fat-burn-home'].includes(x.id) ? -15 : 0) + (p.body === 'muscular' && x.level === 'beginner' ? -6 : 0) + ((preg || fresh) && x.category === 'Recovery' ? (x.id === 'pelvic-floor' ? 50 : 40) : 0);
+  const score = (x: Plan) => {
+    const i = lead.indexOf(x.id);
+    if (i >= 0) return 1000 - i;
+    if (x.category === 'One muscle') return 60;
+    if (x.category === 'Recovery') return (preg || fresh) ? (x.id === 'pelvic-floor' ? 80 : 70) : -50;
+    return scorePlan(p, x);
+  };
   return plans.filter(ok).sort((a, b) => score(b) - score(a));
 };
 
@@ -81,3 +54,4 @@ export function nudge(p: Profile, sessions: Session[], streak: number) {
   if (streak >= 5) return `${streak} sessions in a row. You're building a habit most people never do.`;
   return `${p.daysPerWeek - thisWeek} more this week to hit your goal. You've got this.`;
 }
+export { planFor, explain } from './planner';

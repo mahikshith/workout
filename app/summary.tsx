@@ -14,12 +14,12 @@ import { sessionMinutes } from '../src/glance';
 import { sessionKcal } from '../src/journey';
 import { CountUp, EASE, EASE_POP, Empty, Header, toToday } from '../src/kit';
 import { useStore, type MealSlot, type Session } from '../src/store';
-import { c, f, r } from '../src/theme';
+import { c, dom, f, r } from '../src/theme';
 import { mergedFor, useTracker } from '../src/tracker';
 import { Button, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb } from '../src/ui';
 
-// The end of a workout (docs/REDESIGN.md rule 8). Nothing here leaves the screen except Done: Log a meal opens the
-// food sheet in place and Add water counts up in place.
+// The end of a workout (docs/REDESIGN.md rule 8). Nothing here leaves the screen except Done (pinned at the bottom, so it
+// is one tap away from the first moment): Log a meal opens the food sheet in place and Add water counts up in place.
 
 const { width: W, height: H } = Dimensions.get('window');
 // Confetti colours are read at render (c.accent changes at runtime).
@@ -148,11 +148,11 @@ export default function Summary() {
   const levelUp = lv.lvl > lvBefore.lvl;
   const kg = Math.round(volume(s));
   const reps = s.items.reduce((n, it) => n + (isTimed(it.target) ? 0 : it.sets.reduce((a, x) => a + (x.done ? x.reps : 0), 0)), 0);
-  const colors = [c.accent, c.warm, c.pink, c.blue, '#BF8CFF'];
+  const colors = [c.accent, c.warm, c.pink, c.blue, dom.weight];
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: ins.top + 32, paddingHorizontal: 12, paddingBottom: ins.bottom + 16 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: ins.top + 32, paddingHorizontal: 12, paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
         <Animated.View style={[s2.badge, { backgroundColor: c.accent }, badge]}>
           <Ionicons name="checkmark" size={48} color={c.accentInk} />
         </Animated.View>
@@ -212,9 +212,11 @@ export default function Summary() {
           </Row>
         </Animated.View>
 
-        <View style={{ flex: 1, minHeight: 32 }} />
-        <Button title="Done" onPress={toToday} />
       </ScrollView>
+      {/* Done is always on screen, so leaving never needs a scroll past the celebration. */}
+      <View style={[s2.foot, { paddingBottom: ins.bottom + 12 }]}>
+        <Button title="Done" onPress={toToday} />
+      </View>
 
       {!still && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -228,6 +230,7 @@ export default function Summary() {
 }
 
 const s2 = StyleSheet.create({
+  foot: { paddingHorizontal: 12, paddingTop: 12, backgroundColor: c.bg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   badge: { alignSelf: 'center', width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
   tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: 1, borderColor: c.line },
   hr: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: 1, borderColor: c.line },

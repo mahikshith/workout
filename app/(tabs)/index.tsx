@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
@@ -10,11 +11,14 @@ import { byId, title } from '../../src/data/exercises';
 import { motivation } from '../../src/data/motivation';
 import { FoodSheet } from '../../src/foodsheet';
 import { STREAK_SUFFIX } from '../../src/glance';
-import { CountUp, EASE, useMiniBarSpace, useScrollTopRef, useToday } from '../../src/kit';
+import { CountUp, EASE, openWorkout, useMiniBarSpace, useScrollTopRef, useToday } from '../../src/kit';
+import { ChangeList, type ChangePick } from '../../src/restday';
+import { Sheet } from '../../src/sheet';
 import { askPermission, hasPermission, lastReminderMin, plannedOn, reschedule } from '../../src/notify';
 import { useStore, type Excuse } from '../../src/store';
-import { c, f, r } from '../../src/theme';
+import { c, dom, f, r, tint } from '../../src/theme';
 import { latest, sleepScore, useTracker } from '../../src/tracker';
+import { levelColor, useReadiness } from '../../src/health/useReadiness';
 import { Avatar, Button, Chip, Ring, Row, T, Tap } from '../../src/ui';
 
 // Today (docs/REDESIGN.md, "Today"): header, one hero card, three rings, the week strip, one coach line.
@@ -56,6 +60,7 @@ export default function Today() {
   const today = useToday();
   const scroll = useScrollTopRef<ScrollView>(); // tapping Today again scrolls back up
   const [food, setFood] = useState(false); // the food ring opens the food sheet right here
+  const [change, setChange] = useState(false); // Change next to Start: another day, a quick session or a focus
 
   const [notifOff, setNotifOff] = useState(false);
   useEffect(() => { if (Platform.OS !== 'web') hasPermission().then((ok) => setNotifOff(!ok)); }, []);
@@ -102,6 +107,8 @@ export default function Today() {
   // Body: sleep score from the watch, else steps, else an invitation to connect one.
   const score = hcOn ? sleepScore(latest(daily, 'sleep', 1)) : undefined;
   const steps = latest(daily, 'steps', 1);
+  // Readiness (HRV, resting HR and sleep against your own baseline) wins the third ring once it has 4 nights.
+  const rd = useReadiness();
 
   // Coach line: one sentence that changes once a day.
   const lastAt = sessions[sessions.length - 1]?.startedAt;
@@ -123,6 +130,13 @@ export default function Today() {
     action: inPeriod ? 'Period ended' : 'Log period', onAction: () => logPeriod(inPeriod ? 'end' : 'start') });
   const note = notes.find((n) => dismissed[n.id] !== key);
 
+  // A pick from Change opens that workout ready, exactly like Start does with today's.
+  const pickChange = (p: ChangePick) => {
+    setChange(false);
+    if (!useStore.getState().active) useStore.getState().start(p.day, p.place, p.planId, p.dayIndex);
+    openWorkout();
+  };
+
   const dateLabel = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 
   return (
@@ -136,9 +150,9 @@ export default function Today() {
             <T v="label" color={c.muted}>{dateLabel}</T>
             <T v="display" numberOfLines={1}>Today</T>
           </View>
-          <Tap onPress={() => router.push('/history')} style={[s.pill, { backgroundColor: streak ? '#2A1A0E' : c.card2 }]} scale={0.95}>
-            <Ionicons name="flame" size={15} color={streak ? c.warm : c.muted} />
-            {streak ? <CountUp value={streak} suffix={STREAK_SUFFIX} style={[s.pillNum, { color: c.warm }]} /> : <T v="small" style={[s.pillNum, { color: c.muted }]}>Start a streak</T>}
+          <Tap onPress={() => router.push('/history')} style={[s.pill, { backgroundColor: streak ? tint(dom.streak, 1.3) : c.card2 }]} scale={0.95}>
+            <Ionicons name="flame" size={15} color={streak ? dom.streak : c.muted} />
+            {streak ? <CountUp value={streak} suffix={STREAK_SUFFIX} style={[s.pillNum, { color: dom.streak }]} /> : <T v="small" style={[s.pillNum, { color: c.muted }]}>Start a streak</T>}
           </Tap>
           <Avatar />
         </Row>
@@ -146,17 +160,28 @@ export default function Today() {
 
       {/* 2. Hero: today's workout. Only the button acts. */}
       <Enter i={1}>
-        <View style={s.hero}>
-          <T v="label" color={c.accent} numberOfLines={1}>{label}</T>
+        <View style={[s.hero, { borderColor: tint(dom.train, 1.6) }]}>
+          {/* A soft training-teal wash: the workout's domain colour. */}
+          <LinearGradient colors={[tint(dom.train, 1.5), tint(c.accent, 0.4), c.card]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill} pointerEvents="none" />
+          <T v="label" color={dom.train} numberOfLines={1}>{label}</T>
           <T v="h1" numberOfLines={2}>{active ? active.title : day.name}</T>
           <T v="small" numberOfLines={1}>{active ? `${active.items.length} exercises` : `${day.slots.length} exercises · ${minutes} min`} · {place}</T>
           {!active && muscles.length > 0 && (
             <Row gap={8} style={{ flexWrap: 'wrap' }}>
-              {muscles.map((m) => <View key={m} style={s.chip}><T v="small" color="#C9C9CE">{m}</T></View>)}
+              {muscles.map((m) => <View key={m} style={[s.chip, { backgroundColor: tint(dom.train, 1.1) }]}><T v="small" color={c.soft}>{m}</T></View>)}
             </Row>
           )}
-          {!active && kind !== 'plan' && <T v="small" color="#C9C9CE" numberOfLines={1}>{firstSentence(reason)}</T>}
-          <Button title={button} icon="play" onPress={start} style={{ marginTop: 4 }} />
+          {!active && kind !== 'plan' && <T v="small" color={c.soft} numberOfLines={1}>{firstSentence(reason)}</T>}
+          {/* One primary button; Change (before a workout is open) picks something else to start instead. */}
+          <Row gap={10} style={{ marginTop: 4 }}>
+            <Button title={button} icon="play" onPress={start} style={{ flex: 1, paddingHorizontal: 16 }} />
+            {!active && (
+              <Tap onPress={() => setChange(true)} style={s.change} scale={0.96} accessibilityLabel="Change workout">
+                <T v="h3">Change</T>
+              </Tap>
+            )}
+          </Row>
         </View>
         {showExcuse && (
           <Row gap={8} style={{ flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
@@ -171,24 +196,28 @@ export default function Today() {
       {/* 3. Three rings, each opens its own place. */}
       <Enter i={2}>
         <Row gap={12}>
-          <Dial i={0} progress={week / goal} color={c.accent} label="Training" onPress={() => router.navigate('/progress')}>
+          <Dial i={0} progress={week / goal} color={dom.train} label="Training" onPress={() => router.navigate('/progress')}>
             <CountUp value={week} suffix={`/${goal}`} style={s.ringNum} />
           </Dial>
           {gentle ? (
-            <Dial i={1} progress={mealsIn / 3} color={c.pink} label="Meals" onPress={() => setFood(true)}>
+            <Dial i={1} progress={mealsIn / 3} color={dom.kcal} label="Meals" onPress={() => setFood(true)}>
               <CountUp value={mealsIn} suffix="/3" style={s.ringNum} />
             </Dial>
           ) : (
-            <Dial i={1} progress={protein / Math.max(1, t.protein)} color={c.pink} label="Protein" onPress={() => setFood(true)}>
+            <Dial i={1} progress={protein / Math.max(1, t.protein)} color={dom.protein} label="Protein" onPress={() => setFood(true)}>
               <CountUp value={protein} suffix="g" style={s.ringNum} />
             </Dial>
           )}
-          {score !== undefined ? (
-            <Dial i={2} progress={score / 100} color={c.blue} label="Sleep score" onPress={() => router.push('/chart/body')}>
+          {rd.score !== null ? (
+            <Dial i={2} progress={rd.score / 100} color={levelColor(rd.level)} label="Readiness" onPress={() => router.push('/recovery')}>
+              <CountUp value={rd.score} style={s.ringNum} />
+            </Dial>
+          ) : score !== undefined ? (
+            <Dial i={2} progress={score / 100} color={dom.sleep} label="Sleep score" onPress={() => router.push('/chart/body')}>
               <CountUp value={score} style={s.ringNum} />
             </Dial>
           ) : steps !== undefined ? (
-            <Dial i={2} progress={steps / STEP_GOAL} color={c.blue} label="Steps" onPress={() => router.push('/chart/body')}>
+            <Dial i={2} progress={steps / STEP_GOAL} color={dom.steps} label="Steps" onPress={() => router.push('/chart/body')}>
               {steps >= 1000
                 ? <CountUp value={Math.round(steps / 100) / 10} decimals={1} suffix="k" style={s.ringNum} />
                 : <CountUp value={steps} style={s.ringNum} />}
@@ -199,9 +228,9 @@ export default function Today() {
                 <Svg width={72} height={72} style={StyleSheet.absoluteFill}>
                   <Circle cx={36} cy={36} r={32} stroke={c.line} strokeWidth={8} strokeDasharray="6 6" fill="none" />
                 </Svg>
-                <Ionicons name="add" size={24} color={c.blue} />
+                <Ionicons name="add" size={24} color={dom.heart} />
               </View>
-              <T v="small" color={c.blue} numberOfLines={1}>{hcOn ? 'No data yet' : 'Connect watch'}</T>
+              <T v="small" color={dom.heart} numberOfLines={1}>{hcOn ? 'No data yet' : 'Add watch'}</T>
             </Tap>
           )}
         </Row>
@@ -217,7 +246,7 @@ export default function Today() {
               <View key={i} style={{ alignItems: 'center', gap: 6, width: 40 }}>
                 <T v="small" color={isToday ? c.text : c.muted} style={{ fontSize: 12 }}>{w}</T>
                 <View style={[s.dayRing, isToday && { borderColor: c.accent }]}>
-                  <View style={[s.dot, did && { backgroundColor: c.accent, borderColor: c.accent }]} />
+                  <View style={[s.dot, did && { backgroundColor: dom.train, borderColor: dom.train }]} />
                 </View>
               </View>
             );
@@ -229,7 +258,7 @@ export default function Today() {
       <Enter i={4}>
         <Row gap={12} style={{ alignItems: 'flex-start' }}>
           <Ionicons name="star-outline" size={20} color={c.accent} style={{ marginTop: 1 }} />
-          <T v="body" color="#C9C9CE" style={{ flex: 1, fontSize: 15, lineHeight: 21 }}>{quote}</T>
+          <T v="body" color={c.soft} style={{ flex: 1, fontSize: 15, lineHeight: 21 }}>{quote}</T>
         </Row>
       </Enter>
 
@@ -250,6 +279,9 @@ export default function Today() {
       )}
     </ScrollView>
     <FoodSheet open={food} onClose={() => setFood(false)} />
+    <Sheet open={change} onClose={() => setChange(false)}>
+      <ChangeList place={today.where} current={{ planId: today.planId, dayIndex: today.dayIndex }} onPick={pickChange} />
+    </Sheet>
     </>
   );
 }
@@ -283,7 +315,8 @@ const RingFill = ({ progress, color }: { progress: number; color: string }) => (
 const s = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 16 },
   pillNum: { fontFamily: f.semi, fontSize: 14, lineHeight: 18 },
-  hero: { gap: 12, padding: 20, borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  change: { height: 56, paddingHorizontal: 20, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2 },
+  hero: { gap: 12, padding: 20, borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, overflow: 'hidden' },
   chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: c.card2 },
   ringCard: { flex: 1, minWidth: 0, alignItems: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 8, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   ringNum: { fontFamily: f.bold, fontSize: 18, lineHeight: 22 },

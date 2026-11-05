@@ -6,7 +6,7 @@ import Animated, {
   FadeIn, FadeInLeft, FadeInRight, FadeOutLeft, FadeOutRight, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { recommend } from '../src/coach';
+import { planFor } from '../src/coach';
 import { GOALS, Pill, Tiles, type Opt } from '../src/context';
 import { HOME_GEAR, title } from '../src/data/exercises';
 import { perWeek, planById } from '../src/data/plans';
@@ -105,13 +105,16 @@ export default function Onboarding() {
     return () => sub.remove();
   }, [idx]);
 
-  const plan = useMemo(() => recommend({ ...p, name: p.name.trim() }), [p]);
+  // The plan engine's pick for these answers, with its reasons (top two show on the plan step and its welcome page).
+  const pick = useMemo(() => planFor({ ...p, name: p.name.trim() }), [p]);
+  const plan = pick.planId;
   const planInfo = planById[plan];
+  const why = pick.reasons.slice(0, 2);
 
   // Saves the answers. A first setup ends on Today (4 taps); "See the full plan" ends on the plan's welcome page instead.
   async function finish(from: Profile = p, view = false) {
     const final = { ...from, name: from.name.trim(), goalWeightKg: existing ? from.goalWeightKg : from.weightKg };
-    const chosen = recommend(final);
+    const chosen = planFor(final).planId;
     setProfile(final, fresh ? chosen : undefined);
     const st = useStore.getState();
     if (!existing) {
@@ -192,13 +195,19 @@ export default function Onboarding() {
                 </Row>
               ))}
             </View>
-            <Tap onPress={() => { const snap = p; setSetupFinish(() => { finish(snap); }); router.push({ pathname: '/plan/[id]', params: { id: plan, welcome: '1', preview: '1' } }); }} style={s.see} scale={0.97}>
+            <Tap onPress={() => { const snap = p; setSetupFinish(() => { finish(snap); }); router.push({ pathname: '/plan/[id]', params: { id: plan, welcome: '1', preview: '1', why: why.join('\n') } }); }} style={s.see} scale={0.97}>
               <T v="h3" color={c.accent}>See the full plan</T>
               <Ionicons name="chevron-forward" size={16} color={c.accent} />
             </Tap>
           </View>
         )}
-        <T v="small">{n !== p.daysPerWeek ? `Built for ${n} days, so your weekly goal is ${n}. ` : ''}Change it any time in Train.</T>
+        {why.map((line) => (
+          <Row key={line} gap={8}>
+            <Ionicons name="checkmark-circle" size={18} color={c.accent} />
+            <T v="body" style={{ flex: 1 }}>{line}</T>
+          </Row>
+        ))}
+        <T v="small">Change it any time in Train.</T>
       </Q>
     );
     cta = { title: 'Start this plan', on: () => finish() };

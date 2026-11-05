@@ -17,10 +17,11 @@ import { poseFor } from './data/poses';
 import { Figure } from './figure';
 import videos from './data/videos.json';
 import { useStore, type MediaPref } from './store';
-import { c, f, r } from './theme';
+import { useLook } from './look';
+import { c, dom, f, r, tint } from './theme';
 
 export const haptic = (kind: 'light' | 'medium' | 'success' | 'warning' = 'light') => {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web' || !useLook.getState().haptics) return; // You › Haptics can switch them off
   if (kind === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   else if (kind === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   else Haptics.impactAsync(kind === 'medium' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
@@ -68,7 +69,7 @@ const tv: Record<V, object> = {
 };
 export function T({ v = 'body', color, style, ...p }: TextProps & { v?: V; color?: string }) {
   // Small print is grey; tags and labels are a lighter grey so they stay readable on dark cards.
-  const def = v === 'small' ? c.muted : v === 'label' ? '#B4B4BA' : c.text;
+  const def = v === 'small' ? c.muted : v === 'label' ? c.label : c.text;
   return <Text {...p} style={[tv[v], { color: color ?? def }, style]} />;
 }
 
@@ -244,7 +245,7 @@ export function Fold({ title, icon, children, open: start = false }: { title: st
 export function Button({ title, onPress, kind = 'primary', icon, style, disabled }: {
   title: string; onPress?: () => void; kind?: 'primary' | 'ghost' | 'danger'; icon?: keyof typeof Ionicons.glyphMap; style?: StyleProp<ViewStyle>; disabled?: boolean;
 }) {
-  const bg = kind === 'primary' ? c.accent : kind === 'danger' ? '#2A1210' : c.card2;
+  const bg = kind === 'primary' ? c.accent : kind === 'danger' ? c.dangerBg : c.card2;
   const fg = kind === 'primary' ? c.accentInk : kind === 'danger' ? c.danger : c.text;
   return (
     <Tap onPress={onPress} disabled={disabled} feedback="medium" style={[st.btn, { backgroundColor: bg }, style]}>
@@ -499,8 +500,8 @@ export function Thumb({ ex, size = 56 }: { ex: Exercise; size?: number }) {
   useBackOnline(bad, () => setBad(false));
   if (ex.noImages)
     return (
-      <View style={{ width: size, height: size, borderRadius: 14, backgroundColor: '#251B33', alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name="pulse" size={size * 0.45} color="#BF8CFF" />
+      <View style={{ width: size, height: size, borderRadius: 14, backgroundColor: tint(dom.sleep), alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name="pulse" size={size * 0.45} color={dom.sleep} />
       </View>
     );
   if (bad || (!ex.art && ex.noPhoto))

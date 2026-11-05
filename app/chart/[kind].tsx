@@ -15,7 +15,7 @@ import { Journey } from '../../src/journey';
 import { EASE, Empty, goBack, Header, Segmented, useMiniBarSpace } from '../../src/kit';
 import { Achievements } from '../../src/medals';
 import { useStore } from '../../src/store';
-import { c, r } from '../../src/theme';
+import { c, dom, r } from '../../src/theme';
 import { latest, sleepScore, useTracker } from '../../src/tracker';
 import { Button, Card, Chip, Fold, haptic, ListRow, Row, Section, Stat, Stepper, T, Tile } from '../../src/ui';
 
@@ -148,7 +148,7 @@ function Strength() {
           <Panel value={lastSet ? `${lastSet.weight} kg × ${lastSet.reps}` : '-'}
             cap={`${byId[cur ?? '']?.name ?? 'Lift'} · best set last time · est. 1RM ${cur ? Math.round(best[cur]) : 0} kg`}
             empty={!topIds.length && 'Log sets with weight to see your lifts'}>
-            <Draw k={cur ?? ''}><LineChart values={curve} fmt={(v) => `${Math.round(v)} kg`} height={140} /></Draw>
+            <Draw k={cur ?? ''}><LineChart values={curve} fmt={(v) => `${Math.round(v)} kg`} height={140} color={dom.train} /></Draw>
             <T v="small">Estimated 1RM · last {curve.length} session{curve.length === 1 ? '' : 's'}</T>
           </Panel>
         </Card>
@@ -160,7 +160,7 @@ function Strength() {
             <View style={{ gap: 8 }}>
               {lifts.slice(0, 5).map(([id, v], i) => (
                 <ListRow key={id} icon={i === 0 ? 'trophy' : 'barbell'} title={byId[id]?.name ?? id} sub={`#${i + 1} · est. 1RM`}
-                  onPress={() => setPick(id)} right={<T v="h3" color={c.accent}>{Math.round(v)} kg</T>} />
+                  onPress={() => setPick(id)} right={<T v="h3" color={dom.train}>{Math.round(v)} kg</T>} />
               ))}
             </View>
           </Section>
@@ -178,7 +178,7 @@ function Strength() {
               {splitRows.map(([m, n]) => (
                 <Row key={m} gap={12}>
                   <T v="small" color={c.text} style={{ width: 90 }} numberOfLines={1}>{title(m)}</T>
-                  <View style={[s.track, { flex: 1 }]}><View style={[s.fill, { width: `${(n / maxS) * 100}%`, backgroundColor: c.accent }]} /></View>
+                  <View style={[s.track, { flex: 1 }]}><View style={[s.fill, { width: `${(n / maxS) * 100}%`, backgroundColor: dom.train }]} /></View>
                   <T v="small" style={{ width: 28, textAlign: 'right' }}>{Math.round(n)}</T>
                 </Row>
               ))}
@@ -194,7 +194,7 @@ function Strength() {
               cap={byReps ? 'Bodyweight sets · average week · 12 weeks' : 'Average training week · 12 weeks'}
               empty={!volWeeks.length && !repWeeks.length && 'Finish a workout to see volume'}>
               <Draw k={byReps ? 'reps' : 'vol'}>
-                <LineChart values={byReps ? repTrend : volTrend} fmt={(v) => (byReps ? `${Math.round(v)} reps` : `${kgShort(v)} kg`)} height={120} />
+                <LineChart values={byReps ? repTrend : volTrend} fmt={(v) => (byReps ? `${Math.round(v)} reps` : `${kgShort(v)} kg`)} height={120} color={dom.train} />
               </Draw>
               <Row style={{ justifyContent: 'space-between' }}><T v="small">12 weeks ago</T><T v="small">This week</T></Row>
             </Panel>
@@ -207,9 +207,9 @@ function Strength() {
           <T v="label" color={c.warm}>Example, not a promise</T>
           <T v="small" numberOfLines={1}>{intro}</T>
           <T v="label">Strength · about 1.5% a week</T>
-          <LineChart values={proj} fmt={(v) => `${Math.round(v)} kg`} height={110} />
+          <LineChart values={proj} fmt={(v) => `${Math.round(v)} kg`} height={110} color={dom.train} />
           <T v="label">Sessions per week</T>
-          <Bars items={Array.from({ length: 12 }, (_, i) => ({ label: String(i + 1), value: days }))} height={90} />
+          <Bars items={Array.from({ length: 12 }, (_, i) => ({ label: String(i + 1), value: days }))} height={90} color={dom.streak} />
           <Row>
             <Stat label="Sessions" value={days * 12} />
             <Stat label="Streak" value="12 wks" color={c.accent} />
@@ -249,7 +249,7 @@ function Weight() {
         <Card>
           <Panel value={lastW ? lastW.kg.toFixed(1) : '-'} unit={lastW ? 'kg' : undefined} cap={`Goal ${profile.goalWeightKg} kg · ${weights.length} weigh-ins`}
             empty={!w.length && 'No weigh-ins yet'}>
-            <Draw k="w"><LineChart values={w.map((p) => p.kg)} goal={profile.goalWeightKg} fmt={(v) => `${v.toFixed(1)} kg`} height={140} /></Draw>
+            <Draw k="w"><LineChart values={w.map((p) => p.kg)} goal={profile.goalWeightKg} fmt={(v) => `${v.toFixed(1)} kg`} height={140} color={dom.weight} /></Draw>
             <Row gap={8}><View style={[s.dash, { borderColor: c.warm }]} /><T v="small">Goal</T></Row>
           </Panel>
         </Card>
@@ -334,12 +334,12 @@ function BodyWatch() {
   const spo2 = latest(daily, 'spo2Pct', 3);
   const vo2 = latest(daily, 'vo2max', 30);
   const tiles: { icon: Icon; color: string; value: string | number; unit?: string; label: string }[] = [];
-  if (steps !== undefined) tiles.push({ icon: 'footsteps', color: c.accent, value: steps.toLocaleString(), label: 'Steps today' });
-  if (sleep) tiles.push({ icon: 'moon', color: c.blue, value: hm(sleep.minutes), label: score !== undefined ? `Sleep · score ${score}` : 'Sleep' });
-  if (rhr !== undefined) tiles.push({ icon: 'heart', color: c.pink, value: Math.round(rhr), unit: 'bpm', label: 'Resting HR' });
-  if (hrv !== undefined) tiles.push({ icon: 'pulse', color: c.pink, value: Math.round(hrv), unit: 'ms', label: 'HRV' });
+  if (steps !== undefined) tiles.push({ icon: 'footsteps', color: dom.steps, value: steps.toLocaleString(), label: 'Steps today' });
+  if (sleep) tiles.push({ icon: 'moon', color: dom.sleep, value: hm(sleep.minutes), label: score !== undefined ? `Sleep · score ${score}` : 'Sleep' });
+  if (rhr !== undefined) tiles.push({ icon: 'heart', color: dom.heart, value: Math.round(rhr), unit: 'bpm', label: 'Resting HR' });
+  if (hrv !== undefined) tiles.push({ icon: 'pulse', color: dom.heart, value: Math.round(hrv), unit: 'ms', label: 'HRV' });
   if (spo2 !== undefined) tiles.push({ icon: 'water', color: c.blue, value: Math.round(spo2), unit: '%', label: 'SpO2' });
-  if (vo2 !== undefined) tiles.push({ icon: 'speedometer', color: c.accent, value: vo2.toFixed(1), label: 'VO2 max' });
+  if (vo2 !== undefined) tiles.push({ icon: 'speedometer', color: dom.heart, value: vo2.toFixed(1), label: 'VO2 max' });
   const pairs = Array.from({ length: Math.ceil(tiles.length / 2) }, (_, i) => tiles.slice(i * 2, i * 2 + 2));
 
   const days = fortnight();
@@ -348,7 +348,7 @@ function BodyWatch() {
   const sleepBars = rows.map((x, i) => ({ label: String(days[i].getDate()), value: x?.sleep ? Math.round(x.sleep.minutes / 6) / 10 : 0 }));
   const bars = metric === 'steps' ? stepBars : sleepBars;
   const st = sleep?.stages;
-  const stageList = st ? ([['Deep', st.deep, '#3A6FF7'], ['Light', st.light, c.blue], ['REM', st.rem, '#A78BFA'], ['Awake', st.awake, c.warm]] as const) : [];
+  const stageList = st ? ([['Deep', st.deep, dom.sleep], ['Light', st.light, c.blue], ['REM', st.rem, dom.weight], ['Awake', st.awake, c.warm]] as const) : [];
   const stageTotal = st ? Math.max(1, st.deep + st.light + st.rem + st.awake) : 1;
 
   return (
@@ -393,7 +393,7 @@ function BodyWatch() {
             <Panel value={metric === 'steps' ? avgOf(stepBars.map((b) => b.value)).toFixed(1) : avgOf(sleepBars.map((b) => b.value)).toFixed(1)}
               unit={metric === 'steps' ? 'k steps' : 'h'} cap={metric === 'steps' ? 'Average day · thousands of steps' : 'Average night · hours asleep'}
               empty={!bars.some((b) => b.value > 0) && (metric === 'steps' ? 'No steps synced yet' : 'No sleep synced yet')}>
-              <Draw k={metric}><Bars items={bars} now={13} height={100} color={metric === 'steps' ? c.accent : c.blue} goal={8} /></Draw>
+              <Draw k={metric}><Bars items={bars} now={13} height={100} color={metric === 'steps' ? dom.steps : dom.sleep} goal={8} /></Draw>
             </Panel>
           </Card>
         </Section>
@@ -473,7 +473,7 @@ function Fuel() {
           )}
           {fu === 'kcal' && (
             <Panel value={kcalAvg || '-'} unit={kcalAvg ? 'kcal' : undefined} cap={`Average logged day · target ${t.kcal}`} empty={kcalLogged.length < 2 && 'Log meals on two days to see this'}>
-              <LineChart values={kcalLogged} goal={t.kcal} fmt={(v) => `${Math.round(v)}`} height={120} color={c.pink} />
+              <LineChart values={kcalLogged} goal={t.kcal} fmt={(v) => `${Math.round(v)}`} height={120} color={dom.kcal} />
             </Panel>
           )}
           {fu === 'meals' && (

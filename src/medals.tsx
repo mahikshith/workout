@@ -192,7 +192,7 @@ function Medal({ b, isNext, fresh, picked, onPress }: { b: Badge; isNext: boolea
               </G>
             </>
           ) : (
-            <Polygon points={hex(30)} fill={isNext ? c.card2 : '#141417'} stroke={isNext ? c.accent : c.line} strokeOpacity={isNext ? 0.6 : 1}
+            <Polygon points={hex(30)} fill={isNext ? c.card2 : c.card} stroke={isNext ? c.accent : c.line} strokeOpacity={isNext ? 0.6 : 1}
               strokeWidth={isNext ? 1.5 : 2} strokeLinejoin="round" />
           )}
         </Svg>
@@ -200,8 +200,8 @@ function Medal({ b, isNext, fresh, picked, onPress }: { b: Badge; isNext: boolea
           color={b.got ? '#1A1408' : isNext ? c.accent : c.dim} />
       </Animated.View>
       <T v="small" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
-        color={picked ? c.text : b.got ? '#C8C8CE' : c.muted} style={{ textAlign: 'center' }}>{b.title}</T>
-      <T v="label" numberOfLines={1} color={isNext ? c.accent : b.got ? '#8E8E93' : c.dim} style={{ fontSize: 11, lineHeight: 14, textAlign: 'center' }}>
+        color={picked ? c.text : b.got ? c.soft : c.muted} style={{ textAlign: 'center' }}>{b.title}</T>
+      <T v="label" numberOfLines={1} color={isNext ? c.accent : b.got ? c.muted : c.dim} style={{ fontSize: 11, lineHeight: 14, textAlign: 'center' }}>
         {isNext ? `${b.have.toLocaleString()} of ${b.need.toLocaleString()}` : TIER_NAME[tier]}
       </T>
     </Tap>

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import Svg, { Circle, Line, Polyline, Rect } from 'react-native-svg';
-import { c } from './theme';
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Polyline, Rect, Stop } from 'react-native-svg';
+import { c, tint } from './theme';
 import { T } from './ui';
 
 // Each chart measures its own width with onLayout and draws nothing until it knows it, so there is no fixed-width guess.
+let charts = 0; // unique gradient ids: several charts can share a page
 const clamp = (v: number, a: number, b: number) => Math.min(Math.max(v, a), Math.max(a, b));
 
 // Line trend with an optional dashed goal line, dots, and the last value labelled.
@@ -12,6 +13,7 @@ export function LineChart({ values, goal, height = 120, color = c.accent, fmt = 
   values: number[]; goal?: number; height?: number; color?: string; fmt?: (v: number) => string;
 }) {
   const [w, setW] = useState(0);
+  const [id] = useState(() => `area${charts++}`);
   if (!values.length) return null;
   const all = goal === undefined ? values : [...values, goal];
   const lo0 = Math.min(...all), hi0 = Math.max(...all);
@@ -27,10 +29,20 @@ export function LineChart({ values, goal, height = 120, color = c.accent, fmt = 
         <>
           <Svg width={w} height={height}>
             {goal !== undefined && <Line x1={0} x2={w} y1={y(goal)} y2={y(goal)} stroke={c.warm} strokeDasharray="6 6" strokeWidth={1.5} />}
+            {/* A soft wash under the line in the chart's own colour. */}
+            <Defs>
+              <LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={color} stopOpacity={c.scheme === 'light' ? 0.18 : 0.28} />
+                <Stop offset="1" stopColor={color} stopOpacity={0} />
+              </LinearGradient>
+            </Defs>
+            {values.length > 1 && (
+              <Path d={`M${x(0)},${height} ${values.map((v, i) => `L${x(i)},${y(v)}`).join(' ')} L${x(last)},${height} Z`} fill={`url(#${id})`} />
+            )}
             {values.length > 1 && (
               <Polyline points={values.map((v, i) => `${x(i)},${y(v)}`).join(' ')} fill="none" stroke={color} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
             )}
-            {values.map((v, i) => <Circle key={i} cx={x(i)} cy={y(v)} r={i === last ? 5 : 3} fill={color} />)}
+            {values.map((v, i) => <Circle key={i} cx={x(i)} cy={y(v)} r={i === last ? 5 : 3} fill={i === last ? color : c.card} stroke={color} strokeWidth={i === last ? 0 : 2} />)}
           </Svg>
           <T v="small" color={color} style={{ position: 'absolute', width: 80, textAlign: 'center', left: clamp(x(last) - 40, 0, w - 80), top: clamp(y(values[last]) - 26, 0, height - 18) }}>
             {fmt(values[last])}
@@ -60,7 +72,7 @@ export function Bars({ items, height = 110, color = c.accent, goal, now }: { ite
             {items.map((it, i) => {
               if (i > last) return <Rect key={i} x={i * slot + gap / 2} y={height - 10} width={Math.max(2, slot - gap)} height={10} rx={5} fill="none" stroke={c.line} strokeDasharray="3 3" />;
               const h = it.value > 0 ? Math.max(4, (it.value / max) * height) : 0;
-              return <Rect key={i} x={i * slot + gap / 2} y={height - h} width={Math.max(2, slot - gap)} height={h} rx={6} fill={i === last ? color : c.dim} />;
+              return <Rect key={i} x={i * slot + gap / 2} y={height - h} width={Math.max(2, slot - gap)} height={h} rx={6} fill={i === last ? color : tint(color, c.scheme === 'light' ? 3.5 : 2.6)} />;
             })}
           </Svg>
           {items.map((it, i) => (

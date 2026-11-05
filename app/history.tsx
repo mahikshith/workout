@@ -12,7 +12,7 @@ import { sessionMinutes } from '../src/glance';
 import { CountUp, EASE, Header, useMiniBarSpace } from '../src/kit';
 import { useStore } from '../src/store';
 import { mergedFor, useTracker } from '../src/tracker';
-import { c, f, r } from '../src/theme';
+import { c, dom, f, r } from '../src/theme';
 import { Card, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb, Tile } from '../src/ui';
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -106,11 +106,11 @@ export default function History() {
                 {cells.map((d, i) => {
                   if (!d) return <View key={`e${i}`} style={s.cell} />;
                   const k = dayKey(d), n = setsOn(k), did = !!byDay[k], on = k === day, today = k === dayKey();
-                  const tint = !did ? undefined : n >= 16 || n === 0 ? c.accent : n >= 8 ? c.accent + 'CC' : c.accent + '88';
+                  const tint = !did ? undefined : n >= 16 || n === 0 ? dom.train : n >= 8 ? dom.train + 'CC' : dom.train + '99';
                   return (
                     <Tap key={k} onPress={() => pickDay(k)} style={s.cell} scale={0.9} feedback="none">
                       <View style={[s.dayDot, tint ? { backgroundColor: tint } : null, on && { borderColor: c.text, borderWidth: 1.5 }, today && !did && { backgroundColor: c.card2 }]}>
-                        <T v="small" color={did ? c.accentInk : d.getTime() > Date.now() ? c.dim : c.text}>{d.getDate()}</T>
+                        <T v="small" color={did ? (n >= 8 || n === 0 ? c.accentInk : c.text) : d.getTime() > Date.now() ? c.dim : c.text}>{d.getDate()}</T>
                       </View>
                     </Tap>
                   );

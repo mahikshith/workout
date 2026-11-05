@@ -20,7 +20,7 @@ import { Banner, Chip, ListRow, Row, T, Tap, Thumb } from '../src/ui';
 type Icon = keyof typeof Ionicons.glyphMap;
 const LEVELS = ['beginner', 'intermediate', 'expert'] as const;
 const LV: Record<string, number> = { beginner: 0, intermediate: 1, expert: 2 };
-const LINE = '#26262C'; // a quiet 1 px edge so blocks and rows read as separate without standing out
+const LINE = c.line; // a quiet 1 px edge so blocks and rows read as separate without standing out
 const NONE: string[] = [];
 const ALL = 'All';
 const FIT_COLOR: Record<Fit['level'], string> = { great: c.ok, ok: c.muted, later: c.warm };
@@ -214,7 +214,8 @@ export default function Library() {
         {kits.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
             {[ALL, ...kits].map((k) => {
-              const col = k === ALL ? c.accent : Object.values(EQUIP).find((x) => x.label === k)?.color;
+              const key = Object.keys(EQUIP).find((e) => EQUIP[e].label === k);
+              const col = k === ALL ? c.accent : key ? equip(key).color : undefined; // equip() deepens the colour in light mode
               return <Chip key={k} label={k === ALL ? 'All equipment' : k} on={kit === k} color={col} onPress={() => setKit(k)} />;
             })}
           </ScrollView>

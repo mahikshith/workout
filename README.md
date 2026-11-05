@@ -10,6 +10,11 @@ Every push to `main` builds a fresh APK. Download `gym-buddy.apk` from the
 [latest release](https://github.com/mahikshith/workout/releases/tag/latest) and open it on your phone
 (allow installs from your browser when Android asks).
 
+## Guide
+
+How the app works, with screenshots: [docs/guide](docs/guide/README.md) (journeys, every feature, where the data
+comes from, and how to connect Fitbit, WHOOP and other watches).
+
 ## What's inside
 
 - **Onboarding** that asks name, gender, age, height, weight, goal, experience, where you train,

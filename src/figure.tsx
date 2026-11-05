@@ -101,7 +101,11 @@ export function Figure({ pose, primary, secondary, height, width, paused }: {
   const axis = pose.guide?.axis ?? (['pelvis', 'neck'] as [Key, Key]);
 
   return (
-    <Svg width={width ?? '100%'} height={height} viewBox={box.join(' ')} preserveAspectRatio="xMidYMid meet">
+    // The viewBox always starts at 0,0 and the drawing is moved into it by the <G> below. react-native-svg's native
+    // viewBox maths (Android and iOS) offsets a non-zero origin by the x/y scale from before the "meet" fit, so a frame
+    // starting at x = -56 drew the lunge ~150 px right of centre on a phone, half off the pane, while browsers (and so
+    // every web check) drew it centred. With the origin at 0 that offset is 0 and every renderer agrees.
+    <Svg width={width ?? '100%'} height={height} viewBox={`0 0 ${box[2]} ${box[3]}`} preserveAspectRatio="xMidYMid meet">
       <Defs>
         <LinearGradient id={uid + 'N'} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor="#404047" />
@@ -116,8 +120,8 @@ export function Figure({ pose, primary, secondary, height, width, paused }: {
           <Stop offset="1" stopColor="#000" stopOpacity={0} />
         </RadialGradient>
       </Defs>
-      {flat && <Line x1={box[0] - 400} x2={box[0] + box[2] + 400} y1={0.4} y2={0.4} stroke={c.line} strokeWidth={0.9} />}
-      <G>
+      <G transform={`translate(${-box[0]} ${-box[1]})`}>
+        {flat && <Line x1={box[0] - 400} x2={box[0] + box[2] + 400} y1={0.4} y2={0.4} stroke={c.line} strokeWidth={0.9} />}
         {flat && <Shadow fr={fr} fill={`url(#${uid}S)`} />}
         {flat && <Balance fr={fr} top={box[1]} />}
         <Scenery pose={pose} b={b} top={box[1]} />

@@ -203,7 +203,7 @@ function Section({ i, children }: { i: number; children: ReactNode }) {
 }
 
 const On = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
-  <Switch value={value} onValueChange={onChange} trackColor={{ true: c.accent, false: c.card2 }} thumbColor={c.text} ios_backgroundColor={c.card2} />
+  <Switch value={value} onValueChange={onChange} trackColor={{ true: c.accent, false: c.card2 }} thumbColor="#FFFFFF" ios_backgroundColor={c.card2} />
 );
 
 function Toggle({ title, sub, value, onChange }: { title: string; sub: string; value: boolean; onChange: (v: boolean) => void }) {

@@ -67,12 +67,12 @@ export function Sheet({ open, onClose, children }: { open: boolean; onClose: () 
 }
 
 const s = StyleSheet.create({
-  scrim: { backgroundColor: 'rgba(0,0,0,0.45)' },
+  scrim: { backgroundColor: c.scrim },
   kav: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'flex-end' },
   sheet: {
     maxHeight: '92%', backgroundColor: c.card, paddingHorizontal: 20, paddingTop: 0,
     borderTopLeftRadius: r.xl + 4, borderTopRightRadius: r.xl + 4, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line,
   },
   grab: { height: 30, marginHorizontal: -20, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#3A3A40' },
+  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: c.handle },
 });

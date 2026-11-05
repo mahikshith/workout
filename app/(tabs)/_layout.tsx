@@ -8,7 +8,7 @@ import { fmtTime } from '../../src/calc';
 import { TAB_BAR_HEIGHT, useElapsed, useToday } from '../../src/kit';
 import { useStore } from '../../src/store';
 import { Tap } from '../../src/ui';
-import { c, f } from '../../src/theme';
+import { c, f, tint } from '../../src/theme';
 
 // Four labelled tabs with the Start button in the middle (docs/REDESIGN.md, section 2). Profile, settings and
 // Watch & health open from the avatar at the top of every tab.
@@ -49,7 +49,10 @@ function Bar({ state, navigation }: BottomTabBarProps) {
     return (
       <Tap key={route.key} onPress={press} style={s.item} scale={0.92} feedback="none"
         accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={t.label}>
-        <Ionicons name={on ? t.icon : (`${t.icon}-outline` as keyof typeof Ionicons.glyphMap)} size={22} color={on ? c.accent : c.muted} />
+        {/* Material 3 style: the selected tab's icon sits in a soft pill of the accent. */}
+        <View style={[s.pill, on && { backgroundColor: tint(c.accent, 1.3) }]}>
+          <Ionicons name={on ? t.icon : (`${t.icon}-outline` as keyof typeof Ionicons.glyphMap)} size={22} color={on ? c.accent : c.muted} />
+        </View>
         <Text style={[s.label, { color: on ? c.accent : c.muted }]}>{t.label}</Text>
       </Tap>
     );
@@ -66,7 +69,7 @@ function Bar({ state, navigation }: BottomTabBarProps) {
         <Tap onPress={today.start} style={s.item} scale={0.92} feedback="none"
           accessibilityLabel={running ? `Resume workout, ${fmtTime(elapsed)}` : 'Start workout'}>
           <View style={s.slot}>
-            <View style={[s.centre, { backgroundColor: c.accent }]}>
+            <View style={[s.centre, { backgroundColor: c.accent, shadowOpacity: c.scheme === 'light' ? 0.18 : 0.5 }]}>
               {running ? (
                 <Text style={[s.centreTime, { color: c.accentInk }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{fmtTime(elapsed)}</Text>
               ) : (
@@ -108,18 +111,19 @@ export default function TabsLayout() {
 
 const s = StyleSheet.create({
   bar: {
-    flexDirection: 'row', alignItems: 'flex-start', paddingTop: 6, backgroundColor: '#111113',
+    flexDirection: 'row', alignItems: 'flex-start', paddingTop: 6, backgroundColor: c.bar,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line,
   },
-  item: { flex: 1, height: 52, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  item: { flex: 1, height: 52, alignItems: 'center', justifyContent: 'center', gap: 1 },
   label: { fontFamily: f.semi, fontSize: 11 },
-  // The slot is as tall as a rendered 22 px tab icon (24), so the label below sits on the same line as the others
+  pill: { width: 56, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  // The slot is as tall as a tab icon in its pill (28), so the label below sits on the same line as the others
   // (measured: all five label tops equal). The circle (44 + a 4 px ring in the bar colour) stands on the slot's bottom
   // and rises about 16 px above the bar; CENTRE_RISE in ui.tsx lifts the mini bar by the same amount.
-  slot: { width: 64, height: 24, alignItems: 'center', justifyContent: 'flex-end' },
+  slot: { width: 64, height: 28, alignItems: 'center', justifyContent: 'flex-end' },
   centre: {
     position: 'absolute', bottom: 0, width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 4, borderColor: '#111113', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 10,
+    borderWidth: 4, borderColor: c.bar, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 10,
   },
   centreTime: { fontFamily: f.bold, fontSize: 13, fontVariant: ['tabular-nums'], maxWidth: 42, textAlign: 'center' },
 });
