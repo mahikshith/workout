@@ -187,6 +187,13 @@ export function base(pose: Pose): Pts {
   return o;
 }
 
+// Declared before solve(): Reanimated compiles worklets to consts, so a worklet must exist before one that calls it.
+// Bike crank from the base pose (feet on opposite pedals): centre, radius, and the near pedal's starting angle.
+export function crankOf(b: Pts): [[number, number], number, number] {
+  'worklet';
+  const c: [number, number] = [(b.an0[0] + b.an1[0]) / 2, (b.an0[1] + b.an1[1]) / 2];
+  return [c, Math.hypot(b.an0[0] - c[0], b.an0[1] - c[1]), angle(c, b.an0)];
+}
 // breath (-1..1) lifts the shoulders a touch; nod tilts the head (head follow).
 export function solve(pose: Pose, b: Pts, p: number, breath = 0, nod = 0): Pts {
   'worklet';
@@ -1042,12 +1049,6 @@ export function shadowOf(o: Pts): [number, number, number] {
   const c = sx / sw, rx = ((x1 - x0) / 2 + 10) * (1 - Math.min(0.5, up / 50));
   const l = Math.max(c - rx, x0 - 6), r = Math.min(c + rx, x1 + 6); // weighted centre, but never past the body's own ends
   return [(l + r) / 2, (r - l) / 2, 0.6 * Math.max(0.25, 1 - up / 25)];
-}
-// Bike crank from the base pose (feet on opposite pedals): centre, radius, and the near pedal's starting angle.
-export function crankOf(b: Pts): [[number, number], number, number] {
-  'worklet';
-  const c: [number, number] = [(b.an0[0] + b.an1[0]) / 2, (b.an0[1] + b.an1[1]) / 2];
-  return [c, Math.hypot(b.an0[0] - c[0], b.an0[1] - c[1]), angle(c, b.an0)];
 }
 // The turning crank: two arms from the centre to the pedals (under the ankles), and the pedals.
 export function crankPrims(o: Pts): Prim[] {

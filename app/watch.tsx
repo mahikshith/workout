@@ -1,15 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dayKey } from '../src/calc';
-import {
-  connect, disconnect, forgetStrap, HC_PLAY_URL, HC_PLAY_WEB, isAvailable, READ_TYPES, requestPermissions, startScan, stopScan, sync,
-  useBle, type Found, type HcStatus,
-} from '../src/health';
+import { connect, disconnect, forgetStrap, READ_TYPES, startScan, stopScan, sync, useBle, type Found } from '../src/health';
 import { ColmiCard } from '../src/health/ColmiCard';
+import { ConnectWatch } from '../src/health/ConnectWatch';
+import { originName, PHONE_ORIGINS, type Alt } from '../src/health/guides';
 import { appsLine, commitApps, importFiles, pickFiles, summaryLine } from '../src/health/importFile';
 import type { AppPlan } from '../src/importApps';
 import { useLiveHr } from '../src/health/live';
@@ -85,7 +84,7 @@ export default function Watch() {
   // Opened from the Body & watch chart: the glance goes back to it instead of pushing another copy.
   const fromChart = useLocalSearchParams<{ from?: string }>().from === 'chart';
   const bpm = useLiveHr();
-  const [status, setStatus] = useState<HcStatus | 'checking'>(ANDROID ? 'checking' : 'unavailable');
+  const [flowOpen, setFlowOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -93,19 +92,21 @@ export default function Watch() {
   const [imported, setImported] = useState<{ line: string; ok: boolean } | null>(null);
   const [appPlan, setAppPlan] = useState<AppPlan[] | null>(null); // a Strong/Hevy/FitNotes CSV waiting for Import
 
-  useEffect(() => { if (ANDROID) isAvailable().then(setStatus); }, []);
   useEffect(() => { if (!scanOpen) stopScan(); }, [scanOpen]);
 
   const runSync = async () => {
     setSyncing(true);
     try { await sync(); } finally { setSyncing(false); }
   };
-  const connectHc = async () => {
-    const granted = await requestPermissions().catch(() => [] as string[]);
-    if (granted.some((g) => !g.startsWith('write:'))) await runSync();
-  };
-  const install = () => Linking.openURL(HC_PLAY_URL).catch(() => Linking.openURL(HC_PLAY_WEB));
   const pair = () => { setScanOpen(true); startScan(); };
+  // From the Connect your watch flow: its sheet closes first (240 ms), then the next sheet opens, never two at once.
+  const scroll = useRef<ScrollView>(null);
+  const ringY = useRef(0);
+  const onAlt = (a: Alt) => {
+    if (a === 'strap') setTimeout(pair, 300);
+    else if (a === 'import') setTimeout(() => setImportOpen(true), 300);
+    else if (a === 'ring') setTimeout(() => scroll.current?.scrollTo({ y: Math.max(0, ringY.current - 16), animated: !still }), 300);
+  };
   const chooseFile = async () => {
     const assets = await pickFiles().catch(() => null);
     if (!assets) return;
@@ -128,6 +129,12 @@ export default function Watch() {
   };
 
   const today = daily[dayKey()];
+  // The watch apps that shared data in the last 7 days, by name: "From Google Health".
+  const from = useMemo(() => {
+    const since = dayKey(new Date(Date.now() - 6 * 86400000));
+    const o = new Set(Object.values(daily).filter((d) => d.date >= since).flatMap((d) => d.origin ?? []));
+    return [...o].filter((x) => !PHONE_ORIGINS.includes(x)).map(originName);
+  }, [daily]);
   const on = READ_TYPES.filter((t) => hc.granted.includes(t.type)).map((t) => t.label);
   // One glance at today's numbers; their home is Progress › Body & watch (opened with from=watch so it links back here).
   const sleep = latest(daily, 'sleep', 1);
@@ -150,7 +157,7 @@ export default function Watch() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Header title="Watch & health" />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: ins.bottom + 40 + mini, gap: 12 }} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scroll} contentContainerStyle={{ padding: 16, paddingBottom: ins.bottom + 40 + mini, gap: 12 }} showsVerticalScrollIndicator={false}>
         {!ANDROID && (
           <View style={[s.note, { borderColor: c.blue + '55' }]}>
             <Ionicons name="phone-portrait-outline" size={18} color={c.blue} />
@@ -158,13 +165,15 @@ export default function Watch() {
           </View>
         )}
 
-        {/* Health Connect */}
+        {/* Your watch: one primary button opens the guided Connect your watch sheet (brand, steps, check) */}
         <Animated.View entering={enter(0)} style={s.card}>
           <View style={s.row}>
-            <IconBox icon="heart-circle" color={c.blue} />
+            <IconBox icon="watch-outline" color={c.blue} />
             <View style={{ flex: 1 }}>
-              <T v="h3">Health Connect</T>
-              <T v="small" numberOfLines={2}>Fitbit, Pixel, Samsung, Garmin, Whoop, Amazfit, Oura</T>
+              <T v="h3">Your watch</T>
+              <T v="small" numberOfLines={2}>
+                {hc.connected ? (from.length ? `From ${from.join(', ')}` : 'Health Connect on') : 'Fitbit, Pixel, Samsung, Garmin, WHOOP, Oura and more'}
+              </T>
             </View>
             {hc.connected && <Ionicons name="checkmark-circle" size={22} color={c.ok} />}
           </View>
@@ -180,40 +189,35 @@ export default function Watch() {
               <T v="small" numberOfLines={3}>{on.length ? on.join(' · ') : 'No data types on'}</T>
             </View>
           ) : (
-            <T v="small">Reads steps, sleep and heart rate · saves workouts back</T>
+            <T v="small">Steps, sleep and heart rate through Health Connect · no Bluetooth pairing</T>
           )}
 
           {hc.connected ? (
-            <View style={s.row}>
-              <Button kind="ghost" title="Sync now" icon="refresh" onPress={runSync} disabled={syncing} style={{ flex: 1, height: 48 }} />
-              <DisconnectHc disabled={syncing} />
-            </View>
-          ) : status === 'not_installed' || status === 'needs_update' ? (
-            <Button title={status === 'needs_update' ? 'Update Health Connect' : 'Install Health Connect'} icon="download-outline" onPress={install} />
+            <>
+              <View style={s.row}>
+                <Button kind="ghost" title="Sync now" icon="refresh" onPress={runSync} disabled={syncing} style={{ flex: 1, height: 48 }} />
+                <DisconnectHc disabled={syncing} />
+              </View>
+              <Tap onPress={() => setFlowOpen(true)} style={{ alignSelf: 'flex-start', paddingVertical: 4 }} scale={0.97} accessibilityLabel="Check or add a watch">
+                <T v="small" color={c.blue}>Check or add a watch</T>
+              </Tap>
+            </>
           ) : (
-            <Button title="Connect" onPress={connectHc} disabled={!ANDROID || status !== 'available' || syncing} />
+            <Button title="Connect your watch" icon="watch-outline" onPress={() => setFlowOpen(true)} />
           )}
-        </Animated.View>
-
-        <Animated.View entering={enter(1)} style={[s.note, { borderColor: c.line, alignItems: 'flex-start' }]}>
-          <Ionicons name="information-circle-outline" size={18} color={c.muted} style={{ marginTop: 1 }} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <T v="small" color={c.text}>Gadgetbridge: turn on all three</T>
-            <T v="small">1. Health Connect on, in its settings</T>
-            <T v="small">2. Your watch ticked in its device list</T>
-            <T v="small">3. Sync on new data</T>
-            <T v="small">Data shows up about 10 s after the watch syncs</T>
-            <T v="small">NOOP, OpenStrap, openScale: turn on Health Connect sync</T>
-          </View>
         </Animated.View>
 
         {/* Today's numbers: one glance that opens their home, Progress › Body & watch */}
         {hc.connected && (syncing ? <Shimmer height={72} /> : (
-          <Animated.View entering={enter(2)}>
+          <Animated.View entering={enter(1)}>
             <DoorCard icon="stats-chart" color={c.blue} title="Today's numbers" meta={glance || 'Waiting for the next sync'}
               onPress={() => (fromChart ? goBack() : router.push({ pathname: '/chart/[kind]', params: { kind: 'body', from: 'watch' } }))} />
           </Animated.View>
         ))}
+
+        <Animated.View entering={enter(2)} style={{ paddingHorizontal: 4, paddingTop: 12 }}>
+          <T v="label">More ways</T>
+        </Animated.View>
 
         {/* Heart-rate strap */}
         <Animated.View entering={enter(3)} style={s.card}>
@@ -242,13 +246,13 @@ export default function Watch() {
         </Animated.View>
 
         <Animated.View entering={enter(4)} style={{ gap: 6, paddingHorizontal: 4 }}>
-          <T v="small">Works with Polar, Wahoo, Garmin and WHOOP "Broadcast heart rate", PineTime, Bangle.js</T>
-          <T v="small">WHOOP: turn on Broadcast Heart Rate in the WHOOP app</T>
+          <T v="small">Chest straps, plus Garmin, WHOOP, Polar and Huawei in heart-rate broadcast mode</T>
+          <T v="small">Fitbit and Samsung watches don't pair here. Use Connect your watch</T>
           <T v="small">Connects but no heart rate? Its broadcast mode is probably off</T>
         </Animated.View>
 
         {/* Colmi smart ring (R02/R06/R10): steps, heart-rate log, battery, live HR in workouts */}
-        <Animated.View entering={enter(5)}><ColmiCard /></Animated.View>
+        <Animated.View entering={enter(5)} onLayout={(e) => { ringY.current = e.nativeEvent.layout.y; }}><ColmiCard /></Animated.View>
 
         {/* Import history from a file: works on every platform, web included */}
         <Animated.View entering={enter(6)}>
@@ -261,7 +265,22 @@ export default function Watch() {
             <Ionicons name="chevron-forward" size={18} color={c.dim} />
           </Tap>
         </Animated.View>
+
+        {/* Gadgetbridge (and NOOP, OpenStrap, openScale): their Health Connect switches */}
+        <Animated.View entering={enter(6)} style={[s.note, { borderColor: c.line, alignItems: 'flex-start' }]}>
+          <Ionicons name="information-circle-outline" size={18} color={c.muted} style={{ marginTop: 1 }} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <T v="small" color={c.text}>Gadgetbridge: turn on all three</T>
+            <T v="small">1. Health Connect export on, in its settings</T>
+            <T v="small">2. Your watch ticked under Select devices</T>
+            <T v="small">3. Sync after device sync</T>
+            <T v="small">Data shows up about 10 s after the watch syncs</T>
+            <T v="small">NOOP, OpenStrap, openScale: turn on Health Connect sync</T>
+          </View>
+        </Animated.View>
       </ScrollView>
+
+      <ConnectWatch open={flowOpen} onClose={() => setFlowOpen(false)} onAlt={onAlt} />
 
       <Sheet open={scanOpen} onClose={() => setScanOpen(false)}>
         <View style={{ gap: 12 }}>
@@ -277,6 +296,7 @@ export default function Watch() {
               <Signal rssi={d.rssi} />
             </Tap>
           ))}
+          {ble.status !== 'scanning' && ble.found.length === 0 && <T v="small">Only straps and watches in broadcast mode show here</T>}
           {ble.status !== 'scanning' && <Button kind="ghost" title="Scan again" icon="refresh" onPress={() => startScan()} />}
         </View>
       </Sheet>

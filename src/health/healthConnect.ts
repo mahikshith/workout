@@ -380,6 +380,49 @@ export async function disconnect(removeWritten = false): Promise<void> {
   try { await m.revokeAllPermissions(); } catch {}
 }
 
-export function openHcSettings() {
-  try { hc()?.openHealthConnectSettings(); } catch {}
+export function openHcSettings(): boolean {
+  const m = hc();
+  if (!m) return false;
+  try { m.openHealthConnectSettings(); return true; } catch { return false; }
+}
+
+// What the "Connect your watch" check reads: a few key types, newest first, one small page each.
+const CHECK_TYPES: { type: RecordType; label: string }[] = [
+  { type: 'Steps', label: 'steps' },
+  { type: 'SleepSession', label: 'sleep' },
+  { type: 'HeartRate', label: 'heart rate' },
+  { type: 'RestingHeartRate', label: 'resting HR' },
+  { type: 'ExerciseSession', label: 'workouts' },
+  { type: 'Weight', label: 'weight' },
+];
+
+export type DataCheck = {
+  granted: number; // read types allowed
+  sources: { origin: string; types: string[] }[]; // apps that wrote data in the window, most types first
+};
+
+// After "Allow access": which apps have shared what in the last `days` days, by each record's data origin. Our own
+// written-back workouts are left out. Null when Health Connect can't be reached (web, iOS, not installed).
+export async function checkData(days = 7): Promise<DataCheck | null> {
+  const m = await ready();
+  if (!m) return null;
+  const granted = await grantedNow(m);
+  const timeRangeFilter = { operator: 'between' as const, startTime: new Date(Date.now() - days * 86400000).toISOString(), endTime: new Date().toISOString() };
+  const by: Record<string, string[]> = {};
+  for (const t of CHECK_TYPES) {
+    if (!granted.includes(t.type)) continue;
+    try {
+      const res = await m.readRecords(t.type, { timeRangeFilter, pageSize: 200, ascendingOrder: false });
+      for (const rec of res.records) {
+        const md = rec.metadata;
+        if (!md?.dataOrigin || md.clientRecordId?.startsWith(CLIENT_PREFIX)) continue;
+        const list = (by[md.dataOrigin] ??= []);
+        if (!list.includes(t.label)) list.push(t.label);
+      }
+    } catch (e) {
+      if (__DEV__) console.warn('health connect check', e);
+    }
+  }
+  const sources = Object.entries(by).map(([origin, types]) => ({ origin, types })).sort((a, b) => b.types.length - a.types.length);
+  return { granted: granted.filter((k) => !k.startsWith('write:') && k !== 'ReadHealthDataHistory').length, sources };
 }
