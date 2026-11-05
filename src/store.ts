@@ -52,9 +52,10 @@ export type SetLog = { reps: number; weight: number; done: boolean };
 export type Item = { exId: string; target: string; rest: number; sets: SetLog[]; swappedFrom?: string };
 // A workout opens ready (running false) so it can be looked through; begin() starts the clock. pausedAt is set while paused; pausedMs adds up finished
 // pauses. idx is the exercise on screen, and restUntil/restTotal the rest timer, kept here (not in the screen) so the
-// mini bar can show them while the workout is minimised.
+// mini bar can show them while the workout is minimised. restFrom is the exercise whose set started the rest (the screen
+// moves on from it when the rest ends), lastAt when the last set was logged (a workout left open for hours saves itself).
 export type Session = { id: string; title: string; planId?: string; dayIndex?: number; place: Place; startedAt: number; endedAt?: number; items: Item[];
-  running?: boolean; pausedAt?: number; pausedMs?: number; idx?: number; restUntil?: number; restTotal?: number;
+  running?: boolean; pausedAt?: number; pausedMs?: number; idx?: number; restUntil?: number; restTotal?: number; restFrom?: number; lastAt?: number;
   source?: 'strong' | 'hevy' | 'fitnotes' | 'gymbuddy' }; // set on sessions imported from another app's CSV
 // A day the person excused from training (one tap on Today): the missed-workout nudge skips it and doesn't count it.
 export type Excuse = 'sick' | 'travel' | 'rest';
@@ -105,12 +106,17 @@ type State = {
   removeSet: (i: number, j: number) => void;
   swap: (i: number, exId: string) => void;
   addItem: (exId: string) => void;
+  moveItem: (i: number, by: -1 | 1) => void;
+  removeItem: (i: number) => void;
+  setSetCount: (i: number, n: number) => void;
+  replace: (day: Day, place: Place, planId?: string, dayIndex?: number) => void; // Change workout: logged sets stay
   begin: () => void;
   setIdx: (i: number) => void;
-  setRest: (until: number | null, total?: number) => void;
+  setRest: (until: number | null, total?: number, from?: number) => void;
   pause: () => void;
   resume: () => void;
-  finish: () => Session | null;
+  finish: (at?: number) => Session | null; // at: when it ended (a workout left open ends at its last logged set)
+  closeStale: (now?: number) => Session | 'dropped' | null; // saves (or drops) a started workout untouched for 3 hours
   discard: () => void;
   deleteSession: (id: string) => void;
   logWeight: (kg: number) => void;
@@ -157,11 +163,35 @@ function seedSets(exId: string, target: string, sets: number, history: Session[]
   });
 }
 
-// The weekly goal is the plan's own number of training days, so Today's ring and the plan never disagree.
-// One-muscle add-on plans keep the person's own number.
+// A day's exercises, ready to log. Exercises the place can't support, or that are locked for this person (level or
+// safety), are replaced up front by the best alternative that is allowed. A plan day passed as written (not already set
+// for this week) gets this week's sets and reps, the same numbers the plan page shows.
+function itemsFor(st: Pick<State, 'sessions' | 'profile' | 'planStart' | 'planId'>, day: Day, place: Place, planId?: string, dayIndex?: number): Item[] {
+  const { sessions, profile, planStart } = st;
+  const gear = profile?.gear ?? [];
+  const plan = planId ? planById[planId] : undefined;
+  if (plan && dayIndex !== undefined && plan.days[dayIndex] === day)
+    day = phasedDay(plan, dayIndex, planWeek(plan, planId === st.planId ? planStart : undefined, sessions));
+  return order(day.slots).map((sl) => {
+    let ex = byId[sl.id];
+    let swappedFrom: string | undefined;
+    const ok = (e: typeof ex) => available(e, place, gear) && !gate(e, profile, sessions.length).locked;
+    if (!ok(ex)) {
+      const alt = alternatives(ex, place, gear, 12).find(ok);
+      if (alt) { swappedFrom = ex.id; ex = alt; }
+    }
+    return { exId: ex.id, target: sl.reps, rest: sl.rest, sets: seedSets(ex.id, sl.reps, sl.sets, sessions, profile), swappedFrom };
+  });
+}
+const STALE_MS = 3 * 3600000;
+
+// The weekly goal is the number of days the person chose. Setup and the planner always pick a plan with exactly that
+// many days (src/planner.ts), so nothing changes then. Only a plan picked by hand with a different number of days moves
+// the goal to that plan's days, so Today's ring and the plan agree. One-muscle add-on plans keep the person's own number.
 const daysFor = (p: Profile, planId: string) => {
   const plan = planById[planId];
-  return plan && plan.category !== 'One muscle' ? { ...p, daysPerWeek: perWeek(plan) } : p;
+  if (!plan || plan.category === 'One muscle' || perWeek(plan) === p.daysPerWeek) return p;
+  return { ...p, daysPerWeek: perWeek(plan) };
 };
 
 // Guest defaults: the app is usable straight away and personalizes once the user fills these in.
@@ -188,7 +218,7 @@ export const useStore = create<State>()(
         set((s) => {
           const fresh = !!planId && (planId !== s.planId || !s.planStart);
           return {
-            profile: planId ? daysFor(p, planId) : p,
+            profile: p, // the days chosen in setup or Profile stay the weekly goal, whatever plan comes with them
             planId: planId ?? s.planId,
             planStart: fresh ? Date.now() : s.planStart,
             nextDay: planId && planId !== s.planId ? 0 : s.nextDay,
@@ -200,26 +230,19 @@ export const useStore = create<State>()(
       // Exercises the place can't support, or that are locked for this person (level or safety), are replaced
       // up front by the best alternative that is allowed.
       start: (day, place, planId, dayIndex) => {
-        const { sessions, profile, active, planStart } = get();
-        if (active) return; // an unfinished workout is resumed, never silently replaced
-        const gear = profile?.gear ?? [];
-        // A plan day passed as written (not already set for this week) gets this week's sets and reps, the same
-        // numbers the plan page shows.
-        const plan = planId ? planById[planId] : undefined;
-        if (plan && dayIndex !== undefined && plan.days[dayIndex] === day)
-          day = phasedDay(plan, dayIndex, planWeek(plan, planId === get().planId ? planStart : undefined, sessions));
-        const items = order(day.slots).map((sl) => {
-          let ex = byId[sl.id];
-          let swappedFrom: string | undefined;
-          const ok = (e: typeof ex) => available(e, place, gear) && !gate(e, profile, sessions.length).locked;
-          if (!ok(ex)) {
-            const alt = alternatives(ex, place, gear, 12).find(ok);
-            if (alt) { swappedFrom = ex.id; ex = alt; }
-          }
-          return { exId: ex.id, target: sl.reps, rest: sl.rest, sets: seedSets(ex.id, sl.reps, sl.sets, sessions, profile), swappedFrom };
-        });
+        if (get().active) return; // an unfinished workout is resumed, never silently replaced
+        const items = itemsFor(get(), day, place, planId, dayIndex);
         // Opens ready (clock not running) so the person can look through the exercises first; begin() starts the clock.
         set({ active: { id: uid(), title: day.name, planId, dayIndex, place, startedAt: Date.now(), items, running: false, idx: 0 } });
+      },
+      // Change workout: another day, a quick session or a different focus. A started workout keeps what was logged
+      // (only the logged sets of those exercises) and the new exercises follow; the clock keeps running.
+      replace: (day, place, planId, dayIndex) => {
+        const a = get().active;
+        if (!a) { get().start(day, place, planId, dayIndex); return; }
+        const kept = a.running === false ? [] : a.items.map((it) => ({ ...it, sets: it.sets.filter((x) => x.done) })).filter((it) => it.sets.length);
+        const items = [...kept, ...itemsFor(get(), day, place, planId, dayIndex)];
+        set({ active: { ...a, title: day.name, planId, dayIndex, place, items, idx: Math.min(kept.length, items.length - 1), restUntil: undefined, restFrom: undefined } });
       },
       startSingle: (exId, place) =>
         set((s) => s.active ? {} : ({
@@ -230,7 +253,7 @@ export const useStore = create<State>()(
         set((s) => {
           if (!s.active) return {};
           const items = s.active.items.map((it, a) => (a !== i ? it : { ...it, sets: it.sets.map((x, b) => (b === j ? { ...x, ...patch } : x)) }));
-          return { active: { ...s.active, items } };
+          return { active: { ...s.active, items, lastAt: patch.done ? Date.now() : s.active.lastAt } };
         }),
       addSet: (i) =>
         set((s) => {
@@ -251,30 +274,82 @@ export const useStore = create<State>()(
       swap: (i, exId) =>
         set((s) => {
           if (!s.active) return {};
-          const items = s.active.items.map((it, a) =>
-            a !== i ? it : { ...it, exId, swappedFrom: it.swappedFrom ?? it.exId, sets: seedSets(exId, it.target, it.sets.length, s.sessions, s.profile) });
-          return { active: { ...s.active, items } };
+          const it = s.active.items[i];
+          if (!it) return {};
+          // Sets already logged stay with the exercise they were done on; the swap takes the sets that are left.
+          const logged = it.sets.filter((x) => x.done);
+          const fresh = { ...it, exId, swappedFrom: it.swappedFrom ?? it.exId, sets: seedSets(exId, it.target, Math.max(1, it.sets.length - logged.length), s.sessions, s.profile) };
+          const items = [...s.active.items.slice(0, i), ...(logged.length ? [{ ...it, sets: logged }] : []), fresh, ...s.active.items.slice(i + 1)];
+          const idx = logged.length && (s.active.idx ?? 0) >= i ? (s.active.idx ?? 0) + 1 : s.active.idx;
+          return { active: { ...s.active, items, idx } };
         }),
       addItem: (exId) =>
         set((s) => s.active ? { active: { ...s.active, items: [...s.active.items, single(exId, s.sessions, s.profile)] } } : {}),
+      // Edit workout. The exercise on screen stays on screen when others move or go.
+      moveItem: (i, by) =>
+        set((s) => {
+          const a = s.active, j = i + by;
+          if (!a || j < 0 || j >= a.items.length) return {};
+          const items = [...a.items];
+          [items[i], items[j]] = [items[j], items[i]];
+          const at = (k?: number) => (k === i ? j : k === j ? i : k);
+          return { active: { ...a, items, idx: at(a.idx ?? 0), restFrom: at(a.restFrom) } };
+        }),
+      removeItem: (i) =>
+        set((s) => {
+          const a = s.active;
+          if (!a || a.items.length < 2 || !a.items[i]) return {};
+          const items = a.items.filter((_, k) => k !== i);
+          const shift = (k?: number) => (k === undefined || k < i ? k : k === i ? undefined : k - 1);
+          const idx = Math.min(items.length - 1, (a.idx ?? 0) > i ? (a.idx ?? 0) - 1 : a.idx ?? 0);
+          return { active: { ...a, items, idx, restFrom: shift(a.restFrom) } };
+        }),
+      // Never below the sets already logged; extra sets copy the last one, and unlogged sets go from the end.
+      setSetCount: (i, n) =>
+        set((s) => {
+          const a = s.active, it = a?.items[i];
+          if (!a || !it) return {};
+          const want = Math.max(1, it.sets.filter((x) => x.done).length, Math.min(12, n));
+          let sets = it.sets;
+          while (sets.length < want) {
+            const last = sets[sets.length - 1] ?? { reps: parseReps(it.target), weight: starterKg(it.exId, s.profile) };
+            sets = [...sets, { reps: last.reps, weight: last.weight, done: false }];
+          }
+          while (sets.length > want) {
+            const k = sets.map((x) => x.done).lastIndexOf(false);
+            if (k < 0) break;
+            sets = sets.filter((_, b) => b !== k);
+          }
+          return { active: { ...a, items: a.items.map((x, k) => (k === i ? { ...x, sets } : x)) } };
+        }),
       begin: () => set((s) => (s.active && !s.active.running ? { active: { ...s.active, running: true, startedAt: Date.now(), pausedAt: undefined, pausedMs: 0 } } : {})),
       setIdx: (i) => set((s) => (s.active ? { active: { ...s.active, idx: Math.max(0, Math.min(i, s.active.items.length - 1)) } } : {})),
-      setRest: (until, total) =>
-        set((s) => (s.active ? { active: { ...s.active, restUntil: until ?? undefined, restTotal: total ?? s.active.restTotal } } : {})),
+      setRest: (until, total, from) =>
+        set((s) => (s.active ? { active: { ...s.active, restUntil: until ?? undefined, restTotal: total ?? s.active.restTotal, restFrom: until ? from ?? s.active.restFrom : undefined } } : {})),
       pause: () => set((s) => (s.active?.running && !s.active.pausedAt ? { active: { ...s.active, pausedAt: Date.now() } } : {})),
       resume: () =>
         set((s) => (s.active?.pausedAt ? { active: { ...s.active, pausedMs: (s.active.pausedMs ?? 0) + Date.now() - s.active.pausedAt, pausedAt: undefined } } : {})),
-      finish: () => {
+      finish: (at) => {
         const { active, sessions, planId, nextDay } = get();
         if (!active) return null;
         const items = active.items.map((it) => ({ ...it, sets: it.sets.filter((x) => x.done) })).filter((it) => it.sets.length);
         if (!items.length) { set({ active: null }); return null; }
-        const end = active.pausedAt ?? Date.now();
-        const done = { ...active, items, endedAt: end, startedAt: active.startedAt + (active.pausedMs ?? 0), pausedAt: undefined, pausedMs: 0, running: false, idx: undefined, restUntil: undefined, restTotal: undefined };
+        const start = active.startedAt + (active.pausedMs ?? 0);
+        const end = Math.max(start + 60000, Math.min(at ?? Infinity, active.pausedAt ?? Date.now()));
+        const done = { ...active, items, endedAt: end, startedAt: start, pausedAt: undefined, pausedMs: 0, running: false, idx: undefined,
+          restUntil: undefined, restTotal: undefined, restFrom: undefined, lastAt: undefined };
         const plan = planById[planId];
         const advance = active.planId === planId && plan ? ((active.dayIndex ?? nextDay) + 1) % plan.days.length : nextDay;
         set({ sessions: [...sessions, done], active: null, nextDay: advance });
         return done;
+      },
+      // A started workout nobody has touched for 3 hours (no set logged since) was left open: it saves with the sets that
+      // were logged, ending a minute after the last one, or goes if nothing was logged.
+      closeStale: (now = Date.now()) => {
+        const a = get().active;
+        if (!a || a.running === false || now - (a.lastAt ?? a.startedAt) < STALE_MS) return null;
+        if (!a.items.some((it) => it.sets.some((x) => x.done))) { set({ active: null }); return 'dropped'; }
+        return get().finish((a.lastAt ?? a.startedAt) + 60000);
       },
       discard: () => set({ active: null }),
       // Imported history goes in date order; a day that already has a workout (ours or an earlier import) is skipped,
@@ -340,9 +415,8 @@ export const useStore = create<State>()(
         const reminders = o.reminders ?? (profile.reminder?.on ? [{ id: 'setup', kind: 'workout' as const, ...profile.reminder, days: [] }] : []);
         // v4: the smooth animated figure becomes the default demo (the old 'drawing' value was only ever the default).
         const mediaPref = !o.mediaPref || o.mediaPref === 'drawing' ? 'animated' : o.mediaPref;
-        // v5: the weekly goal follows the plan's training days.
-        const planId = o.planId ?? initial.planId;
-        return { ...initial, ...o, profile: profile.name ? daysFor(profile, planId) : profile, reminders, mediaPref } as State;
+        // The weekly goal stays the days the person chose; plans are fitted to it (no longer lowered to the plan's days).
+        return { ...initial, ...o, profile, reminders, mediaPref } as State;
       },
     },
   ),

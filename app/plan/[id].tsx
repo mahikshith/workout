@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, View } from 'react-native';
 import { doneNote, doneRecently, doneThisWeek } from '../../src/calc';
+import { explain } from '../../src/coach';
 import { byId, type Place } from '../../src/data/exercises';
 import { perWeek, planById, type Day } from '../../src/data/plans';
 import { planWeek, program, WEEKDAYS } from '../../src/data/program';
@@ -29,7 +30,7 @@ const Line = ({ icon, text, color = c.muted }: { icon: Icon; text: string; color
 );
 
 export default function PlanDetail() {
-  const { id, welcome, preview } = useLocalSearchParams<{ id: string; welcome?: string; preview?: string }>();
+  const { id, welcome, preview, why } = useLocalSearchParams<{ id: string; welcome?: string; preview?: string; why?: string }>();
   const plan = planById[id];
   const planId = useStore((s) => s.planId);
   const profile = useStore((s) => s.profile);
@@ -44,6 +45,8 @@ export default function PlanDetail() {
   const [wk, setWk] = useState(() => (plan && plan.id === planId ? String(planWeek(plan, planStart, sessions) % 4) : '0'));
   if (!plan) return <View style={{ flex: 1, backgroundColor: c.bg }}><Header title="Plan" /><Empty icon="calendar-outline" title="This page is no longer here" action="Back to Today" onPress={toToday} /></View>;
   const goal = goalWeeks(profile);
+  // Welcome: the plan engine's top two reasons. A setup preview passes them (its answers aren't saved yet).
+  const reasons = welcome ? (why ? why.split('\n') : explain(profile, plan.id)).filter(Boolean).slice(0, 2) : [];
   const recent = doneRecently(sessions), doneWeek = doneThisWeek(sessions);
   const isCurrent = plan.id === planId;
   // A setup preview goes back to the plan step; the welcome page after setup goes to Today.
@@ -115,6 +118,12 @@ export default function PlanDetail() {
           {!isCurrent && !welcome && (
             <Button title="Start this plan" icon="checkmark" style={{ marginTop: 16 }} onPress={() => { setPlan(plan.id); leave(); }} />
           )}
+          {welcome && reasons.map((line) => (
+            <Row key={line} gap={8} style={{ marginTop: 10 }}>
+              <Ionicons name="checkmark-circle" size={16} color={c.accent} />
+              <T v="body" numberOfLines={1} style={{ flex: 1 }}>{line}</T>
+            </Row>
+          ))}
           {welcome && (
             <Row gap={8} style={{ marginTop: 12 }}>
               <Ionicons name="sparkles" size={16} color={c.accent} />

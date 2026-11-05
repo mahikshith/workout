@@ -1,4 +1,5 @@
 import type { Place } from './exercises';
+import { variants } from './split';
 
 export type Slot = { id: string; sets: number; reps: string; rest: number };
 export type Day = { name: string; focus: string; slots: Slot[] };
@@ -20,6 +21,12 @@ export type Plan = {
   tips: string[]; // food, protein and supplements in plain words
   week: (number | null)[]; // Monday..Sunday: index into days, null = rest
   weeks: number; // suggested program length
+  // Fitted plans only (src/data/split.ts): the plan it was built from, whether it is the lower-volume beginner version,
+  // how many of its days are light recovery, and the share of its training days that are the base plan's own.
+  base?: string;
+  easy?: boolean;
+  recovery?: number;
+  own?: number;
 };
 
 export const CATEGORIES: Category[] = ['Muscle', 'Strength', 'One muscle', 'Fat loss', 'Cardio', 'Functional', 'Home', 'Women', 'Recovery'];
@@ -583,5 +590,8 @@ export const plans: Plan[] = [
   },
 ];
 
-export const planById = Object.fromEntries(plans.map((p) => [p.id, p]));
+// Plans as written plus every plan fitted to 1-7 days (ids like "ppl-gym~6" or "upper-lower-gym~4b"), so any saved
+// plan id resolves. Only `plans` is listed in Train; fitted plans are reached through the planner (src/planner.ts).
+export const fitted = variants(plans);
+export const planById: Record<string, Plan> = Object.fromEntries([...plans, ...fitted].map((p) => [p.id, p]));
 export const perWeek = (p: Plan) => p.week.filter((d) => d !== null).length;

@@ -16,6 +16,15 @@ const PHASES: { title: string; note: string; slot: (s: Slot) => Slot }[] = [
   { title: 'Push', note: 'Add one set to each lift. Same weights, a little more work.', slot: (s) => ({ ...s, sets: Math.min(5, s.sets + 1), reps: addRep(s.reps) }) },
   { title: 'Deload', note: 'Easy week: one set less and lighter weights so your body catches up. Then start again a little heavier.', slot: (s) => ({ ...s, sets: Math.max(1, s.sets - 1) }) },
 ];
+// Beginner versions of fitted plans (plan.easy): same four weeks, but reps go up instead of sets, with an effort guide.
+// RPE is effort out of 10: RPE 6 leaves about 4 reps in the tank, RPE 8 about 2.
+const EASY: typeof PHASES = [
+  { title: 'Learn', note: 'Learn the moves with light weights. Stop each set with about 4 reps to spare (RPE 6).', slot: (s) => s },
+  { title: 'Build', note: 'Add one rep to each set. Still 3 reps to spare (RPE 7).', slot: (s) => ({ ...s, reps: addRep(s.reps) }) },
+  { title: 'Push', note: 'Same sets and reps, a little heavier if your form stays clean (RPE 7-8).', slot: (s) => ({ ...s, reps: addRep(s.reps) }) },
+  { title: 'Deload', note: 'Easy week: one set less and lighter weights so your body catches up. Then start again a little heavier.', slot: (s) => ({ ...s, sets: Math.max(1, s.sets - 1) }) },
+];
+const phases = (p: Plan) => (p.easy ? EASY : PHASES);
 const GENTLE = [
   'Get to know each move. Stop anything that hurts.',
   'Same moves. Go a little longer only if it felt easy.',
@@ -26,7 +35,7 @@ const GENTLE = [
 // Weekly blocks for a month view: the 7-day schedule from plan.week, with simple 4-week progression that repeats.
 export function program(plan: Plan, weeks = plan.weeks ?? 4): ProgramWeek[] {
   return Array.from({ length: weeks }, (_, w) => {
-    const ph = PHASES[w % 4];
+    const ph = phases(plan)[w % 4];
     const soft = gentle(plan);
     const days = plan.week.map((i) => {
       const d = i === null ? undefined : plan.days[i];
@@ -45,6 +54,8 @@ export function selfCheck() {
   assert(pr[1].days[0].day!.slots[0].reps === '11' && pr[2].days[0].day!.slots[0].sets === 4, 'reps then sets go up');
   assert(pr[3].days[0].day!.slots[0].sets === 2, 'deload drops a set');
   assert(phasedDay(p, 0, 0).slots[0].sets === 3 && phasedDay(p, 0, 2).slots[0].sets === pr[2].days[0].day!.slots[0].sets, 'phased day matches the week view');
+  const easy = program({ ...p, easy: true });
+  assert(easy[2].days[0].day!.slots[0].sets === 3 && easy[2].days[0].day!.slots[0].reps === '11' && /RPE/.test(easy[0].note), 'beginner weeks add reps, not sets, with RPE notes');
   const t0 = Date.parse('2026-01-05T12:00:00');
   assert(planWeek(p, t0, [], t0 + 3 * 86400000) === 0 && planWeek(p, t0, [], t0 + 9 * 86400000) === 1 && planWeek(p, t0, [], t0 + 29 * 86400000) === 0, 'plan week counts from the start and repeats');
 }
@@ -61,5 +72,5 @@ export function planWeek(plan: Plan, start: number | undefined, sessions: { plan
 export function phasedDay(plan: Plan, dayIndex: number, week: number): Day {
   const d = plan.days[dayIndex];
   if (!d || gentle(plan)) return d;
-  return { ...d, slots: d.slots.map(PHASES[week % 4].slot) };
+  return { ...d, slots: d.slots.map(phases(plan)[week % 4].slot) };
 }

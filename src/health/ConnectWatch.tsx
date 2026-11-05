@@ -202,6 +202,8 @@ export function ConnectWatch({ open, onClose, onAlt }: { open: boolean; onClose:
         <>
           <Line icon="alert-circle-outline" color={c.warm} text="Access is off" />
           <Line icon="arrow-forward-circle-outline" color={c.muted} text="Tap Allow access, turn on all, then Allow" sub />
+          <Line icon="arrow-forward-circle-outline" color={c.muted} text="No pop-up? Turn it on in Health Connect, under App permissions" sub />
+          <Button kind="ghost" title="Open Health Connect" icon="settings-outline" onPress={() => { if (!openHcSettings()) installHc(); }} disabled={!ANDROID} />
           <Button title="Allow access" icon="shield-checkmark-outline" onPress={allow} disabled={!canAllow} />
         </>
       ) : (

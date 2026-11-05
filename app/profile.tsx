@@ -7,7 +7,7 @@ import { BODIES, ContextFields, GOALS, LEVELS, Pill, Tiles } from '../src/contex
 import { HOME_GEAR, title } from '../src/data/exercises';
 import { perWeek, planById } from '../src/data/plans';
 import { UNLOCK } from '../src/engine';
-import { recommend } from '../src/coach';
+import { planFor } from '../src/coach';
 
 import { EASE, Header, Segmented, useMiniBarSpace } from '../src/kit';
 import { answered, setKey, type Answerable } from '../src/glance';
@@ -44,10 +44,11 @@ export default function ProfilePage() {
   const setName = (name: string) => { save({ name }); if (!name.trim()) useStore.getState().skipSetup(true); };
   const gentle = !!(p.gentle || p.concerns?.includes('food'));
 
-  // Days a week and the plan stay in step: when they differ, offer the plan that fits the new number (never switch silently).
+  // Days a week and the plan stay in step: when they differ, offer the plan engine's pick for the new number of days
+  // (never switch silently). The engine always fits its pick to the chosen days, so Switch keeps the weekly goal.
   const fitDays = planById[planId] && planById[planId].category !== 'One muscle' ? perWeek(planById[planId]) : null;
-  const pick = recommend(p);
-  const better = pick !== planId && planById[pick] && perWeek(planById[pick]) === p.daysPerWeek ? pick : null;
+  const pick = planFor(p);
+  const better = pick.planId !== planId && planById[pick.planId] && perWeek(planById[pick.planId]) === p.daysPerWeek ? pick.planId : null;
 
   const plan = (
     <>
@@ -69,7 +70,10 @@ export default function ProfilePage() {
         {fitDays !== null && fitDays !== p.daysPerWeek && (
           better
             ? <Row gap={12}>
-                <T v="small" style={{ flex: 1 }} numberOfLines={2}>{planById[better].name} fits {p.daysPerWeek} days</T>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <T v="body" numberOfLines={1}>{planById[better].name}</T>
+                  <T v="small" numberOfLines={1}>{pick.reasons[0] ?? `Fits your ${p.daysPerWeek} days`}</T>
+                </View>
                 <Button title="Switch" kind="ghost" onPress={() => useStore.getState().setPlan(better)} />
               </Row>
             : <T v="small">Built for {fitDays} days a week</T>

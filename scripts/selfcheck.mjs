@@ -224,3 +224,85 @@ console.log('ok', '../src/health/colmi.ts');
 // History import from Strong, Hevy and FitNotes CSV, and our own "Export sets (CSV)" read back (src/importApps.ts).
 (await import(new URL('../src/importApps.ts', import.meta.url))).selfCheck();
 console.log('ok ../src/importApps.ts');
+
+// Plan reasoning engine (src/planner.ts, src/data/split.ts): every profile gets a plan with exactly the days it chose,
+// with reasons. Grid over goal × level × place × days × gender, then the cases from the bug report.
+{
+  const { planFor, explain } = await import(new URL('../src/planner.ts', import.meta.url));
+  const { planById, perWeek, fitted } = await import(new URL('../src/data/plans.ts', import.meta.url));
+  const { available, byId: ex } = await import(new URL('../src/data/exercises.ts', import.meta.url));
+  const assert = (ok, m) => { if (!ok) throw new Error('planner: ' + m); };
+  const base = { name: 'T', gender: 'male', age: 30, heightCm: 175, weightKg: 75, goalWeightKg: 75, goal: 'build muscle', level: 'beginner',
+    place: 'gym', gear: [], daysPerWeek: 3, diet: 'vegetarian', reminder: { hour: 18, minute: 0, on: false } };
+  const prof = (x) => ({ ...base, ...x });
+
+  // Fitted plans: stable ids, the days the id says, valid week indices, and a rotation that follows the week.
+  for (const pl of fitted) {
+    const m = pl.id.match(/^([a-z0-9-]+)~([1-7])(b?)$/);
+    assert(m && planById[m[1]] && pl.base === m[1] && planById[pl.id] === pl, `id ${pl.id}`);
+    assert(perWeek(pl) === +m[2] && pl.week.length === 7 && pl.week.every((i) => i === null || pl.days[i]), `week ${pl.id}`);
+    const seq = pl.week.filter((i) => i !== null);
+    assert(seq.every((i, k) => pl.days[i] === pl.days[k % pl.days.length]), `rotation ${pl.id}`);
+    assert(pl.days.every((d) => d.slots.every((s) => ex[s.id])), `exercises ${pl.id}`);
+    if (m[3]) assert(pl.level === 'beginner' && pl.easy, `beginner ${pl.id}`);
+  }
+
+  let cases = 0;
+  for (const goal of ['build muscle', 'get stronger', 'lose fat', 'stay fit'])
+    for (const level of ['beginner', 'intermediate', 'advanced'])
+      for (const [place, gear] of [['gym', []], ['home', []], ['home', ['dumbbell', 'bands']], ['both', []], ['office', []]])
+        for (const days of [2, 3, 4, 5, 6])
+          for (const gender of ['male', 'female', 'other']) {
+            const p = prof({ goal, level, place, gear, daysPerWeek: days, gender });
+            const r = planFor(p);
+            const pl = planById[r.planId];
+            const tag = `${goal}/${level}/${place}${gear.length ? '+db' : ''}/${days}d/${gender} -> ${r.planId}`;
+            assert(pl && r.reasons.length > 0 && r.reasons.every((x) => typeof x === 'string' && x.length > 0), `reasons ${tag}`);
+            cases++;
+            if (place === 'office') { assert(r.planId === 'desk-reset', `office ${tag}`); continue; }
+            assert(perWeek(pl) === days, `exact days ${tag} (${perWeek(pl)})`);
+            assert(new RegExp(`your ${days} days`).test(r.reasons[0]), `days reason first ${tag}`);
+            assert(pl.category !== 'One muscle' && pl.category !== 'Recovery', `main plan ${tag}`);
+            assert(pl.category !== 'Women' || gender === 'female', `women plan ${tag}`);
+            assert(place !== 'gym' || pl.place !== 'home', `gym ${tag}`);
+            assert(place !== 'home' || pl.place !== 'gym', `home ${tag}`);
+            if (place === 'home') {
+              const slots = pl.days.flatMap((d) => d.slots);
+              assert(slots.filter((s) => available(ex[s.id], 'home', gear)).length / slots.length >= 0.8, `home gear ${tag}`);
+            }
+            if (level === 'beginner') assert(pl.level === 'beginner', `beginner level ${tag}`);
+            assert(r.alternatives.every((a) => perWeek(planById[a.planId]) === days && a.reasons.length), `alternatives ${tag}`);
+            assert(explain(p, r.planId).join() === r.reasons.join(), `explain matches ${tag}`);
+          }
+
+  // The bug: a beginner who picks 5 or 6 days gets 5 or 6 days, with lower volume, not a 3-day plan.
+  for (const days of [5, 6]) {
+    const r = planFor(prof({ daysPerWeek: days }));
+    const pl = planById[r.planId];
+    assert(perWeek(pl) === days && pl.level === 'beginner' && pl.easy, `beginner gym build muscle ${days}: ${r.planId}`);
+    assert(r.reasons[0] === `Built for your ${days} days` && r.reasons[1] === 'Lower volume for your first weeks', `beginner reasons ${days}: ${r.reasons}`);
+    if (days === 6) assert(pl.recovery === 2, 'six beginner days include two light recovery days');
+  }
+  const h5 = planFor(prof({ place: 'home', daysPerWeek: 5 }));
+  assert(perWeek(planById[h5.planId]) === 5 && planById[h5.planId].place === 'home' && h5.reasons[0] === 'Built for your 5 days', `beginner home 5: ${h5.planId}`);
+  for (const level of ['beginner', 'intermediate']) {
+    const f6 = planFor(prof({ goal: 'lose fat', level, daysPerWeek: 6 }));
+    assert(perWeek(planById[f6.planId]) === 6 && planById[f6.planId].tags.includes('lose fat'), `lose fat 6 ${level}: ${f6.planId}`);
+  }
+  // The early branches that used to force 3 days (body type, gain, endurance) now keep the chosen days too.
+  for (const extra of [{ body: 'more' }, { body: 'lean' }, { concerns: ['gain'] }, { concerns: ['endurance'], goal: 'stay fit' }, { age: 64 }, { concerns: ['knee', 'back'] }])
+    for (const days of [2, 4, 6]) {
+      const r = planFor(prof({ ...extra, daysPerWeek: days }));
+      assert(perWeek(planById[r.planId]) === days, `${JSON.stringify(extra)} ${days}d: ${r.planId}`);
+    }
+  // Intermediate lifters keep the curated plans when they fit.
+  assert(planFor(prof({ level: 'intermediate', daysPerWeek: 6 })).planId === 'ppl-gym', 'intermediate 6 days: push pull legs');
+  assert(planFor(prof({ level: 'intermediate', goal: 'get stronger', daysPerWeek: 4 })).planId === 'phul', 'intermediate strength 4 days: PHUL');
+  assert(planFor(prof({ goal: 'get stronger', daysPerWeek: 3 })).planId === 'strength-5x5', 'beginner strength 3 days: 5x5');
+  // Life stage still wins.
+  const due = new Date(Date.now() + 100 * 86400000).toISOString().slice(0, 10);
+  assert(planFor(prof({ gender: 'female', daysPerWeek: 6, women: { mode: 'pregnant', date: due } })).planId === 'pregnancy-safe', 'pregnancy wins');
+  const born = new Date(Date.now() - 20 * 86400000).toISOString().slice(0, 10);
+  assert(planFor(prof({ gender: 'female', daysPerWeek: 5, women: { mode: 'postpartum', date: born } })).planId === 'after-birth', 'after birth wins');
+  console.log(`ok plan engine (${fitted.length} fitted plans, ${cases} profiles)`);
+}
