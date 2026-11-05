@@ -13,12 +13,13 @@ import { alternatives, available, byId, exercises, title, type Exercise, type Pl
 import guide from '../src/data/guide.json';
 import { gate } from '../src/engine';
 import { useLiveHr } from '../src/health/live';
+import { useReadinessAdvice } from '../src/health/useReadiness';
 import { EASE, goBack, useElapsed } from '../src/kit';
 import { reschedule, restAlert } from '../src/notify';
 import { ChangeList } from '../src/restday';
 import { Sheet } from '../src/sheet';
 import { useStore, type Item, type Profile, type Session, type SetLog } from '../src/store';
-import { c, f, r } from '../src/theme';
+import { c, f, r, tint } from '../src/theme';
 import { Button, Chip, Demo, haptic, Ring, Row, Stepper, T, Tap, Thumb } from '../src/ui';
 
 // The live workout (docs/REDESIGN.md "Workout", rules 6-7). It opens ready, with the clock stopped: the person can look
@@ -97,6 +98,7 @@ export default function SessionScreen() {
   const { updateSet, addSet, removeSet, swap, addItem, finish, discard, pause, resume, setIdx, setRest, begin, replace } = useStore.getState();
   const nav = useNavigation();
   const bpm = useLiveHr();
+  const advice = useReadinessAdvice(); // e.g. "Low readiness: take the easy version", shown before the clock starts
   const scroll = useRef<ScrollView>(null);
 
   const [sheet, setSheet] = useState<Kind | null>(null);
@@ -335,6 +337,7 @@ export default function SessionScreen() {
               {lastLine ? <T v="small">{lastLine}</T>
                 : showWeight && it.sets[0]?.weight > 0 ? <T v="small">{`First time · start light at ${it.sets[0].weight} kg`}</T> : null}
               {it.swappedFrom && byId[it.swappedFrom] && <T v="small" color={c.warm}>Alternative to {byId[it.swappedFrom].name}</T>}
+              {ready && idx === 0 && advice && <T v="small" color={c.warm}>{advice}</T>}
             </View>
             <Tap onPress={() => setSheet('info')} style={s.info} accessibilityLabel="How to do it">
               <Ionicons name="information" size={20} color={c.text} />
@@ -875,7 +878,7 @@ const s = StyleSheet.create({
   info: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' },
   centre: { position: 'absolute', left: 64, right: 64, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   off: { opacity: 0.35 },
-  restPause: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#3A2614', alignItems: 'center', justifyContent: 'center' },
+  restPause: { width: 44, height: 44, borderRadius: 22, backgroundColor: tint(c.warm, 1.8), alignItems: 'center', justifyContent: 'center' },
   live: { position: 'absolute', left: -14, top: '50%', marginTop: -4, width: 8, height: 8, borderRadius: 4, backgroundColor: c.danger },
   seg: { height: 4, borderRadius: 2, backgroundColor: c.card2, overflow: 'hidden' },
   pill: { flex: 1, height: 48, borderRadius: 24, backgroundColor: c.card2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
@@ -888,14 +891,14 @@ const s = StyleSheet.create({
   tiny: { width: 28, height: 32, borderRadius: 10, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   table: { marginTop: 16, backgroundColor: c.card, borderRadius: r.lg, borderWidth: 1, borderColor: c.line, paddingVertical: 12, paddingHorizontal: 4, gap: 6 },
   set: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 4, paddingVertical: 6, borderRadius: r.md, overflow: 'hidden' },
-  setTint: { backgroundColor: 'rgba(48,209,88,0.14)', borderRadius: r.md },
+  setTint: { backgroundColor: tint(c.ok, 0.9), borderRadius: r.md },
   check: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: c.dim, alignItems: 'center', justifyContent: 'center' },
   num: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 12, paddingTop: 12, backgroundColor: c.bg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   nav: { height: 52, width: 52, borderRadius: 26, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   wide: { height: 52, minWidth: 128, paddingHorizontal: 18, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  rest: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#1F140C', borderRadius: r.lg, padding: 12 },
-  restBtn: { flex: 1, height: 44, borderRadius: 22, backgroundColor: '#3A2614', alignItems: 'center', justifyContent: 'center' },
+  rest: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: tint(c.warm, 0.8), borderWidth: 1, borderColor: tint(c.warm, 1.6), borderRadius: r.lg, padding: 12 },
+  restBtn: { flex: 1, height: 44, borderRadius: 22, backgroundColor: tint(c.warm, 1.8), alignItems: 'center', justifyContent: 'center' },
   done: { gap: 12, backgroundColor: c.card, borderRadius: r.lg, padding: 12, borderWidth: 1, borderColor: c.line },
   doneIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   addMore: { height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: c.card2, flexDirection: 'row', alignItems: 'center', gap: 4 },
