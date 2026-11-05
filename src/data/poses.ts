@@ -46,7 +46,7 @@ export type Pose = {
   // Tempo rules, the same for every exercise: 'lift' = 1 s lift, 0.5 s pause at the top, 1.6 s lowering,
   // 0.2 s pause at the bottom; 'hold' (stretches, holds) = 1.8 s in, 1.2 s hold, 1.8 s out, 0.6 s rest;
   // 'cycle' (cardio, alternating) = smooth back and forth, `tempo` seconds each way.
-  pace?: 'lift' | 'hold' | 'cycle';
+  pace?: 'lift' | 'hold' | 'cycle' | 'spin'; // spin: p runs 0..1 and wraps (pedalling goes round, never back)
   tempo?: number;
   con?: 'out' | 'back'; // which way is the lift: start -> end (default) or end -> start (squat, bench, push-up: lower first)
   guide?: Guide;
@@ -206,6 +206,10 @@ export function solve(pose: Pose, b: Pts, p: number, breath = 0, nod = 0): Pts {
       }
     }
   } else rest(o, fix);
+  if (pose.machine === 'bike') { // pedals go round the crank, half a turn apart
+    const [c, r, t0] = crankOf(b);
+    for (const n of ['0', '1']) ik(o, ('hp' + n) as Key, ('kn' + n) as Key, ('an' + n) as Key, at(c, t0 + 360 * p + (n === '1' ? 180 : 0), r), L.thigh, L.shin);
+  }
   const up = (pose.lift ?? 0) * p + (pose.hop ?? 0) * 4 * p * (1 - p);
   if (up || pose.land) shift(o, (pose.land ?? 0) * p, -up);
   return o;
@@ -301,13 +305,14 @@ function ease(u: number) {
   return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
 }
 export function cycleSeconds(pose: Pose) {
-  return pose.pace === 'cycle' ? 2 * (pose.tempo ?? 0.5) : pose.pace === 'hold' ? 5.4 : 3.3;
+  return pose.pace === 'cycle' || pose.pace === 'spin' ? 2 * (pose.tempo ?? 0.5) : pose.pace === 'hold' ? 5.4 : 3.3;
 }
 // t in [0, 1) is the position in one rep. Returns the pose mix p (0 = start, 1 = end) and the effort g (0.3..1),
 // which builds while the muscle shortens, peaks at the top and eases off while lowering.
 export function phase(pose: Pose, t: number): [number, number] {
   'worklet';
   if (pose.pace === 'cycle') return [0.5 - 0.5 * Math.cos(2 * Math.PI * t), 0.75 + 0.25 * Math.sin(2 * Math.PI * t)];
+  if (pose.pace === 'spin') return [t, 0.75 + 0.25 * Math.sin(4 * Math.PI * t)];
   const seg = pose.pace === 'hold' ? [1.8, 1.2, 1.8, 0.6] : [1.0, 0.5, 1.6, 0.2]; // lift, top pause, lower, bottom pause
   let s = t * (seg[0] + seg[1] + seg[2] + seg[3]);
   let q: number, g: number; // q: 0 relaxed .. 1 contracted
@@ -363,9 +368,10 @@ const bridge = (o: Partial<Pose> = {}) =>
 const LYING = (hip: In, knee: In, ankle: In = 20, sh: In = 0, el: In = 0, more: More = {}) => A(-90, hip, knee, ankle, sh, el, more);
 const walk = (spine: number, sh: Pair, el: Pair, o: Partial<Pose> = {}) =>
   side(A(spine, [22, -15], [5, 18], [-5, 20], sh, el), alt(A(spine, [22, -15], [5, 18], [-5, 20], sh, el)), { fix: 'pelvis', pace: 'cycle', tempo: 0.55, ...o });
+// Bikes: the start legs put the feet on opposite pedals; solve() then turns the crank and the legs follow by IK.
 const bike = (spine: number, sh: number, el: number) => {
   const a = A(spine, [100, 55], [110, 45], [10, 20], sh, el);
-  return side(a, alt(a), { ground: 'bench', machine: 'bike', pace: 'cycle', tempo: 0.5 });
+  return side(a, a, { ground: 'bench', machine: 'bike', pace: 'spin', tempo: 0.5, guide: { joint: 'kn0' } });
 };
 // Running gaits, from an easy jog to a sprint: longer stride, higher knees, bigger arm swing and a faster cadence.
 const gait = (spine: number, hip: Pair, knee: Pair, sh: Pair, tempo: number, o: Partial<Pose> = {}) => {
@@ -407,6 +413,8 @@ const DIPS = side(A(15, 10, 70, 20, 15, 0), A(25, 10, 70, 20, -50, 95), { ground
 const SHRUG = side(St(0, 0, 3, 0, 0), St(0, 0, 3, 0, 0, { shrug: 5 }), { prop: 'barbell' });
 const LUNGES = lunge(3, 0, { prop: 'dumbbell' });
 
+// Box jump: from a quarter squat with the arms back, up and forward onto a box, landing soft with the feet flat.
+const BOX_JUMP = side(St(30, 75, 75, -15, 0), St(12, 35, 35, 150, 10), { lift: 20, hop: 16, land: 24, pace: 'cycle', tempo: 0.6, guide: { joint: 'kn0' } });
 export const POSES: Record<string, Pose> = {
   // legs
   Barbell_Squat: BB_SQUAT,
@@ -418,8 +426,8 @@ export const POSES: Record<string, Pose> = {
   Dumbbell_Squat: DB_SQUAT,
   Hack_Squat: side(St(-5, 0, 5, 20, 150), St(10, 100, 115, 20, 150), { con: 'back', guide: { joint: 'kn0' } }),
   Freehand_Jump_Squat: side(St(38, 112, 112, -30, 0), A(0, 0, 0, 25, 160, 5), { lift: 12, pace: 'cycle', tempo: 0.6 }),
-  Front_Box_Jump: side(St(38, 112, 112, -30, 0), A(0, 20, 30, 25, 120, 10), { lift: 26, hop: 22, land: 36, pace: 'cycle', tempo: 0.6 }),
-  Box_Jump_Multiple_Response: side(St(38, 112, 112, -30, 0), A(0, 20, 30, 25, 120, 10), { lift: 26, hop: 22, land: 36, pace: 'cycle', tempo: 0.6 }),
+  Front_Box_Jump: BOX_JUMP,
+  Box_Jump_Multiple_Response: BOX_JUMP,
   'wg_wall-sit': side(St(0, 90, 90, 40, 30), St(0, 88, 88, 40, 30), { wall: 'back', pace: 'hold', guide: { joint: 'kn0' } }),
   Plie_Dumbbell_Squat: front(A(0, 22, 0, 0, -12, 0), A(0, 55, 55, 0, -12, 0), { prop: 'dumbbell', one: true, con: 'back', }),
   Leg_Press: side(A(-50, 70, 10, -10, 20, 30), A(-50, 125, 105, -40, 20, 30), { ground: 'bench', machine: 'sled', con: 'back', guide: { joint: 'kn0' } }),
@@ -698,7 +706,7 @@ export const POSES: Record<string, Pose> = {
   Step_Mill: side(A(8, [75, 0], [90, 5], [-10, 15], [-15, 15], 30), alt(A(8, [75, 0], [90, 5], [-10, 15], [-15, 15], 30)), { fix: 'pelvis', pace: 'cycle', tempo: 0.6 }),
   Elliptical_Trainer: walk(5, [30, -10], [60, 30], { tempo: 0.6 }),
   Bicycling_Stationary: bike(20, 65, 20),
-  Recumbent_Bike: bike(-25, 30, 40),
+  Recumbent_Bike: bike(-25, 5, 50),
   Rowing_Stationary: side(A(25, 130, 130, -40, 85, 0), A(-20, 52, 0, 20, -20, 100), { ground: 'floor', fix: 'an0', lock: true, prop: 'band', line: [55, -4], pace: 'cycle', tempo: 0.9 }),
   Battling_Ropes: side(St(20, 45, 45, [30, 75], [40, 20]), St(20, 45, 45, [75, 30], [20, 40]), { prop: 'band', line: [45, 18], pace: 'cycle', tempo: 0.3 }),
   'wg_jumping-jack': front(A(0, 3, 0, 0, 10, 5), A(0, 20, 0, 0, 165, 10), { hop: 5, pace: 'cycle', tempo: 0.35 }),
@@ -1017,6 +1025,36 @@ export function underX(u: NonNullable<Pose['under']>, o: Pts) {
   'worklet';
   return u.mid ? (o[u.at][0] + o[u.mid][0]) / 2 : o[u.at][0];
 }
+// Soft shadow under whatever is nearest the floor: centre x, half width, opacity. It shrinks and fades as the body
+// leaves the ground. The figure draws it and the frame makes room for it.
+export function shadowOf(o: Pts): [number, number, number] {
+  'worklet';
+  let low = -1e9;
+  for (const k of KEYS) { const r = R[k]; if (r !== undefined) low = Math.max(low, o[k][1] + r); }
+  let sw = 0, sx = 0, x0 = 1e9, x1 = -1e9;
+  for (const k of KEYS) {
+    const r = R[k];
+    if (r === undefined) continue;
+    const w = Math.max(0, 1 - (low - o[k][1] - r) / 10);
+    if (w > 0) { sw += w; sx += w * o[k][0]; x0 = Math.min(x0, o[k][0]); x1 = Math.max(x1, o[k][0]); }
+  }
+  const up = Math.max(0, -low);
+  const c = sx / sw, rx = ((x1 - x0) / 2 + 10) * (1 - Math.min(0.5, up / 50));
+  const l = Math.max(c - rx, x0 - 6), r = Math.min(c + rx, x1 + 6); // weighted centre, but never past the body's own ends
+  return [(l + r) / 2, (r - l) / 2, 0.6 * Math.max(0.25, 1 - up / 25)];
+}
+// Bike crank from the base pose (feet on opposite pedals): centre, radius, and the near pedal's starting angle.
+export function crankOf(b: Pts): [[number, number], number, number] {
+  'worklet';
+  const c: [number, number] = [(b.an0[0] + b.an1[0]) / 2, (b.an0[1] + b.an1[1]) / 2];
+  return [c, Math.hypot(b.an0[0] - c[0], b.an0[1] - c[1]), angle(c, b.an0)];
+}
+// The turning crank: two arms from the centre to the pedals (under the ankles), and the pedals.
+export function crankPrims(o: Pts): Prim[] {
+  'worklet';
+  const c = [(o.an0[0] + o.an1[0]) / 2, (o.an0[1] + o.an1[1]) / 2];
+  return [[c[0], c[1], o.an0[0], o.an0[1], 1.1], [c[0], c[1], o.an1[0], o.an1[1], 1.1], [o.an0[0] - 3, o.an0[1] + 1.5, o.an0[0] + 3, o.an0[1] + 1.5, 1.2], [o.an1[0] - 3, o.an1[1] + 1.5, o.an1[0] + 3, o.an1[1] + 1.5, 1.2]];
+}
 // Where the weight sits in hand n: at the wrist, or for wrist curls (`flex`) a hand's length past it, tipped by the wrist.
 export function handAt(pose: Pose, o: Pts, n: 0 | 1, p: number): [number, number] {
   'worklet';
@@ -1129,14 +1167,14 @@ export function scenery(pose: Pose, b: Pts): SceneItem[] {
   }
   if (pose.ground === 'bench') {
     const P = b.pelvis, y = P[1] + (R.pelvis ?? 7) + 2.6, t = pose.start.spine, hw = pose.view === 'front' ? 15 : 12;
-    line('leg', 'post', [P[0], y], [P[0], 0]);
+    if (pose.machine !== 'bike') line('leg', 'post', [P[0], y], [P[0], 0]);
     capsule('seat', 'kit', [P[0] - hw, y], [P[0] + hw, y], 2.6);
     // a back pad (or a chest pad when leaning forward onto it) along the torso, unless the pose sits free
     if (pose.view === 'side' && Math.abs(t) >= 25 && pose.pad !== false) {
       const down = (d: number) => -Math.cos((d * Math.PI) / 180);
       const nrm = Math.abs(down(t + 90)) < 0.3 ? t - 90 : down(t + 90) > down(t - 90) ? t + 90 : t - 90;
       const e = at(at(P, t, L.torso - 2), nrm, 10);
-      if (e[1] < -3) line('leg2', 'post', e, [e[0], 0]);
+      if (e[1] < -3 && pose.machine !== 'bike') line('leg2', 'post', e, [e[0], 0]);
       capsule('pad', 'kit', at(P, nrm, 10), e, 2.6);
     }
   }
@@ -1148,10 +1186,22 @@ export function scenery(pose: Pose, b: Pts): SceneItem[] {
     const u = pose.under, cx = (underX(u, solve(pose, b, 0)) + underX(u, solve(pose, b, 1))) / 2;
     out.push({ k: 'roller', kind: 'kit', d: circ([cx, -u.r], u.r), ext: [cx - u.r, -2 * u.r, cx + u.r, 0] });
   }
-  if (pose.machine === 'bike') { // handlebar on its post in front of the hands, and the flywheel housing by the feet
-    const w = b.wr0, px = Math.max(w[0], b.toe0[0]) + 8;
-    line('stem', 'post', [px, 0], [px, w[1]]);
-    capsule('bar', 'kit', [w[0] - 1, w[1]], [px + 2, w[1]], 2);
+  if (pose.machine === 'bike') { // frame: seat tube to the crank, chainring, a foot on the floor, and the grips by the hands
+    const [c, r] = crankOf(b), P = b.pelvis, sy = P[1] + (R.pelvis ?? 7) + 2.6, w = b.wr0;
+    const ground = Math.max(...KEYS.map((k) => solve(pose, b, 0.25)[k][1]), c[1] + r + 4, 0);
+    out.push({ k: 'ring', kind: 'kit', d: circ(c, r * 0.45), ext: [c[0] - r * 0.45, c[1] - r * 0.45, c[0] + r * 0.45, c[1] + r * 0.45] });
+    line('seattube', 'post', [P[0], sy], c);
+    line('stand', 'post', [c[0], c[1]], [c[0], ground]);
+    line('base', 'post', [Math.min(P[0], c[0]) - 12, ground], [Math.max(P[0], c[0]) + 12, ground]);
+    if (pose.start.spine >= 0) { // upright: a forward bar on a short stem up from the frame
+      const s0: [number, number] = [w[0] - 6, w[1] + 12];
+      line('downtube', 'post', c, s0);
+      line('stem', 'post', s0, [w[0] - 2, w[1] + 1]);
+      capsule('grip', 'kit', [w[0] - 3, w[1] + 1], [w[0] + 3, w[1] + 1], 1.8);
+    } else { // recumbent: short handles beside the hips
+      line('handle', 'post', [w[0], w[1] + 2], [w[0], sy]);
+      capsule('grip', 'kit', [w[0] - 3, w[1] + 1], [w[0] + 3, w[1] + 1], 1.8);
+    }
   }
   if (pose.box) {
     const p = b[pose.box], y = p[1] + (R[pose.box] ?? 3);
@@ -1219,13 +1269,15 @@ export function primBox(q: Prim, bx: number[]) {
 // frame grows evenly round that centre to take it in); a cable or band may run out past the edge toward its machine.
 export function viewBox(pose: Pose, b: Pts): [number, number, number, number] {
   const front = pose.view === 'front';
-  const C = [1e9, 1e9, -1e9, -1e9];
+  const C = [1e9, 1e9, -1e9, -1e9], S = [1e9, -1e9]; // S: the floor shadow's x extent over the rep
   for (let i = 0; i <= 24; i++) {
     const p = i / 24, o = solve(pose, b, p);
     bodyBox(o, front, C);
     if (pose.prop !== 'band') for (const n of [0, 1] as const) for (const q of gearPrims(pose, o, n, p, null)) primBox(q, C);
     if (pose.machine === 'sled') { const [s0, s1] = sledAt(o); primBox([s0[0], s0[1], s1[0], s1[1], 1.6], C); }
     if (pose.under && !pose.under.fixed) primBox([underX(pose.under, o), -pose.under.r, pose.under.r], C);
+    if (pose.machine === 'bike') for (const q of crankPrims(o)) primBox(q, C);
+    if (pose.ground !== 'hang' && pose.ground !== 'mat') { const [sx, rx] = shadowOf(o); S[0] = Math.min(S[0], sx - rx); S[1] = Math.max(S[1], sx + rx); }
   }
   for (const it of scenery(pose, b)) if (it.kind !== 'slope') { C[0] = Math.min(C[0], it.ext[0]); C[1] = Math.min(C[1], it.ext[1]); C[2] = Math.max(C[2], it.ext[2]); C[3] = Math.max(C[3], it.ext[3]); }
   if (pose.ground !== 'hang' && pose.ground !== 'mat') C[3] = Math.max(C[3], 3.5); // the floor line and the shadow under the feet
@@ -1234,6 +1286,7 @@ export function viewBox(pose: Pose, b: Pts): [number, number, number, number] {
   const lab = guideOf(pose, b).label.pos;
   hw = Math.max(hw, Math.abs(lab[0] - cx) + 7);
   hh = Math.max(hh, Math.abs(lab[1] - cy) + 6);
+  if (S[0] < S[1]) hw = Math.max(hw, cx - S[0] - 7.5, S[1] - cx - 7.5); // the soft shadow may run into the padding, not past the edge
   const pad = 8, w = Math.max(2 * (hw + pad), 80), h = Math.max(2 * (hh + pad), 80);
   return [cx - w / 2, cy - h / 2, w, h].map((v) => Math.round(v * 10) / 10) as [number, number, number, number];
 }
@@ -1274,7 +1327,8 @@ export function selfCheck(byId: Record<string, Ex & { noImages?: boolean }> = {}
     let last = phase(pose, 0.999)[0];
     for (let i = 0; i <= 400; i++) {
       const [p, g] = phase(pose, i / 400);
-      if (p < 0 || p > 1 || g < 0.29 || g > 1 || Math.abs(p - last) > 0.05) { bad.push(`${id}: tempo jumps at ${i / 400}`); break; }
+      const jump = Math.abs(p - last), wrap = pose.pace === 'spin' ? Math.min(jump, 1 - jump) : jump;
+      if (p < 0 || p > 1 || g < 0.29 || g > 1 || wrap > 0.05) { bad.push(`${id}: tempo jumps at ${i / 400}`); break; }
       last = p;
     }
   }

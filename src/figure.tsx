@@ -5,8 +5,8 @@ import Animated, {
 import Svg, { Defs, G, Line, LinearGradient, Path, RadialGradient, Stop, Text as SvgText } from 'react-native-svg';
 import { RED, SOFT } from './body';
 import {
-  anchorOf, angle, arm, at, base, cap, circ, cycleSeconds, FRONT_M, gearPrims, guideOf, L, leg, n2, NB, NECK, phase, primPath, R, scenery,
-  SIDE_M, sledAt, solve, spindle, torso, viewBox, type Key, type MuscleSpec, type Pose, type Pts, type Seg,
+  anchorOf, angle, arm, at, base, cap, circ, crankPrims, cycleSeconds, FRONT_M, gearPrims, guideOf, L, leg, n2, NB, NECK, phase, primPath, scenery,
+  shadowOf, SIDE_M, sledAt, solve, spindle, torso, viewBox, type Key, type MuscleSpec, type Pose, type Pts, type Seg,
 } from './data/poses';
 import { c, f } from './theme';
 
@@ -59,18 +59,7 @@ export function Figure({ pose, primary, secondary, height, width, paused }: {
     const breath = pose.pace === 'cycle' ? 0 : Math.sin(2 * Math.PI * tt * (pose.pace === 'hold' ? 2 : 1));
     const nod = Math.max(-6, Math.min(6, (lag - p) * (pose.end.spine - pose.start.spine))); // the head trails the torso
     const o = solve(pose, b, p, breath, nod);
-    // soft shadow under whatever is nearest the floor; it shrinks and fades as the body leaves the ground
-    let low = -1e9;
-    for (const k in o) { const r = R[k as Key]; if (r !== undefined) low = Math.max(low, o[k as Key][1] + r); }
-    let sw = 0, sx = 0, x0 = 1e9, x1 = -1e9;
-    for (const k in o) {
-      const r = R[k as Key];
-      if (r === undefined) continue;
-      const w = Math.max(0, 1 - (low - o[k as Key][1] - r) / 10);
-      if (w > 0) { sw += w; sx += w * o[k as Key][0]; x0 = Math.min(x0, o[k as Key][0]); x1 = Math.max(x1, o[k as Key][0]); }
-    }
-    const up = Math.max(0, -low);
-    return { o, g, p, breath, shadow: [sx / sw, ((x1 - x0) / 2 + 10) * (1 - Math.min(0.5, up / 50)), 0.6 * Math.max(0.25, 1 - up / 25)] };
+    return { o, g, p, breath, shadow: shadowOf(o) };
   });
 
   const box = useMemo(() => viewBox(pose, b), [pose, b]);
@@ -133,6 +122,7 @@ export function Figure({ pose, primary, secondary, height, width, paused }: {
         {flat && <Balance fr={fr} top={box[1]} />}
         <Scenery pose={pose} b={b} top={box[1]} />
         {pose.machine === 'sled' && <Sled fr={fr} />}
+        {pose.machine === 'bike' && <Crank fr={fr} />}
         {front ? (
           <>
             {layer(layers.back)}
@@ -291,7 +281,8 @@ function Gear({ fr, pose, b, n }: { fr: FV; pose: Pose; b: Pts; n: 0 | 1 }) {
     for (const q of gearPrims(pose, fr.value.o, n, fr.value.p, anchor)) d += primPath(q);
     return { d };
   });
-  if (!pose.prop || pose.prop === 'none' || pose.prop === 'bar') return null;
+  const ball = n === 1 && !!pose.under && !pose.under.fixed; // an exercise ball under the feet is drawn like gear
+  if ((!pose.prop || pose.prop === 'none' || pose.prop === 'bar') && !ball) return null;
   if (pose.prop === 'band') return <APath animatedProps={ap} fill="none" stroke={BAND} strokeOpacity={0.85} strokeWidth={1.1} strokeLinecap="round" />;
   return <APath animatedProps={ap} fill={GEAR.fill} stroke={GEAR.stroke} strokeWidth={0.8} />;
 }
@@ -300,6 +291,12 @@ function Gear({ fr, pose, b, n }: { fr: FV; pose: Pose; b: Pts; n: 0 | 1 }) {
 // The leg-press plate moves with the feet, so it is animated like the body.
 function Sled({ fr }: { fr: FV }) {
   const ap = useAnimatedProps(() => { const [a, b] = sledAt(fr.value.o); return { d: cap(a, b, 1.6, 1.6) }; });
+  return <APath animatedProps={ap} fill={GEAR.fill} stroke={GEAR.stroke} strokeWidth={0.8} />;
+}
+
+// The bike crank turns with the feet.
+function Crank({ fr }: { fr: FV }) {
+  const ap = useAnimatedProps(() => { let d = ''; for (const q of crankPrims(fr.value.o)) d += primPath(q); return { d }; });
   return <APath animatedProps={ap} fill={GEAR.fill} stroke={GEAR.stroke} strokeWidth={0.8} />;
 }
 
