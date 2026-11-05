@@ -147,3 +147,80 @@ console.log('ok', '../src/health/colmi.ts');
   assert(bad.workouts.length === 0 && bad.daily.length === 0 && bad.skipped === 2, 'unknown files skipped');
   console.log('ok ../src/health/importers.ts');
 }
+
+// Heart rate per set, set done times, Health Connect write helpers and watch-workout merging (src/health/parse.ts).
+{
+  const { splitHr, medianGap, trackDone, finishedTimes, setsText, cardioType, matchSession, isStrengthType, overlapShare } =
+    await import(new URL('../src/health/parse.ts', import.meta.url));
+  const assert = (ok, m) => { if (!ok) throw new Error('hr: ' + m); };
+  const T0 = Date.parse('2026-11-05T10:00:00Z');
+  // A 20-minute workout sampled every 5 s: 100 bpm resting, 150 in the 40 s before each tick of two sets.
+  const ticks = [T0 + 5 * 60000, T0 + 10 * 60000];
+  const samples = [];
+  for (let t = T0; t <= T0 + 25 * 60000; t += 5000) samples.push({ t, bpm: ticks.some((d) => t > d - 40000 && t <= d) ? 150 : 100 });
+  assert(medianGap(samples.map((x) => x.t)) === 5000 && medianGap([1]) === Infinity, 'median gap');
+  const a = splitHr(samples, T0, T0 + 20 * 60000, [[ticks[0], ticks[1]]]);
+  assert(a && !a.sparse && a.max === 150 && a.avg > 100 && a.avg < 110, 'session avg/max');
+  assert(a.sets[0][0].max === 150 && a.sets[0][1].max === 150 && a.sets[0][0].avg > 120, 'per-set split');
+  assert(a.rest.max === 100 && a.rest.avg === 100, 'rests');
+  // Unknown done time (0) leaves that set empty; no times at all keeps only the session numbers.
+  const b = splitHr(samples, T0, T0 + 20 * 60000, [[0, ticks[1]]]);
+  assert(b.sets[0][0] === null && b.sets[0][1].max === 150, 'unknown tick');
+  const c = splitHr(samples, T0, T0 + 20 * 60000);
+  assert(c && c.sets === undefined && c.rest === undefined, 'no ticks');
+  // Sparse: one sample a minute keeps only the session avg/max.
+  const sparse = samples.filter((x) => (x.t - T0) % 60000 === 0);
+  const d = splitHr(sparse, T0, T0 + 20 * 60000, [[ticks[0], ticks[1]]]);
+  assert(d.sparse && d.sets === undefined && d.max === 150, 'sparse source');
+  assert(splitHr([], T0, T0 + 1000) === null && splitHr([{ t: T0 - 1, bpm: 90 }], T0, T0 + 1000) === null, 'no samples');
+
+  // Done times follow sets through ticks, edits, removals and finishing.
+  const s1 = { reps: 8, weight: 20, done: false }, s2 = { reps: 8, weight: 20, done: false }, s3 = { reps: 8, weight: 20, done: false };
+  let items = [{ sets: [s1, s2] }, { sets: [s3] }];
+  let times = trackDone(undefined, items, undefined, 1);
+  assert(JSON.stringify(times) === '[[0,0],[0]]', 'nothing done');
+  let next = [{ sets: [{ ...s1, done: true }, s2] }, items[1]];
+  times = trackDone(items, next, times, 100); items = next;
+  assert(times[0][0] === 100 && times[0][1] === 0, 'tick stamps now');
+  next = [{ sets: [{ ...items[0].sets[0], reps: 10 }, s2] }, items[1]];
+  times = trackDone(items, next, times, 200); items = next;
+  assert(times[0][0] === 100, 'edit keeps time');
+  next = [{ sets: [items[0].sets[0], { ...s2, done: true }] }, { sets: [{ ...s3, done: true }] }];
+  times = trackDone(items, next, times, 300); items = next;
+  next = [{ sets: [items[0].sets[1]] }, items[1]]; // first set removed: the second keeps its time
+  times = trackDone(items, next, times, 400); items = next;
+  assert(JSON.stringify(times) === '[[300],[300]]', 'remove keeps identity');
+  // Loaded from storage with no saved times: done sets stay unknown instead of getting "now".
+  assert(JSON.stringify(trackDone(items, items, undefined, 999)) === '[[0],[0]]', 'no stamping on load');
+  const fin = finishedTimes([{ sets: [{ done: true }, { done: false }, { done: true }] }, { sets: [{ done: false }] }, { sets: [{ done: true }] }], [[1, 2, 3], [4], [5]]);
+  assert(JSON.stringify(fin) === '[[1,3],[5]]', 'finished layout');
+
+  // Notes text and cardio type.
+  const notes = setsText([
+    { name: 'Bench press', timed: false, sets: [{ reps: 8, weight: 60, done: true }, { reps: 6, weight: 62.5, done: true }, { reps: 8, weight: 60, done: false }] },
+    { name: 'Plank', timed: true, sets: [{ reps: 45, weight: 0, done: true }, { reps: 90, weight: 0, done: true }] },
+    { name: 'Push-up', timed: false, sets: [{ reps: 12, weight: 0, done: true }] },
+    { name: 'Skipped', timed: false, sets: [{ reps: 12, weight: 0, done: false }] },
+  ]);
+  assert(notes === 'Bench press: 60 kg × 8, 62.5 kg × 6\nPlank: 45 s, 1:30 min\nPush-up: 12 reps', 'notes text');
+  assert(cardioType([{ name: 'Rowing, Stationary', amount: 600 }]) === 'ROWING_MACHINE', 'rower');
+  assert(cardioType([{ name: 'Running, Treadmill', amount: 900 }, { name: 'Recumbent Bike', amount: 1200 }]) === 'BIKING_STATIONARY', 'most time wins');
+  assert(cardioType([{ name: 'Jogging, Treadmill', amount: 1 }]) === 'RUNNING_TREADMILL' && cardioType([{ name: 'Walking, Treadmill', amount: 1 }]) === 'WALKING', 'treadmill');
+  assert(cardioType([{ name: 'Stairmaster', amount: 1 }]) === 'STAIR_CLIMBING_MACHINE' && cardioType([{ name: 'Prowler Sprint', amount: 1 }]) === 'RUNNING', 'stairs, sprint');
+  assert(cardioType([{ name: 'SkiErg', amount: 1 }]) === 'HIGH_INTENSITY_INTERVAL_TRAINING' && cardioType([]) === 'OTHER_WORKOUT', 'fallbacks');
+
+  // Merging: a watch's strength session over most of ours merges; a run before it does not.
+  const iso = (m) => new Date(T0 + m * 60000).toISOString();
+  const ours = [{ id: 'a', startedAt: T0, endedAt: T0 + 60 * 60000 }, { id: 'b', startedAt: T0 + 120 * 60000, endedAt: T0 + 150 * 60000 }, { id: 'live', startedAt: T0 }];
+  assert(isStrengthType('Strength training') && isStrengthType('Weightlifting') && isStrengthType('Workout') && !isStrengthType('Running'), 'strength types');
+  assert(overlapShare(0, 10, 5, 20) === 0.5 && overlapShare(0, 10, 10, 20) === 0, 'overlap share');
+  assert(matchSession({ type: 'Strength training', start: iso(2), end: iso(58) }, ours) === 'a', 'watch gym session merges');
+  assert(matchSession({ type: 'Weightlifting', start: iso(125), end: iso(200) }, ours) === 'b', 'shorter range counts');
+  assert(matchSession({ type: 'Running', start: iso(0), end: iso(60) }, ours) === undefined, 'cardio stays separate');
+  assert(matchSession({ type: 'Strength training', start: iso(50), end: iso(110) }, ours) === undefined, 'small overlap stays separate');
+  console.log('ok hr per set, notes, merge');
+}
+
+// History import from Strong, Hevy and FitNotes CSV, and our own "Export sets (CSV)" read back (src/importApps.ts).
+(await import(new URL('../src/importApps.ts', import.meta.url))).selfCheck();
+console.log('ok ../src/importApps.ts');

@@ -5,6 +5,7 @@ import { Platform, ScrollView, Share, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GOALS, optLabel } from '../src/context';
+import { setsCsv } from '../src/importApps';
 import { title } from '../src/data/exercises';
 import { planById } from '../src/data/plans';
 import { EASE, Header, toToday, useMiniBarSpace } from '../src/kit';
@@ -34,6 +35,7 @@ export default function You() {
   const logPeriod = useStore((s) => s.logPeriod);
   const dismissed = useStore((s) => s.dismissed);
   const weighIns = useStore((s) => s.weights.length);
+  const hasSets = useStore((s) => s.sessions.length > 0);
   const [sheet, setSheet] = useState<'look' | 'data' | null>(null);
   const [confirm, setConfirm] = useState(false);
 
@@ -51,14 +53,18 @@ export default function You() {
   const exportData = async () => {
     const plain = (o: object) => Object.fromEntries(Object.entries(o).filter(([, v]) => typeof v !== 'function'));
     const json = JSON.stringify({ app: 'gym-buddy', exportedAt: new Date().toISOString(), store: plain(useStore.getState()), tracker: plain(useTracker.getState()) }, null, 2);
-    const name = `gym-buddy-${new Date().toISOString().slice(0, 10)}.json`;
+    await save(`gym-buddy-${new Date().toISOString().slice(0, 10)}.json`, json, 'application/json');
+  };
+  // Every logged set, one row each: opens in a spreadsheet, and Watch & health › Import from a file reads it back.
+  const exportSets = () => save(`gym-buddy-sets-${new Date().toISOString().slice(0, 10)}.csv`, setsCsv(useStore.getState().sessions), 'text/csv');
+  const save = async (name: string, text: string, type: string) => {
     if (Platform.OS === 'web') {
-      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      const url = URL.createObjectURL(new Blob([text], { type }));
       const a = document.createElement('a');
       a.href = url; a.download = name; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } else {
-      await Share.share({ title: name, message: json }).catch(() => {});
+      await Share.share({ title: name, message: text }).catch(() => {});
     }
   };
   const erase = () => { closeData(); reset();
@@ -162,6 +168,7 @@ export default function You() {
           ) : (
             <>
               <Button title="Export data" kind="ghost" icon="download-outline" onPress={exportData} />
+              <Button title="Export sets (CSV)" kind="ghost" icon="grid-outline" onPress={exportSets} disabled={!hasSets} />
               <Button title="Erase all data" kind="danger" icon="trash-outline" onPress={() => setConfirm(true)} />
             </>
           )}

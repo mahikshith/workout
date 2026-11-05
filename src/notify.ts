@@ -8,11 +8,12 @@ import { foodsFor, proteinPicks } from './data/foods';
 import { MINDSET, motivation } from './data/motivation';
 import { quick, type Quick } from './data/quick';
 import { hidden, tone } from './engine';
-import { useStore, type Profile } from './store';
+import { useStore, type Profile, type Reminder } from './store';
 
 // Every nudge is a local notification, rebuilt from the store: works offline, nothing leaves the phone.
 type St = ReturnType<typeof useStore.getState>;
-export type NudgeState = Pick<St, 'profile' | 'reminders' | 'hydration' | 'breaks' | 'motivation' | 'nudges' | 'sessions' | 'meals' | 'water' | 'active'>;
+export type NudgeState = Pick<St, 'profile' | 'reminders' | 'hydration' | 'breaks' | 'motivation' | 'nudges' | 'sessions' | 'meals' | 'water' | 'active'>
+  & Partial<Pick<St, 'excuses' | 'planStart'>>;
 // rank: what survives the cap first. 0 repeating reminders, 1 missed and streak, 2 motivation, 3 water, 4 breaks. at = 0: repeating.
 type Req = { rank: number; at: number; content: Notifications.NotificationContentInput; trigger: Notifications.NotificationTriggerInput };
 
@@ -68,6 +69,38 @@ function pickQuick(p: Profile, d: Date, seed: number): Quick | undefined {
   return (pool.length ? pool : ok)[seed % (pool.length || ok.length)];
 }
 
+// A planned day is a weekday with a workout reminder on (a reminder with no days, or all seven, means every day).
+const remindersOn = (rs: Reminder[]) => rs.filter((r) => r.kind === 'workout' && r.on);
+export const plannedOn = (rs: Reminder[], d: Date | number) => {
+  const wd = new Date(d).getDay();
+  return remindersOn(rs).some((r) => !r.days.length || r.days.length >= 7 || r.days.includes(wd));
+};
+// The hour and minute of the day's last workout reminder, or -1 when the day isn't planned.
+export const lastReminderMin = (rs: Reminder[], d: Date | number) => {
+  const wd = new Date(d).getDay();
+  return Math.max(-1, ...remindersOn(rs).filter((r) => !r.days.length || r.days.length >= 7 || r.days.includes(wd)).map((r) => r.hour * 60 + r.minute));
+};
+
+// Back-off: planned days missed in a row before `today`, counted from the log (sessions) and the excuses. A day with a
+// workout ends the run; an excused day neither counts nor ends it. Days before the first workout or the plan's start
+// are not counted, so a new install starts at 0. Looks back at most 30 days.
+export const MISSED_LIMIT = 3;
+export function missedInARow(s: Pick<NudgeState, 'reminders' | 'sessions' | 'excuses' | 'planStart'>, now = Date.now()): number {
+  const trained = new Set(s.sessions.map((x) => dayKey(x.startedAt)));
+  const since = Math.min(s.sessions[0]?.startedAt ?? Infinity, s.planStart ?? Infinity);
+  if (since === Infinity) return 0;
+  const floor = dayKey(since);
+  let n = 0;
+  for (let off = 1; off <= 30; off++) {
+    const d = new Date(now); d.setDate(d.getDate() - off); d.setHours(12, 0, 0, 0);
+    const k = dayKey(d);
+    if (k < floor || trained.has(k)) break;
+    if (s.excuses?.[k] || !plannedOn(s.reminders, d)) continue;
+    n++;
+  }
+  return n;
+}
+
 // Pure: what to schedule for this state, best first, capped.
 export function plan(s: NudgeState, now = Date.now()): Req[] {
   const { profile: p, nudges: n } = s;
@@ -101,12 +134,16 @@ export function plan(s: NudgeState, now = Date.now()): Req[] {
 
   if (n.recap && !quiet(19 * 60)) repeat('Your week', 'Open to see how it went.', { type: K.WEEKLY, weekday: 1, hour: 19, minute: 0, channelId: 'nudges' }, '/progress');
 
-  // Missed workout: two hours after the day's last reminder, a short session instead.
+  // Missed workout: two hours after the day's last reminder, a short session instead. It backs off: after
+  // MISSED_LIMIT planned days missed in a row it goes quiet until the next workout (which reschedules everything).
+  // Future planned days are assumed missed, so at most MISSED_LIMIT nudges are ever queued. An excused today is skipped.
   const trained = s.sessions.some((x) => dayKey(x.startedAt) === today) || (!!s.active && dayKey(s.active.startedAt) === today);
-  if (n.missed) for (let off = trained ? 1 : 0; off < 7; off++) {
-    const wd = at(off, 0).getDay();
-    const last = Math.max(-1, ...workouts.filter((r) => everyDay(r.days) || r.days.includes(wd)).map((r) => r.hour * 60 + r.minute));
+  let missed = trained ? 0 : missedInARow(s, now);
+  if (n.missed) for (let off = trained ? 1 : 0; off < 7 && missed < MISSED_LIMIT; off++) {
+    const last = lastReminderMin(s.reminders, at(off, 0));
     if (last < 0) continue;
+    if (!off && s.excuses?.[today]) continue;
+    missed++;
     const d = at(off, last + 120);
     const q = pickQuick(p, d, off + k);
     const short = q ? `${a(q.minutes)} ${q.minutes}-minute ${q.name}` : 'Five minutes of movement';
@@ -213,7 +250,7 @@ export function rescheduleAll(s: NudgeState) {
 // Older callers; useNudgeSync already reschedules on every relevant store change.
 export const reschedule = (_p?: unknown, _s?: unknown) => rescheduleAll(useStore.getState());
 
-const watched = (s: St) => [s.reminders, s.hydration, s.breaks, s.motivation, s.nudges, s.sessions, s.meals, s.water, s.profile, s.active?.id];
+const watched = (s: St) => [s.reminders, s.hydration, s.breaks, s.motivation, s.nudges, s.sessions, s.meals, s.water, s.profile, s.active?.id, s.excuses];
 
 // Mounted once in the root layout: keeps the schedule in sync with the store and opens the screen a tapped nudge points to.
 export function useNudgeSync() {

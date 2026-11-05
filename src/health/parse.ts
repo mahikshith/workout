@@ -98,3 +98,144 @@ export function selfCheck() {
   assert(rmssd([800, 850]) === null, 'rmssd needs data');
   assert(base64ToBytes('EEAzAw==').join() === '16,64,51,3', 'base64');
 }
+
+// ---------- Heart rate per set (round 11) ----------
+// A watch's HR samples for one workout, split across its sets by the time each set was ticked done.
+
+export type HrSample = { t: number; bpm: number }; // epoch ms
+export type HrStat = { avg: number; max: number };
+export type HrSplit = HrStat & {
+  sparse: boolean; // median gap over 20 s: only the session numbers are kept
+  sets?: (HrStat | null)[][]; // same shape as the session's items and sets
+  rest?: HrStat; // everything outside the set windows
+};
+
+export const SPARSE_GAP_MS = 20000;
+export const SET_LEAD_MS = 45000; // a set's window opens this long before it was ticked
+export const SET_LAG_MS = 15000; // and stays open a little after, because HR peaks just after the effort
+
+const stat = (xs: number[]): HrStat | null =>
+  xs.length ? { avg: Math.round(xs.reduce((a, b) => a + b, 0) / xs.length), max: Math.round(Math.max(...xs)) } : null;
+
+export function medianGap(ts: number[]): number {
+  if (ts.length < 2) return Infinity;
+  const s = [...ts].sort((a, b) => a - b);
+  const gaps = s.slice(1).map((t, i) => t - s[i]).sort((a, b) => a - b);
+  const m = gaps.length >> 1;
+  return gaps.length % 2 ? gaps[m] : (gaps[m - 1] + gaps[m]) / 2;
+}
+
+// doneAt[i][j] is when set j of item i was ticked (epoch ms; 0 or missing when unknown). Session numbers use the
+// samples between start and end; set windows may reach a little past the end (the read goes to end + 5 min).
+export function splitHr(samples: HrSample[], start: number, end: number, doneAt?: number[][]): HrSplit | null {
+  const all = samples.filter((x) => Number.isFinite(x.t) && x.bpm > 20 && x.bpm < 250).sort((a, b) => a.t - b.t);
+  const inside = all.filter((x) => x.t >= start && x.t <= end);
+  const session = stat(inside.map((x) => x.bpm));
+  if (!session) return null;
+  const sparse = medianGap(inside.map((x) => x.t)) > SPARSE_GAP_MS;
+  const marks: { i: number; j: number; t: number }[] = [];
+  doneAt?.forEach((row, i) => row?.forEach((t, j) => { if (t > 0) marks.push({ i, j, t }); }));
+  if (sparse || !marks.length) return { ...session, sparse };
+  marks.sort((a, b) => a.t - b.t);
+  const sets: (HrStat | null)[][] = doneAt!.map((row) => (row ?? []).map(() => null));
+  const used = new Set<HrSample>();
+  let open = start;
+  marks.forEach((mk, k) => {
+    const from = Math.max(open, mk.t - SET_LEAD_MS);
+    const to = Math.max(from, Math.min(mk.t + SET_LAG_MS, marks[k + 1] ? marks[k + 1].t - 1 : Infinity));
+    const xs = all.filter((x) => x.t >= from && x.t <= to);
+    xs.forEach((x) => used.add(x));
+    sets[mk.i][mk.j] = stat(xs.map((x) => x.bpm));
+    open = to + 1;
+  });
+  const rest = stat(inside.filter((x) => !used.has(x)).map((x) => x.bpm)) ?? undefined;
+  return { ...session, sparse, sets, rest };
+}
+
+// ---------- Set done times ----------
+// Sets carry no timestamp, so the tracker keeps one per set, in the same shape as the running workout's items.
+type SetLike = { done: boolean };
+type ItemLike = { sets: SetLike[] };
+
+// Carries times across a store change. Unchanged sets keep the same object, so they are matched by identity first,
+// then by position (an edited set gets a new object). A newly done set gets `now`, an undone one loses its time, and 0
+// means done at an unknown time.
+export function trackDone(prev: ItemLike[] | undefined, next: ItemLike[], times: number[][] | undefined, now: number): number[][] {
+  return next.map((it, i) => {
+    const before = prev?.[i]?.sets ?? [];
+    const old = times?.[i] ?? [];
+    const byRef = new Map(before.map((x, j) => [x, old[j] ?? 0] as const));
+    return it.sets.map((x, j) => {
+      if (!x.done) return 0;
+      if (byRef.has(x)) return byRef.get(x)!; // unchanged (0 stays unknown)
+      if (before[j]?.done) return old[j] ?? 0; // edited after it was ticked
+      return now;
+    });
+  });
+}
+
+// The running workout's layout to the saved one: finishing keeps only done sets, and drops items with none.
+export function finishedTimes(items: ItemLike[], times: number[][]): number[][] {
+  return items
+    .map((it, i) => it.sets.map((x, j) => (x.done ? times[i]?.[j] ?? 0 : -1)).filter((t) => t >= 0))
+    .filter((row) => row.length);
+}
+
+// ---------- Health Connect write helpers ----------
+// The sets as plain text for the record's notes: one line per exercise.
+export function setsText(items: { name: string; timed: boolean; sets: { reps: number; weight: number; done: boolean }[] }[]): string {
+  const secs = (n: number) => (n >= 60 ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')} min` : `${n} s`);
+  return items
+    .map((it) => {
+      const sets = it.sets.filter((x) => x.done).map((x) => (it.timed ? secs(x.reps) : x.weight ? `${x.weight} kg × ${x.reps}` : `${x.reps} reps`));
+      return sets.length ? `${it.name}: ${sets.join(', ')}` : '';
+    })
+    .filter(Boolean)
+    .join('\n');
+}
+
+// A Health Connect ExerciseType key for a cardio-only session, from its exercise names. The item with the most time
+// (or reps) wins when the session mixes machines.
+export function cardioType(items: { name: string; amount: number }[]): string {
+  const key = (n: string) => {
+    const s = n.toLowerCase();
+    if (/\brow/.test(s)) return 'ROWING_MACHINE';
+    if (/elliptical/.test(s)) return 'ELLIPTICAL';
+    if (/stair|step mill/.test(s)) return 'STAIR_CLIMBING_MACHINE';
+    if (/(run|jog).*treadmill|treadmill.*(run|jog)/.test(s)) return 'RUNNING_TREADMILL';
+    if (/run|jog|sprint/.test(s)) return 'RUNNING';
+    if (/walk|hik/.test(s)) return /hik|trail/.test(s) ? 'HIKING' : 'WALKING';
+    if (/stationary|recumbent|assault|spin/.test(s)) return 'BIKING_STATIONARY';
+    if (/bik|bicycl|cycl/.test(s)) return 'BIKING';
+    if (/rope/.test(s)) return 'JUMP_ROPE';
+    if (/swim/.test(s)) return 'SWIMMING_POOL';
+    if (/skat/.test(s)) return 'SKATING';
+    return 'HIGH_INTENSITY_INTERVAL_TRAINING';
+  };
+  const best = [...items].sort((a, b) => b.amount - a.amount)[0];
+  return best ? key(best.name) : 'OTHER_WORKOUT';
+}
+
+// ---------- Merging a watch's own gym session into ours ----------
+export const isStrengthType = (type: string) => /strength|weight|lifting|calisthenic|cross ?(training|fit)|gym|^workout$|^other/i.test(type.trim());
+
+// Share of the shorter of two time ranges that both cover (0..1).
+export function overlapShare(a0: number, a1: number, b0: number, b1: number): number {
+  const both = Math.min(a1, b1) - Math.max(a0, b0);
+  const shorter = Math.min(a1 - a0, b1 - b0);
+  return both > 0 && shorter > 0 ? both / shorter : 0;
+}
+
+// The id of our logged session that a watch workout duplicates: a strength (or untyped) workout covering at least
+// half of the shorter of the two. The biggest overlap wins.
+export function matchSession(w: { type: string; start: string; end: string }, sessions: { id: string; startedAt: number; endedAt?: number }[]): string | undefined {
+  if (!isStrengthType(w.type)) return undefined;
+  const a0 = Date.parse(w.start), a1 = Date.parse(w.end);
+  let best: { id: string; share: number } | undefined;
+  for (const s of sessions) {
+    if (!s.endedAt) continue;
+    const share = overlapShare(a0, a1, s.startedAt, s.endedAt);
+    if (share >= 0.5 && (!best || share > best.share)) best = { id: s.id, share };
+  }
+  return best?.id;
+}
