@@ -10,7 +10,9 @@ import { byId, title } from '../../src/data/exercises';
 import { motivation } from '../../src/data/motivation';
 import { FoodSheet } from '../../src/foodsheet';
 import { STREAK_SUFFIX } from '../../src/glance';
-import { CountUp, EASE, useMiniBarSpace, useScrollTopRef, useToday } from '../../src/kit';
+import { CountUp, EASE, openWorkout, useMiniBarSpace, useScrollTopRef, useToday } from '../../src/kit';
+import { ChangeList, type ChangePick } from '../../src/restday';
+import { Sheet } from '../../src/sheet';
 import { askPermission, hasPermission, lastReminderMin, plannedOn, reschedule } from '../../src/notify';
 import { useStore, type Excuse } from '../../src/store';
 import { c, f, r } from '../../src/theme';
@@ -56,6 +58,7 @@ export default function Today() {
   const today = useToday();
   const scroll = useScrollTopRef<ScrollView>(); // tapping Today again scrolls back up
   const [food, setFood] = useState(false); // the food ring opens the food sheet right here
+  const [change, setChange] = useState(false); // Change next to Start: another day, a quick session or a focus
 
   const [notifOff, setNotifOff] = useState(false);
   useEffect(() => { if (Platform.OS !== 'web') hasPermission().then((ok) => setNotifOff(!ok)); }, []);
@@ -123,6 +126,13 @@ export default function Today() {
     action: inPeriod ? 'Period ended' : 'Log period', onAction: () => logPeriod(inPeriod ? 'end' : 'start') });
   const note = notes.find((n) => dismissed[n.id] !== key);
 
+  // A pick from Change opens that workout ready, exactly like Start does with today's.
+  const pickChange = (p: ChangePick) => {
+    setChange(false);
+    if (!useStore.getState().active) useStore.getState().start(p.day, p.place, p.planId, p.dayIndex);
+    openWorkout();
+  };
+
   const dateLabel = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 
   return (
@@ -156,7 +166,15 @@ export default function Today() {
             </Row>
           )}
           {!active && kind !== 'plan' && <T v="small" color="#C9C9CE" numberOfLines={1}>{firstSentence(reason)}</T>}
-          <Button title={button} icon="play" onPress={start} style={{ marginTop: 4 }} />
+          {/* One primary button; Change (before a workout is open) picks something else to start instead. */}
+          <Row gap={10} style={{ marginTop: 4 }}>
+            <Button title={button} icon="play" onPress={start} style={{ flex: 1, paddingHorizontal: 16 }} />
+            {!active && (
+              <Tap onPress={() => setChange(true)} style={s.change} scale={0.96} accessibilityLabel="Change workout">
+                <T v="h3">Change</T>
+              </Tap>
+            )}
+          </Row>
         </View>
         {showExcuse && (
           <Row gap={8} style={{ flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
@@ -250,6 +268,9 @@ export default function Today() {
       )}
     </ScrollView>
     <FoodSheet open={food} onClose={() => setFood(false)} />
+    <Sheet open={change} onClose={() => setChange(false)}>
+      <ChangeList place={today.where} current={{ planId: today.planId, dayIndex: today.dayIndex }} onPick={pickChange} />
+    </Sheet>
     </>
   );
 }
@@ -283,6 +304,7 @@ const RingFill = ({ progress, color }: { progress: number; color: string }) => (
 const s = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 16 },
   pillNum: { fontFamily: f.semi, fontSize: 14, lineHeight: 18 },
+  change: { height: 56, paddingHorizontal: 20, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2 },
   hero: { gap: 12, padding: 20, borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: c.card2 },
   ringCard: { flex: 1, minWidth: 0, alignItems: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 8, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },

@@ -1,7 +1,7 @@
 // Progress: this week at a glance, then four doors that each open one chart, then the achievements row.
 // Every number here is either this week's (its one home) or a one-line glance that links to its home.
 import { router, type Href } from 'expo-router';
-import { useMemo, type ComponentProps } from 'react';
+import { useMemo, type ComponentProps, type ReactElement } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { e1rm, streak, volume } from '../../src/calc';
@@ -10,7 +10,9 @@ import { byId } from '../../src/data/exercises';
 import { sessionMinutes, streakLabel } from '../../src/glance';
 import { CountUp, DoorCard, EASE } from '../../src/kit';
 import { useStore, type Session } from '../../src/store';
-import { c, r } from '../../src/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { c, dom, r, tint } from '../../src/theme';
 import { latest, useTracker } from '../../src/tracker';
 import { Screen, Section, T, TabTitle } from '../../src/ui';
 
@@ -66,11 +68,17 @@ export default function Progress() {
   const { lv, earned, total } = ach;
 
   type Door = { icon: ComponentProps<typeof DoorCard>['icon']; color: string; title: string; meta: string; go: Href };
+  // Each door wears its domain colour: training teal, body weight purple, streak amber, heart red.
   const doors: Door[] = [
-    { icon: 'stats-chart', color: c.accent, title: 'Strength', meta: strength, go: '/chart/strength' },
-    ...(gentle ? [] : [{ icon: 'trending-down', color: c.pink, title: 'Body weight', meta: weightMeta, go: '/chart/weight' } as Door]),
-    { icon: 'calendar', color: c.warm, title: 'Consistency', meta: consist, go: '/history' },
-    { icon: 'heart', color: c.blue, title: 'Body & watch', meta: bodyMeta, go: '/chart/body' },
+    { icon: 'barbell', color: dom.train, title: 'Strength', meta: strength, go: '/chart/strength' },
+    ...(gentle ? [] : [{ icon: 'scale', color: dom.weight, title: 'Body weight', meta: weightMeta, go: '/chart/weight' } as Door]),
+    { icon: 'flame', color: dom.streak, title: 'Consistency', meta: consist, go: '/history' },
+    { icon: 'heart', color: dom.heart, title: 'Body & watch', meta: bodyMeta, go: '/chart/body' },
+  ];
+  const tiles: { icon: ComponentProps<typeof Ionicons>['name']; node: ReactElement; label: string }[] = [
+    { icon: 'barbell', node: <CountUp value={week.length} />, label: 'workouts' },
+    { icon: 'layers', node: <CountUp value={tonnes ? vol / 1000 : Math.round(vol)} decimals={tonnes ? 1 : 0} suffix={tonnes ? ' t' : ' kg'} />, label: 'volume' },
+    { icon: 'time', node: <CountUp value={minutes} suffix=" min" />, label: 'minutes' },
   ];
 
   return (
@@ -78,19 +86,16 @@ export default function Progress() {
       <TabTitle title="Progress" />
 
       <Section title="This week" first>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Animated.View entering={enter(0)} style={s.tile}>
-            <CountUp value={week.length} />
-            <T v="small" numberOfLines={1}>workouts</T>
-          </Animated.View>
-          <Animated.View entering={enter(1)} style={s.tile}>
-            <CountUp value={tonnes ? vol / 1000 : Math.round(vol)} decimals={tonnes ? 1 : 0} suffix={tonnes ? ' t' : ' kg'} />
-            <T v="small" numberOfLines={1}>volume</T>
-          </Animated.View>
-          <Animated.View entering={enter(2)} style={s.tile}>
-            <CountUp value={minutes} suffix=" min" />
-            <T v="small" numberOfLines={1}>minutes</T>
-          </Animated.View>
+        {/* This week's training, on a teal wash: the training colour. */}
+        <View style={[s.week, { borderColor: tint(dom.train, 1.6) }]}>
+          <LinearGradient colors={[tint(dom.train, 1.5), tint(dom.train, 0.3)]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          {tiles.map((x, i) => (
+            <Animated.View key={x.label} entering={enter(i)} style={[s.tile, i > 0 && { borderLeftWidth: 1, borderLeftColor: tint(dom.train, 1.6) }]}>
+              <Ionicons name={x.icon} size={18} color={dom.train} />
+              {x.node}
+              <T v="small" numberOfLines={1}>{x.label}</T>
+            </Animated.View>
+          ))}
         </View>
       </Section>
 
@@ -104,7 +109,7 @@ export default function Progress() {
 
       <Section title="Achievements">
         <Animated.View entering={enter(doors.length + 1)}>
-          <DoorCard icon="trophy" color={c.warm} title={`Level ${lv.lvl} · ${lv.name}`} meta={`${earned} of ${total} medals`}
+          <DoorCard icon="trophy" color={dom.streak} title={`Level ${lv.lvl} · ${lv.name}`} meta={`${earned} of ${total} medals`}
             onPress={() => router.push('/chart/achievements')} />
         </Animated.View>
       </Section>
@@ -113,7 +118,8 @@ export default function Progress() {
 }
 
 const s = StyleSheet.create({
-  tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: 1, borderColor: c.line, gap: 2 },
+  week: { flexDirection: 'row', borderRadius: r.xl, borderWidth: 1, overflow: 'hidden', backgroundColor: c.card },
+  tile: { flex: 1, minWidth: 0, paddingVertical: 14, paddingHorizontal: 14, gap: 2 },
 });
 
 // Strength glance: the top lift's best set last time, and how much heavier it is than the first time.

@@ -62,7 +62,8 @@ export function useHealthSync() {
       }
 
       const active = !!a;
-      if (ANDROID && active && !wasActive) openRrWindow();
+      // Workout started: open the HRV window and bring the saved strap or watch broadcast back if it dropped.
+      if (ANDROID && active && !wasActive) { openRrWindow(); reconnectSaved().catch(() => {}); }
       if (!active && wasActive && ANDROID) {
         const ms = closeRrWindow();
         if (ms !== null) tr.logStrapHrv(dayKey(), ms);

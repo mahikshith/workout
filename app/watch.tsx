@@ -7,8 +7,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dayKey } from '../src/calc';
 import { connect, disconnect, forgetStrap, READ_TYPES, startScan, stopScan, sync, useBle, type Found } from '../src/health';
 import { ColmiCard } from '../src/health/ColmiCard';
-import { ConnectWatch } from '../src/health/ConnectWatch';
-import { originName, PHONE_ORIGINS, type Alt } from '../src/health/guides';
+import { BrandStatusCard, ConnectWatch } from '../src/health/ConnectWatch';
+import { GUIDES, originName, PHONE_ORIGINS, type Alt } from '../src/health/guides';
+import { LEVEL_WORD } from '../src/health/readiness';
+import { levelColor, useReadiness } from '../src/health/useReadiness';
 import { appsLine, commitApps, importFiles, pickFiles, summaryLine } from '../src/health/importFile';
 import type { AppPlan } from '../src/importApps';
 import { useLiveHr } from '../src/health/live';
@@ -85,6 +87,9 @@ export default function Watch() {
   const fromChart = useLocalSearchParams<{ from?: string }>().from === 'chart';
   const bpm = useLiveHr();
   const [flowOpen, setFlowOpen] = useState(false);
+  const [flowBrand, setFlowBrand] = useState<string | null>(null);
+  const openFlow = (brand: string | null = null) => { setFlowBrand(brand); setFlowOpen(true); };
+  const rd = useReadiness();
   const [syncing, setSyncing] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -130,11 +135,11 @@ export default function Watch() {
 
   const today = daily[dayKey()];
   // The watch apps that shared data in the last 7 days, by name: "From Google Health".
-  const from = useMemo(() => {
+  const fromPkgs = useMemo(() => {
     const since = dayKey(new Date(Date.now() - 6 * 86400000));
-    const o = new Set(Object.values(daily).filter((d) => d.date >= since).flatMap((d) => d.origin ?? []));
-    return [...o].filter((x) => !PHONE_ORIGINS.includes(x)).map(originName);
+    return new Set(Object.values(daily).filter((d) => d.date >= since).flatMap((d) => d.origin ?? []));
   }, [daily]);
+  const from = [...fromPkgs].filter((x) => !PHONE_ORIGINS.includes(x)).map(originName);
   const on = READ_TYPES.filter((t) => hc.granted.includes(t.type)).map((t) => t.label);
   // One glance at today's numbers; their home is Progress › Body & watch (opened with from=watch so it links back here).
   const sleep = latest(daily, 'sleep', 1);
@@ -198,14 +203,40 @@ export default function Watch() {
                 <Button kind="ghost" title="Sync now" icon="refresh" onPress={runSync} disabled={syncing} style={{ flex: 1, height: 48 }} />
                 <DisconnectHc disabled={syncing} />
               </View>
-              <Tap onPress={() => setFlowOpen(true)} style={{ alignSelf: 'flex-start', paddingVertical: 4 }} scale={0.97} accessibilityLabel="Check or add a watch">
+              <Tap onPress={() => openFlow()} style={{ alignSelf: 'flex-start', paddingVertical: 4 }} scale={0.97} accessibilityLabel="Check or add a watch">
                 <T v="small" color={c.blue}>Check or add a watch</T>
               </Tap>
             </>
           ) : (
-            <Button title="Connect your watch" icon="watch-outline" onPress={() => setFlowOpen(true)} />
+            <>
+              <Button title="Connect your watch" icon="watch-outline" onPress={() => openFlow()} />
+              {/* Straight to the two most asked-for watches */}
+              <View style={s.row}>
+                {LIVE_GUIDES.map((g) => (
+                  <Tap key={g.id} onPress={() => openFlow(g.id)} style={[s.pill, { flex: 1 }]} scale={0.97} accessibilityLabel={`Connect ${g.name}`}>
+                    <T v="small" color={c.text} numberOfLines={1}>{g.id === 'fitbit' ? 'Fitbit or Pixel' : g.name}</T>
+                  </Tap>
+                ))}
+              </View>
+            </>
           )}
         </Animated.View>
+
+        {/* Fitbit and WHOOP: daily data and live heart rate, each with its own status (shown once either is in use) */}
+        {LIVE_GUIDES.filter((g) => g.packages.some((p) => fromPkgs.has(p)) || (strap && g.live!.match.test(strap.name))).map((g, i) => (
+          <Animated.View key={g.id} entering={enter(1 + i)} style={s.card}>
+            <BrandStatusCard g={g} compact onPress={() => openFlow(g.id)} />
+          </Animated.View>
+        ))}
+
+        {/* Readiness: one glance that opens its home, the Recovery screen */}
+        {hc.connected && (
+          <Animated.View entering={enter(1)}>
+            <DoorCard icon="battery-charging-outline" color={levelColor(rd.level)} title="Recovery"
+              meta={rd.score !== null && rd.level ? `Readiness ${rd.score} · ${LEVEL_WORD[rd.level]}` : 'Learning your baseline'}
+              onPress={() => router.push('/recovery')} />
+          </Animated.View>
+        )}
 
         {/* Today's numbers: one glance that opens their home, Progress › Body & watch */}
         {hc.connected && (syncing ? <Shimmer height={72} /> : (
@@ -246,8 +277,8 @@ export default function Watch() {
         </Animated.View>
 
         <Animated.View entering={enter(4)} style={{ gap: 6, paddingHorizontal: 4 }}>
-          <T v="small">Chest straps, plus Garmin, WHOOP, Polar and Huawei in heart-rate broadcast mode</T>
-          <T v="small">Fitbit and Samsung watches don't pair here. Use Connect your watch</T>
+          <T v="small">Chest straps, plus WHOOP, Fitbit Charge 6, Pixel Watch 2+, Garmin, Polar and Huawei in heart-rate broadcast mode</T>
+          <T v="small">Older Fitbits and Samsung watches don't pair here. Use Connect your watch</T>
           <T v="small">Connects but no heart rate? Its broadcast mode is probably off</T>
         </Animated.View>
 
@@ -280,7 +311,7 @@ export default function Watch() {
         </Animated.View>
       </ScrollView>
 
-      <ConnectWatch open={flowOpen} onClose={() => setFlowOpen(false)} onAlt={onAlt} />
+      <ConnectWatch open={flowOpen} brand={flowBrand} onClose={() => setFlowOpen(false)} onAlt={onAlt} />
 
       <Sheet open={scanOpen} onClose={() => setScanOpen(false)}>
         <View style={{ gap: 12 }}>
@@ -337,6 +368,8 @@ export default function Watch() {
     </View>
   );
 }
+
+const LIVE_GUIDES = GUIDES.filter((g) => g.live);
 
 const FORMATS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
   { icon: 'watch-outline', label: 'Garmin .FIT file or Garmin export zip' },

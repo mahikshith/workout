@@ -4,13 +4,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useSegments } from 'expo-router';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import { AppState, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import Animated, {
   Easing, FadeInDown, FadeOutDown, runOnJS, useAnimatedReaction, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming, useAnimatedStyle,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fmtTime } from './calc';
-import { restAlert } from './notify';
+import { reschedule, restAlert } from './notify';
 import { byId, type Place } from './data/exercises';
 import { asDay, quickById } from './data/quick';
 import { suggest } from './engine';
@@ -160,7 +160,8 @@ export function useToday() {
     }
     openWorkout();
   };
-  return { day, where, minutes, kind: office ? 'plan' as const : sug.kind, reason: sug.reason, active: st.active, start };
+  return { day, where, minutes, kind: office ? 'plan' as const : sug.kind, reason: sug.reason, active: st.active, start,
+    planId: office ? undefined : sug.planId, dayIndex: office ? undefined : sug.dayIndex };
 }
 
 // The mini bar is rendered once, at the root (app/_layout.tsx). It sits 8 px above the tab bar on tabs and 8 px above
@@ -189,11 +190,24 @@ export function MiniBar({ bottom }: { bottom: number }) {
   const elapsed = useElapsed();
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
+  // A workout left open (no set logged for 3 hours) saves itself with what was logged when the app comes back, so the
+  // bar never follows the person around for days. Nothing logged: it simply goes.
+  useEffect(() => {
+    const check = () => {
+      const r = useStore.getState().closeStale();
+      if (!r) return;
+      restAlert(null);
+      if (r !== 'dropped') reschedule(useStore.getState().profile, useStore.getState().sessions);
+    };
+    check();
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') check(); });
+    return () => sub.remove();
+  }, [a?.id]);
   if (!a || a.running === false) return null;
   const i = Math.min(a.idx ?? 0, a.items.length - 1);
   const it = a.items[i];
   const ex = byId[it?.exId];
-  const j = it ? it.sets.findIndex((x) => !x.done) : -1;
+  const left = a.items.some((x) => x.sets.some((y) => !y.done)); // ✓ logs the next set anywhere, so it shows while any is left
   const done = a.items.reduce((n, x) => n + x.sets.filter((y) => y.done).length, 0);
   const total = a.items.reduce((n, x) => n + x.sets.length, 0);
   const rest = a.restUntil && a.restUntil > now ? Math.ceil((a.restUntil - now) / 1000) : 0;
@@ -209,9 +223,11 @@ export function MiniBar({ bottom }: { bottom: number }) {
     if (active.pausedAt) resume();
     if (ii !== i) setIdx(ii);
     updateSet(ii, jj, { done: true });
-    setRest(Date.now() + item.rest * 1000, item.rest);
-    restAlert(item.rest);
     haptic('success');
+    // The last set of the workout: open it, where the save beat runs (and Add more can still stop it).
+    if (useStore.getState().active?.items.every((x) => x.sets.every((y) => y.done))) { setRest(null); restAlert(null); openWorkout(); return; }
+    setRest(Date.now() + item.rest * 1000, item.rest, ii);
+    restAlert(item.rest);
   };
   return (
     <Animated.View entering={FadeInDown.duration(320).easing(EASE)} exiting={FadeOutDown.duration(200)} style={[k.mini, { bottom, borderColor: c.accent + '55' }]}>
@@ -224,8 +240,8 @@ export function MiniBar({ bottom }: { bottom: number }) {
           </T>
         </View>
       </Tap>
-      <Tap onPress={tick} style={[k.miniTick, { backgroundColor: c.accent }]} scale={0.9} feedback="none" accessibilityLabel={j < 0 ? 'Open workout' : 'Log next set'}>
-        <Ionicons name={j < 0 ? 'chevron-up' : 'checkmark'} size={22} color={c.accentInk} />
+      <Tap onPress={tick} style={[k.miniTick, { backgroundColor: c.accent }]} scale={0.9} feedback="none" accessibilityLabel={left ? 'Log next set' : 'Open workout'}>
+        <Ionicons name={left ? 'checkmark' : 'chevron-up'} size={22} color={c.accentInk} />
       </Tap>
     </Animated.View>
   );

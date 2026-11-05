@@ -78,7 +78,7 @@ const STATUS = {
 // ink on it, and readable as text on white cards).
 export const ACCENTS = {
   lime: { name: 'Volt lime', hex: '#C5F04A', light: '#437012' },
-  gold: { name: 'Champagne gold', hex: '#E6C36A', light: '#8A6100' },
+  gold: { name: 'Gold', hex: '#E6C36A', light: '#8A6100' },
   ember: { name: 'Ember', hex: '#FF7A45', light: '#C2410C' },
   glacier: { name: 'Glacier', hex: '#7DD3FC', light: '#0369A1' },
   rose: { name: 'Rose', hex: '#F4A3B5', light: '#BE185D' },

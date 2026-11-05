@@ -1,17 +1,19 @@
 import { Anton_400Regular } from '@expo-google-fonts/anton';
 import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { router, Stack, usePathname, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Appearance } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useHealthSync } from '../src/health';
 import { DockedMiniBar, registerRestDay } from '../src/kit';
 import { useNudgeSync } from '../src/notify';
 import { isRestDay, RestDaySheet } from '../src/restday';
 import { useStore } from '../src/store';
-import { c, setAccent } from '../src/theme';
+import { retheme, useLook } from '../src/look';
+import { c, now } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,13 +33,32 @@ export default function Root() {
   useHealthSync(); // Health Connect sync on launch/foreground, strap reconnect, finished workouts written back
   useEffect(() => { if (ready) SplashScreen.hideAsync(); }, [ready]);
 
-  const accent = useStore((s) => s.profile.accent ?? 'lime');
-  setAccent(accent); // before children render; the key below remounts them so every inline colour updates
+  // The palette was chosen before any screen loaded (index.js, src/look.ts). When it changes in place (a new accent,
+  // or light/dark on a release phone build), `v` bumps and the key below remounts everything so every colour updates.
+  const v = useLook((s) => s.v);
+  const path = usePathname();
+  const where = useRef(path);
+  where.current = path;
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    // The remount starts the stack again on Today; go back to the screen you were on.
+    const to = where.current;
+    if (to && to !== '/') setTimeout(() => router.push(to as Href), 60);
+  }, [v]);
+  // Theme "System": follow the phone switching between light and dark.
+  useEffect(() => {
+    const sub = Appearance.addChangeListener(({ colorScheme }) => {
+      const p = useLook.getState();
+      if (p.mode === 'system' && (colorScheme === 'light' || colorScheme === 'dark') && colorScheme !== now.scheme) retheme(p, colorScheme);
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!ready) return null;
   return (
-    <GestureHandlerRootView key={accent} style={{ flex: 1, backgroundColor: c.bg }}>
-      <StatusBar style="light" />
+    <GestureHandlerRootView key={v} style={{ flex: 1, backgroundColor: c.bg }}>
+      <StatusBar style={c.scheme === 'dark' ? 'light' : 'dark'} />
       {/* Pushed screens are places: slide in from the right, swipe back from the edge (iOS; Android uses Back and its
           predictive back gesture). The workout slides up and swipes down to minimise (it keeps running in the mini
           bar). Setup and Summary fade; Summary is the end of a workout: no swipe back. */}

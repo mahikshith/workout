@@ -8,6 +8,21 @@
 
 export type Alt = 'gadgetbridge' | 'strap' | 'ring' | 'import';
 
+// What a brand's app can put in Health Connect, as we store it (src/tracker.ts DailyMetrics + workouts).
+export type Metric = 'steps' | 'sleep' | 'hr' | 'rhr' | 'hrv' | 'spo2' | 'resp' | 'workouts';
+export const METRIC_LABEL: Record<Metric, string> = {
+  steps: 'steps', sleep: 'sleep', hr: 'heart rate', rhr: 'resting HR', hrv: 'HRV', spo2: 'SpO2', resp: 'breathing rate', workouts: 'workouts',
+};
+
+// Live heart rate during workouts over standard Bluetooth (0x180D), with the steps on the device itself.
+export type Live = {
+  short: string; // "Find my <short>"
+  match: RegExp; // advertised names of this brand, to list its devices first
+  devices: { name: string; steps: string[] }[];
+  note?: string;
+  source: string;
+};
+
 export type Guide = {
   id: string;
   name: string; // tile label: brand names as text, no logos
@@ -20,6 +35,10 @@ export type Guide = {
   strapHint?: string; // how to turn on its Bluetooth heart-rate broadcast, if it has one
   alts?: Alt[]; // other ways in, best first
   source: string;
+  expects?: Metric[]; // what this brand's app shares, to show what's missing
+  missing?: Partial<Record<Metric, string>>; // one-line fix per missing metric
+  info?: string; // one line under the status, e.g. what the brand never shares
+  live?: Live;
 };
 
 export const GUIDES: Guide[] = [
@@ -41,6 +60,27 @@ export const GUIDES: Guide[] = [
     fix: 'Open Google Health once so it syncs, then try again',
     alts: ['import'],
     source: 'https://support.google.com/fitbit/answer/14506680',
+    // Google Health writes these to Health Connect; it only reads SpO2, so SpO2 is not expected.
+    expects: ['steps', 'sleep', 'hr', 'rhr', 'hrv', 'resp', 'workouts'],
+    missing: {
+      sleep: 'Wear it to bed, then open Google Health in the morning',
+      hrv: 'HRV comes in after a night with the watch on',
+      rhr: 'Resting HR comes in after a day with the watch on',
+      resp: 'Breathing rate comes in after a night with the watch on',
+      steps: 'Open Google Health so it syncs',
+      hr: 'Open Google Health so it syncs',
+      workouts: 'Record one on the watch and it shows up here',
+    },
+    live: {
+      short: 'watch',
+      match: /charge|pixel|fitbit|google|edge/i,
+      devices: [
+        { name: 'Charge 6 or Edge', steps: ['Swipe down from the clock face', 'Tap Broadcast HR', 'Here, tap Find my watch and pick it', 'On the watch, tap Share, then Start'] },
+        { name: 'Pixel Watch 2 or newer', steps: ['Swipe down from the clock face', 'Tap Connected Fitness, then Connect', 'Here, tap Find my watch and pick it', 'Accept the pairing request'] },
+      ],
+      note: 'Older Fitbits (Charge 5, Versa, Sense, Inspire) have no live heart rate',
+      source: 'https://support.google.com/googlehealth/answer/14236705',
+    },
   },
   {
     id: 'samsung',
@@ -82,19 +122,36 @@ export const GUIDES: Guide[] = [
     name: 'WHOOP',
     app: { name: 'WHOOP', pkg: 'com.whoop.android' },
     hc: true,
-    note: 'Shares sleep, workouts and resting heart rate',
     steps: [
       'Open WHOOP',
       'Tap More at the bottom right',
-      'Tap Integrations, then Health Connect',
-      'Tap Set up',
+      'Tap Account & Settings, then Integrations',
+      'Tap Health Connect, then Set Up',
       'Tap Allow all, then Allow',
     ],
     packages: ['com.whoop.android'],
     fix: 'Open WHOOP once so it syncs, then try again',
-    strapHint: 'In WHOOP, turn on Broadcast heart rate',
-    alts: ['strap'],
-    source: 'https://gadgetsandwearables.com/2023/07/14/whoop-health-connect-integration/',
+    strapHint: 'In WHOOP, turn on Broadcast Heart Rate',
+    source: 'https://ultrafit360.com/blog/whoop-apple-health-health-connect',
+    expects: ['steps', 'sleep', 'rhr', 'spo2', 'resp', 'workouts'],
+    missing: {
+      sleep: 'Open WHOOP after you wake up so it syncs',
+      rhr: "Resting HR needs WHOOP's Health Monitor",
+      spo2: 'Open WHOOP after you wake up so it syncs',
+      resp: 'Open WHOOP after you wake up so it syncs',
+      steps: 'Open WHOOP so it syncs',
+      workouts: 'Start or confirm one in WHOOP and it shows up here',
+    },
+    info: "WHOOP doesn't share HRV. Live heart rate in workouts gives us yours",
+    live: {
+      short: 'WHOOP',
+      match: /whoop/i,
+      devices: [
+        { name: 'WHOOP 4.0, 5.0 or MG', steps: ['In WHOOP, tap your strap icon for Device settings', 'Turn on Broadcast Heart Rate', 'Here, tap Find my WHOOP and pick it'] },
+      ],
+      note: 'It shares with one app at a time',
+      source: 'https://www.whoop.com/thelocker/10-whoop-features-you-need-to-know/',
+    },
   },
   {
     id: 'oura',

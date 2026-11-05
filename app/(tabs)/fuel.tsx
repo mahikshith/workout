@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
@@ -11,7 +12,7 @@ import { CountUp, DoorCard, EASE } from '../../src/kit';
 import { Sheet } from '../../src/sheet';
 import { answered, setKey } from '../../src/glance';
 import { useStore, type MealSlot, type Profile } from '../../src/store';
-import { c, r } from '../../src/theme';
+import { c, dom, r, tint } from '../../src/theme';
 import { Button, Card, Chip, Fold, IconBox, Ring, Row, Screen, T, TabTitle, Tap } from '../../src/ui';
 
 type Ask = { slot?: MealSlot; tab?: FoodTab; query?: string };
@@ -72,51 +73,71 @@ export default function Fuel() {
         </Animated.View>
       )}
 
-      {/* Totals: the home of today's kcal, protein and water. Gentle mode counts meals instead. */}
+      {/* Totals: the home of today's kcal, protein and water. Gentle mode counts meals instead. Each number keeps its
+          domain colour everywhere (food orange, protein pink, water blue). */}
       <Animated.View entering={enter(1)}>
-        <Card style={[s.totals, { marginTop: askDiet ? 12 : 20 }]}>
-          {gentle ? (
-            <Total progress={eaten / 4} color={c.accent} value={eaten} label="of 4 meals" />
-          ) : (
-            <>
-              <Total progress={kcal / t.kcal} color={over ? c.danger : c.warm} value={kcal} label={`of ${t.kcal.toLocaleString()} kcal`} />
-              <Total progress={protein / t.protein} color={c.pink} value={protein} suffix="g" label={`of ${t.protein} g protein`} />
-            </>
-          )}
-          <Total progress={water / t.water} color={c.blue} value={water} label={`of ${t.water} glasses`} />
-        </Card>
+        <View style={[s.hero, { marginTop: askDiet ? 12 : 20, borderColor: tint(dom.kcal, 1.6) }]}>
+          <LinearGradient colors={[tint(dom.kcal, 1.4), tint(dom.protein, 0.5), c.card]} locations={[0, 0.55, 1]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <View style={{ alignItems: 'center', gap: 6 }}>
+            {gentle ? (
+              <Ring size={124} stroke={11} progress={eaten / 4} color={dom.kcal} track={tint(dom.kcal, 1.4)}>
+                <CountUp value={eaten} style={{ fontSize: 30, lineHeight: 36 }} />
+                <T v="small">of 4 meals</T>
+              </Ring>
+            ) : (
+              <Ring size={124} stroke={11} progress={kcal / t.kcal} color={over ? c.danger : dom.kcal} track={tint(dom.kcal, 1.4)}>
+                <CountUp value={kcal} style={{ fontSize: 30, lineHeight: 36 }} />
+                <T v="small">kcal</T>
+              </Ring>
+            )}
+            {!gentle && <T v="small" color={over ? c.danger : c.text} numberOfLines={1}>{over ? `${(kcal - t.kcal).toLocaleString()} over` : `${(t.kcal - kcal).toLocaleString()} left of ${t.kcal.toLocaleString()}`}</T>}
+          </View>
+          <View style={{ flex: 1, gap: 12, justifyContent: 'center' }}>
+            {!gentle && <Meter icon="nutrition" color={dom.protein} value={protein} goal={t.protein} unit="g" label="Protein" />}
+            <Meter icon="water" color={dom.water} value={water} goal={t.water} label="Water" unit={water === 1 ? ' glass' : ' glasses'} />
+          </View>
+        </View>
       </Animated.View>
 
-      {/* The four meals. Tap one to see and remove what's in it; an empty one opens the food sheet on that meal. */}
+      {/* The one primary action: logging food. Two taps for a common food: this, then the food. */}
+      <Animated.View entering={enter(2)}>
+        <Button title="Log food" icon="add" onPress={() => openFood()} style={{ marginTop: 12 }} />
+      </Animated.View>
+
+      {/* The four meals. + logs straight to that meal; a meal with food opens to show and remove what's in it. */}
       <Card style={{ marginTop: 12, paddingVertical: 4 }}>
         {SLOTS.map((x, i) => {
           const items = inSlot(x.id);
           const k = items.reduce((a, m) => a + m.kcal, 0);
           const shown = openSlot === x.id && items.length > 0;
           return (
-            <Animated.View key={x.id} entering={enter(i + 2)} style={i > 0 && s.sep}>
-              <Tap onPress={() => (items.length ? setOpenSlot(shown ? null : x.id) : openFood({ slot: x.id }))} scale={0.99} feedback="none" style={s.slot}>
-                <IconBox icon={x.icon} color={items.length ? c.ok : c.muted} size={36} />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <T v="h3" numberOfLines={1}>{x.name}</T>
-                  <T v="small" numberOfLines={1}>{items.length ? items.map((m) => m.name).join(', ') : 'Nothing yet'}</T>
-                </View>
-                {!gentle && items.length > 0 && <T v="small" color={c.text}>{k} kcal</T>}
-                <Ionicons name={!items.length ? 'add' : shown ? 'chevron-up' : 'chevron-down'} size={18} color={c.dim} />
-              </Tap>
+            <Animated.View key={x.id} entering={enter(i + 3)} style={i > 0 && s.sep}>
+              <View style={s.slot}>
+                <Tap onPress={() => (items.length ? setOpenSlot(shown ? null : x.id) : openFood({ slot: x.id }))} scale={0.99} feedback="none" style={s.slotMain}
+                  accessibilityLabel={items.length ? `${x.name}: ${items.map((m) => m.name).join(', ')}` : `Log ${x.name.toLowerCase()}`}>
+                  <IconBox icon={x.icon} color={items.length ? dom.kcal : c.muted} size={36} />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <T v="h3" numberOfLines={1}>{x.name}</T>
+                    <T v="small" numberOfLines={1}>{items.length ? items.map((m) => m.name).join(', ') : 'Nothing yet'}</T>
+                  </View>
+                  {!gentle && items.length > 0 && <T v="small" color={c.text}>{k} kcal</T>}
+                  {items.length > 0 && <Ionicons name={shown ? 'chevron-up' : 'chevron-down'} size={18} color={c.dim} />}
+                </Tap>
+                <Tap onPress={() => openFood({ slot: x.id })} scale={0.9} style={[s.add, { backgroundColor: tint(c.accent, 1.2) }]}
+                  accessibilityLabel={`Log food to ${x.name.toLowerCase()}`}>
+                  <Ionicons name="add" size={22} color={c.accent} />
+                </Tap>
+              </View>
               {shown && (
                 <View style={{ paddingBottom: 6 }}>
                   {items.map((m) => (
                     <Animated.View key={m.id} entering={still ? undefined : FadeIn.duration(200).easing(EASE)} style={s.item}>
                       <T v="body" numberOfLines={1} style={{ flex: 1 }}>{m.name}</T>
                       {!gentle && <T v="small">{m.kcal} kcal</T>}
-                      <Tap onPress={() => removeMeal(m.id)} style={s.x}><Ionicons name="close" size={18} color={c.muted} /></Tap>
+                      <Tap onPress={() => removeMeal(m.id)} style={s.x} accessibilityLabel={`Remove ${m.name}`}><Ionicons name="close" size={18} color={c.muted} /></Tap>
                     </Animated.View>
                   ))}
-                  <Tap onPress={() => openFood({ slot: x.id })} scale={0.98} style={s.item}>
-                    <Ionicons name="add" size={18} color={c.accent} />
-                    <T v="small" color={c.accent}>Add to {x.name.toLowerCase()}</T>
-                  </Tap>
                 </View>
               )}
             </Animated.View>
@@ -124,24 +145,18 @@ export default function Fuel() {
         })}
       </Card>
 
-      <Animated.View entering={enter(6)}>
-        <Button title="Add food" icon="add" onPress={() => openFood()} style={{ marginTop: 16 }} />
-      </Animated.View>
-
       {/* Water: one tap a glass. */}
       <Animated.View entering={enter(6)}>
-        <Card style={{ marginTop: 16, paddingVertical: 10 }}>
-          <Row>
-            <IconBox icon="water" color={c.blue} size={36} />
-            <View style={{ flex: 1 }}>
-              <T v="h3" numberOfLines={1}>Water</T>
-              <T v="small" numberOfLines={1}>250 ml a glass</T>
-            </View>
-            <Tap onPress={() => addWater(-1)} disabled={!water} style={s.round}><Ionicons name="remove" size={20} color={c.text} /></Tap>
-            <T v="h2" style={{ minWidth: 28, textAlign: 'center' }}>{water}</T>
-            <Tap onPress={() => addWater(1)} style={[s.round, { backgroundColor: c.blue }]}><Ionicons name="add" size={20} color={c.accentInk} /></Tap>
-          </Row>
-        </Card>
+        <View style={[s.water, { backgroundColor: tint(dom.water, 0.8), borderColor: tint(dom.water, 1.6) }]}>
+          <IconBox icon="water" color={dom.water} size={36} />
+          <View style={{ flex: 1 }}>
+            <T v="h3" numberOfLines={1}>Water</T>
+            <T v="small" numberOfLines={1}>250 ml a glass</T>
+          </View>
+          <Tap onPress={() => addWater(-1)} disabled={!water} style={[s.round, { backgroundColor: c.card }]} accessibilityLabel="One glass less"><Ionicons name="remove" size={20} color={c.text} /></Tap>
+          <T v="h2" style={{ minWidth: 28, textAlign: 'center' }}>{water}</T>
+          <Tap onPress={() => addWater(1)} style={[s.round, { backgroundColor: dom.water }]} accessibilityLabel="Add a glass of water"><Ionicons name="add" size={20} color={c.accentInk} /></Tap>
+        </View>
       </Animated.View>
 
       {/* Occasional reading, closed until asked for. */}
@@ -228,7 +243,7 @@ export default function Fuel() {
 
       {/* History of water, protein, calories and meals lives on its own chart screen. */}
       <Animated.View entering={enter(6)} style={{ marginTop: 12 }}>
-        <DoorCard compact icon="stats-chart" color={c.blue} title="Trends" meta={gentle ? 'Meals and water over time' : 'Calories, protein, water and meals'} onPress={() => router.push('/chart/fuel')} />
+        <DoorCard compact icon="stats-chart" color={dom.kcal} title="Trends" meta={gentle ? 'Meals and water over time' : 'Calories, protein, water and meals'} onPress={() => router.push('/chart/fuel')} />
       </Animated.View>
 
       <FoodSheet open={!!ask} onClose={() => setAsk(null)} slot={ask?.slot} tab={ask?.tab} query={ask?.query} />
@@ -254,14 +269,17 @@ export default function Fuel() {
   );
 }
 
-// One column of the totals card: a ring with the count-up number inside, the target below.
-const Total = ({ progress, color, value, suffix, label }: { progress: number; color: string; value: number; suffix?: string; label: string }) => (
-  <View style={{ flex: 1, alignItems: 'center', gap: 8 }}>
-    <Ring size={84} stroke={7} progress={progress} color={color}>
-      <CountUp value={value} suffix={suffix} style={{ fontSize: 22, lineHeight: 28 }} />
+// One line of the totals card: a small ring in the domain colour, the number and its goal.
+const Meter = ({ icon, color, value, goal, unit = '', label }: { icon: keyof typeof Ionicons.glyphMap; color: string; value: number; goal: number; unit?: string; label: string }) => (
+  <Row gap={10}>
+    <Ring size={44} stroke={5} progress={value / Math.max(1, goal)} color={color} track={tint(color, 1.4)}>
+      <Ionicons name={icon} size={16} color={color} />
     </Ring>
-    <T v="small" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{label}</T>
-  </View>
+    <View style={{ flex: 1, minWidth: 0 }}>
+      <T v="label" numberOfLines={1}>{label}</T>
+      <T v="small" color={c.text} numberOfLines={1}><T v="h3" color={c.text}>{value}</T>{` / ${goal}${unit}`}</T>
+    </View>
+  </Row>
 );
 
 // A sub-heading inside the tips fold.
@@ -286,9 +304,12 @@ const TipFood = ({ fd, sub, right, onPress }: { fd: Food; sub?: string; right?: 
 );
 
 const s = StyleSheet.create({
-  totals: { flexDirection: 'row', gap: 8, paddingVertical: 18, paddingHorizontal: 8 },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1, overflow: 'hidden' },
+  water: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, paddingHorizontal: 16, paddingVertical: 10, borderRadius: r.lg, borderWidth: 1 },
+  slotMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingVertical: 10 },
+  add: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   round: { width: 44, height: 44, borderRadius: 12, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
-  slot: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingVertical: 10 },
+  slot: { flexDirection: 'row', alignItems: 'center' },
   sep: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
   sub: { gap: 10, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
   item: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 48, minHeight: 44 },
