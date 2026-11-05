@@ -176,6 +176,11 @@ export function base(pose: Pose): Pts {
     let sink = 0;
     for (let i = 0; i <= 10; i++) { const f = solve(pose, o, i / 10); for (const k of KEYS) sink = Math.max(sink, f[k][1] + (R[k] ?? 0)); }
     shift(o, 0, -sink);
+    // and a bench has legs: when the body lies on the floor (nothing hangs down to it), lift it to bench height
+    let low: Key = 'pelvis';
+    for (const k of KEYS) if (o[k][1] + (R[k] ?? 0) > o[low][1] + (R[low] ?? 0)) low = k;
+    const seat = o.pelvis[1] + (R.pelvis ?? 7) + 2.6;
+    if ((!/^(an|heel|toe)/.test(low) || o[low][1] - o.pelvis[1] < 15) && seat > -18) shift(o, 0, -(seat + 18));
   }
   return o;
 }
@@ -724,6 +729,7 @@ function pattern(e: Ex): Pose {
     if (has(/stair|step|climb/)) return P.Stairmaster;
     if (has(/ellip/)) return P.Elliptical_Trainer;
     if (has(/incline|hill|hik/)) return has(/treadmill/) ? P['wg_treadmill-incline-walk'] : P.wg_hiking;
+    if (has(/lunge sprint/)) return W(P.Bodyweight_Walking_Lunge);
     if (has(/sprint/)) return P['Single-Cone_Sprint_Drill'];
     if (has(/jog/)) return has(/treadmill/) ? P.Jogging_Treadmill : P.Trail_Running_Walking;
     if (has(/walk/)) return has(/treadmill/) ? P.Walking_Treadmill : { ...P.Walking_Treadmill, machine: undefined };
@@ -752,7 +758,13 @@ function pattern(e: Ex): Pose {
   if (has(/incline.*(fly|flye)/)) return P.f_incline_fly;
   if (has(/flat bench cable fl/)) return P.Dumbbell_Flyes;
   if (has(/back flyes?.*band/)) return P.Band_Pull_Apart;
-  if (has(/rear.delt row/)) return P.Face_Pull;
+  if (has(/rear.delt row/) && eq === 'cable') return P.Face_Pull;
+  // Lying/incline raises, chest-supported machine rows, seated cable presses and the
+  // bosu cable crunch have no drawing of their own: show the photo.
+  if (has(/(lying|incline).*(lateral|rear delt) raise/)) return W(P.Side_Lateral_Raise);
+  if (has(/leverage (high|iso) row|lying t-bar row/)) return has(/lying/) ? W(P.Bent_Over_Barbell_Row) : W(P.Seated_Cable_Rows);
+  if (has(/cable chest press/)) return W(has(/incline/) ? P.Incline_Dumbbell_Press : P['Barbell_Bench_Press_-_Medium_Grip']);
+  if (has(/bosu ball cable crunch/)) return W(P.f_side_bend);
   if (has(/upright (\w+ )?row/)) return P.Upright_Barbell_Row;
   if (has(/bent.over.*triceps extension/)) return P.Tricep_Dumbbell_Kickback;
   if (has(/incline triceps extension|decline triceps extension/)) return P.Lying_Triceps_Press;
@@ -845,7 +857,7 @@ function pattern(e: Ex): Pose {
   if (has(/inverted row/)) return P.Inverted_Row;
   if (has(/\brows?\b|rowing/))
     return has(/one.arm|single|alternat/) ? P['One-Arm_Dumbbell_Row'] : eq === 'cable' || has(/seated|cable/) ? P.Seated_Cable_Rows
-      : byEq(P.Bent_Over_Barbell_Row, P['Bent_Over_Two-Dumbbell_Row'], P['Bent_Over_Two-Dumbbell_Row'], eq === 'body only' ? P['wg_doorway-row'] : P.Bent_Over_Barbell_Row);
+      : byEq(P.Bent_Over_Barbell_Row, P['Bent_Over_Two-Dumbbell_Row'], P['Bent_Over_Two-Dumbbell_Row'], eq === 'machine' ? P.Bent_Over_Barbell_Row : P['wg_doorway-row']);
   if (has(/shrug/)) return P.Barbell_Shrug;
   if (has(/swing/)) return P['wg_kettlebell-swing'];
   if (has(/jerk|push press/)) return P.Standing_Military_Press;

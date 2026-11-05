@@ -183,7 +183,7 @@ export function selfCheck(byId: Record<string, Exercise>) {
   assert(fo('Triceps_Pushdown') === 'Lateral and medial heads', 'pushdown -> lateral head');
   assert(fo('Face_Pull') === 'Rear delts', 'face pull -> rear delts');
   assert(fo('Dumbbell_Lying_Rear_Lateral_Raise') === 'Rear delts', 'rear lateral -> rear delts');
-  assert(doseText(dose(byId.Plank)) === '2 x 20-30 s', 'beginner plank is a short hold');
+  assert(doseText(dose(byId.Plank)) === '2 × 20-30 s', 'beginner plank is a short hold');
   assert(office(byId.Desk_Chin_Tuck) && !office(byId.Bodyweight_Squat), 'office filter');
   assert(ease(byId.Bodyweight_Squat) < ease(byId.Barbell_Squat), 'bodyweight is easier than barbell');
   assert(kcal(byId.Bodyweight_Squat, 70) > 0 && effort(byId.Plank) !== 'Hard', 'kcal and effort');
