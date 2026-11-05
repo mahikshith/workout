@@ -65,7 +65,7 @@ export default function Today() {
   const rest = kind === 'rest';
   const label = active ? 'In progress' : rest && trainedToday ? 'Done for today' : LABEL[kind];
   const wh = active ? active.place : today.where;
-  const place = profile.place === 'office' && !active ? 'Office' : wh === 'home' ? 'Home' : wh === 'office' ? 'Office' : 'Gym';
+  const place = profile.place === 'office' && !active ? 'Office' : wh === 'home' ? 'Home' : 'Gym';
   const muscles = [...new Set(day.slots.map((sl) => byId[sl.id]?.primary[0]).filter(Boolean))].slice(0, 3).map(title);
   const button = active ? 'Resume' : rest ? 'Train anyway' : 'Start';
 
