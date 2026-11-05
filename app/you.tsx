@@ -129,8 +129,12 @@ export default function You() {
     { icon: 'location', color: dom.steps, t: 'Where you train', v: place, go: () => router.push({ pathname: '/profile', params: { s: 'place' } }) },
     { icon: 'notifications', color: dom.streak, t: 'Reminders', v: next ? clock12(next.hour, next.minute) : 'Off', go: () => router.push('/reminders') },
   ];
+  // Watch first: connecting Fitbit, WHOOP and the rest is the main way data gets in, so it sits right under your card.
+  const devices: RowT[] = [
+    { icon: 'watch', color: dom.heart, t: 'Watch & health', v: connected ? 'Connected' : 'Fitbit, WHOOP', go: () => router.push('/watch') },
+    { icon: 'battery-charging', color: dom.sleep, t: 'Recovery', v: 'Readiness, sleep, effort', go: () => router.push('/recovery') },
+  ];
   const more: RowT[] = [
-    { icon: 'watch', color: dom.heart, t: 'Watch & health', v: connected ? 'Connected' : 'Not connected', go: () => router.push('/watch') },
     { icon: 'people', color: dom.sleep, t: 'Gym etiquette', go: () => router.push('/etiquette') },
     { icon: 'server', color: c.muted, t: 'Your data', v: 'On this phone', go: () => setSheet('data') },
   ];
@@ -163,6 +167,11 @@ export default function You() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={c.muted} />
           </Tap>
+        </Animated.View>
+
+        <Animated.View entering={enter(1)} style={{ gap: 8 }}>
+          <T v="label" style={s.head}>Your watch</T>
+          <View style={s.group}>{group(devices)}</View>
         </Animated.View>
 
         <Animated.View entering={enter(1)} style={{ gap: 8 }}>

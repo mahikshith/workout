@@ -289,9 +289,9 @@ export function FoodPicker({ slot: slot0, tab: tab0 = 'foods', query: q0 = '', o
               {!gentle && (
                 <Row gap={8}>
                   <TextInput value={form.kcal} onChangeText={(v) => setForm({ ...form, kcal: v.replace(/\D/g, '') })} keyboardType="number-pad"
-                    placeholder={formEst ? `${formEst.kcal} kcal` : 'kcal (optional)'} maxLength={4} placeholderTextColor={c.muted} style={[s.input, { flex: 1 }]} />
+                    placeholder={formEst ? `${formEst.kcal} kcal` : 'kcal (optional)'} maxLength={4} placeholderTextColor={c.muted} style={[s.input, { flex: 1, minWidth: 0 }]} />
                   <TextInput value={form.protein} onChangeText={(v) => setForm({ ...form, protein: v.replace(/\D/g, '') })} keyboardType="number-pad"
-                    placeholder={formEst ? `${formEst.protein} g protein` : 'Protein g (optional)'} maxLength={3} placeholderTextColor={c.muted} style={[s.input, { flex: 1 }]} />
+                    placeholder={formEst ? `${formEst.protein} g protein` : 'Protein g (optional)'} maxLength={3} placeholderTextColor={c.muted} style={[s.input, { flex: 1, minWidth: 0 }]} />
                 </Row>
               )}
               <Button title={`Log to ${meal}`} icon="add" disabled={!form.name.trim()} onPress={addCustom} style={{ marginTop: 8 }} />

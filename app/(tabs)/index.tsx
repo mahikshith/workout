@@ -230,7 +230,7 @@ export default function Today() {
                 </Svg>
                 <Ionicons name="add" size={24} color={dom.heart} />
               </View>
-              <T v="small" color={dom.heart} numberOfLines={1}>{hcOn ? 'No data yet' : 'Connect watch'}</T>
+              <T v="small" color={dom.heart} numberOfLines={1}>{hcOn ? 'No data yet' : 'Add watch'}</T>
             </Tap>
           )}
         </Row>
