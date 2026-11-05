@@ -199,7 +199,7 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
   const pickView = (
     <View style={{ gap: 12 }}>
       <T v="h2">Connect your watch</T>
-      <T v="small">No Bluetooth pairing. Your watch's own app shares its data through Health Connect</T>
+      <T v="small">Daily data comes through your watch's own app and Health Connect. Fitbit, Pixel and WHOOP can also send live heart rate over Bluetooth in workouts</T>
       {androidNote}
       <ScrollView style={{ maxHeight: scrollMax }} contentContainerStyle={s.grid} showsVerticalScrollIndicator={false}>
         {/* Fitbit and WHOOP first and full width: daily data plus live heart rate in workouts */}
