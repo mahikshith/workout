@@ -1266,29 +1266,40 @@ export function primBox(q: Prim, bx: number[]) {
 }
 
 // The frame (SVG viewBox), normalised the same way for every pose: it is centred on what is solid, the body plus the
-// amber equipment over the whole rep, so the figure sits in the middle of the pane. The angle label always fits (the
-// frame grows evenly round that centre to take it in); a cable or band may run out past the edge toward its machine.
+// amber equipment over the whole rep (every frame, so it never moves during the rep), so the figure sits in the middle
+// of the pane and a move that travels (box jumps) starts left of centre and ends right of it. The angle label always
+// fits (the frame grows evenly round that centre to take it in); a cable or band may run out past the edge toward its
+// machine. The figure draws it with its origin at 0,0 (figure.tsx: react-native-svg misplaces a non-zero origin on phones).
 export function viewBox(pose: Pose, b: Pts): [number, number, number, number] {
   const front = pose.view === 'front';
   const C = [1e9, 1e9, -1e9, -1e9], S = [1e9, -1e9]; // S: the floor shadow's x extent over the rep
+  const X = [1e9, 1e9, -1e9, -1e9], ab = pose.guide?.axis ?? (['pelvis', 'neck'] as [Key, Key]); // X: the blue form-guide line
   for (let i = 0; i <= 24; i++) {
     const p = i / 24, o = solve(pose, b, p);
     bodyBox(o, front, C);
+    const t = angle(o[ab[0]], o[ab[1]]); // drawn 12 past both points, like the figure's Axis
+    for (const q of [at(o[ab[0]], t, -12), at(o[ab[1]], t, 12)]) primBox([q[0], q[1], 0], X);
     if (pose.prop !== 'band') for (const n of [0, 1] as const) for (const q of gearPrims(pose, o, n, p, null)) primBox(q, C);
     if (pose.machine === 'sled') { const [s0, s1] = sledAt(o); primBox([s0[0], s0[1], s1[0], s1[1], 1.6], C); }
     if (pose.under && !pose.under.fixed) primBox([underX(pose.under, o), -pose.under.r, pose.under.r], C);
     if (pose.machine === 'bike') for (const q of crankPrims(o)) primBox(q, C);
     if (pose.ground !== 'hang' && pose.ground !== 'mat') { const [sx, rx] = shadowOf(o); S[0] = Math.min(S[0], sx - rx); S[1] = Math.max(S[1], sx + rx); }
   }
-  for (const it of scenery(pose, b)) if (it.kind !== 'slope') { C[0] = Math.min(C[0], it.ext[0]); C[1] = Math.min(C[1], it.ext[1]); C[2] = Math.max(C[2], it.ext[2]); C[3] = Math.max(C[3], it.ext[3]); }
+  for (const it of scenery(pose, b)) {
+    if (it.kind !== 'slope') { C[0] = Math.min(C[0], it.ext[0]); C[2] = Math.max(C[2], it.ext[2]); } // sloped ground runs wide on purpose,
+    C[1] = Math.min(C[1], it.ext[1]); C[3] = Math.max(C[3], it.ext[3]); // but its low end must not touch the bottom edge
+  }
   if (pose.ground !== 'hang' && pose.ground !== 'mat') C[3] = Math.max(C[3], 3.5); // the floor line and the shadow under the feet
   const cx = (C[0] + C[2]) / 2, cy = (C[1] + C[3]) / 2;
   let hw = (C[2] - C[0]) / 2, hh = (C[3] - C[1]) / 2;
   const lab = guideOf(pose, b).label.pos;
   hw = Math.max(hw, Math.abs(lab[0] - cx) + 7);
   hh = Math.max(hh, Math.abs(lab[1] - cy) + 6);
+  const pad = 8; // the axis line may run into the padding, but stays 4 units clear of the edge
+  hw = Math.max(hw, cx - X[0] + 4 - pad, X[2] - cx + 4 - pad);
+  hh = Math.max(hh, cy - X[1] + 4 - pad, X[3] - cy + 4 - pad);
   if (S[0] < S[1]) hw = Math.max(hw, cx - S[0] - 7.5, S[1] - cx - 7.5); // the soft shadow may run into the padding, not past the edge
-  const pad = 8, w = Math.max(2 * (hw + pad), 80), h = Math.max(2 * (hh + pad), 80);
+  const w = Math.max(2 * (hw + pad), 80), h = Math.max(2 * (hh + pad), 80);
   return [cx - w / 2, cy - h / 2, w, h].map((v) => Math.round(v * 10) / 10) as [number, number, number, number];
 }
 
