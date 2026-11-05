@@ -246,7 +246,7 @@ export default function Today() {
               <View key={i} style={{ alignItems: 'center', gap: 6, width: 40 }}>
                 <T v="small" color={isToday ? c.text : c.muted} style={{ fontSize: 12 }}>{w}</T>
                 <View style={[s.dayRing, isToday && { borderColor: c.accent }]}>
-                  <View style={[s.dot, did && { backgroundColor: c.accent, borderColor: c.accent }]} />
+                  <View style={[s.dot, did && { backgroundColor: dom.train, borderColor: dom.train }]} />
                 </View>
               </View>
             );
@@ -316,7 +316,7 @@ const s = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 16 },
   pillNum: { fontFamily: f.semi, fontSize: 14, lineHeight: 18 },
   change: { height: 56, paddingHorizontal: 20, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2 },
-  hero: { gap: 12, padding: 20, borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  hero: { gap: 12, padding: 20, borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, overflow: 'hidden' },
   chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: c.card2 },
   ringCard: { flex: 1, minWidth: 0, alignItems: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 8, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   ringNum: { fontFamily: f.bold, fontSize: 18, lineHeight: 22 },

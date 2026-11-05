@@ -284,8 +284,8 @@ const k = StyleSheet.create({
   segItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   mini: {
     position: 'absolute', left: 12, right: 12, height: MINI_BAR_HEIGHT, borderRadius: r.lg, flexDirection: 'row', alignItems: 'center', paddingRight: 5, // 5 = (56 - 2 border - 44) / 2: equal gap round the ✓
-    backgroundColor: '#17171B', borderWidth: 1,
-    shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10,
+    backgroundColor: c.raised, borderWidth: 1,
+    shadowColor: '#000', shadowOpacity: c.scheme === 'light' ? 0.16 : 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10,
   },
   miniTick: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', gap: 10, paddingVertical: 24, paddingHorizontal: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },

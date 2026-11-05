@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, ScrollView, Share, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -59,6 +59,8 @@ export default function You() {
     return again ? 'look' : null;
   });
   const [confirm, setConfirm] = useState(false);
+  // Profile's Theme link comes back here with ?sheet=look: open the theme sheet on this existing screen too.
+  useEffect(() => { if (params.sheet === 'look') setSheet('look'); }, [params.sheet]);
 
   // Light/dark and the accent apply at once: the page reloads on the web; on a phone the app redraws in place and
   // comes back here with this sheet open.

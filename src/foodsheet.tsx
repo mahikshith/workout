@@ -144,9 +144,13 @@ export function FoodPicker({ slot: slot0, tab: tab0 = 'foods', query: q0 = '', o
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setAdded(null), 2600);
   };
+  // Undo takes back the last one logged (tap again for the one before).
   const undo = () => {
-    added?.ids.forEach(removeMeal);
-    setAdded(null);
+    if (!added) return;
+    const id = added.ids.at(-1);
+    if (id) removeMeal(id);
+    const ids = added.ids.slice(0, -1);
+    setAdded(ids.length ? { key: '', n: ids.length, ids } : null);
     haptic('light');
   };
 

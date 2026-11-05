@@ -14,7 +14,7 @@ import { sessionMinutes } from '../src/glance';
 import { sessionKcal } from '../src/journey';
 import { CountUp, EASE, EASE_POP, Empty, Header, toToday } from '../src/kit';
 import { useStore, type MealSlot, type Session } from '../src/store';
-import { c, f, r } from '../src/theme';
+import { c, dom, f, r } from '../src/theme';
 import { mergedFor, useTracker } from '../src/tracker';
 import { Button, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb } from '../src/ui';
 
@@ -148,7 +148,7 @@ export default function Summary() {
   const levelUp = lv.lvl > lvBefore.lvl;
   const kg = Math.round(volume(s));
   const reps = s.items.reduce((n, it) => n + (isTimed(it.target) ? 0 : it.sets.reduce((a, x) => a + (x.done ? x.reps : 0), 0)), 0);
-  const colors = [c.accent, c.warm, c.pink, c.blue, '#BF8CFF'];
+  const colors = [c.accent, c.warm, c.pink, c.blue, dom.weight];
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>

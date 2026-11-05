@@ -16,7 +16,7 @@ const loadApp = () => require('expo-router/build/qualified-entry').App;
 function Boot() {
   const [App, setApp] = useState(() => (bootSync() ? loadApp() : null));
   useEffect(() => {
-    if (!App) bootAsync().then(() => setApp(() => loadApp()));
+    if (!App) bootAsync().catch(() => {}).then(() => setApp(() => loadApp())); // a bad saved theme never blocks the app
   }, []);
   return App ? createElement(App) : null;
 }

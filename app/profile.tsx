@@ -116,7 +116,7 @@ export default function ProfilePage() {
             <T v="h3">Gentle mode</T>
             <T v="small">Hide calories, weight and BMI</T>
           </View>
-          <Switch value={gentle} trackColor={{ true: c.accent, false: c.card2 }} thumbColor={c.text} ios_backgroundColor={c.card2}
+          <Switch value={gentle} trackColor={{ true: c.accent, false: c.card2 }} thumbColor="#FFFFFF" ios_backgroundColor={c.card2}
             onValueChange={(on) => save({ gentle: on, concerns: on ? p.concerns : p.concerns?.filter((x) => x !== 'food') })} />
         </Row>
       </Block>
@@ -147,7 +147,7 @@ export default function ProfilePage() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bg }}>
-      <Header title={TITLES[part]} />
+      <Header title={TITLES[part]} action="Theme" actionIcon="color-palette-outline" onAction={() => router.dismissTo({ pathname: '/you', params: { sheet: 'look' } })} />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 40 + mini, gap: 12 }}
         keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {part === 'plan' ? plan : part === 'place' ? place : about}

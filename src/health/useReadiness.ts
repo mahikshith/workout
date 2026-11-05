@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { dayKey } from '../calc';
 import { useStore, type Session } from '../store';
-import { c } from '../theme';
+import { c, dom } from '../theme';
 import { mergedFor, useTracker, type ImportedWorkout, type SessionHr } from '../tracker';
 import {
   computeReadiness, effortScore, hrMaxFor, loadOf, readinessAdvice, readinessSeries, setZones, trimp, trimpGuess,
@@ -13,7 +13,7 @@ import {
 export { readinessAdvice, LEVEL_WORD } from './readiness';
 export type { Readiness } from './readiness';
 
-export const levelColor = (l: Level | null) => (l === 'high' ? c.ok : l === 'low' ? c.warm : l === 'mid' ? c.blue : c.dim);
+export const levelColor = (l: Level | null) => (l === 'high' ? c.ok : l === 'low' ? c.warm : l === 'mid' ? dom.sleep : c.dim); // mid wears the recovery (sleep) colour
 
 // Today's readiness (score null while warming up or without HRV/resting HR).
 export function useReadiness(day = dayKey()): Readiness {

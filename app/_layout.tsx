@@ -42,9 +42,9 @@ export default function Root() {
   const first = useRef(true);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
-    // The remount starts the stack again on Today; go back to the screen you were on.
+    // If the remount started the stack again on Today, go back to the screen you were on.
     const to = where.current;
-    if (to && to !== '/') setTimeout(() => router.push(to as Href), 60);
+    if (to && to !== '/') setTimeout(() => { if (where.current !== to) router.push(to as Href); }, 120);
   }, [v]);
   // Theme "System": follow the phone switching between light and dark.
   useEffect(() => {

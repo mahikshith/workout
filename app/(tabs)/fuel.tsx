@@ -259,7 +259,7 @@ export default function Fuel() {
                 <T v="small" numberOfLines={1}>{x.dose}</T>
               </View>
               <Switch value={sup.picked.includes(x.name)} onValueChange={(v) => pickSupplement(x.name, v)} accessibilityLabel={`I take ${x.name}`}
-                trackColor={{ true: c.accent, false: c.line }} ios_backgroundColor={c.line} thumbColor={c.text} />
+                trackColor={{ true: c.accent, false: c.line }} ios_backgroundColor={c.line} thumbColor="#FFFFFF" />
             </Row>
           ))}
         </View>

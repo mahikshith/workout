@@ -11,7 +11,7 @@ const DAY = 86400000;
 export type Opt<K> = [K, string, keyof typeof Ionicons.glyphMap, string?];
 
 // Option boxes sit quietly on the card: a 1px line only a shade lighter than it, no fill until picked.
-export const BOX = '#26262C';
+export const BOX = c.line;
 
 // The stored values never change; these are the words people see, in setup and on the profile.
 export const GOALS: Opt<Goal>[] = [

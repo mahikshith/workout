@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { c, dom, r, tint } from '../../src/theme';
 import { latest, useTracker } from '../../src/tracker';
+import { LEVEL_WORD, levelColor, useReadiness } from '../../src/health/useReadiness';
 import { Screen, Section, T, TabTitle } from '../../src/ui';
 
 const hm = (min: number) => `${Math.floor(min / 60)}h ${Math.round(min % 60)}m`;
@@ -28,6 +29,7 @@ export default function Progress() {
   const hcOn = useTracker((s) => s.hc.connected);
   const strap = useTracker((s) => s.strap);
   const still = useReducedMotion();
+  const rd = useReadiness();
   // The heavy loops only rerun when what they read changes.
   const strength = useMemo(() => strengthGlance(sessions), [sessions]);
   const ach = useMemo(() => {
@@ -74,6 +76,8 @@ export default function Progress() {
     ...(gentle ? [] : [{ icon: 'scale', color: dom.weight, title: 'Body weight', meta: weightMeta, go: '/chart/weight' } as Door]),
     { icon: 'flame', color: dom.streak, title: 'Consistency', meta: consist, go: '/history' },
     { icon: 'heart', color: dom.heart, title: 'Body & watch', meta: bodyMeta, go: '/chart/body' },
+    { icon: 'battery-charging-outline', color: rd.level ? levelColor(rd.level) : dom.sleep, title: 'Recovery',
+      meta: rd.score !== null && rd.level ? `Readiness ${rd.score} · ${LEVEL_WORD[rd.level]}` : 'Learning your baseline', go: '/recovery' },
   ];
   const tiles: { icon: ComponentProps<typeof Ionicons>['name']; node: ReactElement; label: string }[] = [
     { icon: 'barbell', node: <CountUp value={week.length} />, label: 'workouts' },
