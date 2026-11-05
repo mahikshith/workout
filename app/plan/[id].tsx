@@ -58,7 +58,8 @@ export default function PlanDetail() {
   // Where a day runs: the plan's own place, or for "anywhere" plans the place in your profile.
   const where: Place = plan.place === 'any' ? (profile.place === 'gym' || profile.place === 'both' ? 'gym' : 'home') : plan.place;
 
-  // Start one training day: switch to this plan if needed, then the workout runs at once. A running workout is resumed.
+  // Start one training day: switch to this plan if needed, then the workout opens ready (Start workout there starts the
+  // clock). A workout already open is resumed.
   // Resume shows only on the day that is running; any other day's Start still opens the running workout (one at a time).
   const here = (i: number) => !!active && active.planId === plan.id && active.dayIndex === i;
   const startDay = (i: number, d: Day) => {

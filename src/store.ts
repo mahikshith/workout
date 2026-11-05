@@ -50,7 +50,7 @@ export type MediaPref = 'animated' | 'drawing' | 'photo' | 'video';
 
 export type SetLog = { reps: number; weight: number; done: boolean };
 export type Item = { exId: string; target: string; rest: number; sets: SetLog[]; swappedFrom?: string };
-// The clock runs from the moment a workout starts (one tap). pausedAt is set while paused; pausedMs adds up finished
+// A workout opens ready (running false) so it can be looked through; begin() starts the clock. pausedAt is set while paused; pausedMs adds up finished
 // pauses. idx is the exercise on screen, and restUntil/restTotal the rest timer, kept here (not in the screen) so the
 // mini bar can show them while the workout is minimised.
 export type Session = { id: string; title: string; planId?: string; dayIndex?: number; place: Place; startedAt: number; endedAt?: number; items: Item[];

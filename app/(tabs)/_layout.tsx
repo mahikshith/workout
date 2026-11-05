@@ -32,7 +32,8 @@ function Bar({ state, navigation }: BottomTabBarProps) {
   const ins = useSafeAreaInsets();
   const today = useToday();
   const elapsed = useElapsed();
-  const running = !!today.active;
+  // Only a started workout shows Resume and its clock; a ready one (opened, clock not started) keeps Start.
+  const running = !!today.active && today.active.running !== false;
   const bottom = Math.max(ins.bottom, 8);
 
   const item = (i: number) => {
@@ -60,22 +61,21 @@ function Bar({ state, navigation }: BottomTabBarProps) {
       <View style={[s.bar, { paddingBottom: bottom, height: TAB_BAR_HEIGHT + bottom }]} accessibilityRole="tablist">
         {item(0)}
         {item(1)}
-        <View style={s.centreWrap}>
-          <Tap onPress={today.start} style={[s.centre, { backgroundColor: c.accent }]} scale={0.92} feedback="none"
-            accessibilityLabel={running ? `Resume workout, ${fmtTime(elapsed)}` : 'Start workout'}>
-            {running ? (
-              <>
-                <Text style={[s.centreSmall, { color: c.accentInk }]} numberOfLines={1}>Resume</Text>
+        {/* The centre button: a raised circle holding only the icon (or the running clock), with its label underneath on
+            the same baseline as the other tab labels. Icon and label are centred on the same axis. */}
+        <Tap onPress={today.start} style={s.item} scale={0.92} feedback="none"
+          accessibilityLabel={running ? `Resume workout, ${fmtTime(elapsed)}` : 'Start workout'}>
+          <View style={s.slot}>
+            <View style={[s.centre, { backgroundColor: c.accent }]}>
+              {running ? (
                 <Text style={[s.centreTime, { color: c.accentInk }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{fmtTime(elapsed)}</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="play" size={22} color={c.accentInk} style={{ marginLeft: 3 }} />
-                <Text style={[s.centreLabel, { color: c.accentInk }]} numberOfLines={1}>Start</Text>
-              </>
-            )}
-          </Tap>
-        </View>
+              ) : (
+                <Ionicons name="play" size={24} color={c.accentInk} />
+              )}
+            </View>
+          </View>
+          <Text style={[s.label, { color: c.accent }]} numberOfLines={1}>{running ? 'Resume' : 'Start'}</Text>
+        </Tap>
         {item(2)}
         {item(3)}
       </View>
@@ -113,12 +113,13 @@ const s = StyleSheet.create({
   },
   item: { flex: 1, height: 52, alignItems: 'center', justifyContent: 'center', gap: 3 },
   label: { fontFamily: f.semi, fontSize: 11 },
-  centreWrap: { flex: 1, alignItems: 'center' },
+  // The slot is as tall as a rendered 22 px tab icon (24), so the label below sits on the same line as the others
+  // (measured: all five label tops equal). The circle (44 + a 4 px ring in the bar colour) stands on the slot's bottom
+  // and rises about 16 px above the bar; CENTRE_RISE in ui.tsx lifts the mini bar by the same amount.
+  slot: { width: 64, height: 24, alignItems: 'center', justifyContent: 'flex-end' },
   centre: {
-    marginTop: -20, width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 4, borderColor: c.bg, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 10,
+    position: 'absolute', bottom: 0, width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 4, borderColor: '#111113', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 10,
   },
-  centreLabel: { fontFamily: f.bold, fontSize: 10, marginTop: -1, fontVariant: ['tabular-nums'] },
-  centreSmall: { fontFamily: f.semi, fontSize: 9, lineHeight: 11 },
-  centreTime: { fontFamily: f.bold, fontSize: 13, lineHeight: 16, fontVariant: ['tabular-nums'] },
+  centreTime: { fontFamily: f.bold, fontSize: 13, fontVariant: ['tabular-nums'], maxWidth: 42, textAlign: 'center' },
 });

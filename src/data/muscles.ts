@@ -125,7 +125,7 @@ export function dose(e: Exercise): Dose {
   if (e.mechanic === 'compound') return { sets, reps: '8-12', rest: e.equipment === 'barbell' ? 120 : 90, secs: 35 };
   return { sets, reps: '10-15', rest: 60, secs: 40 };
 }
-export const doseText = (d: Dose) => (d.sets > 1 ? `${d.sets} x ${d.reps}` : d.reps);
+export const doseText = (d: Dose) => (d.sets > 1 ? `${d.sets} × ${d.reps}` : d.reps);
 export const restText = (d: Dose) => (d.rest ? `${d.rest} s` : 'None');
 
 // Rough MET values (Compendium of Physical Activities): an estimate, never a measurement.

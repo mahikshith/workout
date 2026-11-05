@@ -70,11 +70,11 @@ export default function Today() {
   // Hero: today's workout from the shared useToday(), so this card, the centre button and Train always agree.
   const { day, minutes, kind, reason, active, start } = today;
   const rest = kind === 'rest';
-  const label = active ? 'In progress' : rest && trainedToday ? 'Done for today' : LABEL[kind];
+  const label = active?.running ? 'In progress' : rest && trainedToday ? 'Done for today' : LABEL[kind];
   const wh = active ? active.place : today.where;
   const place = profile.place === 'office' && !active ? 'Office' : wh === 'home' ? 'Home' : 'Gym';
   const muscles = [...new Set(day.slots.map((sl) => byId[sl.id]?.primary[0]).filter(Boolean))].slice(0, 3).map(title);
-  const button = active ? 'Resume' : rest ? 'Train anyway' : 'Start';
+  const button = active?.running ? 'Resume' : rest ? 'Train anyway' : 'Start';
 
   // "Not today?" excuse chips: on a planned day with no workout yet once the evening is near (or the day's last
   // reminder has passed), or the day after a missed planned day. An excused day pauses the missed-workout nudge.

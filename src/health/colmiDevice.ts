@@ -279,10 +279,10 @@ export async function stopRingLive(): Promise<void> {
 let storeUnsub: (() => void) | null = null;
 function followWorkouts() {
   storeUnsub?.();
-  let was = !!useStore.getState().active;
+  let was = useStore.getState().active?.running === true;
   if (was) startRingLive().catch(() => {});
   storeUnsub = useStore.subscribe((st) => {
-    const now = !!st.active;
+    const now = st.active?.running === true;
     if (now === was) return;
     was = now;
     if (now) startRingLive().catch(() => {});

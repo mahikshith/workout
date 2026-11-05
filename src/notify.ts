@@ -137,7 +137,7 @@ export function plan(s: NudgeState, now = Date.now()): Req[] {
   // Missed workout: two hours after the day's last reminder, a short session instead. It backs off: after
   // MISSED_LIMIT planned days missed in a row it goes quiet until the next workout (which reschedules everything).
   // Future planned days are assumed missed, so at most MISSED_LIMIT nudges are ever queued. An excused today is skipped.
-  const trained = s.sessions.some((x) => dayKey(x.startedAt) === today) || (!!s.active && dayKey(s.active.startedAt) === today);
+  const trained = s.sessions.some((x) => dayKey(x.startedAt) === today) || (!!s.active?.running && dayKey(s.active.startedAt) === today);
   let missed = trained ? 0 : missedInARow(s, now);
   if (n.missed) for (let off = trained ? 1 : 0; off < 7 && missed < MISSED_LIMIT; off++) {
     const last = lastReminderMin(s.reminders, at(off, 0));

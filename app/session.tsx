@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { FlatList, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  FadeIn, FadeInDown, FadeOutDown, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming,
+  FadeIn, FadeInDown, FadeOut, FadeOutDown, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fmtTime, isTimed, lastSets, secsOf } from '../src/calc';
@@ -20,8 +20,10 @@ import { useStore, type Profile, type Session, type SetLog } from '../src/store'
 import { c, f, r } from '../src/theme';
 import { Button, Demo, haptic, Ring, Row, Stepper, T, Tap, Thumb } from '../src/ui';
 
-// The live workout (docs/REDESIGN.md "Workout", rules 6-7). It starts running the moment it is opened; ⌄ or a swipe
-// down minimises it into the tab bar's mini bar. The exercise on screen and the rest timer live in the store
+// The live workout (docs/REDESIGN.md "Workout", rules 6-7). It opens ready, with the clock stopped: the person can look
+// through every exercise (demo, info, swap, add) and the one primary button, Start workout, starts the clock. Leaving a
+// workout that was never started discards it quietly (nothing was logged, and a stale one would block starting another
+// day). Once started, ⌄ or a swipe down minimises it into the tab bar's mini bar. The exercise on screen and the rest timer live in the store
 // (active.idx, active.restUntil) so the mini bar shows the same thing.
 
 type Guide = { steps?: string[]; mistake?: string };
@@ -64,10 +66,17 @@ function lastText(prev: SetLog[] | null, timed: boolean) {
 export default function SessionScreen() {
   const ins = useSafeAreaInsets();
   const still = useReducedMotion();
-  const active = useStore((s) => s.active);
+  const live = useStore((s) => s.active);
+  // While the screen leaves after Finish, Discard or closing a ready workout, it keeps showing the last workout instead
+  // of going blank mid-animation.
+  const leaving = useRef(false);
+  const snap = useRef(live);
+  if (live) snap.current = live;
+  const active = live ?? (leaving.current ? snap.current : null);
   const profile = useStore((s) => s.profile);
   const sessions = useStore((s) => s.sessions);
-  const { updateSet, addSet, removeSet, swap, addItem, finish, discard, pause, resume, setIdx, setRest } = useStore.getState();
+  const { updateSet, addSet, removeSet, swap, addItem, finish, discard, pause, resume, setIdx, setRest, begin } = useStore.getState();
+  const nav = useNavigation();
   const bpm = useLiveHr();
 
   const [sheet, setSheet] = useState<'swap' | 'finish' | 'info' | 'add' | null>(null);
@@ -117,9 +126,16 @@ export default function SessionScreen() {
 
   // Opened with no workout running (old link, notification): step back. After Finish or Discard the screen leaves on
   // its own, so this must not also redirect (it would race the move to the summary).
-  const leaving = useRef(false);
-  useEffect(() => { if (!active && !leaving.current) goBack(); }, [!active]);
+  useEffect(() => { if (!live && !leaving.current) goBack(); }, [!live]);
+
+  // Closing a workout that never started (⌄, swipe down, system back) discards it at once: nothing was logged, no mini
+  // bar is left behind, and the next Start opens a fresh one. The screen keeps showing it while it slides away.
+  useEffect(() => nav.addListener('beforeRemove', () => {
+    const a = useStore.getState().active;
+    if (a && a.running === false) { leaving.current = true; restAlert(null); useStore.getState().discard(); }
+  }), [nav]);
   if (!active) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  const ready = active.running === false; // opened but not started: browse only, no logging
   const paused = !!pausedAt;
   const idx = Math.min(active.idx ?? 0, active.items.length - 1);
   const it = active.items[idx];
@@ -142,6 +158,8 @@ export default function SessionScreen() {
     if (a?.restUntil) { setRest(a.restUntil + gap); restAlert((a.restUntil + gap - Date.now()) / 1000); }
     haptic('medium');
   };
+  // Start workout: the clock runs from this tap (begin() ignores a second tap).
+  const doBegin = () => { if (useStore.getState().active?.running !== false) return; begin(); haptic('medium'); };
   const startRest = (secs: number) => { setRest(Date.now() + secs * 1000, secs); restAlert(secs); };
   const changeRest = (until: number, tot?: number) => { setRest(until, tot); restAlert((until - Date.now()) / 1000); };
   const skipRest = () => { setRest(null); restAlert(null); };
@@ -149,7 +167,7 @@ export default function SessionScreen() {
   function toggle(j: number) {
     const key = `${idx}:${j}`;
     const t = Date.now();
-    if (lastTick.current.key === key && t - lastTick.current.at < 400) return;
+    if (ready || (lastTick.current.key === key && t - lastTick.current.at < 400)) return;
     lastTick.current = { key, at: t };
     const was = it.sets[j].done;
     if (paused) doResume();
@@ -176,24 +194,33 @@ export default function SessionScreen() {
       <GestureDetector gesture={minimise}>
       <Animated.View style={headerDrag}>
       <Row style={{ paddingHorizontal: 12, height: 52 }} gap={8}>
-        <Tap onPress={goBack} style={s.icon} scale={0.9} feedback="none">
+        {/* The clock is centred on the screen, not between the uneven side buttons. */}
+        <View pointerEvents="none" style={s.centre}>
+          {ready ? (
+            <T style={{ fontFamily: f.bold, fontSize: 18 }} numberOfLines={1}>Ready</T>
+          ) : (
+            <View>
+              {/* The live dot hangs left of the time, so the time itself sits on the centre line. */}
+              {!paused && <View style={s.live} />}
+              <Clock paused={paused} />
+            </View>
+          )}
+        </View>
+        <Tap onPress={goBack} style={s.icon} scale={0.9} feedback="none" accessibilityLabel={ready ? 'Close' : 'Minimise workout'}>
           <Ionicons name="chevron-down" size={22} color={c.text} />
         </Tap>
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Row gap={6}>
-            {!paused && <View style={s.live} />}
-            <Clock paused={paused} />
-          </Row>
-        </View>
+        <View style={{ flex: 1 }} />
         {bpm != null && (
           <Row gap={4} style={{ marginRight: 4 }}>
             <Ionicons name="heart" size={14} color={c.pink} />
             <T style={{ fontFamily: f.bold, fontSize: 14, fontVariant: ['tabular-nums'] }} color={c.pink}>{bpm}</T>
           </Row>
         )}
-        <Tap onPress={() => setSheet('finish')} style={[s.finish, { backgroundColor: c.accent }]} scale={0.95}>
-          <T style={{ fontFamily: f.bold, fontSize: 15 }} color={c.accentInk}>Finish</T>
-        </Tap>
+        {!ready && (
+          <Tap onPress={() => setSheet('finish')} style={[s.finish, { backgroundColor: c.accent }]} scale={0.95}>
+            <T style={{ fontFamily: f.bold, fontSize: 15 }} color={c.accentInk}>Finish</T>
+          </Tap>
+        )}
       </Row>
       </Animated.View>
       </GestureDetector>
@@ -237,11 +264,11 @@ export default function SessionScreen() {
               <View style={{ width: 44 }} />
             </Row>
             {it.sets.map((x, j) => (
-              <SetRow key={j} n={j + 1} done={x.done} still={still}
+              <SetRow key={j} n={j + 1} done={x.done} still={still} locked={ready}
                 onRemove={() => it.sets.length > 1 && removeSet(idx, j)} onTick={() => toggle(j)}
                 weight={showWeight ? <Stepper value={x.weight} step={2.5} min={0} onChange={(weight) => updateSet(idx, j, { weight })} /> : null}
                 reps={timed ? (
-                  <SetTimer key={`${it.exId}-${j}`} value={x.reps} target={secsOf(it.target) ?? x.reps} done={x.done}
+                  <SetTimer key={`${it.exId}-${j}`} locked={ready} value={x.reps} target={secsOf(it.target) ?? x.reps} done={x.done}
                     onChange={(reps) => updateSet(idx, j, { reps })}
                     onStart={() => { if (paused) doResume(); }}
                     onFinish={(reps) => { updateSet(idx, j, { reps }); if (!x.done) toggle(j); }} />
@@ -263,17 +290,36 @@ export default function SessionScreen() {
       </ScrollView>
 
       <View style={[s.bottom, { paddingBottom: ins.bottom + 12 }]}>
-        {restUntil || ending ? (
+        {ready ? (
+          <Animated.View exiting={FadeOut.duration(150)} style={{ gap: 10 }}>
+            <T v="small" style={{ textAlign: 'center' }}>Look through the moves. The clock starts when you do.</T>
+            <Row gap={10}>
+              <Tap onPress={() => setIdx(idx - 1)} disabled={idx === 0} style={[s.nav, idx === 0 && s.off]} accessibilityLabel="Previous exercise">
+                <Ionicons name="chevron-back" size={22} color={c.text} />
+              </Tap>
+              <Tap onPress={doBegin} style={[s.wide, { flex: 1, backgroundColor: c.accent }]} scale={0.97} feedback="none" accessibilityLabel="Start workout">
+                <Ionicons name="play" size={20} color={c.accentInk} />
+                <T v="h3" color={c.accentInk}>Start workout</T>
+              </Tap>
+              <Tap onPress={() => setIdx(idx + 1)} disabled={isLast} style={[s.nav, isLast && s.off]} accessibilityLabel="Next exercise">
+                <Ionicons name="chevron-forward" size={22} color={c.text} />
+              </Tap>
+            </Row>
+          </Animated.View>
+        ) : restUntil || ending ? (
           <RestPanel until={restUntil} total={restTotal} pausedAt={pausedAt} ending={ending} still={still} onEnded={restEnded}
+            onPause={pausedAt ? doResume : doPause}
             onLess={() => restUntil && changeRest(Math.max(Date.now() + 1000, restUntil - 15000))}
             onMore={() => restUntil && changeRest(restUntil + 15000, restTotal + 15)}
             onSkip={() => { skipRest(); setEnding(false); }} />
         ) : (
+          <Animated.View entering={FadeIn.duration(200)}>
           <Row gap={10}>
-            <Tap onPress={paused ? doResume : doPause} style={[s.nav, paused && { backgroundColor: c.accent }]} feedback="none">
+            <Tap onPress={paused ? doResume : doPause} style={[s.nav, paused && { backgroundColor: c.accent }]} feedback="none"
+              accessibilityLabel={paused ? 'Resume workout' : 'Pause workout'}>
               <Ionicons name={paused ? 'play' : 'pause'} size={24} color={paused ? c.accentInk : c.text} />
             </Tap>
-            <Tap onPress={() => setIdx(idx - 1)} disabled={idx === 0} style={s.nav}>
+            <Tap onPress={() => setIdx(idx - 1)} disabled={idx === 0} style={[s.nav, idx === 0 && s.off]} accessibilityLabel="Previous exercise">
               <Ionicons name="chevron-back" size={22} color={c.text} />
             </Tap>
             <View style={{ flex: 1, alignItems: 'center' }}>
@@ -289,6 +335,7 @@ export default function SessionScreen() {
               </Tap>
             )}
           </Row>
+          </Animated.View>
         )}
       </View>
 
@@ -338,9 +385,9 @@ export default function SessionScreen() {
 
 // The rest timer at the bottom. It owns the 250 ms clock, so only this panel re-renders while resting; the countdown
 // freezes while paused. When it reaches zero it tells the screen (late = it ran out while minimised) and pulses.
-function RestPanel({ until, total, pausedAt, ending, still, onEnded, onLess, onMore, onSkip }: {
+function RestPanel({ until, total, pausedAt, ending, still, onEnded, onPause, onLess, onMore, onSkip }: {
   until: number | null; total: number; pausedAt?: number; ending: boolean; still: boolean; onEnded: (late: boolean) => void;
-  onLess: () => void; onMore: () => void; onSkip: () => void;
+  onPause: () => void; onLess: () => void; onMore: () => void; onSkip: () => void;
 }) {
   const now = useNow(until && !pausedAt ? 250 : 1000);
   const left = until ? Math.max(0, until - (pausedAt ?? now)) : 0;
@@ -362,6 +409,11 @@ function RestPanel({ until, total, pausedAt, ending, still, onEnded, onLess, onM
       <View style={{ flex: 1, gap: 8 }}>
         <T v="label" color={c.warm}>{ending ? 'Rest over' : pausedAt ? 'Rest · paused' : 'Rest'}</T>
         <Row gap={8}>
+          {/* Pause works during rest too: the countdown freezes with the workout clock. */}
+          <Tap onPress={onPause} disabled={ending} style={[s.restPause, pausedAt ? { backgroundColor: c.warm } : null]} feedback="none"
+            accessibilityLabel={pausedAt ? 'Resume workout' : 'Pause workout'}>
+            <Ionicons name={pausedAt ? 'play' : 'pause'} size={20} color={pausedAt ? c.accentInk : c.text} />
+          </Tap>
           <Tap onPress={onLess} disabled={ending} style={s.restBtn}><T v="h3">−15</T></Tap>
           <Tap onPress={onMore} disabled={ending} style={s.restBtn}><T v="h3">+15</T></Tap>
           <Tap onPress={onSkip} style={[s.restBtn, { backgroundColor: c.warm }]}><T v="h3" color={c.accentInk}>Skip</T></Tap>
@@ -431,8 +483,8 @@ function InfoSheet({ ex }: { ex: Exercise }) {
 }
 
 // One set row. Logging pops the ✓ (0.9 → 1.05 → 1) and fades a green tint in behind the row.
-function SetRow({ n, done, still, weight, reps, onTick, onRemove }: {
-  n: number; done: boolean; still: boolean; weight: ReactNode; reps: ReactNode; onTick: () => void; onRemove: () => void;
+function SetRow({ n, done, still, locked, weight, reps, onTick, onRemove }: {
+  n: number; done: boolean; still: boolean; locked?: boolean; weight: ReactNode; reps: ReactNode; onTick: () => void; onRemove: () => void;
 }) {
   const scale = useSharedValue(1);
   const tint = useSharedValue(done ? 1 : 0);
@@ -454,7 +506,8 @@ function SetRow({ n, done, still, weight, reps, onTick, onRemove }: {
       {weight ? <View style={{ flex: 1, alignItems: 'center' }}>{weight}</View> : null}
       <View style={{ flex: 1, alignItems: 'center' }}>{reps}</View>
       <Animated.View style={pop}>
-        <Tap onPress={onTick} style={[s.check, done && { backgroundColor: c.ok, borderColor: c.ok }]} scale={0.9} feedback="none">
+        <Tap onPress={onTick} disabled={locked} style={[s.check, done && { backgroundColor: c.ok, borderColor: c.ok }, locked && s.off]} scale={0.9} feedback="none"
+          accessibilityLabel={locked ? 'Start the workout to log sets' : done ? `Set ${n} logged` : `Log set ${n}`}>
           <Ionicons name="checkmark" size={22} color={done ? c.accentInk : c.dim} />
         </Tap>
       </Animated.View>
@@ -464,8 +517,8 @@ function SetRow({ n, done, still, weight, reps, onTick, onRemove }: {
 
 // A set timer for holds and cardio: nothing runs until the user taps play. It counts up to the target, then logs the
 // set; stopping early logs what was done. Before starting, +/- adjusts the target time.
-function SetTimer({ value, target, done, onChange, onStart, onFinish }: {
-  value: number; target: number; done: boolean; onChange: (n: number) => void; onStart: () => void; onFinish: (secs: number) => void;
+function SetTimer({ value, target, done, locked, onChange, onStart, onFinish }: {
+  value: number; target: number; done: boolean; locked?: boolean; onChange: (n: number) => void; onStart: () => void; onFinish: (secs: number) => void;
 }) {
   const [since, setSince] = useState<number | null>(null);
   const now = useNow(since ? 250 : 60000);
@@ -493,7 +546,7 @@ function SetTimer({ value, target, done, onChange, onStart, onFinish }: {
       <T style={{ fontFamily: f.bold, fontSize: 17, color: c.text, minWidth: 48, textAlign: 'center' }}>{fmtTime(value)}</T>
       {!done && <Tap onPress={() => onChange(value + step)} style={s.tiny}><Ionicons name="add" size={16} color={c.text} /></Tap>}
       {!done && (
-        <Tap onPress={() => { onStart(); setSince(Date.now()); haptic('medium'); }} style={[s.play, { backgroundColor: c.accent }]} scale={0.9}>
+        <Tap onPress={() => { onStart(); setSince(Date.now()); haptic('medium'); }} disabled={locked} style={[s.play, { backgroundColor: c.accent }, locked && s.off]} scale={0.9}>
           <Ionicons name="play" size={18} color={c.accentInk} />
         </Tap>
       )}
@@ -505,7 +558,10 @@ const s = StyleSheet.create({
   icon: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   info: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' },
   finish: { height: 40, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  live: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.danger },
+  centre: { position: 'absolute', left: 64, right: 64, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  off: { opacity: 0.35 },
+  restPause: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#3A2614', alignItems: 'center', justifyContent: 'center' },
+  live: { position: 'absolute', left: -14, top: '50%', marginTop: -4, width: 8, height: 8, borderRadius: 4, backgroundColor: c.danger },
   seg: { height: 4, borderRadius: 2, backgroundColor: c.card2, overflow: 'hidden' },
   text: { minHeight: 44, paddingHorizontal: 8, justifyContent: 'center' },
   play: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
