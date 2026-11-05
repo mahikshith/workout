@@ -9,6 +9,7 @@ import { perWeek, planById, type Day } from '../../src/data/plans';
 import { planWeek, program, WEEKDAYS } from '../../src/data/program';
 import { goalWeeks, timeline } from '../../src/data/expect';
 import { Empty, Header, Segmented, openWorkout, toToday } from '../../src/kit';
+import { runSetupFinish } from '../../src/setupflow';
 import { useStore } from '../../src/store';
 import { c, r } from '../../src/theme';
 import { Button, Card, Fold, haptic, IconBox, Row, Screen, Section, T, Tap, Thumb, Tile } from '../../src/ui';
@@ -28,7 +29,7 @@ const Line = ({ icon, text, color = c.muted }: { icon: Icon; text: string; color
 );
 
 export default function PlanDetail() {
-  const { id, welcome } = useLocalSearchParams<{ id: string; welcome?: string }>();
+  const { id, welcome, preview } = useLocalSearchParams<{ id: string; welcome?: string; preview?: string }>();
   const plan = planById[id];
   const planId = useStore((s) => s.planId);
   const profile = useStore((s) => s.profile);
@@ -45,7 +46,8 @@ export default function PlanDetail() {
   const goal = goalWeeks(profile);
   const recent = doneRecently(sessions), doneWeek = doneThisWeek(sessions);
   const isCurrent = plan.id === planId;
-  const leave = () => (welcome ? toToday() : router.canGoBack() ? router.back() : toToday());
+  // A setup preview goes back to the plan step; the welcome page after setup goes to Today.
+  const leave = () => (preview && router.canGoBack() ? router.back() : welcome ? toToday() : router.canGoBack() ? router.back() : toToday());
   const weeks = program(plan, 4);
   const week = weeks[Number(wk)] ?? weeks[0];
   const n = perWeek(plan);
@@ -210,7 +212,7 @@ export default function PlanDetail() {
       {/* Welcome: the commit button stays on screen, so setup never needs a scroll to finish. */}
       {welcome && (
         <View style={[s.bar, { paddingBottom: ins.bottom + 12 }]}>
-          <Button title="Start this plan" icon="checkmark" onPress={() => { if (!isCurrent) setPlan(plan.id); toToday(); }} />
+          <Button title="Start this plan" icon="checkmark" onPress={() => { if (preview && runSetupFinish()) return; if (!isCurrent) setPlan(plan.id); toToday(); }} />
         </View>
       )}
     </View>

@@ -45,6 +45,8 @@ export type ImportedWorkout = {
 };
 
 export type HrDevice = { id: string; name: string; lastConnected?: string };
+// A paired Colmi smart ring (src/health/colmiDevice.ts).
+export type RingDevice = { id: string; name: string; lastSync?: string; battery?: number; charging?: boolean };
 
 type TrackerState = {
   daily: Record<string, DailyMetrics>;
@@ -53,11 +55,13 @@ type TrackerState = {
   strap: HrDevice | null;
   // Post-workout and morning HRV worked out from a strap's beat-to-beat intervals (RMSSD, ms), by day.
   strapHrv: Record<string, number>;
+  ring: RingDevice | null;
   upsertDaily: (rows: DailyMetrics[]) => void;
   upsertWorkouts: (rows: ImportedWorkout[]) => void;
   setHc: (patch: Partial<TrackerState['hc']>) => void;
   setStrap: (d: HrDevice | null) => void;
   logStrapHrv: (day: string, ms: number) => void;
+  setRing: (patch: Partial<RingDevice> | null) => void;
   disconnectHc: () => void;
 };
 
@@ -71,6 +75,7 @@ export const useTracker = create<TrackerState>()(
       hc: { connected: false, granted: [] },
       strap: null,
       strapHrv: {},
+      ring: null,
       upsertDaily: (rows) =>
         set((s) => {
           const daily = { ...s.daily };
@@ -83,6 +88,9 @@ export const useTracker = create<TrackerState>()(
       setHc: (patch) => set((s) => ({ hc: { ...s.hc, ...patch } })),
       setStrap: (strap) => set({ strap }),
       logStrapHrv: (day, ms) => set((s) => ({ strapHrv: { ...s.strapHrv, [day]: ms } })),
+      // null forgets the ring; a patch with an id replaces it, without one it updates the saved ring.
+      setRing: (patch) =>
+        set((s) => ({ ring: patch === null ? null : patch.id && patch.id !== s.ring?.id ? { name: 'Ring', ...patch, id: patch.id } : s.ring ? { ...s.ring, ...patch } : null })),
       disconnectHc: () =>
         set((s) => ({
           hc: { connected: false, granted: [] },

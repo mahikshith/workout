@@ -5,6 +5,7 @@ import { dayKey } from '../calc';
 import { useStore } from '../store';
 import { useTracker } from '../tracker';
 import { closeRrWindow, openRrWindow, reconnectSaved } from './ble';
+import { reconnectRing } from './colmiDevice';
 import { sync, writeSession } from './healthConnect';
 
 export * from './ble';
@@ -23,8 +24,8 @@ export function useHealthSync() {
       const { hc } = useTracker.getState();
       if (hc.connected && (!hc.lastSync || Date.now() - Date.parse(hc.lastSync) > RESYNC_MS)) sync().catch(() => {});
     };
-    const boot = setTimeout(() => { maybeSync(); reconnectSaved().catch(() => {}); }, 1500);
-    const app = AppState.addEventListener('change', (s) => { if (s === 'active') { maybeSync(); reconnectSaved().catch(() => {}); } });
+    const boot = setTimeout(() => { maybeSync(); reconnectSaved().catch(() => {}); reconnectRing().catch(() => {}); }, 1500);
+    const app = AppState.addEventListener('change', (s) => { if (s === 'active') { maybeSync(); reconnectSaved().catch(() => {}); reconnectRing().catch(() => {}); } });
 
     // Finished workouts: write back the ones that end while the app is open, and log the strap's HRV for them.
     let prevList = useStore.getState().sessions;

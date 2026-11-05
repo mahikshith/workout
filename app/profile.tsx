@@ -5,8 +5,10 @@ import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BODIES, ContextFields, GOALS, LEVELS, Pill, Tiles } from '../src/context';
 import { HOME_GEAR, title } from '../src/data/exercises';
-import { planById } from '../src/data/plans';
+import { perWeek, planById } from '../src/data/plans';
 import { UNLOCK } from '../src/engine';
+import { recommend } from '../src/coach';
+
 import { EASE, Header, Segmented, useMiniBarSpace } from '../src/kit';
 import { answered, setKey, type Answerable } from '../src/glance';
 import { useStore, type Body, type Goal, type Profile } from '../src/store';
@@ -42,6 +44,11 @@ export default function ProfilePage() {
   const setName = (name: string) => { save({ name }); if (!name.trim()) useStore.getState().skipSetup(true); };
   const gentle = !!(p.gentle || p.concerns?.includes('food'));
 
+  // Days a week and the plan stay in step: when they differ, offer the plan that fits the new number (never switch silently).
+  const fitDays = planById[planId] && planById[planId].category !== 'One muscle' ? perWeek(planById[planId]) : null;
+  const pick = recommend(p);
+  const better = pick !== planId && planById[pick] && perWeek(planById[pick]) === p.daysPerWeek ? pick : null;
+
   const plan = (
     <>
       <Block i={0} label="Goal">
@@ -59,6 +66,14 @@ export default function ProfilePage() {
       </Block>
       <Block i={3} label="Your plan">
         <T v="body" color={c.muted}>{planById[planId]?.name ?? 'No plan yet'}</T>
+        {fitDays !== null && fitDays !== p.daysPerWeek && (
+          better
+            ? <Row gap={12}>
+                <T v="small" style={{ flex: 1 }} numberOfLines={2}>{planById[better].name} fits {p.daysPerWeek} days</T>
+                <Button title="Switch" kind="ghost" onPress={() => useStore.getState().setPlan(better)} />
+              </Row>
+            : <T v="small">Built for {fitDays} days a week</T>
+        )}
         <Button title="Find a new plan" kind="ghost" icon="sparkles-outline"
           onPress={() => router.replace({ pathname: '/onboarding', params: { redo: '1' } })} />
       </Block>

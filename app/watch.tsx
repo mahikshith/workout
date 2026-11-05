@@ -9,6 +9,8 @@ import {
   connect, disconnect, forgetStrap, HC_PLAY_URL, HC_PLAY_WEB, isAvailable, READ_TYPES, requestPermissions, startScan, stopScan, sync,
   useBle, type Found, type HcStatus,
 } from '../src/health';
+import { ColmiCard } from '../src/health/ColmiCard';
+import { importFiles, pickFiles, summaryLine } from '../src/health/importFile';
 import { useLiveHr } from '../src/health/live';
 import { DoorCard, EASE, goBack, Header, useMiniBarSpace } from '../src/kit';
 import { Sheet } from '../src/sheet';
@@ -62,6 +64,9 @@ export default function Watch() {
   const [status, setStatus] = useState<HcStatus | 'checking'>(ANDROID ? 'checking' : 'unavailable');
   const [syncing, setSyncing] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState<{ line: string; ok: boolean } | null>(null);
 
   useEffect(() => { if (ANDROID) isAvailable().then(setStatus); }, []);
   useEffect(() => { if (!scanOpen) stopScan(); }, [scanOpen]);
@@ -76,6 +81,20 @@ export default function Watch() {
   };
   const install = () => Linking.openURL(HC_PLAY_URL).catch(() => Linking.openURL(HC_PLAY_WEB));
   const pair = () => { setScanOpen(true); startScan(); };
+  const chooseFile = async () => {
+    const assets = await pickFiles().catch(() => null);
+    if (!assets) return;
+    setImporting(true);
+    setImported(null);
+    try {
+      const res = await importFiles(assets);
+      setImported({ line: summaryLine(res), ok: res.workouts + res.days > 0 });
+    } catch {
+      setImported({ line: 'Could not read that file', ok: false });
+    } finally {
+      setImporting(false);
+    }
+  };
   const pick = (d: Found) => {
     setScanOpen(false);
     connect(d.id, d.name);
@@ -194,13 +213,19 @@ export default function Watch() {
           <T v="small">Connects but no heart rate? Its broadcast mode is probably off</T>
         </Animated.View>
 
-        {/* Import a file: Phase C */}
-        <Animated.View entering={enter(5)} style={[s.card, s.row, { opacity: 0.5 }]}>
-          <IconBox icon="download-outline" color={c.muted} />
-          <View style={{ flex: 1 }}>
-            <T v="h3">Import a file</T>
-            <T v="small">Garmin .FIT, Fitbit Takeout, GPX · next update</T>
-          </View>
+        {/* Colmi smart ring (R02/R06/R10): steps, heart-rate log, battery, live HR in workouts */}
+        <Animated.View entering={enter(5)}><ColmiCard /></Animated.View>
+
+        {/* Import history from a file: works on every platform, web included */}
+        <Animated.View entering={enter(6)}>
+          <Tap onPress={() => setImportOpen(true)} style={[s.card, s.row]} scale={0.98} accessibilityLabel="Import from a file">
+            <IconBox icon="download-outline" color={c.blue} />
+            <View style={{ flex: 1 }}>
+              <T v="h3">Import from a file</T>
+              <T v="small" numberOfLines={1}>Garmin .FIT, Fitbit Takeout, GPX, TCX</T>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={c.dim} />
+          </Tap>
         </Animated.View>
       </ScrollView>
 
@@ -221,9 +246,34 @@ export default function Watch() {
           {ble.status !== 'scanning' && <Button kind="ghost" title="Scan again" icon="refresh" onPress={() => startScan()} />}
         </View>
       </Sheet>
+
+      <Sheet open={importOpen} onClose={() => setImportOpen(false)}>
+        <View style={{ gap: 12 }}>
+          <T v="h2">Import from a file</T>
+          {FORMATS.map((f) => (
+            <View key={f.label} style={s.row}>
+              <Ionicons name={f.icon} size={18} color={c.muted} />
+              <T v="small" numberOfLines={1} style={{ flex: 1 }}>{f.label}</T>
+            </View>
+          ))}
+          {importing ? <Shimmer height={18} style={{ width: '60%' }} /> : imported ? (
+            <View style={s.row}>
+              <Ionicons name={imported.ok ? 'checkmark-circle' : 'information-circle-outline'} size={18} color={imported.ok ? c.ok : c.warm} />
+              <T v="body" style={{ flex: 1 }}>{imported.line}</T>
+            </View>
+          ) : null}
+          <Button title="Choose file" icon="document-outline" onPress={chooseFile} disabled={importing} />
+        </View>
+      </Sheet>
     </View>
   );
 }
+
+const FORMATS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
+  { icon: 'watch-outline', label: 'Garmin .FIT file or Garmin export zip' },
+  { icon: 'archive-outline', label: 'Fitbit Google Takeout zip' },
+  { icon: 'map-outline', label: 'GPX or TCX from Gadgetbridge, OpenTracks and others' },
+];
 
 const s = StyleSheet.create({
   card: { backgroundColor: c.card, borderRadius: r.lg, padding: 16, borderWidth: 1, borderColor: c.line, gap: 14 },
