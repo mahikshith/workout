@@ -228,7 +228,7 @@ export default function Fuel() {
 
       {/* History of water, protein, calories and meals lives on its own chart screen. */}
       <Animated.View entering={enter(6)} style={{ marginTop: 12 }}>
-        <DoorCard icon="stats-chart" color={c.blue} title="Trends" meta={gentle ? 'Meals and water over time' : 'Calories, protein, water and meals'} onPress={() => router.push('/chart/fuel')} />
+        <DoorCard compact icon="stats-chart" color={c.blue} title="Trends" meta={gentle ? 'Meals and water over time' : 'Calories, protein, water and meals'} onPress={() => router.push('/chart/fuel')} />
       </Animated.View>
 
       <FoodSheet open={!!ask} onClose={() => setAsk(null)} slot={ask?.slot} tab={ask?.tab} query={ask?.query} />

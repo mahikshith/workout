@@ -3,8 +3,11 @@
 // lazily and only on Android, so web and iOS never load it; there every call reports 'unavailable'.
 import { Platform } from 'react-native';
 import type * as HCLib from 'react-native-health-connect';
-import type { Session } from '../store';
+import { isTimed } from '../calc';
+import { byId } from '../data/exercises';
+import { useStore, type Session } from '../store';
 import { useTracker, type DailyMetrics, type ImportedWorkout, type SleepNight } from '../tracker';
+import { cardioType, matchSession, setsText, SET_LEAD_MS, splitHr, type HrSample } from './parse';
 
 type HC = typeof HCLib;
 type RecordType = HCLib.RecordType;
@@ -205,13 +208,15 @@ async function doSync(days: number): Promise<boolean> {
     }
   });
 
-  // Exercise sessions from other apps. Our own written-back sessions are skipped so they never show twice.
+  // Exercise sessions from other apps. Our own written-back sessions are skipped so they never show twice. A watch's
+  // own gym session that overlaps one of ours gets its heart rate and calories read, then is merged into ours.
   const workouts: ImportedWorkout[] = [];
+  const ours = useStore.getState().sessions;
   if (has('ExerciseSession')) await safe(async () => {
     for (const rec of await readAll(m, 'ExerciseSession', startTime, endTime)) {
       const id = rec.metadata?.id;
       if (!id || rec.metadata?.clientRecordId?.startsWith(CLIENT_PREFIX)) continue;
-      workouts.push({
+      const w: ImportedWorkout = {
         id: `health_connect:${id}`,
         source: 'health_connect',
         originApp: rec.metadata?.dataOrigin,
@@ -220,7 +225,9 @@ async function doSync(days: number): Promise<boolean> {
         start: rec.startTime,
         end: rec.endTime,
         durationS: Math.max(0, Math.round((Date.parse(rec.endTime) - Date.parse(rec.startTime)) / 1000)),
-      });
+      };
+      if (matchSession(w, ours)) await safe(() => watchNumbers(m, w, has));
+      workouts.push(w);
     }
   });
 
@@ -228,29 +235,108 @@ async function doSync(days: number): Promise<boolean> {
   const list = Object.values(rows).filter((r) => Object.keys(r).length > 2); // more than date + origin
   if (list.length) t.upsertDaily(list);
   if (workouts.length) t.upsertWorkouts(workouts);
+  linkWorkouts();
   t.setHc({ connected: granted.some((k) => !k.startsWith('write:')), granted, lastSync: new Date().toISOString() });
   return true;
 }
 
+// Heart rate and active calories the watch recorded during one of its workouts, from that watch only.
+async function watchNumbers(m: HC, w: ImportedWorkout, has: (t: RecordType) => boolean) {
+  const timeRangeFilter = { operator: 'between' as const, startTime: w.start, endTime: w.end };
+  const dataOriginFilter = w.originApp ? [w.originApp] : undefined;
+  if (has('HeartRate')) {
+    const hr = await m.aggregateRecord({ recordType: 'HeartRate', timeRangeFilter, dataOriginFilter });
+    if (hr.MEASUREMENTS_COUNT > 0 && hr.BPM_AVG) { w.avgHr = Math.round(hr.BPM_AVG); w.maxHr = Math.round(hr.BPM_MAX); }
+  }
+  if (has('ActiveCaloriesBurned')) {
+    const kc = await m.aggregateRecord({ recordType: 'ActiveCaloriesBurned', timeRangeFilter, dataOriginFilter });
+    const v = kc.ACTIVE_CALORIES_TOTAL?.inKilocalories;
+    if (v && v > 0) w.kcal = Math.round(v);
+  }
+}
+
+// Moves every imported workout that duplicates one of our logged sessions into the tracker's merged list, so it is
+// shown as part of our session (Summary) and no longer as a second workout. No reads: safe to call any time.
+export function linkWorkouts() {
+  const sessions = useStore.getState().sessions;
+  const t = useTracker.getState();
+  for (const w of Object.values(t.workouts)) {
+    const id = matchSession(w, sessions);
+    if (id) t.merge(w.id, id);
+  }
+}
+
+const HR_TAIL_MS = 5 * 60000;
+
+// Heart rate per set for one of our finished workouts: the samples from start to end + 5 min, split by when each set
+// was ticked (src/health/parse.ts splitHr). When several apps wrote HR, the one with the most samples wins, so a
+// phone's odd reading never mixes with the watch's. Returns false when there is nothing (yet).
+export async function readSessionHr(s: Session): Promise<boolean> {
+  if (!s.endedAt || !useTracker.getState().hc.connected) return false;
+  const m = await ready();
+  if (!m || !(await grantedNow(m)).includes('HeartRate')) return false;
+  const times = useTracker.getState().setTimes[s.id];
+  const first = Math.min(...(times ?? []).flat().filter((x) => x > 0));
+  // startedAt moves later by any paused time when a workout finishes, so the first ticked set can be earlier.
+  const start = Math.min(s.startedAt, Number.isFinite(first) ? first - SET_LEAD_MS : Infinity);
+  const end = s.endedAt;
+  try {
+    const by: Record<string, HrSample[]> = {};
+    for (const rec of await readAll(m, 'HeartRate', new Date(start).toISOString(), new Date(end + HR_TAIL_MS).toISOString())) {
+      const list = (by[rec.metadata?.dataOrigin ?? '?'] ??= []);
+      for (const x of rec.samples ?? []) list.push({ t: Date.parse(x.time), bpm: x.beatsPerMinute });
+    }
+    const inside = (xs: HrSample[]) => xs.filter((x) => x.t >= start && x.t <= end).length;
+    const best = Object.entries(by).sort((a, b) => inside(b[1]) - inside(a[1]))[0];
+    if (!best) return false;
+    const split = splitHr(best[1], start, end, times);
+    if (!split) return false;
+    useTracker.getState().putSessionHr(s.id, {
+      avg: split.avg, max: split.max, sets: split.sets, rest: split.rest, sparse: split.sparse || undefined,
+      origin: best[0] === '?' ? undefined : best[0], readAt: new Date().toISOString(),
+    });
+    return true;
+  } catch (e) {
+    if (__DEV__) console.warn('health connect hr', e);
+    return false;
+  }
+}
+
 const CLIENT_PREFIX = 'gymbuddy:';
 
-// Saves one of our finished gym workouts to Health Connect as a strength-training session. Safe to call twice:
-// the client record id makes Health Connect update the same record instead of adding another.
+const NOTES_MAX = 1000;
+
+// The Health Connect exercise type for one of our sessions: strength training, unless every exercise is cardio, then
+// the cardio machine or activity that took the most time.
+function typeFor(m: HC, s: Session): number {
+  const cardio = s.items.length > 0 && s.items.every((it) => byId[it.exId]?.category === 'cardio');
+  if (!cardio) return m.ExerciseType.STRENGTH_TRAINING;
+  const key = cardioType(s.items.map((it) => ({ name: byId[it.exId]?.name ?? it.exId, amount: it.sets.reduce((a, x) => a + (x.done ? x.reps : 0), 0) })));
+  return (m.ExerciseType as Record<string, number>)[key] ?? m.ExerciseType.OTHER_WORKOUT;
+}
+
+// Saves one of our finished workouts to Health Connect, with its sets as text in the notes. Safe to call again after
+// an edit: the client record id makes Health Connect update the same record, and the version goes up by one each
+// write so the update is never ignored.
 export async function writeSession(s: Session): Promise<boolean> {
   if (!s.endedAt || !useTracker.getState().hc.connected) return false;
   const m = await ready();
   if (!m) return false;
   if (!(await grantedNow(m)).includes(WRITE_KEY)) return false;
   const end = Math.max(s.endedAt, s.startedAt + 60000);
+  const version = (useTracker.getState().hcWritten[s.id] ?? 0) + 1;
+  const notes = setsText(s.items.map((it) => ({ name: byId[it.exId]?.name ?? it.exId, timed: isTimed(it.target), sets: it.sets })));
   try {
     await m.insertRecords([{
       recordType: 'ExerciseSession',
       startTime: new Date(s.startedAt).toISOString(),
       endTime: new Date(end).toISOString(),
-      exerciseType: m.ExerciseType.STRENGTH_TRAINING,
+      exerciseType: typeFor(m, s),
       title: s.title,
-      metadata: { clientRecordId: CLIENT_PREFIX + s.id, clientRecordVersion: 1 },
+      notes: notes ? (notes.length > NOTES_MAX ? notes.slice(0, NOTES_MAX - 1) + '…' : notes) : undefined,
+      metadata: { clientRecordId: CLIENT_PREFIX + s.id, clientRecordVersion: version },
     }]);
+    useTracker.getState().markWritten(s.id, version);
     return true;
   } catch (e) {
     if (__DEV__) console.warn('health connect write', e);
@@ -258,9 +344,37 @@ export async function writeSession(s: Session): Promise<boolean> {
   }
 }
 
-// Disconnect: forget the data we copied and, where the platform allows, drop our grants too.
-export async function disconnect(): Promise<void> {
-  useTracker.getState().disconnectHc();
+// Removes the records we wrote for these sessions. Health Connect only lets an app delete its own records.
+async function deleteWritten(m: HC, ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    for (let k = 0; k < ids.length; k += 100) await m.deleteRecordsByUuids('ExerciseSession', [], ids.slice(k, k + 100).map((id) => CLIENT_PREFIX + id));
+    return true;
+  } catch (e) {
+    if (__DEV__) console.warn('health connect delete', e);
+    return false;
+  }
+}
+
+// A session deleted in the app: delete our record of it too, if we wrote one.
+export async function deleteSessionRecord(id: string): Promise<boolean> {
+  if (!(id in useTracker.getState().hcWritten) || !useTracker.getState().hc.connected) return false;
+  const m = await ready();
+  if (!m || !(await grantedNow(m)).includes(WRITE_KEY)) return false;
+  return deleteWritten(m, [id]);
+}
+
+// Disconnect: forget the data we copied and, where the platform allows, drop our grants too. With `removeWritten`,
+// first delete the workouts we saved to Health Connect (before the grants go, since that needs write access).
+export async function disconnect(removeWritten = false): Promise<void> {
+  if (removeWritten) {
+    const m = await ready();
+    if (m) {
+      const ids = new Set([...Object.keys(useTracker.getState().hcWritten), ...useStore.getState().sessions.map((x) => x.id)]);
+      await deleteWritten(m, [...ids]);
+    }
+  }
+  useTracker.getState().disconnectHc(removeWritten);
   const m = hc();
   if (!m) return;
   try { await m.revokeAllPermissions(); } catch {}

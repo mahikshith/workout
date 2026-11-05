@@ -12,7 +12,7 @@ Foundation already in place (do not rewrite, reuse):
   `Chip`, `Ring`, `Demo` (exercise animation/photo/video, keep using it), `Thumb`, `Stepper`, `Row`, `haptic`.
 - `src/sheet.tsx`: `Sheet` (spring up, drag down to close). Actions go in sheets.
 - `src/rings.tsx`, `src/charts.tsx`, `src/body.tsx` (MuscleMap), `src/medals.tsx`, `src/journey.tsx`: keep.
-- `src/store.ts`: workouts start running at once (no second Start). `active.idx` is the exercise on screen and
+- `src/store.ts`: Start opens the workout ready (look first); the clock starts on its Start workout button (`begin()`). `active.idx` is the exercise on screen and
   `active.restUntil/restTotal` the rest timer, via `setIdx` and `setRest` (the mini bar reads them).
 - `src/tracker.ts`: watch data (`useTracker`, `latest`, `sleepScore`).
 - Tabs (`app/(tabs)/_layout.tsx`): Today (`index`), Train (`train`), centre Start, Progress, Fuel. `You` is now a

@@ -11,6 +11,7 @@ import { byId } from '../src/data/exercises';
 import { sessionMinutes } from '../src/glance';
 import { CountUp, EASE, Header, useMiniBarSpace } from '../src/kit';
 import { useStore } from '../src/store';
+import { mergedFor, useTracker } from '../src/tracker';
 import { c, f, r } from '../src/theme';
 import { Card, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb, Tile } from '../src/ui';
 
@@ -28,6 +29,14 @@ export default function History() {
   const [month, setMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d; });
   const [day, setDay] = useState(dayKey());
   const [confirm, setConfirm] = useState<string | null>(null);
+  const sessionHr = useTracker((t) => t.sessionHr);
+  const merged = useTracker((t) => t.merged);
+  // Heart rate glance (its home is the workout summary): avg · max from Health Connect, or from the watch's merged copy.
+  const hrOf = (id: string) => {
+    const h = sessionHr[id], w = mergedFor(merged, id);
+    const avg = h?.avg ?? w?.avgHr, max = h?.max ?? w?.maxHr;
+    return avg && max ? `${Math.round(avg)} avg · ${Math.round(max)} max` : null;
+  };
 
   const byDay: Record<string, typeof sessions> = {};
   for (const s of sessions) (byDay[dayKey(s.startedAt)] ??= []).push(s);
@@ -132,6 +141,12 @@ export default function History() {
                       <Ionicons name="trash-outline" size={18} color={confirm === ss.id ? c.danger : c.muted} />
                     </Tap>
                   </Row>
+                  {hrOf(ss.id) && (
+                    <Row gap={8}>
+                      <Ionicons name="heart" size={14} color={c.pink} />
+                      <T v="small" style={{ fontVariant: ['tabular-nums'] }}>{hrOf(ss.id)}</T>
+                    </Row>
+                  )}
                   {confirm === ss.id && <Animated.View entering={FadeIn.duration(160)}><T v="small" color={c.danger}>Tap the bin again to delete</T></Animated.View>}
                   {ss.items.map((it, j) => (
                     <Row key={`${it.exId}-${j}`} gap={12}>

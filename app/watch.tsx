@@ -9,6 +9,9 @@ import {
   connect, disconnect, forgetStrap, HC_PLAY_URL, HC_PLAY_WEB, isAvailable, READ_TYPES, requestPermissions, startScan, stopScan, sync,
   useBle, type Found, type HcStatus,
 } from '../src/health';
+import { ColmiCard } from '../src/health/ColmiCard';
+import { appsLine, commitApps, importFiles, pickFiles, summaryLine } from '../src/health/importFile';
+import type { AppPlan } from '../src/importApps';
 import { useLiveHr } from '../src/health/live';
 import { DoorCard, EASE, goBack, Header, useMiniBarSpace } from '../src/kit';
 import { Sheet } from '../src/sheet';
@@ -48,6 +51,29 @@ function Signal({ rssi }: { rssi: number | null }) {
   );
 }
 
+// Disconnect asks first whether the workouts we saved to Health Connect stay there or go.
+function DisconnectHc({ disabled }: { disabled: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const go = async (remove: boolean) => {
+    setBusy(true);
+    try { await disconnect(remove); } finally { setBusy(false); setOpen(false); }
+  };
+  return (
+    <>
+      <Button kind="danger" title="Disconnect" onPress={() => setOpen(true)} disabled={disabled} style={{ flex: 1, height: 48 }} />
+      <Sheet open={open} onClose={() => !busy && setOpen(false)}>
+        <View style={{ gap: 12 }}>
+          <T v="h2">Disconnect Health Connect</T>
+          <T v="small">Keep the workouts we saved there, or remove them</T>
+          <Button kind="ghost" title="Keep my workouts" onPress={() => go(false)} disabled={busy} />
+          <Button kind="danger" title="Remove them" onPress={() => go(true)} disabled={busy} />
+        </View>
+      </Sheet>
+    </>
+  );
+}
+
 export default function Watch() {
   const ins = useSafeAreaInsets();
   const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
@@ -62,6 +88,10 @@ export default function Watch() {
   const [status, setStatus] = useState<HcStatus | 'checking'>(ANDROID ? 'checking' : 'unavailable');
   const [syncing, setSyncing] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState<{ line: string; ok: boolean } | null>(null);
+  const [appPlan, setAppPlan] = useState<AppPlan[] | null>(null); // a Strong/Hevy/FitNotes CSV waiting for Import
 
   useEffect(() => { if (ANDROID) isAvailable().then(setStatus); }, []);
   useEffect(() => { if (!scanOpen) stopScan(); }, [scanOpen]);
@@ -76,6 +106,22 @@ export default function Watch() {
   };
   const install = () => Linking.openURL(HC_PLAY_URL).catch(() => Linking.openURL(HC_PLAY_WEB));
   const pair = () => { setScanOpen(true); startScan(); };
+  const chooseFile = async () => {
+    const assets = await pickFiles().catch(() => null);
+    if (!assets) return;
+    setImporting(true);
+    setImported(null);
+    setAppPlan(null);
+    try {
+      const res = await importFiles(assets);
+      if (res.apps?.length) setAppPlan(res.apps);
+      if (!res.apps?.length || res.workouts + res.days > 0) setImported({ line: summaryLine(res), ok: res.workouts + res.days > 0 });
+    } catch {
+      setImported({ line: 'Could not read that file', ok: false });
+    } finally {
+      setImporting(false);
+    }
+  };
   const pick = (d: Found) => {
     setScanOpen(false);
     connect(d.id, d.name);
@@ -140,7 +186,7 @@ export default function Watch() {
           {hc.connected ? (
             <View style={s.row}>
               <Button kind="ghost" title="Sync now" icon="refresh" onPress={runSync} disabled={syncing} style={{ flex: 1, height: 48 }} />
-              <Button kind="danger" title="Disconnect" onPress={() => disconnect()} disabled={syncing} style={{ flex: 1, height: 48 }} />
+              <DisconnectHc disabled={syncing} />
             </View>
           ) : status === 'not_installed' || status === 'needs_update' ? (
             <Button title={status === 'needs_update' ? 'Update Health Connect' : 'Install Health Connect'} icon="download-outline" onPress={install} />
@@ -149,9 +195,16 @@ export default function Watch() {
           )}
         </Animated.View>
 
-        <Animated.View entering={enter(1)} style={[s.note, { borderColor: c.line }]}>
-          <Ionicons name="information-circle-outline" size={18} color={c.muted} />
-          <T v="small" style={{ flex: 1 }}>Using NOOP, Gadgetbridge, OpenStrap or openScale? Turn on its Health Connect sync</T>
+        <Animated.View entering={enter(1)} style={[s.note, { borderColor: c.line, alignItems: 'flex-start' }]}>
+          <Ionicons name="information-circle-outline" size={18} color={c.muted} style={{ marginTop: 1 }} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <T v="small" color={c.text}>Gadgetbridge: turn on all three</T>
+            <T v="small">1. Health Connect on, in its settings</T>
+            <T v="small">2. Your watch ticked in its device list</T>
+            <T v="small">3. Sync on new data</T>
+            <T v="small">Data shows up about 10 s after the watch syncs</T>
+            <T v="small">NOOP, OpenStrap, openScale: turn on Health Connect sync</T>
+          </View>
         </Animated.View>
 
         {/* Today's numbers: one glance that opens their home, Progress › Body & watch */}
@@ -194,13 +247,19 @@ export default function Watch() {
           <T v="small">Connects but no heart rate? Its broadcast mode is probably off</T>
         </Animated.View>
 
-        {/* Import a file: Phase C */}
-        <Animated.View entering={enter(5)} style={[s.card, s.row, { opacity: 0.5 }]}>
-          <IconBox icon="download-outline" color={c.muted} />
-          <View style={{ flex: 1 }}>
-            <T v="h3">Import a file</T>
-            <T v="small">Garmin .FIT, Fitbit Takeout, GPX · next update</T>
-          </View>
+        {/* Colmi smart ring (R02/R06/R10): steps, heart-rate log, battery, live HR in workouts */}
+        <Animated.View entering={enter(5)}><ColmiCard /></Animated.View>
+
+        {/* Import history from a file: works on every platform, web included */}
+        <Animated.View entering={enter(6)}>
+          <Tap onPress={() => setImportOpen(true)} style={[s.card, s.row]} scale={0.98} accessibilityLabel="Import from a file">
+            <IconBox icon="download-outline" color={c.blue} />
+            <View style={{ flex: 1 }}>
+              <T v="h3">Import from a file</T>
+              <T v="small" numberOfLines={1}>Garmin, Fitbit, GPX, Strong, Hevy, FitNotes</T>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={c.dim} />
+          </Tap>
         </Animated.View>
       </ScrollView>
 
@@ -221,9 +280,50 @@ export default function Watch() {
           {ble.status !== 'scanning' && <Button kind="ghost" title="Scan again" icon="refresh" onPress={() => startScan()} />}
         </View>
       </Sheet>
+
+      <Sheet open={importOpen} onClose={() => { setImportOpen(false); setAppPlan(null); }}>
+        <View style={{ gap: 12 }}>
+          <T v="h2">Import from a file</T>
+          {FORMATS.map((f) => (
+            <View key={f.label} style={s.row}>
+              <Ionicons name={f.icon} size={18} color={c.muted} />
+              <T v="small" numberOfLines={1} style={{ flex: 1 }}>{f.label}</T>
+            </View>
+          ))}
+          {importing ? <Shimmer height={18} style={{ width: '60%' }} /> : imported ? (
+            <View style={s.row}>
+              <Ionicons name={imported.ok ? 'checkmark-circle' : 'information-circle-outline'} size={18} color={imported.ok ? c.ok : c.warm} />
+              <T v="body" style={{ flex: 1 }}>{imported.line}</T>
+            </View>
+          ) : null}
+          {appPlan ? (
+            <>
+              <View style={s.row}>
+                <Ionicons name="barbell-outline" size={18} color={c.blue} />
+                <T v="body" style={{ flex: 1 }}>{appsLine(appPlan)}</T>
+              </View>
+              {appPlan.some((a) => a.unknown.length) && (
+                <T v="small" numberOfLines={2}>Skipped: {[...new Set(appPlan.flatMap((a) => a.unknown))].slice(0, 4).join(', ')}{new Set(appPlan.flatMap((a) => a.unknown)).size > 4 ? '…' : ''}</T>
+              )}
+              <Button title="Import" icon="checkmark" disabled={!appPlan.some((a) => a.sessions.length)}
+                onPress={() => { setImported({ line: commitApps(appPlan), ok: true }); setAppPlan(null); }} />
+              <Button title="Cancel" kind="ghost" onPress={() => setAppPlan(null)} />
+            </>
+          ) : (
+            <Button title="Choose file" icon="document-outline" onPress={chooseFile} disabled={importing} />
+          )}
+        </View>
+      </Sheet>
     </View>
   );
 }
+
+const FORMATS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
+  { icon: 'watch-outline', label: 'Garmin .FIT file or Garmin export zip' },
+  { icon: 'archive-outline', label: 'Fitbit Google Takeout zip' },
+  { icon: 'map-outline', label: 'GPX or TCX from Gadgetbridge, OpenTracks and others' },
+  { icon: 'barbell-outline', label: 'Strong, Hevy or FitNotes CSV export' },
+];
 
 const s = StyleSheet.create({
   card: { backgroundColor: c.card, borderRadius: r.lg, padding: 16, borderWidth: 1, borderColor: c.line, gap: 14 },

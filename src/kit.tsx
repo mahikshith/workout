@@ -2,7 +2,7 @@
 // count-up numbers, the "start today's workout" action used by the centre button and Today, and the workout mini bar.
 // Rules they enforce live in docs/REDESIGN.md (section 2 and 3).
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useSegments } from 'expo-router';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import Animated, {
@@ -16,7 +16,7 @@ import { asDay, quickById } from './data/quick';
 import { suggest } from './engine';
 import { useStore } from './store';
 import { c, f, r } from './theme';
-import { haptic, MINI_BAR_HEIGHT, MINI_GAP, T, TAB_BAR_HEIGHT, Tap, useMiniBarPlace } from './ui';
+import { CENTRE_RISE, haptic, MINI_BAR_HEIGHT, MINI_GAP, T, TAB_BAR_HEIGHT, Tap, useMiniBarPlace } from './ui';
 
 export const EASE = Easing.bezier(0.32, 0.72, 0, 1); // pushes, sheets, the workout opening
 export const EASE_FILL = Easing.bezier(0.23, 1, 0.32, 1); // rings and bars
@@ -108,11 +108,13 @@ export function toToday() {
   router.navigate('/');
 }
 
-// Live clock of the running workout, in seconds, excluding pauses.
+// Live clock of the running workout, in seconds, excluding pauses. 0 for a workout that is open but not started
+// (ready), and it only ticks while the clock actually runs.
 export function useElapsed() {
   const a = useStore((s) => s.active);
   const [now, setNow] = useState(Date.now());
-  useEffect(() => { if (!a) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, [!!a]);
+  const ticking = !!a && a.running !== false && !a.pausedAt;
+  useEffect(() => { if (!ticking) return; setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, [ticking]);
   if (!a || a.running === false) return 0;
   return Math.max(0, Math.floor(((a.pausedAt ?? now) - a.startedAt - (a.pausedMs ?? 0)) / 1000));
 }
@@ -127,8 +129,8 @@ export function registerRestDay(handler: () => boolean) {
   return () => { if (restDayHandler === handler) restDayHandler = null; };
 }
 
-// Today's workout, the same one everywhere (centre button, Today hero, Train's plan card). One tap starts it; while a
-// workout is running the same action reopens it.
+// Today's workout, the same one everywhere (centre button, Today hero, Train's plan card). One tap opens it ready (clock
+// stopped, Start workout on the workout screen starts it); while a workout is open the same action reopens it.
 export function useToday() {
   const profile = useStore((s) => s.profile);
   const sessions = useStore((s) => s.sessions);
@@ -164,22 +166,30 @@ export function useToday() {
 // The mini bar is rendered once, at the root (app/_layout.tsx). It sits 8 px above the tab bar on tabs and 8 px above
 // the bottom safe area on pushed screens; the workout, its summary and setup hide it.
 // Placement and the padding hook live in ui.tsx (Screen needs them); re-exported here for screens.
-export { MINI_BAR_HEIGHT, TAB_BAR_HEIGHT, useMiniBarSpace, useScrollTopRef } from './ui';
+export { CENTRE_RISE, MINI_BAR_HEIGHT, TAB_BAR_HEIGHT, useMiniBarSpace, useScrollTopRef } from './ui';
 export function DockedMiniBar() {
   const { visible, tabs } = useMiniBarPlace();
   const ins = useSafeAreaInsets();
+  const seg = useSegments() as string[];
+  // A workout saved while still ready (app closed on the ready screen) was never started: drop it on launch unless the
+  // app opens straight onto the workout screen.
+  useEffect(() => {
+    const a = useStore.getState().active;
+    if (a && a.running === false && seg[0] !== 'session') useStore.getState().discard();
+  }, []);
   if (!visible) return null;
-  const bottom = tabs ? Math.max(ins.bottom, 8) + TAB_BAR_HEIGHT + MINI_GAP : ins.bottom + MINI_GAP;
+  const bottom = tabs ? Math.max(ins.bottom, 8) + TAB_BAR_HEIGHT + CENTRE_RISE + MINI_GAP : ins.bottom + MINI_GAP;
   return <MiniBar bottom={bottom} />;
 }
 
-// Docked above the tab bar while a workout runs and its screen is minimised. Tap opens it; ✓ logs the next set.
+// Docked above the tab bar while a started workout is minimised (a ready one never shows it). Tap opens it; ✓ logs the
+// next set.
 export function MiniBar({ bottom }: { bottom: number }) {
   const a = useStore((s) => s.active);
   const elapsed = useElapsed();
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
-  if (!a) return null;
+  if (!a || a.running === false) return null;
   const i = Math.min(a.idx ?? 0, a.items.length - 1);
   const it = a.items[i];
   const ex = byId[it?.exId];
@@ -190,7 +200,7 @@ export function MiniBar({ bottom }: { bottom: number }) {
   // Logs the next unfinished set anywhere in the workout, the same way the workout screen does.
   const tick = () => {
     const { active, updateSet, setRest, setIdx, resume } = useStore.getState();
-    if (!active) return;
+    if (!active || active.running === false) { openWorkout(); return; }
     const order = [...active.items.keys()].sort((x, y) => (x === i ? -1 : y === i ? 1 : x - y));
     const ii = order.find((n) => active.items[n].sets.some((x) => !x.done));
     if (ii === undefined) { openWorkout(); return; }
@@ -233,12 +243,13 @@ export function Empty({ icon, title, action, onPress }: { icon: Icon; title: str
 }
 
 // A card that is a doorway to one place: icon, title, one meta line, chevron. Progress and You are built from these.
-export function DoorCard({ icon, color = c.accent, title, meta, onPress, right }: {
-  icon: Icon; color?: string; title: string; meta?: string; onPress?: () => void; right?: ReactNode;
+// compact: a 36 px icon and 12 px gap, so the title lines up with IconBox rows (Fold, list cards) in the same column.
+export function DoorCard({ icon, color = c.accent, title, meta, onPress, right, compact }: {
+  icon: Icon; color?: string; title: string; meta?: string; onPress?: () => void; right?: ReactNode; compact?: boolean;
 }) {
   return (
-    <Tap onPress={onPress} style={k.door} scale={0.98}>
-      <View style={[k.doorIcon, { backgroundColor: color + '22' }]}><Ionicons name={icon} size={20} color={color} /></View>
+    <Tap onPress={onPress} style={[k.door, compact && { gap: 12 }]} scale={0.98}>
+      <View style={[k.doorIcon, compact && { width: 36, height: 36, borderRadius: 10 }, { backgroundColor: color + '22' }]}><Ionicons name={icon} size={20} color={color} /></View>
       <View style={{ flex: 1, gap: 2 }}>
         <T v="h3" numberOfLines={1}>{title}</T>
         {meta ? <T v="small" numberOfLines={1}>{meta}</T> : null}
@@ -256,7 +267,7 @@ const k = StyleSheet.create({
   segPill: { position: 'absolute', top: 4, left: 4, bottom: 4, borderRadius: 9 },
   segItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   mini: {
-    position: 'absolute', left: 12, right: 12, height: MINI_BAR_HEIGHT, borderRadius: r.lg, flexDirection: 'row', alignItems: 'center', paddingRight: 8,
+    position: 'absolute', left: 12, right: 12, height: MINI_BAR_HEIGHT, borderRadius: r.lg, flexDirection: 'row', alignItems: 'center', paddingRight: 5, // 5 = (56 - 2 border - 44) / 2: equal gap round the ✓
     backgroundColor: '#17171B', borderWidth: 1,
     shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10,
   },

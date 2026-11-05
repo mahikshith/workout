@@ -76,16 +76,20 @@ export function T({ v = 'body', color, style, ...p }: TextProps & { v?: V; color
 export const TAB_BAR_HEIGHT = 64;
 export const MINI_BAR_HEIGHT = 56;
 export const MINI_GAP = 8;
+// How far the tab bar's centre Start circle rises above the bar. On tabs the mini bar sits this much higher, so the
+// circle never runs under it.
+export const CENTRE_RISE = 16;
 const NO_MINI_BAR = ['session', 'summary', 'onboarding'];
 export function useMiniBarPlace() {
   const seg = useSegments() as string[];
-  const running = useStore((s) => !!s.active);
+  const running = useStore((s) => !!s.active && s.active.running !== false); // a ready (not started) workout has no bar
   return { visible: running && !NO_MINI_BAR.includes(seg[0] ?? ''), tabs: !seg.length || seg[0] === '(tabs)' };
 }
 // Extra bottom padding a scrolling screen adds on top of its usual padding, so its last item ends 8 px above the
 // mini bar. 0 when no workout is running or the bar is hidden. Fixed bottom bars on pushed screens add it too.
 export function useMiniBarSpace() {
-  return useMiniBarPlace().visible ? MINI_BAR_HEIGHT + MINI_GAP * 2 : 0;
+  const { visible, tabs } = useMiniBarPlace();
+  return visible ? MINI_BAR_HEIGHT + MINI_GAP * 2 + (tabs ? CENTRE_RISE : 0) : 0;
 }
 
 // For screens with their own ScrollView or FlatList: pass the returned ref to it, and tapping the current tab scrolls
@@ -228,7 +232,7 @@ export function Fold({ title, icon, children, open: start = false }: { title: st
   return (
     <View style={st.card}>
       <Tap onPress={() => setOpen(!open)} scale={0.99} feedback="none" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        {icon && <IconBox icon={icon} size={32} />}
+        {icon && <IconBox icon={icon} size={36} />}
         <T v="h3" style={{ flex: 1 }}>{title}</T>
         <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
       </Tap>

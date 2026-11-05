@@ -50,11 +50,14 @@ export type MediaPref = 'animated' | 'drawing' | 'photo' | 'video';
 
 export type SetLog = { reps: number; weight: number; done: boolean };
 export type Item = { exId: string; target: string; rest: number; sets: SetLog[]; swappedFrom?: string };
-// The clock runs from the moment a workout starts (one tap). pausedAt is set while paused; pausedMs adds up finished
+// A workout opens ready (running false) so it can be looked through; begin() starts the clock. pausedAt is set while paused; pausedMs adds up finished
 // pauses. idx is the exercise on screen, and restUntil/restTotal the rest timer, kept here (not in the screen) so the
 // mini bar can show them while the workout is minimised.
 export type Session = { id: string; title: string; planId?: string; dayIndex?: number; place: Place; startedAt: number; endedAt?: number; items: Item[];
-  running?: boolean; pausedAt?: number; pausedMs?: number; idx?: number; restUntil?: number; restTotal?: number };
+  running?: boolean; pausedAt?: number; pausedMs?: number; idx?: number; restUntil?: number; restTotal?: number;
+  source?: 'strong' | 'hevy' | 'fitnotes' | 'gymbuddy' }; // set on sessions imported from another app's CSV
+// A day the person excused from training (one tap on Today): the missed-workout nudge skips it and doesn't count it.
+export type Excuse = 'sick' | 'travel' | 'rest';
 export type Meal = { id: string; day: string; name: string; kcal: number; protein: number; slot?: MealSlot };
 
 type State = {
@@ -77,6 +80,9 @@ type State = {
   dismissed: Record<string, string>; // insight id -> dayKey it was dismissed
   mediaPref: MediaPref;
   periods: { start: string; end?: string }[]; // logged periods, newest last
+  excuses: Record<string, Excuse>; // dayKey -> why; only the last 60 days are kept. Missed days are counted from sessions.
+  excuse: (why: Excuse | null) => void; // excuses today, or clears today's excuse
+  importSessions: (list: Session[]) => { added: number; skipped: number }; // skips days that already have a workout
   logPeriod: (what: 'start' | 'end') => void;
   setupSkipped: boolean; // true after Skip on first-launch setup: Today keeps a Personalize card
   skipSetup: (v: boolean) => void;
@@ -171,6 +177,7 @@ const initial = {
   motivation: { on: true, every: 180, from: 9, to: 21 },
   nudges: { missed: true, streak: true, recap: true, quietFrom: 22, quietTo: 7 },
   supplements: { picked: [] as string[], taken: {} as Record<string, string[]> }, dismissed: {}, mediaPref: 'animated' as MediaPref, setupSkipped: false, periods: [] as { start: string; end?: string }[],
+  excuses: {} as Record<string, Excuse>,
 };
 
 export const useStore = create<State>()(
@@ -211,12 +218,13 @@ export const useStore = create<State>()(
           }
           return { exId: ex.id, target: sl.reps, rest: sl.rest, sets: seedSets(ex.id, sl.reps, sl.sets, sessions, profile), swappedFrom };
         });
-        set({ active: { id: uid(), title: day.name, planId, dayIndex, place, startedAt: Date.now(), items, running: true, idx: 0 } });
+        // Opens ready (clock not running) so the person can look through the exercises first; begin() starts the clock.
+        set({ active: { id: uid(), title: day.name, planId, dayIndex, place, startedAt: Date.now(), items, running: false, idx: 0 } });
       },
       startSingle: (exId, place) =>
         set((s) => s.active ? {} : ({
           // A single exercise gets its own dose: minutes for cardio, seconds for holds, reps otherwise.
-          active: { id: uid(), title: byId[exId].name, place, startedAt: Date.now(), running: true, idx: 0, items: [single(exId, s.sessions, s.profile)] },
+          active: { id: uid(), title: byId[exId].name, place, startedAt: Date.now(), running: false, idx: 0, items: [single(exId, s.sessions, s.profile)] },
         })),
       updateSet: (i, j, patch) =>
         set((s) => {
@@ -269,6 +277,22 @@ export const useStore = create<State>()(
         return done;
       },
       discard: () => set({ active: null }),
+      // Imported history goes in date order; a day that already has a workout (ours or an earlier import) is skipped,
+      // so importing the same file twice adds nothing. The plan rotation and the running workout are left alone.
+      importSessions: (list) => {
+        const { sessions } = get();
+        const taken = new Set(sessions.map((x) => dayKey(x.startedAt)));
+        const ids = new Set(sessions.map((x) => x.id));
+        const fresh = list.filter((x) => !taken.has(dayKey(x.startedAt)) && !ids.has(x.id) && x.items.length);
+        if (fresh.length) set({ sessions: [...sessions, ...fresh].sort((a, b) => a.startedAt - b.startedAt) });
+        return { added: fresh.length, skipped: list.length - fresh.length };
+      },
+      excuse: (why) =>
+        set((s) => {
+          const today = dayKey(), cut = dayKey(Date.now() - 60 * 86400000);
+          const excuses = Object.fromEntries(Object.entries(s.excuses).filter(([d]) => d >= cut && d !== today));
+          return { excuses: why ? { ...excuses, [today]: why } : excuses };
+        }),
       deleteSession: (id) => set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) })),
       logWeight: (kg) =>
         set((s) => ({ weights: [...s.weights.filter((w) => w.day !== dayKey()), { day: dayKey(), kg }], profile: s.profile && { ...s.profile, weightKg: kg } })),

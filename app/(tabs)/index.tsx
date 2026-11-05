@@ -11,11 +11,11 @@ import { motivation } from '../../src/data/motivation';
 import { FoodSheet } from '../../src/foodsheet';
 import { STREAK_SUFFIX } from '../../src/glance';
 import { CountUp, EASE, useMiniBarSpace, useScrollTopRef, useToday } from '../../src/kit';
-import { askPermission, hasPermission, reschedule } from '../../src/notify';
-import { useStore } from '../../src/store';
+import { askPermission, hasPermission, lastReminderMin, plannedOn, reschedule } from '../../src/notify';
+import { useStore, type Excuse } from '../../src/store';
 import { c, f, r } from '../../src/theme';
 import { latest, sleepScore, useTracker } from '../../src/tracker';
-import { Avatar, Button, Ring, Row, T, Tap } from '../../src/ui';
+import { Avatar, Button, Chip, Ring, Row, T, Tap } from '../../src/ui';
 
 // Today (docs/REDESIGN.md, "Today"): header, one hero card, three rings, the week strip, one coach line.
 // Anything that needs a decision (setup, reminders, health context) collapses into one line at the very bottom.
@@ -24,6 +24,9 @@ type Icon = keyof typeof Ionicons.glyphMap;
 const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const STEP_GOAL = 8000;
 const LABEL = { plan: 'Up next', light: 'Lighter today', rest: 'Rest day', gentle: 'Gentle today' } as const;
+const EXCUSES: { id: Excuse; label: string; icon: Icon }[] = [
+  { id: 'sick', label: 'Sick', icon: 'medkit-outline' }, { id: 'travel', label: 'Travelling', icon: 'airplane-outline' }, { id: 'rest', label: 'Rest', icon: 'bed-outline' },
+];
 
 // Sections rise in one after another, 60 ms apart.
 const Enter = ({ i, children, style }: { i: number; children: ReactNode; style?: object }) => (
@@ -44,6 +47,10 @@ export default function Today() {
   const setupSkipped = useStore((s) => s.setupSkipped);
   const dismissed = useStore((s) => s.dismissed);
   const dismiss = useStore((s) => s.dismiss);
+  const reminders = useStore((s) => s.reminders);
+  const excuses = useStore((s) => s.excuses);
+  const planStart = useStore((s) => s.planStart);
+  const excuse = useStore((s) => s.excuse);
   const hcOn = useTracker((s) => s.hc.connected);
   const daily = useTracker((s) => s.daily);
   const today = useToday();
@@ -63,11 +70,25 @@ export default function Today() {
   // Hero: today's workout from the shared useToday(), so this card, the centre button and Train always agree.
   const { day, minutes, kind, reason, active, start } = today;
   const rest = kind === 'rest';
-  const label = active ? 'In progress' : rest && trainedToday ? 'Done for today' : LABEL[kind];
+  const label = active?.running ? 'In progress' : rest && trainedToday ? 'Done for today' : LABEL[kind];
   const wh = active ? active.place : today.where;
   const place = profile.place === 'office' && !active ? 'Office' : wh === 'home' ? 'Home' : 'Gym';
   const muscles = [...new Set(day.slots.map((sl) => byId[sl.id]?.primary[0]).filter(Boolean))].slice(0, 3).map(title);
-  const button = active ? 'Resume' : rest ? 'Train anyway' : 'Start';
+  const button = active?.running ? 'Resume' : rest ? 'Train anyway' : 'Start';
+
+  // "Not today?" excuse chips: on a planned day with no workout yet once the evening is near (or the day's last
+  // reminder has passed), or the day after a missed planned day. An excused day pauses the missed-workout nudge.
+  const hasReminders = reminders.some((x) => x.kind === 'workout' && x.on);
+  const plannedToday = hasReminders ? plannedOn(reminders, now) : !rest;
+  const lastMin = lastReminderMin(reminders, now);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const evening = nowMin >= Math.min(17 * 60, lastMin >= 0 ? lastMin : 17 * 60);
+  const yday = new Date(now); yday.setDate(yday.getDate() - 1);
+  const ykey = dayKey(yday);
+  const since = Math.min(sessions[0]?.startedAt ?? Infinity, planStart ?? Infinity);
+  const missedYesterday = hasReminders && plannedOn(reminders, yday) && !trained.has(ykey) && !excuses[ykey] && since !== Infinity && dayKey(since) <= ykey;
+  const excused = excuses[key];
+  const showExcuse = !active && !trainedToday && (!!excused || (plannedToday && evening) || missedYesterday);
 
   // Rings. Training: sessions since Monday against the weekly goal.
   const week = sessions.filter((s) => s.startedAt >= monday.getTime()).length;
@@ -137,6 +158,14 @@ export default function Today() {
           {!active && kind !== 'plan' && <T v="small" color="#C9C9CE" numberOfLines={1}>{firstSentence(reason)}</T>}
           <Button title={button} icon="play" onPress={start} style={{ marginTop: 4 }} />
         </View>
+        {showExcuse && (
+          <Row gap={8} style={{ flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
+            <T v="small" color={c.muted}>{excused ? 'Excused today' : 'Not today?'}</T>
+            {EXCUSES.filter((x) => !excused || x.id === excused).map((x) => (
+              <Chip key={x.id} label={x.label} icon={x.icon} on={excused === x.id} onPress={() => excuse(excused === x.id ? null : x.id)} />
+            ))}
+          </Row>
+        )}
       </Enter>
 
       {/* 3. Three rings, each opens its own place. */}

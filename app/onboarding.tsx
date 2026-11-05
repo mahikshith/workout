@@ -11,6 +11,7 @@ import { GOALS, Pill, Tiles, type Opt } from '../src/context';
 import { HOME_GEAR, title } from '../src/data/exercises';
 import { perWeek, planById } from '../src/data/plans';
 import { EASE, goBack, Segmented, toToday } from '../src/kit';
+import { setSetupFinish } from '../src/setupflow';
 import { askPermission, reschedule } from '../src/notify';
 import { useStore, type Goal, type Profile } from '../src/store';
 import { c, f, r } from '../src/theme';
@@ -191,7 +192,7 @@ export default function Onboarding() {
                 </Row>
               ))}
             </View>
-            <Tap onPress={() => finish(p, true)} style={s.see} scale={0.97}>
+            <Tap onPress={() => { const snap = p; setSetupFinish(() => { finish(snap); }); router.push({ pathname: '/plan/[id]', params: { id: plan, welcome: '1', preview: '1' } }); }} style={s.see} scale={0.97}>
               <T v="h3" color={c.accent}>See the full plan</T>
               <Ionicons name="chevron-forward" size={16} color={c.accent} />
             </Tap>

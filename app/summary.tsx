@@ -13,8 +13,9 @@ import { FoodSheet } from '../src/foodsheet';
 import { sessionMinutes } from '../src/glance';
 import { sessionKcal } from '../src/journey';
 import { CountUp, EASE, EASE_POP, Empty, Header, toToday } from '../src/kit';
-import { useStore, type MealSlot } from '../src/store';
-import { c, r } from '../src/theme';
+import { useStore, type MealSlot, type Session } from '../src/store';
+import { c, f, r } from '../src/theme';
+import { mergedFor, useTracker } from '../src/tracker';
 import { Button, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb } from '../src/ui';
 
 // The end of a workout (docs/REDESIGN.md rule 8). Nothing here leaves the screen except Done: Log a meal opens the
@@ -44,6 +45,53 @@ function CountTile({ icon, color = c.accent, value, suffix, label, i }: { icon: 
       <IconBox icon={icon} color={color} size={32} />
       <CountUp value={value} suffix={suffix} style={{ fontSize: 26, marginTop: 10 }} />
       <T v="small" numberOfLines={1}>{label}</T>
+    </Animated.View>
+  );
+}
+
+// Heart rate for this workout: one line (avg · max) and, when the watch saved often enough, each set's peak as a small
+// chip. Comes from Health Connect after the workout (src/health), or from the watch's own copy of it once merged.
+function HeartRate({ s, i }: { s: Session; i: number }) {
+  const hr = useTracker((t) => t.sessionHr[s.id]);
+  const watch = useTracker((t) => mergedFor(t.merged, s.id));
+  const waiting = useTracker((t) => t.hc.connected && t.hc.granted.includes('HeartRate'));
+  const avg = hr?.avg ?? watch?.avgHr, max = hr?.max ?? watch?.maxHr;
+  if (!avg || !max) {
+    if (!waiting || !s.endedAt || Date.now() - s.endedAt > 86400000) return null;
+    return (
+      <Animated.View entering={FadeInDown.delay(340).duration(400).easing(EASE)} style={[s2.hr, { marginTop: 12 }]}>
+        <IconBox icon="heart-outline" color={c.pink} size={32} />
+        <T v="small" style={{ flex: 1 }}>Heart rate shows once your watch syncs</T>
+      </Animated.View>
+    );
+  }
+  const rows = (hr?.sets ?? []).map((sets, k) => ({ it: s.items[k], sets })).filter((x) => x.it && x.sets.some(Boolean));
+  return (
+    <Animated.View entering={FadeInDown.delay(120 + i * 60).duration(400).easing(EASE)} style={[s2.hr, { marginTop: 12, flexDirection: 'column', alignItems: 'stretch' }]}>
+      <Row gap={12}>
+        <IconBox icon="heart" color={c.pink} size={32} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <T v="h3" style={{ fontVariant: ['tabular-nums'] }}>{Math.round(avg)} avg · {Math.round(max)} max</T>
+          <T v="small" numberOfLines={1}>{hr?.rest ? `Heart rate · rests ${hr.rest.avg} avg` : hr?.sparse ? 'Heart rate · too few readings for sets' : !hr && watch ? 'Heart rate from your watch' : 'Heart rate'}</T>
+        </View>
+      </Row>
+      {rows.length > 0 && (
+        <View style={{ gap: 8, marginTop: 12 }}>
+          <T v="label">Peak per set</T>
+          {rows.map(({ it, sets }, k) => (
+            <View key={`${it.exId}-${k}`} style={{ gap: 6 }}>
+              <T v="small" numberOfLines={1}>{byId[it.exId]?.name ?? it.exId}</T>
+              <View style={s2.chips}>
+                {sets.map((x, j) => (
+                  <View key={j} style={s2.chip}>
+                    <T v="small" color={x ? c.text : c.dim} style={{ fontFamily: f.semi, fontVariant: ['tabular-nums'] }}>{x ? x.max : '–'}</T>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
     </Animated.View>
   );
 }
@@ -96,6 +144,7 @@ export default function Summary() {
   const mins = sessionMinutes(s); // the same rounding as Progress and History
   const run = streak(sessions);
   const kcal = gentle ? 0 : sessionKcal(s, profile.weightKg);
+  const watchKcal = gentle ? undefined : mergedFor(useTracker.getState().merged, s.id)?.kcal; // measured beats estimated
   const levelUp = lv.lvl > lvBefore.lvl;
   const kg = Math.round(volume(s));
   const reps = s.items.reduce((n, it) => n + (isTimed(it.target) ? 0 : it.sets.reduce((a, x) => a + (x.done ? x.reps : 0), 0)), 0);
@@ -110,7 +159,7 @@ export default function Summary() {
         <Animated.View entering={FadeInDown.delay(60).duration(400).easing(EASE)}>
           <T v="display" style={{ textAlign: 'center', marginTop: 20 }}>Workout done</T>
           <T v="body" color={c.muted} numberOfLines={1} style={{ textAlign: 'center', marginTop: 2 }}>
-            {s.title}{kcal ? ` · about ${kcal} kcal` : ''}
+            {s.title}{watchKcal ? ` · ${Math.round(watchKcal)} kcal` : kcal ? ` · about ${kcal} kcal` : ''}
           </T>
         </Animated.View>
 
@@ -124,6 +173,7 @@ export default function Summary() {
             : <CountTile i={2} icon="list" value={s.items.length} label="Exercises" />}
           <CountTile i={3} icon="flame" color={c.warm} value={run} label="Streak" />
         </Row>
+        <HeartRate s={s} i={4} />
 
         {records.length > 0 && (
           <Animated.View entering={FadeInDown.delay(400).duration(400).easing(EASE)}>
@@ -180,5 +230,8 @@ export default function Summary() {
 const s2 = StyleSheet.create({
   badge: { alignSelf: 'center', width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
   tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: 1, borderColor: c.line },
+  hr: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: 1, borderColor: c.line },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { minWidth: 40, height: 28, paddingHorizontal: 8, borderRadius: 8, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   action: { flex: 1, height: 52, borderRadius: r.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
 });
