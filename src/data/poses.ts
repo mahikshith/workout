@@ -34,12 +34,14 @@ export type Pose = {
   pin?: 'hands' | 'feet' | 'hand' | 'foot'; // these stay where they start (two-bone IK); singular = near side only
   box?: Key; // a block from the floor up to this point (step, bench, hands-on-bench)
   wall?: 'front' | 'back';
-  machine?: 'treadmill' | 'sled'; // treadmill under the feet; sled = the leg-press plate the feet push
+  machine?: 'treadmill' | 'sled' | 'bike'; // treadmill under the feet; sled = the leg-press plate the feet push; bike = handlebar post
   rack?: 'back'; // side view: the barbell rests on the upper back, not in the hands
   flex?: [number, number]; // wrist curls: the hand tips from start to end (degrees from the forearm line, + = clockwise)
   incline?: number; // degrees the treadmill belt or the ground slopes up toward the front (the body stays upright)
   line?: [number, number]; // band or cable: fixed end, relative to the near hand at the start
   lift?: number; // jump: rises this much at the end
+  land?: number; // box jump: travels this far forward and lands on a box `lift` high
+  under?: { at: Key; mid?: Key; r: number; fixed?: boolean }; // a ball under this point (or halfway to `mid`), on the floor (exercise ball rolls with it; fixed = foam roller that stays put)
   hop?: number; // jump: rises this much mid-way
   // Tempo rules, the same for every exercise: 'lift' = 1 s lift, 0.5 s pause at the top, 1.6 s lowering,
   // 0.2 s pause at the bottom; 'hold' (stretches, holds) = 1.8 s in, 1.2 s hold, 1.8 s out, 0.6 s rest;
@@ -205,7 +207,7 @@ export function solve(pose: Pose, b: Pts, p: number, breath = 0, nod = 0): Pts {
     }
   } else rest(o, fix);
   const up = (pose.lift ?? 0) * p + (pose.hop ?? 0) * 4 * p * (1 - p);
-  if (up) shift(o, 0, -up);
+  if (up || pose.land) shift(o, (pose.land ?? 0) * p, -up);
   return o;
 }
 
@@ -363,7 +365,7 @@ const walk = (spine: number, sh: Pair, el: Pair, o: Partial<Pose> = {}) =>
   side(A(spine, [22, -15], [5, 18], [-5, 20], sh, el), alt(A(spine, [22, -15], [5, 18], [-5, 20], sh, el)), { fix: 'pelvis', pace: 'cycle', tempo: 0.55, ...o });
 const bike = (spine: number, sh: number, el: number) => {
   const a = A(spine, [100, 55], [110, 45], [10, 20], sh, el);
-  return side(a, alt(a), { ground: 'bench', pace: 'cycle', tempo: 0.5 });
+  return side(a, alt(a), { ground: 'bench', machine: 'bike', pace: 'cycle', tempo: 0.5 });
 };
 // Running gaits, from an easy jog to a sprint: longer stride, higher knees, bigger arm swing and a faster cadence.
 const gait = (spine: number, hip: Pair, knee: Pair, sh: Pair, tempo: number, o: Partial<Pose> = {}) => {
@@ -416,8 +418,8 @@ export const POSES: Record<string, Pose> = {
   Dumbbell_Squat: DB_SQUAT,
   Hack_Squat: side(St(-5, 0, 5, 20, 150), St(10, 100, 115, 20, 150), { con: 'back', guide: { joint: 'kn0' } }),
   Freehand_Jump_Squat: side(St(38, 112, 112, -30, 0), A(0, 0, 0, 25, 160, 5), { lift: 12, pace: 'cycle', tempo: 0.6 }),
-  Front_Box_Jump: side(St(38, 112, 112, -30, 0), A(0, 20, 30, 25, 120, 10), { lift: 16, pace: 'cycle', tempo: 0.6 }),
-  Box_Jump_Multiple_Response: side(St(38, 112, 112, -30, 0), A(0, 20, 30, 25, 120, 10), { lift: 16, pace: 'cycle', tempo: 0.6 }),
+  Front_Box_Jump: side(St(38, 112, 112, -30, 0), A(0, 20, 30, 25, 120, 10), { lift: 26, hop: 22, land: 36, pace: 'cycle', tempo: 0.6 }),
+  Box_Jump_Multiple_Response: side(St(38, 112, 112, -30, 0), A(0, 20, 30, 25, 120, 10), { lift: 26, hop: 22, land: 36, pace: 'cycle', tempo: 0.6 }),
   'wg_wall-sit': side(St(0, 90, 90, 40, 30), St(0, 88, 88, 40, 30), { wall: 'back', pace: 'hold', guide: { joint: 'kn0' } }),
   Plie_Dumbbell_Squat: front(A(0, 22, 0, 0, -12, 0), A(0, 55, 55, 0, -12, 0), { prop: 'dumbbell', one: true, con: 'back', }),
   Leg_Press: side(A(-50, 70, 10, -10, 20, 30), A(-50, 125, 105, -40, 20, 30), { ground: 'bench', machine: 'sled', con: 'back', guide: { joint: 'kn0' } }),
@@ -578,6 +580,44 @@ export const POSES: Record<string, Pose> = {
   f_overhead_squat: squat(180, 0, 188, 0, { prop: 'barbell' }, 105, 25),
   f_barbell_hack: squat(0, 0, 18, 0, { prop: 'barbell' }, 100, 18),
   f_seated_fold: side(A(0, 92, 0, 0, 70, 0), A(48, 140, 0, 0, 95, 0, { curve: 15, neck: 10 }), { ground: 'floor', fix: 'pelvis', pace: 'hold', guide: { joint: 'hp0' } }),
+  // drawn for moves that had fallen back to the photo
+  // side plank seen from the front: far forearm on the floor, near hand on the hip, hips lift off the floor
+  f_side_bridge: front(A(70, [12, -12], 0, 0, [5, 70], [10, 95]), A(78, [4, -4], 0, 0, [5, 78], [10, 95]), { ground: 'floor', fix: 'el1', lock: true, pace: 'hold', guide: { axis: ['an0', 'neck'] } }),
+  // lying on the side, the top arm raises the bell from the thigh to straight up
+  f_side_raise: front(A(90, 0, 0, 0, [0, 170], [10, 60]), A(90, 0, 0, 0, [90, 170], [5, 60]), { ground: 'floor', prop: 'dumbbell', one: true, guide: { joint: 'sh0' } }),
+  f_seated_cable_press: side(A(-8, 98, 90, 0, -50, 125), A(-8, 98, 90, 0, 82, 0), { ground: 'bench', prop: 'band', line: [-50, 0], con: 'out', guide: { joint: 'el0', axis: ['el0', 'wr0'] } }),
+  f_incline_cable_press: benchP(90, 0, -20, 110, { prop: 'band', line: [0, 50] }, -45),
+  f_standing_cable_press: side(St(5, [20, -10], [5, 5], -30, 110), St(10, [20, -10], [5, 5], 85, 0), { fix: 'an0', prop: 'band', line: [-50, 0], guide: { joint: 'el0', axis: ['el0', 'wr0'] } }),
+  f_iso_row: side(A(10, 85, 90, -15, 80, 0), A(5, 80, 90, -15, -35, 110), { ground: 'bench', guide: { joint: 'el0', axis: ['pelvis', 'neck'] } }),
+  f_high_row: side(A(5, 85, 90, -10, 140, 0), A(0, 80, 90, -10, -5, 120), { ground: 'bench', guide: { joint: 'el0', axis: ['pelvis', 'neck'] } }),
+  f_chest_row: side(St(45, 50, 25, 45, 0), St(45, 50, 25, -35, 110), { prop: 'barbell', guide: { joint: 'el0', axis: ['pelvis', 'neck'] } }),
+  f_lying_cable_curl: benchP(140, 0, 140, 125, { prop: 'band', line: [-30, -30], con: 'out' }),
+  // prone over a high bench, legs hang down and swing up behind
+  f_rev_hyper: side(A(90, 90, 0, 20, 90, 0), A(90, -12, 0, 20, 90, 0), { ground: 'bench', guide: { joint: 'hp0' } }),
+  f_susp_crunch: side(A(73, 0, 0, 15, 73, 0), A(112, 118, 115, 25, 112, 0, { curve: 15 }), { ground: 'floor', fix: 'wr0', lock: true, pin: 'hands', guide: { joint: 'hp0' } }),
+  f_bosu_crunch: side(A(-45, 55, 100, 0, 160, 150), A(5, 105, 100, 0, 160, 150, { curve: 15 }), { ground: 'bench', pad: false, prop: 'band', line: [-45, -10], guide: { joint: 'hp0' } }),
+  // lying on the back, one leg up: knee straightens (90/90, leg-up hamstring stretch)
+  f_lying_ham: side(LYING([90, 0], [90, 0], [30, 0], [40, 0], [50, 0]), LYING([100, 0], [5, 0], [30, 0], [70, 0], [10, 0]), { ground: 'floor', pace: 'hold', guide: { joint: 'kn0' } }),
+  f_prone_quad: side(A(88, 0, [10, 0], [70, 70], [-20, 170], [0, 40]), A(86, 0, [145, 0], [40, 70], [-50, 170], [0, 40]), { ground: 'floor', pace: 'hold', guide: { joint: 'kn0' } }),
+  f_inchworm: side(St(135, 135, 0, 170, 5), A(73, 0, 0, 15, 73, 0), { fix: 'toe0', pace: 'cycle', tempo: 1.4, guide: { joint: 'hp0' } }),
+  f_greatest: side(A(15, [90, -40], [75, 0], [0, 75], [15, 15], [0, 0]), A(65, [140, 10], [75, 0], [0, 75], [65, 185], [0, 0]), { fix: 'an0', pin: 'feet', pace: 'hold', guide: { joint: 'hp0' } }),
+  f_seated_toe: side(A(5, 95, 0, 0, 60, 0), A(40, 132, 0, -25, 100, 0, { curve: 12 }), { ground: 'floor', fix: 'pelvis', pace: 'hold', guide: { joint: 'an0' } }),
+  f_upper_back: side(St(0, 0, 3, 90, 0), St(0, 0, 3, 95, 0, { curve: 22, neck: 30 }), { pace: 'hold' }),
+  f_wall_lat: side(St(0, 0, 0, [165, 0], [5, 0]), A(8, 0, 0, -8, [175, 0], [0, 0]), { fix: 'an0', pin: 'hand', wall: 'front', pace: 'hold', guide: { joint: 'sh0' } }),
+  f_one_hang: hang(A(0, 5, 5, 15, [178, 0], [0, 0]), A(3, 5, 5, 15, [180, 0], [0, 0], { shrug: 3 }), { pace: 'hold', one: true }),
+  f_overhead_lat: side(A(0, 90, 0, 0, 150, 140), A(-3, 90, 0, 0, 175, 145, { curve: -8 }), { ground: 'floor', fix: 'pelvis', pace: 'hold', guide: { joint: 'sh0' } }),
+  f_side_reach: front(A(-90, 0, 0, 0, [180, 20], [10, 0]), A(-90, [0, -12], 0, 0, [180, 175], [10, 0]), { ground: 'floor', pace: 'hold' }),
+  f_ankle_circles: side(A(0, [22, 0], [45, 0], [60, 0], 0, 0), A(0, [26, 0], [48, 0], [40, 0], 0, 0), { fix: 'an1', pace: 'cycle', tempo: 0.8 }),
+  f_knee_circles: side(St(38, 58, 45, 26, 0), St(33, 48, 55, 24, 0), { pace: 'cycle', tempo: 0.8 }),
+  f_chair_reach: side(A(0, 90, 90, 0, [5, 5], [10, 10]), A(8, 98, 90, 0, [175, 5], [0, 10], { curve: -5 }), { ground: 'bench', pad: false, pace: 'hold', guide: { joint: 'sh0' } }),
+  f_sled_drag: walk(25, [40, -30], [70, 70]),
+  // on the back, heels on an exercise ball, hips up: the knees pull the ball in
+  f_ball_curl: side(A(-112, 0, 0, 10, -22, 0), A(-130, 35, 105, 10, -40, 0, { neck: 30 }), { ground: 'floor', fix: 'sh0', lock: true, under: { at: 'heel0', r: 19 }, guide: { joint: 'kn0' } }),
+  // foam rolling: hands (or feet) stay planted and the body rolls over a roller that stays put
+  f_smr_calves: side(A(-50, 40, 0, 15, -50, 0), A(-55, 35, 0, 15, -75, 0), { ground: 'floor', fix: 'wr0', lock: true, pin: 'hands', under: { at: 'kn0', mid: 'an0', r: 7.5, fixed: true }, pace: 'cycle', tempo: 1.2 }),
+  f_smr_hamstrings: side(A(-50, 40, 0, 15, -50, 0), A(-55, 35, 0, 15, -75, 0), { ground: 'floor', fix: 'wr0', lock: true, pin: 'hands', under: { at: 'hp0', mid: 'kn0', r: 7.5, fixed: true }, pace: 'cycle', tempo: 1.2 }),
+  f_smr_back: side(A(-96, 16, 105, 7, 150, 140), A(-96, 7, 66, 37, 150, 140), { ground: 'floor', fix: 'an0', lock: true, pin: 'feet', under: { at: 'pelvis', mid: 'neck', r: 5, fixed: true }, pace: 'cycle', tempo: 1.2 }),
+  f_smr_quads: side(A(78, -5, 0, 20, 78, 90), A(84, -4, 0, 20, 50, 124), { ground: 'floor', fix: 'el0', lock: true, under: { at: 'hp0', mid: 'kn0', r: 6, fixed: true }, pace: 'cycle', tempo: 1.2 }),
   Seated_Head_Harness_Neck_Resistance: side(A(40, 130, 95, 0, 45, 5, { neck: 40 }), A(40, 130, 95, 0, 45, 5, { neck: -25 }), { ground: 'bench', pad: false, guide: { axis: ['neck', 'head'] } }),
   // back
   Bent_Over_Barbell_Row: ROW,
@@ -698,8 +738,14 @@ const W = (p: Pose): Pose => ({ ...p, weak: true });
 function pattern(e: Ex): Pose {
   const n = e.name.toLowerCase(), m = e.primary[0], eq = e.equipment, has = (re: RegExp) => re.test(n);
   const byEq = (bar: Pose, db: Pose, kb: Pose, bw: Pose) => (eq === 'barbell' || eq === 'e-z curl bar' ? bar : eq === 'dumbbell' ? db : eq === 'kettlebells' ? kb : bw);
-  // Foam rolling (SMR) has no drawn movement of its own.
-  if (has(/-smr\b|foam roll/)) return W(P.Childs_Pose);
+  // Foam rolling (SMR): drawn where the body rolls over the roller in profile; side-lying and seated ones show the photo.
+  if (has(/-smr\b|foam roll/)) {
+    if (has(/^calves/)) return P.f_smr_calves;
+    if (has(/^hamstring/)) return P.f_smr_hamstrings;
+    if (has(/^(rhomboids|lower back)/)) return P.f_smr_back;
+    if (has(/^quadriceps/)) return P.f_smr_quads;
+    return W(P.Childs_Pose);
+  }
   if (e.category === 'stretching' || has(/stretch/)) {
     if (has(/standing.*quad/)) return P.f_quad_stretch;
     if (has(/triceps stretch|overhead triceps/)) return P.f_triceps_stretch;
@@ -709,6 +755,21 @@ function pattern(e: Ex): Pose {
     if (has(/butterfly stretch/)) return P.f_butterfly_stretch;
     if (has(/split squats?$/)) return P.Bodyweight_Walking_Lunge;
     if (has(/front leg raise/)) return P.f_leg_swing;
+    if (has(/90.90|leg-up hamstring|^lying hamstring|intermediate groin/)) return P.f_lying_ham;
+    if (has(/inchworm/)) return P.f_inchworm;
+    if (has(/greatest/)) return P.f_greatest;
+    if (has(/leg grab/)) return P.f_seated_fold;
+    if (has(/hip flexor and quad/)) return P.f_prone_quad;
+    if (has(/ankle circles/)) return P.f_ankle_circles;
+    if (has(/knee circles/)) return P.f_knee_circles;
+    if (has(/seated calf stretch|peroneals stretch|posterior tibialis/)) return P.f_seated_toe;
+    if (has(/chair lower back/)) return P.f_chair_reach;
+    if (has(/dynamic back stretch/)) return P.f_reach_up;
+    if (has(/^upper back stretch/)) return P.f_upper_back;
+    if (has(/one arm against wall/)) return P.f_wall_lat;
+    if (has(/one handed hang/)) return P.f_one_hang;
+    if (has(/^overhead lat/)) return P.f_overhead_lat;
+    if (has(/side-lying floor stretch/)) return P.f_side_reach;
     if (m === 'hamstrings')
       return has(/seated|straddle|forward fold|sit and reach/) ? P.f_seated_fold
         : has(/lying|leg-up|90|groin|leg grab|inchworm|greatest/) ? W(P['wg_hamstring-stretch']) : P['wg_hamstring-stretch'];
@@ -729,7 +790,7 @@ function pattern(e: Ex): Pose {
     if (has(/stair|step|climb/)) return P.Stairmaster;
     if (has(/ellip/)) return P.Elliptical_Trainer;
     if (has(/incline|hill|hik/)) return has(/treadmill/) ? P['wg_treadmill-incline-walk'] : P.wg_hiking;
-    if (has(/lunge sprint/)) return W(P.Bodyweight_Walking_Lunge);
+    if (has(/lunge sprint/)) return P.Bodyweight_Walking_Lunge;
     if (has(/sprint/)) return P['Single-Cone_Sprint_Drill'];
     if (has(/jog/)) return has(/treadmill/) ? P.Jogging_Treadmill : P.Trail_Running_Walking;
     if (has(/walk/)) return has(/treadmill/) ? P.Walking_Treadmill : { ...P.Walking_Treadmill, machine: undefined };
@@ -739,8 +800,11 @@ function pattern(e: Ex): Pose {
   if (has(/skierg/)) return P['Straight-Arm_Pulldown'];
   if (has(/sled push|prowler/)) return P.Prowler_Sprint;
   if (has(/high pulley row/)) return P['Wide-Grip_Lat_Pulldown'];
-  if (has(/on high pulley|standing (cable )?chest press/)) return W(P.Pushups);
-  if (has(/side bridge|side plank/) && !has(/push.?up/)) return P.Plank;
+  if (has(/lying close-grip bar curl on high pulley/)) return P.f_lying_cable_curl;
+  if (has(/standing (cable )?chest press/)) return P.f_standing_cable_press;
+  if (has(/on high pulley/)) return W(P.Pushups);
+  if (has(/side bridge|side plank/) && !has(/push.?up/)) return P.f_side_bridge;
+  if (has(/sled drag - harness/)) return P.f_sled_drag;
   if (has(/hollow/)) return P.f_hollow;
   if (has(/star jump/)) return P['wg_jumping-jack'];
   if (has(/rope jump|jump rope|skipping rope/)) return P.f_jump_rope;
@@ -753,18 +817,22 @@ function pattern(e: Ex): Pose {
   if (has(/lying machine squat/)) return P.Leg_Press;
   if (has(/standing (rope|cable) crunch/)) return P.f_standing_cable_crunch;
   if (has(/glute kickback/) || (has(/kickback/) && eq === 'body only' && m !== 'triceps')) return P.f_donkey_kick;
-  if (has(/ball leg curl|reverse hyperextension|suspended reverse crunch|bodyweight flyes/)) return W(P.Pushups);
+  if (has(/ball leg curl/)) return P.f_ball_curl;
+  if (has(/reverse hyperextension/)) return P.f_rev_hyper;
+  if (has(/suspended reverse crunch/)) return P.f_susp_crunch;
+  if (has(/bodyweight flyes/)) return W(P.Pushups); // hands slide apart: only readable from the front, lying face down
   if (has(/flat bench leg pull-in/)) return P['Leg_Pull-In'];
   if (has(/incline.*(fly|flye)/)) return P.f_incline_fly;
   if (has(/flat bench cable fl/)) return P.Dumbbell_Flyes;
   if (has(/back flyes?.*band/)) return P.Band_Pull_Apart;
   if (has(/rear.delt row/) && eq === 'cable') return P.Face_Pull;
-  // Lying/incline raises, chest-supported machine rows, seated cable presses and the
-  // bosu cable crunch have no drawing of their own: show the photo.
-  if (has(/(lying|incline).*(lateral|rear delt) raise/)) return W(P.Side_Lateral_Raise);
-  if (has(/leverage (high|iso) row|lying t-bar row/)) return has(/lying/) ? W(P.Bent_Over_Barbell_Row) : W(P.Seated_Cable_Rows);
-  if (has(/cable chest press/)) return W(has(/incline/) ? P.Incline_Dumbbell_Press : P['Barbell_Bench_Press_-_Medium_Grip']);
-  if (has(/bosu ball cable crunch/)) return W(P.f_side_bend);
+  // Face-down rear-delt raises swing the arms out sideways toward the camera, which no view of the figure shows: photo.
+  if (has(/(lying|incline).*(lateral|rear delt) raise/)) return has(/rear/) ? W(P.Side_Lateral_Raise) : P.f_side_raise;
+  if (has(/leverage high row/)) return P.f_high_row;
+  if (has(/leverage iso row/)) return P.f_iso_row;
+  if (has(/lying t-bar row/)) return P.f_chest_row;
+  if (has(/cable chest press/)) return has(/incline/) ? P.f_incline_cable_press : P.f_seated_cable_press;
+  if (has(/bosu ball cable crunch/)) return P.f_bosu_crunch;
   if (has(/upright (\w+ )?row/)) return P.Upright_Barbell_Row;
   if (has(/bent.over.*triceps extension/)) return P.Tricep_Dumbbell_Kickback;
   if (has(/incline triceps extension|decline triceps extension/)) return P.Lying_Triceps_Press;
@@ -945,6 +1013,10 @@ export function poseFor(e: Ex): { pose: Pose; matched: boolean } {
   return { pose: (matchedCache[e.id] ??= neck ? W(P.Side_Neck_Stretch) : withProp(pattern(e), e.equipment, e.name)), matched: true };
 }
 
+export function underX(u: NonNullable<Pose['under']>, o: Pts) {
+  'worklet';
+  return u.mid ? (o[u.at][0] + o[u.mid][0]) / 2 : o[u.at][0];
+}
 // Where the weight sits in hand n: at the wrist, or for wrist curls (`flex`) a hand's length past it, tipped by the wrist.
 export function handAt(pose: Pose, o: Pts, n: 0 | 1, p: number): [number, number] {
   'worklet';
@@ -988,6 +1060,7 @@ export function primPath(q: Prim) {
 export function gearPrims(pose: Pose, o: Pts, n: 0 | 1, p: number, anchor: [number, number] | null): Prim[] {
   'worklet';
   if (n === 1 && pose.one) return [];
+  if (n === 1 && pose.under && !pose.under.fixed) return [[underX(pose.under, o), -pose.under.r, pose.under.r]]; // the ball rolls with the feet
   const front = pose.view === 'front', w = handAt(pose, o, n, p);
   switch (pose.prop) {
     case 'dumbbell': return [[w[0], w[1], 5]];
@@ -1067,6 +1140,19 @@ export function scenery(pose: Pose, b: Pts): SceneItem[] {
       capsule('pad', 'kit', at(P, nrm, 10), e, 2.6);
     }
   }
+  if (pose.land && pose.lift) { // the box the jump lands on, under the feet at the end
+    const e = solve(pose, b, 1), x0 = Math.min(e.heel0[0], e.heel1[0]) - 5, x1 = Math.max(e.toe0[0], e.toe1[0]) + 5;
+    rect('box', x0, -pose.lift, x1 - x0, pose.lift, 2);
+  }
+  if (pose.under?.fixed) { // a foam roller seen end-on: it stays put while the body rolls over it
+    const u = pose.under, cx = (underX(u, solve(pose, b, 0)) + underX(u, solve(pose, b, 1))) / 2;
+    out.push({ k: 'roller', kind: 'kit', d: circ([cx, -u.r], u.r), ext: [cx - u.r, -2 * u.r, cx + u.r, 0] });
+  }
+  if (pose.machine === 'bike') { // handlebar on its post in front of the hands, and the flywheel housing by the feet
+    const w = b.wr0, px = Math.max(w[0], b.toe0[0]) + 8;
+    line('stem', 'post', [px, 0], [px, w[1]]);
+    capsule('bar', 'kit', [w[0] - 1, w[1]], [px + 2, w[1]], 2);
+  }
   if (pose.box) {
     const p = b[pose.box], y = p[1] + (R[pose.box] ?? 3);
     if (y < -1) rect('box', p[0] - 11, y, 22, -y, 2);
@@ -1139,6 +1225,7 @@ export function viewBox(pose: Pose, b: Pts): [number, number, number, number] {
     bodyBox(o, front, C);
     if (pose.prop !== 'band') for (const n of [0, 1] as const) for (const q of gearPrims(pose, o, n, p, null)) primBox(q, C);
     if (pose.machine === 'sled') { const [s0, s1] = sledAt(o); primBox([s0[0], s0[1], s1[0], s1[1], 1.6], C); }
+    if (pose.under && !pose.under.fixed) primBox([underX(pose.under, o), -pose.under.r, pose.under.r], C);
   }
   for (const it of scenery(pose, b)) if (it.kind !== 'slope') { C[0] = Math.min(C[0], it.ext[0]); C[1] = Math.min(C[1], it.ext[1]); C[2] = Math.max(C[2], it.ext[2]); C[3] = Math.max(C[3], it.ext[3]); }
   if (pose.ground !== 'hang' && pose.ground !== 'mat') C[3] = Math.max(C[3], 3.5); // the floor line and the shadow under the feet
