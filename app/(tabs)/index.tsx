@@ -64,7 +64,8 @@ export default function Today() {
   const { day, minutes, kind, reason, active, start } = today;
   const rest = kind === 'rest';
   const label = active ? 'In progress' : rest && trainedToday ? 'Done for today' : LABEL[kind];
-  const place = profile.place === 'office' ? 'Office' : today.where === 'home' ? 'Home' : 'Gym';
+  const wh = active ? active.place : today.where;
+  const place = profile.place === 'office' && !active ? 'Office' : wh === 'home' ? 'Home' : wh === 'office' ? 'Office' : 'Gym';
   const muscles = [...new Set(day.slots.map((sl) => byId[sl.id]?.primary[0]).filter(Boolean))].slice(0, 3).map(title);
   const button = active ? 'Resume' : rest ? 'Train anyway' : 'Start';
 
@@ -128,7 +129,7 @@ export default function Today() {
           <T v="label" color={c.accent} numberOfLines={1}>{label}</T>
           <T v="h1" numberOfLines={2}>{active ? active.title : day.name}</T>
           <T v="small" numberOfLines={1}>{active ? `${active.items.length} exercises` : `${day.slots.length} exercises · ${minutes} min`} · {place}</T>
-          {muscles.length > 0 && (
+          {!active && muscles.length > 0 && (
             <Row gap={8} style={{ flexWrap: 'wrap' }}>
               {muscles.map((m) => <View key={m} style={s.chip}><T v="small" color="#C9C9CE">{m}</T></View>)}
             </Row>

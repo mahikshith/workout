@@ -120,7 +120,8 @@ export default function Summary() {
         </Row>
         <Row gap={12} style={{ marginTop: 12 }}>
           {kg > 0 ? <CountTile i={2} icon="barbell" value={kg} suffix=" kg" label="Volume" />
-            : <CountTile i={2} icon="repeat" value={reps} label="Reps" />}
+            : reps > 0 ? <CountTile i={2} icon="repeat" value={reps} label="Reps" />
+            : <CountTile i={2} icon="list" value={s.items.length} label="Exercises" />}
           <CountTile i={3} icon="flame" color={c.warm} value={run} label="Streak" />
         </Row>
 
