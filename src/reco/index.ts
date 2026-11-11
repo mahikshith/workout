@@ -17,7 +17,7 @@ import { explain } from '../planner';
 import { buildPerson, FRESH, recovery, type Person, type RecoInput } from './model';
 import { planGroups, rankPlans, type PlanGroup, type RankedPlan } from './plans';
 import { blocked, explainExercise, rankExercises, targetFor, type Scored } from './score';
-import { adjustDay, minutesFor, suggestSession, type Adjust, type SessionIdea, type SessionOpts } from './session';
+import { adjustDay, minutesFor, suggestSession, type Adjust, type SessionIdea } from './session';
 import { mainMuscle, sayMuscle, traitsOf } from './traits';
 
 export { buildPerson, recovery, FRESH } from './model';

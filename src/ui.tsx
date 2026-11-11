@@ -218,7 +218,7 @@ export function ListRow({ icon, color, thumb, title, sub, right, onPress, style 
         <T v="h3" numberOfLines={2}>{title}</T>
         {sub ? <T v="small" numberOfLines={2}>{sub}</T> : null}
       </View>
-      {right ?? (onPress ? <Ionicons name="chevron-forward" size={18} color={c.dim} /> : null)}
+      {right ?? (onPress ? <Ionicons name="chevron-forward" size={18} color={c.muted} /> : null)}
     </Press>
   );
 }
@@ -229,7 +229,7 @@ export function Banner({ icon, color = c.accent, title, action, onPress }: { ico
     <Press onPress={onPress} style={[st.banner, { borderColor: color + '55' }]}>
       <Ionicons name={icon} size={18} color={color} />
       <T v="body" color={c.text} numberOfLines={2} style={{ flex: 1 }}>{title}</T>
-      {action ? <T v="small" color={color}>{action}</T> : onPress ? <Ionicons name="chevron-forward" size={16} color={c.dim} /> : null}
+      {action ? <T v="small" color={color}>{action}</T> : onPress ? <Ionicons name="chevron-forward" size={16} color={c.muted} /> : null}
     </Press>
   );
 }

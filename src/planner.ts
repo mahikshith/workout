@@ -96,8 +96,8 @@ const GOAL_CATEGORY: Partial<Record<Goal, Plan['category'][]>> = {
 };
 // What each plan is, in a few words: the one reason no other plan shares, so two cards never read the same.
 const SIGNATURE: Record<string, string> = {
-  'full-body-gym': 'Whole body every session', 'ppl-gym': 'Push, pull and legs days', 'upper-lower-gym': 'Upper and lower days in turn',
-  'bro-split': 'One muscle group a day', 'arnold-split': 'Chest with back, lots of sets', phul: 'Heavy days and lighter days',
+  'full-body-gym': 'Whole body every session', 'ppl-gym': 'Push, pull and legs in turn', 'upper-lower-gym': 'Upper body, then lower body',
+  'bro-split': 'One muscle group a day', 'arnold-split': 'Chest with back, lots of sets', phul: 'Heavy sessions, then lighter ones',
   'strength-5x5': 'Three big lifts a session', 'lean-gain': 'Big lifts with extra sets for size', 'fat-loss-gym': 'Circuits plus steady cardio',
   'cardio-aerobic': 'Walks, bike and rower at your pace', functional: 'Swings, carries and rowing', 'glutes-legs-gym': 'Glutes and legs come first',
   'home-beginner': 'A gentle start at home', 'home-bodyweight': 'Just your body weight', 'home-dumbbell': 'Dumbbells and a band cover everything',
@@ -111,7 +111,7 @@ export const baseSignature = (baseId: string): string | undefined => SIGNATURE[b
 // A plan refitted into another split (full body turned upper/lower) is described by what it became.
 export const signature = (plan: Plan): string | undefined => {
   const base = planById[plan.base ?? plan.id] ?? plan;
-  if (plan.base && plan.name !== base.name) return plan.tagline.replace(/\.$/, '');
+  if (plan.base && plan.name !== base.name) return plan.tagline.replace(/\.$/, '').replace(/\bdays\b/g, 'sessions'); // screens skip lines that mention days
   return SIGNATURE[base.id];
 };
 

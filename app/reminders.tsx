@@ -141,7 +141,7 @@ export default function Reminders() {
               <T v="h3">Supplements</T>
               <T v="small" numberOfLines={2}>{suppLine}</T>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={c.dim} />
+            <Ionicons name="chevron-forward" size={18} color={c.muted} />
           </Tap>
         </Section>
 

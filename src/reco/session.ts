@@ -47,7 +47,6 @@ const AREAS: Area[] = [
   { id: 'arms', label: 'Arms', muscles: ['biceps', 'triceps'], region: 'upper', weight: 0.45, weekly: [3, 6, 10], targets: [{ muscles: ['biceps'] }, { muscles: ['triceps'] }] },
   { id: 'calves', label: 'Calves', muscles: ['calves'], region: 'lower', weight: 0.3, weekly: [2, 4, 6], targets: [{ muscles: ['calves'] }] },
 ];
-const areaOf = (m: string) => AREAS.find((a) => a.muscles.includes(m));
 
 // How much weekly lifting each goal asks for (against the level's base), and which areas it leans on.
 const VOLUME: Record<Goal, number> = { 'build muscle': 1, 'gain weight': 1, 'get stronger': 0.9, 'tone up': 0.9, 'lose fat': 0.8, athletic: 0.8, 'stay fit': 0.7, endurance: 0.6, mobility: 0.4 };

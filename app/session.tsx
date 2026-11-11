@@ -646,7 +646,7 @@ function MenuRow({ icon, title: name, sub, color = c.text, onPress }: { icon: Ic
         <T v="h3" color={color} numberOfLines={1}>{name}</T>
         <T v="small" numberOfLines={1}>{sub}</T>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={c.dim} />
+      <Ionicons name="chevron-forward" size={18} color={c.muted} />
     </Tap>
   );
 }

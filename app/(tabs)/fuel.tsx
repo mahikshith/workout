@@ -474,7 +474,7 @@ const TipFood = ({ fd, sub, right, onPress }: { fd: Food; sub?: string; right?: 
       {sub ? <T v="small" numberOfLines={1}>{sub}</T> : null}
     </View>
     {right ? <T v="h3" color={c.pink}>{right}</T> : null}
-    <Ionicons name="chevron-forward" size={16} color={c.dim} />
+    <Ionicons name="chevron-forward" size={16} color={c.muted} />
   </Tap>
 );
 

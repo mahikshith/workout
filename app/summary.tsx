@@ -125,7 +125,7 @@ function Burn({ s, i, gentle }: { s: Session; i: number; gentle: boolean }) {
         <Tap onPress={() => router.push('/watch')} style={s2.more} feedback="none" accessibilityLabel="Connect a watch for measured calories and heart rate">
           <Ionicons name="watch-outline" size={16} color={c.muted} />
           <T v="small" style={{ flex: 1 }}>Connect a watch for measured calories and heart rate</T>
-          <Ionicons name="chevron-forward" size={16} color={c.dim} />
+          <Ionicons name="chevron-forward" size={16} color={c.muted} />
         </Tap>
       )}
     </Animated.View>

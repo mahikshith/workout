@@ -150,7 +150,7 @@ export default function History() {
                 <T v="small" numberOfLines={2}>{[apps.length ? apps.join(', ') : hc.connected ? 'Health Connect' : ring?.name ?? strap?.name ?? 'Your watch', lastSync ? `synced ${syncedAgo(lastSync)}` : null].filter(Boolean).join(' · ')}</T>
                 <T v="small" numberOfLines={1} color={c.dim}>{kinds.length ? `Sends ${kinds.join(', ')}` : 'Nothing synced lately'}</T>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={c.dim} />
+              <Ionicons name="chevron-forward" size={18} color={c.muted} />
             </Tap>
           ) : (
             <ListRow icon="watch-outline" color={c.blue} title="Add your watch" sub={gentle ? 'Its runs and walks show here' : 'Its runs and calories show here'}
@@ -173,7 +173,7 @@ export default function History() {
                           <T v="h3" numberOfLines={1}>{x.title}</T>
                           <T v="small" numberOfLines={1}>{when} · {sessionMinutes(x)} min</T>
                         </View>
-                        <Ionicons name="chevron-forward" size={18} color={c.dim} />
+                        <Ionicons name="chevron-forward" size={18} color={c.muted} />
                       </Row>
                       {((!gentle && e.kcal > 0) || hr) && (
                         <Row gap={12} style={{ flexWrap: 'wrap', rowGap: 6 }}>

@@ -219,6 +219,8 @@ export function selfCheck() {
   // Cards read differently: among the suitable plans no two lead with the same line.
   const leads = r.map((x) => x.reasons[0]);
   assert(new Set(leads).size === leads.length, `each plan leads with its own reason: ${leads.filter((s, i) => leads.indexOf(s) !== i).join(', ')}`);
+  // Screens skip the line about days with /days/; a plan's own line must never be caught by that.
+  assert(plans.every((x) => { const sig = baseSignature(x.id); return !!sig && !/days/.test(sig); }), 'every plan has its own line');
   // A man never sees women's plans as suitable; a gym-goer never a home plan; a home trainer never a gym plan.
   assert(r.filter((x) => x.category === 'Women').every((x) => !x.suitable) && r.filter((x) => x.plan.place === 'home').every((x) => !x.suitable), 'gym man');
   const home = rankPlans(who({ place: 'home' }));

@@ -154,3 +154,45 @@ kinds `watch`, `nowatch`, `strap`; `shot.cjs`): `cal-light.png`, `cal-light-2.pn
 - `WeekStrip` on Progress uses the same day cell, so it now also shows the number under each day and is 10 px taller
   (checked on web: `progress-light.png`).
 - `TodayBurn` was screenshotted on a throwaway route (since deleted), not inside Home.
+
+## Light and dark pass on the watch screens
+
+Owner: the watch integration screens "struggle a lot" in dark and light mode. Every watch screen and sheet was shot
+side by side in light and dark at 393 px (seeded stores, web build): Watch & health (not connected, connected, Health
+Connect on but no data / calories not allowed, strap + ring saved, ring only), Tracker (empty, connected, top and
+bottom, ring only, no data), Recovery (empty, connected), Home, the brand picker, all eleven brand pages (Fitbit,
+WHOOP, Samsung, Garmin, Zepp, Xiaomi, Colmi, Other, Oura, Huawei, Polar), Fitbit and WHOOP connected, the strap sheet
+and the import sheet; plus the Rose accent on the main ones. Montages:
+`/tmp/claude-0/-home-user/9e8428a6-a257-5d7c-bdaf-c7110a3cfdcf/scratchpad/wearables/theme/` (`<name>.png` = light |
+dark, `rose-<name>.png`; script `theme.cjs` one folder up).
+
+Code audit first: none of the watch files has a hard-coded hex, a colour captured in a module-level constant, or a
+domain / accent / `tint()` colour inside `StyleSheet.create` (the cases `src/look.ts` cannot recolour when a release
+build switches theme in place). The problems were all one kind: **marks drawn in `c.dim` or `c.line`, which are about
+2.4:1 and 1.2:1 on a dark card**, so in dark mode the "not yet" half of every diagram all but disappeared.
+
+| Where | Problem | Fix |
+|---|---|---|
+| `DataPath` (every diagram: Watch & health, Tracker, picker, brand pages, Home pane) | waiting nodes had a `c.line` ring on a `c.card2` disc: no visible outline in dark; arrows and the Bluetooth connector in `c.dim` / `c.line`: barely there in dark | ring and connector `c.handle`, arrows `c.muted` |
+| Connect sheet, "What Gym Buddy gets" | empty / "depends" / "can't read" circles and their key in `c.dim` | `c.muted` |
+| Connect sheet, numbered steps | step-number ring `c.dim`; a finished step's title dropped to `c.muted` (reads as disabled on the dark sheet) | ring `c.muted`, finished title `c.soft` |
+| Tracker tiles and Home tracker pane | the "—" for a missing number in `c.dim` | `c.muted` |
+| Tracker, Watch & health, WatchGives, TodayBurn, TrackerCard | chevrons and the small arrow in `c.dim` | `c.muted` |
+| Watch & health, strap signal bars | unlit bars `c.dim` (same weight as lit in light, gone in dark) | `c.handle` |
+| `levelColor(null)` (Recovery door while "Learning your baseline") | icon in `c.dim` on its own 13 % tint: invisible in dark | `c.muted` |
+
+Checked and left alone: tick badges (`c.ok` with `c.accentInk`: white on green in light, black on green in dark),
+the green status line, domain-coloured nodes, zone bars, sparkline, tinted notes, the Disconnect button, tile and chip
+borders (their fill already separates them). The Rose accent only changes the Gym Buddy node and the filled buttons;
+both read in either scheme.
+
+Not mine, for the lead:
+- `app/recovery.tsx` lines 169-174 hard-code the sleep-stage and zone colours (`#3B5BDB`, `#5AC8FA`, `#AF7AF5`,
+  `#FF8A3D`, `#55555C`…), the dark palette, used in both schemes. They are visible on white but are not the domain
+  tokens (`dom.sleep`, `dom.water`, `dom.steps`, `dom.kcal`, `dom.heart`) the Tracker uses for the same zones.
+  Line 85 draws the "no change" factor icon in `c.dim` (faint in dark).
+- `DoorCard` (src/kit.tsx) and `ListRow` chevrons are `c.dim`: faint on dark cards across the app.
+- `Button` / `Tap` disabled state is 40 % opacity: "Sync now", "Allow access", "Pair" are very pale. They are only
+  disabled on web (no Health Connect or Bluetooth) or while a sync runs, so this was not changed.
+
+Still unverified: an in-place theme switch in a release build (web reloads instead), and anything on a real phone.

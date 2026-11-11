@@ -417,7 +417,7 @@ function GetStarted({ steps, open, onToggle, onClose }: { steps: Step[]; open: b
               </View>
               <T v="body" numberOfLines={1} color={x.done ? c.muted : c.text}
                 style={[{ flex: 1 }, x.done && { textDecorationLine: 'line-through' }]}>{x.text}</T>
-              {!x.done && <Ionicons name="chevron-forward" size={16} color={c.dim} />}
+              {!x.done && <Ionicons name="chevron-forward" size={16} color={c.muted} />}
             </Tap>
           ))}
           <Tap onPress={onClose} style={[s.stepRow, s.rule, { justifyContent: 'center' }]} scale={0.99} feedback="none" accessibilityLabel="Hide Get started">

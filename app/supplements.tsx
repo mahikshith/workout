@@ -97,7 +97,7 @@ export default function Supplements() {
                       <T v="small" numberOfLines={1}>{summary(m)}</T>
                     </View>
                     {m.times.some((x) => x.on) && <Ionicons name="notifications" size={16} color={c.accent} />}
-                    <Ionicons name="chevron-forward" size={16} color={c.dim} />
+                    <Ionicons name="chevron-forward" size={16} color={c.muted} />
                   </Tap>
                 ))}
               </Card>

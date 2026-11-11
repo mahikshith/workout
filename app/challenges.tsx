@@ -199,7 +199,7 @@ function ChallengeRow({ ch, running, done, forYou, grouped }: { ch: Challenge; r
               : <Pill text={ch.goal} color={col} bg={tint(col, 0.9)} shrink />}
           </Row>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={c.dim} style={{ alignSelf: 'center' }} />
+        <Ionicons name="chevron-forward" size={18} color={c.muted} style={{ alignSelf: 'center' }} />
       </Row>
     </Tap>
   );

@@ -302,7 +302,7 @@ export function DoorCard({ icon, color = c.accent, title, meta, onPress, right, 
         <T v="h3" numberOfLines={1}>{title}</T>
         {meta ? <T v="small" numberOfLines={1}>{meta}</T> : null}
       </View>
-      {right ?? <Ionicons name="chevron-forward" size={18} color={c.dim} />}
+      {right ?? <Ionicons name="chevron-forward" size={18} color={c.muted} />}
     </Tap>
   );
 }

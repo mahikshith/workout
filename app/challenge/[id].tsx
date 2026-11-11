@@ -158,7 +158,7 @@ export default function ChallengeScreen() {
               <T v="h3">Need a break?</T>
               <T v="small">Leave any time. Your done days stay, and you can start again later.</T>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={c.dim} />
+            <Ionicons name="chevron-forward" size={18} color={c.muted} />
           </Tap>
         )}
 

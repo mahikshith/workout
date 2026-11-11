@@ -78,7 +78,7 @@ function Step({ n, done, title, sub, children }: { n: number; done: boolean; tit
       </View>
       <View style={{ flex: 1, gap: 8 }}>
         <View style={{ gap: 2 }}>
-          <T v="h3" color={done ? c.muted : c.text}>{title}</T>
+          <T v="h3" color={done ? c.soft : c.text}>{title}</T>
           {sub ? <T v="small">{sub}</T> : null}
         </View>
         {children}

@@ -665,6 +665,7 @@ export const POSES: Record<string, Pose> = {
   f_antigravity: side(A(45, 45, 90, 0, 110, 125), A(45, 45, 90, 0, 172, 5), { ground: 'bench', prop: 'barbell', guide: { joint: 'el0' } }),
   // kneeling beside a bench, forearms across it, hands off the edge
   f_wrist_bench: side(A(15, 15, 90, 90, 30, 75), A(15, 15, 90, 90, 30, 75), { ground: 'floor', fix: 'kn0', lock: true, box: 'el0', prop: 'dumbbell', flex: [60, -45], guide: { axis: ['el0', 'wr0'] } }),
+  f_high_plank: side(A(73, 0, 0, 15, 73, 0), A(72, 2, 0, 15, 72, 0), { ground: 'floor', fix: 'toe0', pace: 'hold', guide: { axis: ['an0', 'sh0'] } }),
   f_swim: side(A(88, [-6, 6], 0, 60, [178, 20], [5, 10], { neck: -12 }), A(88, [6, -6], 0, 60, [20, 178], [10, 5], { neck: -12 }), { ground: 'floor', pace: 'cycle', tempo: 0.7 }),
   Seated_Head_Harness_Neck_Resistance: side(A(40, 130, 95, 0, 45, 5, { neck: 40 }), A(40, 130, 95, 0, 45, 5, { neck: -25 }), { ground: 'bench', pad: false, guide: { axis: ['neck', 'head'] } }),
   // back
@@ -884,7 +885,7 @@ function pattern(e: Ex): Pose {
   if (has(/kneeling squat/)) return P.f_kneel_squat;
   if (has(/gorilla chin/)) return P.f_gorilla;
   if (has(/push-up depth jump|^drop push/)) return has(/incline/) ? P['Incline_Push-Up'] : P.Pushups;
-  if (has(/plank jack|shoulder tap/)) return P.Plank;
+  if (has(/plank jack|shoulder tap/)) return P.f_high_plank;
   if (has(/renegade/)) return P.f_renegade;
   if (has(/wrist curl over a bench/)) return P.f_wrist_bench;
   if (has(/prone incline curl/)) return P.f_spider_curl;
@@ -897,7 +898,7 @@ function pattern(e: Ex): Pose {
   if (has(/front incline.*raise/)) return P.f_incline_raise;
   if (has(/incline (\w+ )*triceps extension/)) return P.f_incline_skull;
   if (has(/decline (\w+ )*triceps extension/)) return P.Lying_Triceps_Press;
-  if (e.primary[0] === 'triceps' && want === 'supine' && has(/extension|press/) && !has(/bench press/)) return has(/extension/) ? P.Lying_Triceps_Press : P['Close-Grip_Barbell_Bench_Press'];
+  if (e.primary[0] === 'triceps' && want === 'supine' && has(/extension|press/) && !has(/bench press|floor press|press to chin|tate/)) return has(/extension/) ? P.Lying_Triceps_Press : P['Close-Grip_Barbell_Bench_Press'];
   if (has(/seated bent-over.*triceps/)) return P.f_seated_kickback;
   if (has(/seated good morning/)) return P.f_seated_gm;
   if (has(/dip machine/)) return P.f_dip_machine;
@@ -1454,12 +1455,24 @@ export function selfCheck(byId: Record<string, Ex & { noImages?: boolean }> = {}
       last = p;
     }
   }
+  const own = new Set<Pose>(Object.values(POSES));
   // posture: no shown figure (weak ones are hidden behind the photo) may sit, stand, kneel, hang or lie against what
   // the exercise's name and opening instructions ask for
   for (const e of Object.values(byId)) {
     if (e.noImages || poseFor(e).pose.weak) continue;
     const m = postureMismatch(e);
     if (m) bad.push('posture ' + m);
+    // a pose re-seated or put on its knees for this exercise (adapt) is not in POSES: same joint limits and floor rule
+    const { pose } = poseFor(e);
+    if (own.has(pose) || pose.ground === 'hang' || pose.ground === 'mat') continue;
+    own.add(pose);
+    for (const a of [pose.start, pose.end])
+      for (const k of ['hip', 'knee', 'ankle'] as const) if (a[k].some((x) => x < RANGE[k][0] || x > RANGE[k][1])) bad.push(`${e.id}.${k}=${JSON.stringify(a[k])}`);
+    const b = base(pose);
+    for (let i = 0; i <= 10; i++) {
+      const o = solve(pose, b, i / 10), sink = Math.max(...KEYS.map((k) => o[k][1] + (R[k] ?? 0)));
+      if (sink > 2.5) { bad.push(`${e.id}: sinks ${sink.toFixed(1)} into the floor at ${i / 10}`); break; }
+    }
   }
   if (bad.length) throw new Error('poses: ' + bad.join('; '));
   return Object.keys(POSES).length;
