@@ -96,7 +96,7 @@ export default function ChallengeScreen() {
                   </View>
                 </Row>
                 <Row gap={6} style={{ flexWrap: 'wrap' }}>
-                  {prog.streak > 0 && <Pill icon="flame" text={`${prog.streak} ${ch.weekly ? 'weeks' : 'days'} in a row`} color={dom.streak} bg={tint(dom.streak, 1.1)} />}
+                  {prog.streak > 0 && <Pill icon="flame" text={`${prog.streak} ${ch.weekly ? (prog.streak === 1 ? 'week' : 'weeks') : (prog.streak === 1 ? 'day' : 'days')} in a row`} color={dom.streak} bg={tint(dom.streak, 1.1)} />}
                   <Pill icon="shield-checkmark-outline" text={prog.freeLeft === 0 ? 'Free misses used' : `${prog.freeLeft} free miss${prog.freeLeft === 1 ? '' : 'es'} left`} />
                   <Pill icon="pie-chart-outline" text={`${Math.round(prog.pct * 100)}% done`} />
                 </Row>

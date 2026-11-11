@@ -13,22 +13,35 @@ Every push to `main` builds a fresh APK. Download `gym-buddy.apk` from the
 ## Guide
 
 How the app works, with screenshots: [docs/guide](docs/guide/README.md) (journeys, every feature, where the data
-comes from, and how to connect Fitbit, WHOOP and other watches).
+comes from, and how to connect Fitbit, WHOOP and other watches). What changed most recently:
+[round 13 summary](docs/round13/README.md).
 
 ## What's inside
 
-- **Onboarding** that asks name, gender, age, height, weight, goal, experience, where you train,
-  home equipment, days per week, diet and reminder time, then picks a plan.
-- **Today**: streak, week strip, the next session in your plan, a Gym/Home switch that swaps
-  exercises automatically, a coach nudge, today's food rings and quick sessions (Kegels, mobility, cardio).
-- **Live session**: previous weights pre-filled, steppers, tap-to-complete with haptics, rest ring
-  with ±15 s, swap or add exercises mid-workout, PR detection and a celebration summary.
-- **878 exercises** with looping demos, steps, muscles and 3 gym + 3 home alternatives each.
-- **9 plans**: Full Body, Push Pull Legs, Upper/Lower, Lower Body Sculpt, Home No Equipment,
-  Home Dumbbells & Bands, Sweat Circuit, Pelvic Floor & Kegels, Mobility.
-- **Progress**: weekly volume, 12-week heatmap, body-weight trend against your goal, muscle split, top lifts.
-- **Fuel**: calorie and protein targets (Mifflin-St Jeor), diet-aware quick add, water tracker.
-- **Nudges**: daily reminder plus a streak-at-risk alert.
+- **Setup in about a minute**: a welcome, then goal, where you train, days a week, your plan (with why it fits) and an
+  optional name. Age, weight and diet are optional extras for food targets. No permission prompts during setup.
+- **Today**: the next workout with Start, a **+ Log** sheet (food, water, weight, supplements, how you feel), a Get
+  started card for new users, rings (training, protein, readiness / sleep / steps / water), your challenge, your watch's
+  numbers, and the week (opens the calendar).
+- **Live workout**: opens ready; **Done · log set** logs the set and starts the rest; the rest panel offers Pause, Next
+  exercise and Next set and says what's next; **Next exercise · logs set N** with Undo; Go heavier when you hit every
+  rep last time; a plate calculator for bar lifts; swap with a reason, edit or change the workout; a mini bar when you
+  leave; a summary that points at the next workout.
+- **27 challenges** (14 to 30 days, beginner to advanced: kickstart, squat, plank, walk to run, 55+, after birth, muscle
+  gain, HIIT, Zone 2, Soft 30…) with make-up days, free misses, milestone stars, badges and a guilt-free break.
+- **1,043 exercises** with drawn animated demos, line drawings, photos and videos, and gym and home alternatives.
+- **28 plans** fitted to exactly your days a week, from Full Body Foundations to 5x5, PHUL, home, pregnancy-safe and
+  after-birth plans.
+- **Fuel**: calorie and protein targets (Mifflin-St Jeor), a food logger with servings, yesterday and edits, a describe-a-
+  meal estimate, protein suggestions, water in ml with your own glass size and goal, and supplements with reminder times.
+- **Progress and Calendar**: this week, a month calendar with workout, watch, rest, excused and missed days, calories
+  burned by source, strength, body weight, body and watch trends, recovery and achievements.
+- **Watches**: Fitbit / Pixel, WHOOP, Samsung, Garmin, Oura and more through Health Connect, with a clear data-path connect
+  flow and a **Tracker** screen; live heart rate from straps and broadcasting watches over Bluetooth; Colmi rings; file
+  import (FIT, Google Takeout, GPX, TCX, Strong, Hevy, FitNotes).
+- **Reminders**: workouts, missed-workout and streak nudges, weekly recap, meals, water, supplements, desk breaks, quiet
+  hours.
+- **Safety**: a Safety and disclaimer page and short notes where you commit to a plan, a challenge or a supplement.
 
 See [docs/PLAN.md](docs/PLAN.md) for the full plan and what was borrowed from each reference repo.
 

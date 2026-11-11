@@ -101,7 +101,7 @@ export default function ExerciseDetail() {
             <Tile icon="timer-outline" color={c.blue} value={restText(d)} label="Rest" />
             <Tile icon="flame-outline" color={c.pink} value={`~${kcal(ex, profile.weightKg)}`} unit="kcal" label="All sets" />
           </Row>
-          {best.e1rm > 0 && <View style={{ marginTop: 12 }}><Banner icon="trophy" title={`Your best · ${Math.round(best.e1rm)} kg 1RM`} /></View>}
+          {best.e1rm > 0 && <View style={{ marginTop: 12 }}><Banner icon="trophy" title={`Your best · about ${Math.round(best.e1rm)} kg for one rep`} /></View>}
           {/* Locked: the card sits in the page (it used to float over the bottom of it). One short line, no paragraph. */}
           {lock.locked && (
             <View style={s.lock}>

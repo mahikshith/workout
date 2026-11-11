@@ -104,7 +104,7 @@ export function prs(s: Session, history: Session[]) {
     if (!prev.e1rm && !prev.reps) return [];
     const top = Math.max(...done.map((x) => e1rm(x.weight, x.reps)));
     const reps = Math.max(...done.map((x) => x.reps));
-    if (top > 0 && top > prev.e1rm) return [{ exId: it.exId, label: `${Math.round(top)} kg est. 1RM` }];
+    if (top > 0 && top > prev.e1rm) return [{ exId: it.exId, label: `about ${Math.round(top)} kg for one rep` }];
     if (!top && reps > prev.reps) return [{ exId: it.exId, label: `${reps} reps` }];
     return [];
   });
@@ -169,5 +169,5 @@ const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export function doneNote(at: number, now = Date.now()) {
   const day = dayKey(at) === dayKey(now) ? 'today' : WD[new Date(at).getDay()];
   const left = Math.max(1, Math.ceil((startOfDay(at) + 7 * DAY - startOfDay(now)) / DAY));
-  return { day, left, text: `Done ${day} · fresh again in ${left} day${left > 1 ? 's' : ''}` };
+  return { day, left, text: `Done ${day} · rest it ${left} more day${left > 1 ? 's' : ''}` };
 }

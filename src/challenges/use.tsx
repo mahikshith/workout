@@ -55,7 +55,13 @@ export function useRun(): { ch: Challenge | null; prog: Progress | null; ctx: Ct
 export function useRecommended() {
   const profile = useStore((s) => s.profile);
   const n = useStore((s) => s.sessions.length);
-  return useMemo(() => recommend(profile, n), [profile, n]);
+  const past = useStore((s) => s.pastChallenges);
+  // Challenges already finished go after the rest, so "Recommended for you" never leads with one you've done.
+  return useMemo(() => {
+    const done = new Set(past.filter((x) => x.completed).map((x) => x.id));
+    const list = recommend(profile, n);
+    return [...list.filter((x) => !done.has(x.id)), ...list.filter((x) => done.has(x.id))];
+  }, [profile, n, past]);
 }
 
 // Goal colours, with Cardio on the steps green so its chip and pills don't read as HIIT (both are heart work in
