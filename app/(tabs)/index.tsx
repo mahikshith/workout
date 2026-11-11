@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeOut, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
 import { cycle, dayKey, postpartumWeek, pregnancyWeek, streak as calcStreak, targets } from '../../src/calc';
 import { byId, title } from '../../src/data/exercises';
 import { motivation } from '../../src/data/motivation';
@@ -19,9 +18,15 @@ import { useStore, type Excuse } from '../../src/store';
 import { c, dom, f, r, tint } from '../../src/theme';
 import { latest, sleepScore, useTracker } from '../../src/tracker';
 import { levelColor, useReadiness } from '../../src/health/useReadiness';
+import { ChallengeCard } from '../../src/challenges/Card';
+import { TrackerCard } from '../../src/health/TrackerCard';
+import { Hint } from '../../src/hint';
+import { QuickLogSheet } from '../../src/quicklog';
+import { useWater } from '../../src/water';
 import { Avatar, Button, Chip, Ring, Row, T, Tap } from '../../src/ui';
 
-// Today (docs/REDESIGN.md, "Today"): header, one hero card, three rings, the week strip, one coach line.
+// Today (docs/round13/PLAN.md, "The new map"): header with + Log, the Get started checklist for new people, one hero
+// card, three rings, the challenge and tracker panes, the week strip (opens the calendar), one coach line.
 // Anything that needs a decision (setup, reminders, health context) collapses into one line at the very bottom.
 
 type Icon = keyof typeof Ionicons.glyphMap;
@@ -56,11 +61,16 @@ export default function Today() {
   const planStart = useStore((s) => s.planStart);
   const excuse = useStore((s) => s.excuse);
   const hcOn = useTracker((s) => s.hc.connected);
+  const strapOn = useTracker((s) => !!s.strap);
   const daily = useTracker((s) => s.daily);
+  const challenge = useStore((s) => s.challenge);
+  const pastChallenges = useStore((s) => s.pastChallenges);
+  const supplementReminders = useStore((s) => s.supplementReminders);
   const today = useToday();
   const scroll = useScrollTopRef<ScrollView>(); // tapping Today again scrolls back up
   const [food, setFood] = useState(false); // the food ring opens the food sheet right here
   const [change, setChange] = useState(false); // Change next to Start: another day, a quick session or a focus
+  const [log, setLog] = useState(false); // + Log: the Quick log sheet
 
   const [notifOff, setNotifOff] = useState(false);
   useEffect(() => { if (Platform.OS !== 'web') hasPermission().then((ok) => setNotifOff(!ok)); }, []);
@@ -107,6 +117,7 @@ export default function Today() {
   // Body: sleep score from the watch, else steps, else an invitation to connect one.
   const score = hcOn ? sleepScore(latest(daily, 'sleep', 1)) : undefined;
   const steps = latest(daily, 'steps', 1);
+  const water = useWater(); // ml today and the goal (src/water.ts)
   // Readiness (HRV, resting HR and sleep against your own baseline) wins the third ring once it has 4 nights.
   const rd = useReadiness();
 
@@ -121,7 +132,8 @@ export default function Today() {
   const inPeriod = !!lastPeriod && !lastPeriod.end && Date.now() - Date.parse(lastPeriod.start) < 10 * 86400000;
   const PHASE = { period: 'Period', follicular: 'Energy rising', ovulation: 'Peak energy', luteal: 'Pre-period' };
   const notes: Note[] = [];
-  if (!profile.name && setupSkipped) notes.push({ id: 'today-setup', icon: 'sparkles', color: c.accent, text: 'Finish setting up your plan', action: '1 min', onAction: () => router.push('/onboarding') });
+  // Only when setup was skipped before a plan was picked (finishing setup without a name is not "unfinished").
+  if (setupSkipped && !planStart && (dismissed['get-started'] || sessions.length >= 5)) notes.push({ id: 'today-setup', icon: 'sparkles', color: c.accent, text: 'Get a plan made for you', action: '1 min', onAction: () => router.push('/onboarding') });
   if (notifOff) notes.push({ id: 'today-notif', icon: 'notifications-off', color: c.warm, text: 'Reminders are off', action: 'Allow',
     onAction: async () => { if (await askPermission()) { setNotifOff(false); reschedule(); } } });
   if (pw !== null) notes.push({ id: 'today-health', icon: 'heart', color: c.pink, text: `Pregnancy · week ${pw} · plan adjusted` });
@@ -139,23 +151,49 @@ export default function Today() {
 
   const dateLabel = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 
+  // Get started: five first steps that tick themselves from real data. Hidden once all are done, once dismissed, or
+  // for anyone with a few workouts behind them (they know their way around).
+  const watchOn = hcOn || strapOn || Object.keys(daily).length > 0;
+  const reminderOn = reminders.some((x) => x.on) || supplementReminders.some((x) => x.on);
+  const noPlan = setupSkipped && !planStart; // skipped setup before picking a plan
+  const firstSteps: Step[] = [
+    ...(noPlan ? [{ id: 'plan', icon: 'sparkles' as Icon, color: c.accent, text: 'Get a plan made for you', done: false, go: () => router.push('/onboarding') }] : []),
+    { id: 'workout', icon: 'play', color: dom.train, text: 'Start your first workout', done: sessions.length > 0, go: start },
+    { id: 'watch', icon: 'watch', color: dom.heart, text: 'Connect a watch', done: watchOn, go: () => router.push('/watch') },
+    { id: 'reminder', icon: 'notifications', color: dom.streak, text: 'Set a workout reminder', done: reminderOn, go: () => router.push('/reminders') },
+    { id: 'meal', icon: 'restaurant', color: dom.kcal, text: 'Log a meal', done: meals.length > 0, go: () => setFood(true) },
+    { id: 'challenge', icon: 'trophy', color: dom.streak, text: 'Join a challenge', done: !!challenge || pastChallenges.length > 0, go: () => router.push('/challenges' as Href) },
+  ];
+  const showSteps = !dismissed['get-started'] && sessions.length < 5 && firstSteps.some((x) => !x.done);
+
   return (
     <>
     <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: c.bg }} showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingTop: ins.top + 16, paddingHorizontal: 16, paddingBottom: ins.bottom + 120 + mini, gap: 24 }}>
-      {/* 1. Header: date, title, streak, profile. */}
+      {/* 1. Header: date and streak, the title, + Log (the Quick log sheet), profile. */}
       <Enter i={0}>
-        <Row gap={12}>
+        <Row gap={10}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <T v="label" color={c.muted}>{dateLabel}</T>
-            <T v="display" numberOfLines={1}>Today</T>
+            <Tap onPress={() => router.push('/history')} scale={0.98} feedback="none" style={s.dateLine}
+              accessibilityLabel={streak ? `${dateLabel}, ${streak}${STREAK_SUFFIX}. Open calendar` : `${dateLabel}. Open calendar`}>
+              <T v="small" numberOfLines={1} style={{ flexShrink: 1 }}>{dateLabel}</T>
+              {streak > 0 && (
+                <>
+                  <Ionicons name="flame" size={14} color={dom.streak} />
+                  <CountUp value={streak} suffix={STREAK_SUFFIX} style={[s.streak, { color: dom.streak }]} />
+                </>
+              )}
+            </Tap>
+            <T v="display" numberOfLines={1}>{profile.name ? `Hi, ${profile.name.split(' ')[0]}` : 'Today'}</T>
           </View>
-          <Tap onPress={() => router.push('/history')} style={[s.pill, { backgroundColor: streak ? tint(dom.streak, 1.3) : c.card2 }]} scale={0.95}>
-            <Ionicons name="flame" size={15} color={streak ? dom.streak : c.muted} />
-            {streak ? <CountUp value={streak} suffix={STREAK_SUFFIX} style={[s.pillNum, { color: dom.streak }]} /> : <T v="small" style={[s.pillNum, { color: c.muted }]}>Start a streak</T>}
+          <Tap onPress={() => setLog(true)} style={[s.log, { backgroundColor: tint(c.accent, 1.3) }]} scale={0.95}
+            accessibilityLabel="Log food, water, weight, supplements or mood">
+            <Ionicons name="add" size={20} color={c.accent} />
+            <T v="h3" color={c.accent}>Log</T>
           </Tap>
           <Avatar />
         </Row>
+        {!showSteps && <Hint id="today-log" text="Tap Log to add food, water, weight or how you feel." style={{ marginTop: 12 }} />}
       </Enter>
 
       {/* 2. Hero: today's workout. Only the button acts. */}
@@ -164,7 +202,7 @@ export default function Today() {
           {/* A soft training-teal wash: the workout's domain colour. */}
           <LinearGradient colors={[tint(dom.train, 1.5), tint(c.accent, 0.4), c.card]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill} pointerEvents="none" />
-          <T v="label" color={dom.train} numberOfLines={1}>{label}</T>
+          <T v="small" color={dom.train} numberOfLines={1} style={{ fontFamily: f.semi }}>{label}</T>
           <T v="h1" numberOfLines={2}>{active ? active.title : day.name}</T>
           <T v="small" numberOfLines={1}>{active ? `${active.items.length} exercises` : `${day.slots.length} exercises · ${minutes} min`} · {place}</T>
           {!active && muscles.length > 0 && (
@@ -192,6 +230,13 @@ export default function Today() {
           </Row>
         )}
       </Enter>
+
+      {/* Get started: new people only, ticks itself, hides when done or closed. */}
+      {showSteps && (
+        <Enter i={2}>
+          <GetStarted steps={firstSteps} onClose={() => dismiss('get-started')} />
+        </Enter>
+      )}
 
       {/* 3. Three rings, each opens its own place. */}
       <Enter i={2}>
@@ -223,21 +268,27 @@ export default function Today() {
                 : <CountUp value={steps} style={s.ringNum} />}
             </Dial>
           ) : (
-            <Tap onPress={() => router.push('/watch')} style={s.ringCard} scale={0.96}>
-              <View style={{ width: 72, height: 72, alignItems: 'center', justifyContent: 'center' }}>
-                <Svg width={72} height={72} style={StyleSheet.absoluteFill}>
-                  <Circle cx={36} cy={36} r={32} stroke={c.line} strokeWidth={8} strokeDasharray="6 6" fill="none" />
-                </Svg>
-                <Ionicons name="add" size={24} color={dom.heart} />
-              </View>
-              <T v="small" color={dom.heart} numberOfLines={1}>{hcOn ? 'No data yet' : 'Add watch'}</T>
-            </Tap>
+            // No watch data: water, which you can fill yourself in one tap (Quick log). Connecting a watch is offered by
+            // the tracker pane below and the Get started card, so the ring doesn't ask a third time.
+            <Dial i={2} progress={water.ml / Math.max(1, water.goal)} color={dom.water} label="Water" onPress={() => setLog(true)}>
+              <CountUp value={Math.round(water.ml / 100) / 10} decimals={1} suffix=" L" style={s.ringNum} />
+            </Dial>
           )}
         </Row>
       </Enter>
 
-      {/* 4. This week: a dot per day, filled when you trained, a ring around today. */}
+      {/* Challenge and tracker panes (each hides itself when it has nothing to show). */}
+      <ChallengeCard />
+      <TrackerCard />
+
+      {/* 4. This week: a dot per day, filled when you trained, a ring around today. The whole strip opens the calendar. */}
       <Enter i={3}>
+        <Tap onPress={() => router.push('/history')} scale={0.98} style={s.week} accessibilityLabel={`This week, ${week} of ${goal} workouts. Open calendar`}>
+        <Row gap={8} style={{ marginBottom: 10 }}>
+          <T v="h3" style={{ flex: 1 }}>This week</T>
+          <T v="small" color={c.accent}>Calendar</T>
+          <Ionicons name="chevron-forward" size={16} color={c.accent} />
+        </Row>
         <Row gap={0} style={{ justifyContent: 'space-between' }}>
           {WEEK.map((w, i) => {
             const d = new Date(monday); d.setDate(monday.getDate() + i);
@@ -252,6 +303,7 @@ export default function Today() {
             );
           })}
         </Row>
+        </Tap>
       </Enter>
 
       {/* 5. One coach line. */}
@@ -279,6 +331,7 @@ export default function Today() {
       )}
     </ScrollView>
     <FoodSheet open={food} onClose={() => setFood(false)} />
+    <QuickLogSheet open={log} onClose={() => setLog(false)} />
     <Sheet open={change} onClose={() => setChange(false)}>
       <ChangeList place={today.where} current={{ planId: today.planId, dayIndex: today.dayIndex }} onPick={pickChange} />
     </Sheet>
@@ -287,6 +340,40 @@ export default function Today() {
 }
 
 type Note = { id: string; icon: Icon; color: string; text: string; action?: string; onAction?: () => void };
+type Step = { id: string; icon: Icon; color: string; text: string; done: boolean; go: () => void };
+
+// The Get started card: a short progress line, then one row per first step. Done rows stay (ticked) so you see
+// how far you've come; the close button hides the card for good.
+function GetStarted({ steps, onClose }: { steps: Step[]; onClose: () => void }) {
+  const done = steps.filter((x) => x.done).length;
+  return (
+    <View style={s.steps}>
+      <Row gap={8} style={{ paddingLeft: 16 }}>
+        <View style={{ flex: 1, minWidth: 0, paddingTop: 14 }}>
+          <T v="h3">Get started</T>
+          <T v="small">{done} of {steps.length} done</T>
+        </View>
+        <Tap onPress={onClose} style={s.noteClose} scale={0.9} feedback="none" accessibilityLabel="Hide Get started">
+          <Ionicons name="close" size={18} color={c.muted} />
+        </Tap>
+      </Row>
+      <View style={s.track}>
+        <View style={{ width: `${(done / steps.length) * 100}%`, height: 4, borderRadius: 2, backgroundColor: c.accent }} />
+      </View>
+      {steps.map((x, i) => (
+        <Tap key={x.id} onPress={x.go} scale={0.99} style={[s.stepRow, i > 0 && s.rule]}
+          accessibilityRole="button" accessibilityState={{ checked: x.done }} accessibilityLabel={x.done ? `${x.text}, done` : x.text}>
+          <View style={[s.check, x.done ? { backgroundColor: c.accent, borderColor: c.accent } : { borderColor: c.dim }]}>
+            {x.done && <Ionicons name="checkmark" size={16} color={c.accentInk} />}
+          </View>
+          <T v="body" numberOfLines={1} color={x.done ? c.muted : c.text}
+            style={[{ flex: 1 }, x.done && { textDecorationLine: 'line-through' }]}>{x.text}</T>
+          {!x.done && <Ionicons name="chevron-forward" size={16} color={c.dim} />}
+        </Tap>
+      ))}
+    </View>
+  );
+}
 
 // One ring card. The fill waits its turn (80 ms apart) so the three rings sweep in one after another.
 function Dial({ i, progress, color, label, onPress, children }: {
@@ -313,13 +400,20 @@ const RingFill = ({ progress, color }: { progress: number; color: string }) => (
 );
 
 const s = StyleSheet.create({
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 16 },
-  pillNum: { fontFamily: f.semi, fontSize: 14, lineHeight: 18 },
+  dateLine: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 22, alignSelf: 'flex-start', maxWidth: '100%' },
+  streak: { fontFamily: f.medium, fontSize: 14, lineHeight: 19 },
+  log: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 44, paddingLeft: 12, paddingRight: 16, borderRadius: 22 },
+  week: { padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  steps: { borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, overflow: 'hidden' },
+  track: { height: 4, borderRadius: 2, backgroundColor: c.card2, marginHorizontal: 16, marginTop: 10, marginBottom: 6, overflow: 'hidden' },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingHorizontal: 16 },
+  rule: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
+  check: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   change: { height: 56, paddingHorizontal: 20, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2 },
   hero: { gap: 12, padding: 20, borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, overflow: 'hidden' },
   chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: c.card2 },
   ringCard: { flex: 1, minWidth: 0, alignItems: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 8, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
-  ringNum: { fontFamily: f.bold, fontSize: 18, lineHeight: 22 },
+  ringNum: { fontFamily: f.semi, fontSize: 18, lineHeight: 22 },
   dayRing: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   dot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1.5, borderColor: c.line },
   note: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingLeft: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1 },

@@ -1,5 +1,6 @@
-// Progress: this week at a glance, then four doors that each open one chart, then the achievements row.
-// Every number here is either this week's (its one home) or a one-line glance that links to its home.
+// Progress: this week at a glance, the calendar card (this week's days, opens the month calendar), then doors that each
+// open one chart, then the achievements row. Every number here is either this week's (its one home) or a one-line
+// glance that links to its home.
 import { router, type Href } from 'expo-router';
 import { useMemo, type ComponentProps, type ReactElement } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -8,6 +9,7 @@ import { e1rm, streak, volume } from '../../src/calc';
 import { badges, level } from '../../src/data/badges';
 import { byId } from '../../src/data/exercises';
 import { sessionMinutes, streakLabel } from '../../src/glance';
+import { weekDays, WeekStrip } from '../../src/calendar';
 import { CountUp, DoorCard, EASE } from '../../src/kit';
 import { useStore, type Session } from '../../src/store';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,7 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { c, dom, r, tint } from '../../src/theme';
 import { latest, useTracker } from '../../src/tracker';
 import { LEVEL_WORD, levelColor, useReadiness } from '../../src/health/useReadiness';
-import { Screen, Section, T, TabTitle } from '../../src/ui';
+import { Screen, Section, T, TabTitle, Tap } from '../../src/ui';
 
 const hm = (min: number) => `${Math.floor(min / 60)}h ${Math.round(min % 60)}m`;
 
@@ -26,6 +28,12 @@ export default function Progress() {
   const meals = useStore((s) => s.meals);
   const water = useStore((s) => s.water);
   const daily = useTracker((s) => s.daily);
+  const workouts = useTracker((s) => s.workouts);
+  const merged = useTracker((s) => s.merged);
+  const excuses = useStore((s) => s.excuses);
+  const reminders = useStore((s) => s.reminders);
+  const planId = useStore((s) => s.planId);
+  const planStart = useStore((s) => s.planStart);
   const hcOn = useTracker((s) => s.hc.connected);
   const strap = useTracker((s) => s.strap);
   const still = useReducedMotion();
@@ -37,6 +45,8 @@ export default function Progress() {
     const bs = badges(all);
     return { lv: level(all), earned: bs.filter((b) => b.got).length, total: bs.length };
   }, [profile, sessions, meals, water]);
+  const week7 = useMemo(() => weekDays({ sessions, workouts, merged, daily, excuses, reminders, planId, planStart }),
+    [sessions, workouts, merged, daily, excuses, reminders, planId, planStart]);
   if (!profile) return null;
   const gentle = !!(profile.gentle || profile.concerns?.includes('food'));
   const enter = (i: number) => (still ? undefined : FadeInDown.delay(i * 60).duration(380).easing(EASE));
@@ -56,7 +66,7 @@ export default function Progress() {
   const now = new Date();
   const thisMonth = sessions.filter((s) => { const d = new Date(s.startedAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length;
   const st = streak(sessions);
-  const consist = sessions.length ? `${streakLabel(st)} · ${thisMonth} this month` : 'Your calendar fills in as you train';
+  const consist = sessions.length ? `${thisMonth} ${thisMonth === 1 ? 'workout' : 'workouts'} this month` : 'Fills in as you train';
 
   // Body & watch glance: sleep and resting heart rate when we have them, else steps, else the way to connect.
   const sleep = latest(daily, 'sleep', 2);
@@ -70,19 +80,18 @@ export default function Progress() {
   const { lv, earned, total } = ach;
 
   type Door = { icon: ComponentProps<typeof DoorCard>['icon']; color: string; title: string; meta: string; go: Href };
-  // Each door wears its domain colour: training teal, body weight purple, streak amber, heart red.
+  // Each door wears its domain colour: training teal, body weight purple, heart red. Consistency is the calendar card.
   const doors: Door[] = [
     { icon: 'barbell', color: dom.train, title: 'Strength', meta: strength, go: '/chart/strength' },
     ...(gentle ? [] : [{ icon: 'scale', color: dom.weight, title: 'Body weight', meta: weightMeta, go: '/chart/weight' } as Door]),
-    { icon: 'flame', color: dom.streak, title: 'Consistency', meta: consist, go: '/history' },
     { icon: 'heart', color: dom.heart, title: 'Body & watch', meta: bodyMeta, go: '/chart/body' },
     { icon: 'battery-charging-outline', color: rd.level ? levelColor(rd.level) : dom.sleep, title: 'Recovery',
       meta: rd.score !== null && rd.level ? `Readiness ${rd.score} · ${LEVEL_WORD[rd.level]}` : 'Learning your baseline', go: '/recovery' },
   ];
   const tiles: { icon: ComponentProps<typeof Ionicons>['name']; node: ReactElement; label: string }[] = [
-    { icon: 'barbell', node: <CountUp value={week.length} />, label: 'workouts' },
-    { icon: 'layers', node: <CountUp value={tonnes ? vol / 1000 : Math.round(vol)} decimals={tonnes ? 1 : 0} suffix={tonnes ? ' t' : ' kg'} />, label: 'volume' },
-    { icon: 'time', node: <CountUp value={minutes} suffix=" min" />, label: 'minutes' },
+    { icon: 'barbell', node: <CountUp value={week.length} style={s.num} />, label: 'workouts' },
+    { icon: 'layers', node: <CountUp value={tonnes ? vol / 1000 : Math.round(vol)} decimals={tonnes ? 1 : 0} suffix={tonnes ? ' t' : ' kg'} style={s.num} />, label: 'volume' },
+    { icon: 'time', node: <CountUp value={minutes} suffix=" min" style={s.num} />, label: 'minutes' },
   ];
 
   return (
@@ -101,18 +110,36 @@ export default function Progress() {
             </Animated.View>
           ))}
         </View>
+
+        {/* The calendar: this week's days in the calendar's colours, the streak, and the way into the month. */}
+        <Animated.View entering={enter(3)}>
+          <Tap onPress={() => router.push('/history')} style={s.cal} scale={0.98} accessibilityLabel={`Calendar. ${sessions.length ? streakLabel(st) : ''} ${consist}`}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <View style={[s.calIcon, { backgroundColor: dom.streak + '22' }]}><Ionicons name="calendar" size={20} color={dom.streak} /></View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <T v="h3" numberOfLines={1}>{sessions.length ? (st ? streakLabel(st) : 'Calendar') : 'Calendar'}</T>
+                <T v="small" numberOfLines={1}>{consist}</T>
+              </View>
+              <T v="small" color={c.accent}>Open</T>
+              <Ionicons name="chevron-forward" size={16} color={c.accent} />
+            </View>
+            <WeekStrip days={week7} showKcal={!gentle && week7.some((d) => d.kcal !== undefined)} />
+          </Tap>
+        </Animated.View>
       </Section>
 
-      <View style={{ gap: 12, marginTop: 24 }}>
-        {doors.map((d, i) => (
-          <Animated.View key={d.title} entering={enter(i + 1)}>
-            <DoorCard icon={d.icon} color={d.color} title={d.title} meta={d.meta} onPress={() => router.push(d.go)} />
-          </Animated.View>
-        ))}
-      </View>
+      <Section title="Trends">
+        <View style={{ gap: 12 }}>
+          {doors.map((d, i) => (
+            <Animated.View key={d.title} entering={enter(i + 4)}>
+              <DoorCard icon={d.icon} color={d.color} title={d.title} meta={d.meta} onPress={() => router.push(d.go)} />
+            </Animated.View>
+          ))}
+        </View>
+      </Section>
 
       <Section title="Achievements">
-        <Animated.View entering={enter(doors.length + 1)}>
+        <Animated.View entering={enter(doors.length + 4)}>
           <DoorCard icon="trophy" color={dom.streak} title={`Level ${lv.lvl} · ${lv.name}`} meta={`${earned} of ${total} medals`}
             onPress={() => router.push('/chart/achievements')} />
         </Animated.View>
@@ -124,6 +151,9 @@ export default function Progress() {
 const s = StyleSheet.create({
   week: { flexDirection: 'row', borderRadius: r.xl, borderWidth: 1, overflow: 'hidden', backgroundColor: c.card },
   tile: { flex: 1, minWidth: 0, paddingVertical: 14, paddingHorizontal: 14, gap: 2 },
+  num: { fontSize: 24, lineHeight: 30 },
+  cal: { marginTop: 12, padding: 16, paddingBottom: 8, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  calIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });
 
 // Strength glance: the top lift's best set last time, and how much heavier it is than the first time.
@@ -140,7 +170,7 @@ function strengthGlance(sessions: Session[]) {
     const last = tops[tops.length - 1];
     const up = last.weight - tops[0].weight;
     const name = (byId[top]?.name ?? 'Top lift').replace(/^(Barbell|Dumbbell|Machine|Cable) /, '');
-    strength = `${name} ${last.weight} kg × ${last.reps}${up > 0 ? ` · up ${+up.toFixed(1)} kg` : ''}`;
+    strength = `${name} ${last.weight} kg${up > 0 ? ` · up ${+up.toFixed(1)} kg` : ` × ${last.reps}`}`;
   }
 
   return strength;

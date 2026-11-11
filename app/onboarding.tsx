@@ -12,14 +12,18 @@ import { HOME_GEAR, title } from '../src/data/exercises';
 import { perWeek, planById } from '../src/data/plans';
 import { EASE, goBack, Segmented, toToday } from '../src/kit';
 import { setSetupFinish } from '../src/setupflow';
-import { askPermission, reschedule } from '../src/notify';
+import { hasPermission, reschedule } from '../src/notify';
 import { useStore, type Goal, type Profile } from '../src/store';
-import { c, f, r } from '../src/theme';
-import { Button, Row, T, Tap } from '../src/ui';
+import { c, dom, f, r, tint } from '../src/theme';
+import { Button, IconBox, Row, T, Tap } from '../src/ui';
 
-type Step = 'goal' | 'place' | 'days' | 'plan' | 'about';
-const FRESH: Step[] = ['goal', 'place', 'days', 'plan', 'about']; // 'about' is optional, reached from the plan step
+type Step = 'welcome' | 'goal' | 'place' | 'days' | 'plan' | 'name' | 'about';
+// First launch: a welcome, four quick questions, then your name (optional). 'about' (body and diet) is an optional
+// extra reached from the name step. Redo skips the welcome. Editing a profile keeps its own short list.
+const FIRST: Step[] = ['welcome', 'goal', 'place', 'days', 'plan', 'name', 'about'];
+const FRESH: Step[] = ['goal', 'place', 'days', 'plan', 'name', 'about'];
 const EDIT: Step[] = ['goal', 'place', 'days', 'about'];
+const COUNTED: Step[] = ['goal', 'place', 'days', 'plan', 'name']; // "Step n of 5" on a fresh setup
 
 const PLACES: Opt<Profile['place']>[] = [
   ['gym', 'Gym', 'barbell', 'Machines and free weights'],
@@ -60,8 +64,9 @@ function NumField({ label, value, onChange, min, max, step, unit, decimal }: {
   );
 }
 
-// First launch: one question per screen. Goal, where you train, days a week, then the suggested plan with
-// "Start this plan", which lands on Today (4 taps). Name and body are an optional last step. An existing profile opens the same steps to
+// First launch: a welcome (what the app does, Get started or skip), then one question per screen: goal, where you
+// train, days a week, the suggested plan ("Use this plan"), and a light, optional name step that lands on Today.
+// Body and diet are an optional extra after the name. No notification prompt here: it comes with the first reminder. An existing profile opens the same steps to
 // edit them (?step= jumps to one); ?redo=1 answers again and picks a fresh plan.
 export default function Onboarding() {
   const ins = useSafeAreaInsets();
@@ -72,12 +77,16 @@ export default function Onboarding() {
   const existing = current.name ? current : null; // editing a set-up profile vs first setup
   const redo = params.redo === '1';
   const fresh = !existing || redo; // finishing picks a plan
-  const steps = fresh ? FRESH : EDIT;
   const firstRun = !existing && !redo;
+  const steps = firstRun ? FIRST : fresh ? FRESH : EDIT;
 
   const [p, setP] = useState<Profile>(() => existing ?? { ...current, reminder: { hour: 18, minute: 0, on: true } });
   const [idx, setIdx] = useState(() => Math.max(0, steps.indexOf(params.step as Step)));
   const [dir, setDir] = useState(1);
+  // On first launch nothing is pre-selected: an answer only lights up once you pick it (the guest defaults are not
+  // your answers).
+  const [touched, setTouched] = useState<Step[]>([]);
+  const mine = (st: Step) => !firstRun || touched.includes(st);
   const before = useRef<Profile | null>(null); // answers before the optional About step, for its Skip
   const busy = useRef(false);
   const step = steps[idx];
@@ -94,6 +103,7 @@ export default function Onboarding() {
   // A tap on an answer moves on by itself, after the pick has had a moment to show.
   const pickThen = (patch: Partial<Profile>) => {
     up(patch);
+    setTouched((t) => (t.includes(step) ? t : [...t, step]));
     if (busy.current) return;
     busy.current = true;
     setTimeout(() => { busy.current = false; move(1, () => setIdx((i) => Math.min(i + 1, steps.length - 1))); }, still ? 60 : 200);
@@ -111,7 +121,7 @@ export default function Onboarding() {
   const planInfo = planById[plan];
   const why = pick.reasons.slice(0, 2);
 
-  // Saves the answers. A first setup ends on Today (4 taps); "See the full plan" ends on the plan's welcome page instead.
+  // Saves the answers. A first setup ends on Today; "See the full plan" ends on the plan's welcome page instead.
   async function finish(from: Profile = p, view = false) {
     const final = { ...from, name: from.name.trim(), goalWeightKg: existing ? from.goalWeightKg : from.weightKg };
     const chosen = planFor(final).planId;
@@ -125,39 +135,64 @@ export default function Onboarding() {
       // Without a name the tabs would open setup again; mark it done so Today offers to personalise instead.
       st.skipSetup(!final.name);
     }
-    if (final.reminder.on && !st.reminders.some((x) => x.kind === 'workout'))
-      st.setReminders([...st.reminders, { id: 'setup', kind: 'workout', hour: final.reminder.hour, minute: final.reminder.minute, days: [], on: true }]);
-    if (await askPermission()) reschedule(useStore.getState().profile, useStore.getState().sessions);
+    // No permission prompt here (round 13): the phone asks the first time you set a reminder (Today's Get started
+    // card and You › Reminders lead there). If permission was already given, keep the schedule in step.
+    if (await hasPermission()) reschedule(useStore.getState().profile, useStore.getState().sessions);
     if (fresh && view) router.replace({ pathname: '/plan/[id]', params: { id: chosen, welcome: '1' } });
     else if (fresh) toToday();
     else goBack();
   }
   function skip() { useStore.getState().skipSetup(true); if (router.canGoBack()) router.back(); else router.replace('/'); }
 
-  // Top right: Skip on first launch, Skip on the optional step, Save when editing.
+  // Top right: Skip on the optional steps (keeps the plan), Skip setup on the questions of a first launch, Save when
+  // editing.
   const right = step === 'about' && fresh ? { label: 'Skip', on: () => finish(before.current ?? p) }
-    : firstRun ? { label: 'Skip', on: skip }
+    : step === 'name' ? { label: 'Skip', on: () => finish({ ...p, name: '' }) }
+    : firstRun && step !== 'welcome' ? { label: 'Skip', on: skip }
     : !fresh && step !== 'about' ? { label: 'Save', on: () => finish() } : null;
-  const bars = fresh ? 4 : steps.length; // the optional About step does not count
-  const progress = Math.min(1, (idx + 1) / bars);
+  // "Step n of 5": the welcome and the optional About step are not counted.
+  const counted = fresh ? COUNTED : EDIT;
+  const n = counted.indexOf(step);
+  const at = n >= 0 ? n + 1 : counted.length;
+  const progress = Math.min(1, at / counted.length);
+  const stepLabel = (name: string) => (n >= 0 ? `Step ${at} of ${counted.length} · ${name}` : name);
   const showBack = idx > 0 || !firstRun;
 
   let body: ReactNode = null;
   let cta: { title: string; on: () => void } | null = null;
   let link: { title: string; on: () => void } | null = null;
-  if (step === 'goal') {
+  if (step === 'welcome') {
     body = (
-      <Q label="Your goal" title="What do you want most?">
-        <Tiles<Goal> opts={GOALS} on={(k) => p.goal === k} onPick={(goal) => pickThen({ goal })} />
+      <View style={{ gap: 16, paddingTop: 40 }}>
+        <IconBox icon="barbell" color={c.accent} size={72} />
+        <T v="display">Your gym buddy</T>
+        <T v="body" color={c.soft}>Tells you what to do today, logs it in a few taps, and shows your progress.</T>
+        <View style={{ gap: 14, marginTop: 12 }}>
+          {([['list', dom.train, 'A plan made for your goal'], ['flash', dom.streak, 'Log sets, food and water fast'], ['trending-up', dom.steps, 'See your streak and strength grow']] as const).map(([icon, color, line]) => (
+            <Row key={line} gap={12}>
+              <View style={[s.bullet, { backgroundColor: tint(color, 1.2) }]}><Ionicons name={icon} size={18} color={color} /></View>
+              <T v="body" style={{ flex: 1 }}>{line}</T>
+            </Row>
+          ))}
+        </View>
+        <T v="small" style={{ marginTop: 8 }}>4 quick questions, about a minute.</T>
+      </View>
+    );
+    cta = { title: 'Get started', on: () => go(idx + 1) };
+    link = { title: "I've used gym apps before · skip", on: skip };
+  } else if (step === 'goal') {
+    body = (
+      <Q label={stepLabel('Your goal')} title="What do you want most?">
+        <Tiles<Goal> opts={GOALS} on={(k) => mine('goal') && p.goal === k} onPick={(goal) => pickThen({ goal })} />
       </Q>
     );
   } else if (step === 'place') {
     const gear = p.place === 'home' || p.place === 'both';
     body = (
-      <Q label="Where you train" title="Where will you work out?">
-        <Tiles<Profile['place']> opts={PLACES} on={(k) => p.place === k}
-          onPick={(place) => (place === 'home' || place === 'both' ? up({ place }) : pickThen({ place }))} />
-        {gear && (
+      <Q label={stepLabel('Where you train')} title="Where will you work out?">
+        <Tiles<Profile['place']> opts={PLACES} on={(k) => mine('place') && p.place === k}
+          onPick={(place) => (place === 'home' || place === 'both' ? (up({ place }), setTouched((t) => [...t, 'place'])) : pickThen({ place }))} />
+        {gear && mine('place') && (
           <Animated.View entering={still ? undefined : FadeIn.duration(260)} style={{ gap: 10, marginTop: 12 }}>
             <T v="h3">What do you have at home?</T>
             <View style={s.wrap}>
@@ -171,17 +206,17 @@ export default function Onboarding() {
         )}
       </Q>
     );
-    if (gear) cta = { title: 'Next', on: () => go(idx + 1) };
+    if (gear && mine('place')) cta = { title: 'Next', on: () => go(idx + 1) };
   } else if (step === 'days') {
     body = (
-      <Q label="Days a week" title="How many days can you train?">
-        <Tiles<string> opts={DAYS} on={(k) => String(p.daysPerWeek) === k} onPick={(d) => pickThen({ daysPerWeek: Number(d) })} />
+      <Q label={stepLabel('Days a week')} title="How many days can you train?">
+        <Tiles<string> opts={DAYS} on={(k) => mine('days') && String(p.daysPerWeek) === k} onPick={(d) => pickThen({ daysPerWeek: Number(d) })} />
       </Q>
     );
   } else if (step === 'plan') {
     const n = planInfo ? perWeek(planInfo) : p.daysPerWeek;
     body = (
-      <Q label="Your plan" title={planInfo?.name ?? 'Your plan'}>
+      <Q label={stepLabel('Your plan')} title={planInfo?.name ?? 'Your plan'}>
         {planInfo && (
           <View style={s.card}>
             <T v="body" color={c.muted}>{planInfo.tagline}</T>
@@ -210,11 +245,21 @@ export default function Onboarding() {
         <T v="small">Change it any time in Train.</T>
       </Q>
     );
-    cta = { title: 'Start this plan', on: () => finish() };
-    link = { title: 'Add your details first', on: () => go(idx + 1) };
+    cta = { title: 'Use this plan', on: () => go(idx + 1) };
+  } else if (step === 'name') {
+    const first = p.name.trim().split(' ')[0];
+    body = (
+      <Q label={stepLabel('Last one')} title="What should we call you?" sub="Optional. Just for a friendlier hello.">
+        <TextInput value={p.name} onChangeText={(name) => up({ name })} placeholder="Your first name" placeholderTextColor={c.dim}
+          style={[s.input, { borderColor: c.accent }]} returnKeyType="done" maxLength={24} autoCapitalize="words" autoFocus={Platform.OS !== 'web'}
+          onSubmitEditing={() => finish()} />
+      </Q>
+    );
+    cta = { title: first ? `Let's go, ${first}` : "Let's go", on: () => finish() };
+    link = { title: 'Add age and weight for food targets', on: () => go(idx + 1) };
   } else {
     body = (
-      <Q label="About you" title={fresh ? 'A bit about you' : 'About you'} sub="Optional. Sharpens your plan and food targets.">
+      <Q label="About you · optional" title={fresh ? 'A bit about you' : 'About you'} sub="Sharpens your plan and food targets.">
         <TextInput value={p.name} onChangeText={(name) => up({ name })} placeholder="Your name" placeholderTextColor={c.dim}
           style={[s.input, { borderColor: c.accent }]} returnKeyType="done" maxLength={24} autoCapitalize="words" />
         <Segmented options={GENDERS} value={p.gender} onChange={(gender) => up({ gender })} />
@@ -229,7 +274,7 @@ export default function Onboarding() {
         </View>
       </Q>
     );
-    cta = { title: fresh ? 'Start this plan' : 'Save', on: () => finish() };
+    cta = { title: fresh ? "Let's go" : 'Save', on: () => finish() };
   }
 
   const enter = still ? undefined : (dir > 0 ? FadeInRight : FadeInLeft).duration(350).easing(EASE);
@@ -237,7 +282,7 @@ export default function Onboarding() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bg, paddingTop: ins.top + 6 }}>
-      <View style={s.top}>
+      {step !== 'welcome' && <View style={s.top}>
         {showBack ? (
           <Tap onPress={back} style={s.round} scale={0.9} feedback="none"><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
         ) : <View style={{ width: 44 }} />}
@@ -245,7 +290,7 @@ export default function Onboarding() {
         {right ? (
           <Tap onPress={right.on} style={s.textBtn} scale={0.95}><T v="h3" color={right.label === 'Save' ? c.accent : c.muted}>{right.label}</T></Tap>
         ) : <View style={{ width: 44 }} />}
-      </View>
+      </View>}
 
       <View style={{ flex: 1, overflow: 'hidden' }}>
         <Animated.View key={step} entering={enter} exiting={exit} style={StyleSheet.absoluteFill}>
@@ -259,7 +304,7 @@ export default function Onboarding() {
         <View style={[s.bar, { paddingBottom: ins.bottom + 12 }]}>
           {cta && <Button title={cta.title} onPress={cta.on} />}
           {link && (
-            <Tap onPress={link.on} style={s.link} scale={0.97}><T v="h3" color={c.muted}>{link.title}</T></Tap>
+            <Tap onPress={link.on} style={s.link} scale={0.97}><T v="body" color={c.muted}>{link.title}</T></Tap>
           )}
         </View>
       )}
@@ -271,7 +316,7 @@ export default function Onboarding() {
 const Q = ({ label, title: t, sub, children }: { label: string; title: string; sub?: string; children: ReactNode }) => (
   <View style={{ gap: 12 }}>
     <View style={{ gap: 6, marginBottom: 8 }}>
-      <T v="label" color={c.accent}>{label}</T>
+      <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>{label}</T>
       <T v="h1">{t}</T>
       {sub ? <T v="small">{sub}</T> : null}
     </View>
@@ -300,15 +345,16 @@ const s = StyleSheet.create({
   round: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   textBtn: { minWidth: 44, height: 44, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
   track: { flex: 1, height: 6, borderRadius: 3, backgroundColor: c.card2, overflow: 'hidden' },
-  input: { fontFamily: f.display, fontSize: 32, color: c.text, borderBottomWidth: 2, paddingVertical: 6, marginBottom: 4 },
+  input: { fontFamily: f.semi, fontSize: 26, color: c.text, borderBottomWidth: 2, paddingVertical: 6, marginBottom: 4, outlineWidth: 0 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   card: { gap: 8, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   dot: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   field: { flex: 1, height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: r.md, borderWidth: 1.5, backgroundColor: c.card },
-  fieldText: { width: 80, fontFamily: f.display, fontSize: 26, color: c.text, textAlign: 'right', padding: 0 },
+  fieldText: { width: 80, fontFamily: f.semi, fontSize: 22, color: c.text, textAlign: 'right', padding: 0 },
   unit: { fontFamily: f.semi, fontSize: 15, color: c.muted, marginLeft: 6, width: 30 },
   nudge: { width: 44, height: 44, borderRadius: r.sm, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' },
   bar: { gap: 4, paddingHorizontal: 16, paddingTop: 12, backgroundColor: c.bg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   link: { height: 44, alignItems: 'center', justifyContent: 'center' },
+  bullet: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   see: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, marginTop: 4 },
 });

@@ -6,7 +6,8 @@ import type * as HCLib from 'react-native-health-connect';
 import { isTimed } from '../calc';
 import { byId } from '../data/exercises';
 import { useStore, type Session } from '../store';
-import { useTracker, type DailyMetrics, type ImportedWorkout, type SleepNight } from '../tracker';
+import { useTracker, type DailyMetrics, type HrDay, type ImportedWorkout, type SleepNight } from '../tracker';
+import { hrMaxFor, zoneOf } from './readiness';
 import { cardioType, matchSession, setsText, SET_LEAD_MS, splitHr, type HrSample } from './parse';
 
 type HC = typeof HCLib;
@@ -67,18 +68,31 @@ async function ready(): Promise<HC | null> {
 const keyOf = (p: { accessType: string; recordType: string }) => (p.accessType === 'write' ? `write:${p.recordType}` : p.recordType);
 
 // Opens the Health Connect permission screen. Returns the granted list ('Steps', ..., 'write:ExerciseSession').
-export async function requestPermissions(): Promise<string[]> {
+// `history: false` leaves out reading data older than 30 days, so it can be asked as its own step (requestHistory).
+export async function requestPermissions(history = true): Promise<string[]> {
   const m = await ready();
   if (!m) return [];
   const granted = await m.requestPermission([
     ...READ_TYPES.map((t) => ({ accessType: 'read' as const, recordType: t.type })),
     { accessType: 'write', recordType: 'ExerciseSession' },
     // Without this Health Connect only returns data from ~30 days before the first grant.
-    { accessType: 'read', recordType: 'ReadHealthDataHistory' },
+    ...(history ? [{ accessType: 'read' as const, recordType: 'ReadHealthDataHistory' as const }] : []),
   ]);
   const keys = [...new Set(granted.map(keyOf))];
   useTracker.getState().setHc({ connected: keys.some((k) => !k.startsWith('write:')), granted: keys });
   return keys;
+}
+
+// The separate "older history" step: asks only for data from before the first grant. True when it is on.
+export async function requestHistory(): Promise<boolean> {
+  const m = await ready();
+  if (!m) return false;
+  try {
+    await m.requestPermission([{ accessType: 'read', recordType: 'ReadHealthDataHistory' }]);
+  } catch { return false; }
+  const keys = await grantedNow(m);
+  useTracker.getState().setHc({ granted: keys });
+  return keys.includes('ReadHealthDataHistory');
 }
 
 async function grantedNow(m: HC): Promise<string[]> {
@@ -226,7 +240,11 @@ async function doSync(days: number): Promise<boolean> {
         end: rec.endTime,
         durationS: Math.max(0, Math.round((Date.parse(rec.endTime) - Date.parse(rec.startTime)) / 1000)),
       };
-      if (matchSession(w, ours)) await safe(() => watchNumbers(m, w, has));
+      // Heart rate and calories for the Tracker's workout list too: kept from the last sync when we have them, read
+      // for the last two weeks when we don't (two small aggregate reads each).
+      const prev = useTracker.getState().workouts[w.id] ?? useTracker.getState().merged[w.id];
+      if (prev && (prev.kcal !== undefined || prev.avgHr !== undefined) && !matchSession(w, ours)) Object.assign(w, { kcal: prev.kcal, avgHr: prev.avgHr, maxHr: prev.maxHr });
+      else if (matchSession(w, ours) || Date.parse(w.start) > Date.now() - WORKOUT_NUMBERS_MS) await safe(() => watchNumbers(m, w, has));
       workouts.push(w);
     }
   });
@@ -236,8 +254,55 @@ async function doSync(days: number): Promise<boolean> {
   if (list.length) t.upsertDaily(list);
   if (workouts.length) t.upsertWorkouts(workouts);
   linkWorkouts();
+  if (has('HeartRate')) await safe(() => readHrDay(m));
   t.setHc({ connected: granted.some((k) => !k.startsWith('write:')), granted, lastSync: new Date().toISOString() });
   return true;
+}
+
+const WORKOUT_NUMBERS_MS = 14 * 86400000;
+const HR_STEP_MIN = 10;
+const PHONE = ['android', 'com.google.android.apps.healthdata', 'com.google.android.apps.fitness'];
+
+// Today's heart rate, midnight to now, from the app that wrote the most samples (a watch, not a phone's odd reading):
+// 10-minute averages for the Tracker's chart, and minutes in each zone from the raw samples (each counts until the
+// next one, at most 2 minutes, so gaps while the watch was off add nothing).
+async function readHrDay(m: HC) {
+  const t0 = new Date();
+  t0.setHours(0, 0, 0, 0);
+  const by: Record<string, HrSample[]> = {};
+  for (const rec of await readAll(m, 'HeartRate', t0.toISOString(), new Date().toISOString())) {
+    const o = rec.metadata?.dataOrigin ?? '?';
+    const list = (by[o] ??= []);
+    for (const x of rec.samples ?? []) if (x.beatsPerMinute > 0) list.push({ t: Date.parse(x.time), bpm: x.beatsPerMinute });
+  }
+  const best = Object.entries(by).sort((a, b) => Number(PHONE.includes(a[0])) - Number(PHONE.includes(b[0])) || b[1].length - a[1].length)[0];
+  const day = localDay(t0.getTime());
+  if (!best || !best[1].length) { useTracker.getState().setHrDay(null); return; }
+  const xs = best[1].sort((a, b) => a.t - b.t);
+  const n = Math.ceil((Date.now() - t0.getTime()) / (HR_STEP_MIN * 60000));
+  const sum = new Array(n).fill(0), cnt = new Array(n).fill(0);
+  for (const x of xs) {
+    const k = Math.floor((x.t - t0.getTime()) / (HR_STEP_MIN * 60000));
+    if (k >= 0 && k < n) { sum[k] += x.bpm; cnt[k]++; }
+  }
+  const tr = useTracker.getState();
+  const rhrs = Object.values(tr.daily).map((d) => d.restingHr).filter((v): v is number => !!v).slice(-28);
+  const rest = tr.daily[day]?.restingHr ?? (rhrs.length ? Math.round(rhrs.reduce((a, b) => a + b, 0) / rhrs.length) : 60);
+  const max = hrMaxFor(useStore.getState().profile.age);
+  const zoneMin = [0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < xs.length; i++) {
+    const dt = i + 1 < xs.length ? Math.min(120000, xs[i + 1].t - xs[i].t) : 60000;
+    zoneMin[zoneOf(xs[i].bpm, rest, max)] += dt / 60000;
+  }
+  const bpms = xs.map((x) => x.bpm);
+  const hrDay: HrDay = {
+    date: day, stepMin: HR_STEP_MIN,
+    bpm: sum.map((v, k) => (cnt[k] ? Math.round(v / cnt[k]) : null)),
+    min: Math.min(...bpms), max: Math.max(...bpms), avg: Math.round(bpms.reduce((a, b) => a + b, 0) / bpms.length),
+    zoneMin: zoneMin.map((v) => Math.round(v)),
+    origin: best[0] === '?' ? undefined : best[0], readAt: new Date().toISOString(),
+  };
+  tr.setHrDay(hrDay);
 }
 
 // Heart rate and active calories the watch recorded during one of its workouts, from that watch only.

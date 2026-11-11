@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, ScrollView, Share, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
@@ -31,8 +31,9 @@ const web = Platform.OS === 'web';
 // A theme change remounts the app (or reloads the page). This brings the theme sheet back afterwards.
 let reopenLook = false;
 
-// Profile and settings, behind the avatar on every tab: a profile card, the look of the app, then one grouped list.
-// Rows open a section of /profile, a sheet (theme, demos, data) or their own page (watch, reminders, etiquette).
+// Profile and settings, behind the avatar on every tab. Round 13 groups rows by what a beginner comes looking for:
+// your watch, your goals, your reminders, the look of the app, then everything else. Rows open a section of /profile,
+// a sheet (theme, demos, data) or their own page (watch, tracker, challenges, reminders, supplements, etiquette).
 export default function You() {
   const ins = useSafeAreaInsets();
   const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
@@ -42,7 +43,11 @@ export default function You() {
   const planId = useStore((s) => s.planId);
   const reminders = useStore((s) => s.reminders);
   const reset = useStore((s) => s.reset);
-  const connected = useTracker((s) => s.hc.connected);
+  const connected = useTracker((s) => s.hc.connected || !!s.strap);
+  const challenge = useStore((s) => s.challenge);
+  const hydration = useStore((s) => s.hydration);
+  const supplements = useStore((s) => s.supplements.picked.length);
+  const suppReminders = useStore((s) => s.supplementReminders.filter((x) => x.on).length);
   const periods = useStore((s) => s.periods);
   const logPeriod = useStore((s) => s.logPeriod);
   const dismissed = useStore((s) => s.dismissed);
@@ -121,20 +126,28 @@ export default function You() {
     // Haptics are phone-only (the web has none).
     ...(web ? [] : [{ icon: 'pulse' as Icon, color: dom.sleep, t: 'Haptics', toggle: { on: haptics, set: (on: boolean) => { setPrefs({ haptics: on }); } } }]),
   ];
-  const rows: RowT[] = [
+  const mealReminders = reminders.filter((x) => x.kind === 'meal' && x.on).length;
+  // Your watch: connecting Fitbit, WHOOP and the rest is the main way data gets in, so it comes first.
+  const devices: RowT[] = [
+    { icon: 'watch', color: dom.heart, t: connected ? 'Watch & health' : 'Connect a watch', v: connected ? 'Connected' : 'Fitbit, WHOOP', go: () => router.push('/watch') },
+    { icon: 'pulse', color: dom.heart, t: 'Tracker', v: 'Heart rate, today', go: () => router.push('/tracker' as Href) },
+    { icon: 'battery-charging', color: dom.sleep, t: 'Recovery', v: 'Readiness, sleep', go: () => router.push('/recovery') },
+  ];
+  const goals: RowT[] = [
+    { icon: 'trophy', color: dom.streak, t: 'Challenges', v: challenge ? 'In progress' : 'Join one', go: () => router.push('/challenges' as Href) },
     { icon: 'flag', color: dom.train, t: 'Plan and goal', v: optLabel(GOALS, profile.goal), go: () => router.push({ pathname: '/profile', params: { s: 'plan' } }) },
+    { icon: 'location', color: dom.steps, t: 'Where you train', v: place, go: () => router.push({ pathname: '/profile', params: { s: 'place' } }) },
+  ];
+  const nudges: RowT[] = [
+    { icon: 'barbell', color: dom.train, t: 'Workout', v: next ? clock12(next.hour, next.minute) : 'Off', go: () => router.push('/reminders') },
+    { icon: 'water', color: dom.water, t: 'Meals and water', v: [mealReminders ? `${mealReminders} meal${mealReminders > 1 ? 's' : ''}` : '', hydration.on ? 'water on' : ''].filter(Boolean).join(', ') || 'Off',
+      go: () => router.push('/reminders') },
+    { icon: 'medkit', color: dom.steps, t: 'Supplements', v: supplements ? `${supplements} picked${suppReminders ? ', reminders on' : ''}` : 'Add yours', go: () => router.push('/supplements' as Href) },
+  ];
+  const more: RowT[] = [
     { icon: 'person', color: dom.weight, t: 'About you', v: about, go: () => router.push({ pathname: '/profile', params: { s: 'about' } }) },
     ...(cycle ? [{ icon: 'water' as Icon, color: dom.protein, t: inPeriod ? 'Period ended' : 'Log period start',
       v: last ? `${inPeriod ? 'Started' : 'Last'} ${dayLabel(last.start)}` : 'Today', go: () => logPeriod(inPeriod ? 'end' : 'start'), act: true }] : []),
-    { icon: 'location', color: dom.steps, t: 'Where you train', v: place, go: () => router.push({ pathname: '/profile', params: { s: 'place' } }) },
-    { icon: 'notifications', color: dom.streak, t: 'Reminders', v: next ? clock12(next.hour, next.minute) : 'Off', go: () => router.push('/reminders') },
-  ];
-  // Watch first: connecting Fitbit, WHOOP and the rest is the main way data gets in, so it sits right under your card.
-  const devices: RowT[] = [
-    { icon: 'watch', color: dom.heart, t: 'Watch & health', v: connected ? 'Connected' : 'Fitbit, WHOOP', go: () => router.push('/watch') },
-    { icon: 'battery-charging', color: dom.sleep, t: 'Recovery', v: 'Readiness, sleep, effort', go: () => router.push('/recovery') },
-  ];
-  const more: RowT[] = [
     { icon: 'people', color: dom.sleep, t: 'Gym etiquette', go: () => router.push('/etiquette') },
     { icon: 'server', color: c.muted, t: 'Your data', v: 'On this phone', go: () => setSheet('data') },
   ];
@@ -169,27 +182,14 @@ export default function You() {
           </Tap>
         </Animated.View>
 
-        <Animated.View entering={enter(1)} style={{ gap: 8 }}>
-          <T v="label" style={s.head}>Your watch</T>
-          <View style={s.group}>{group(devices)}</View>
-        </Animated.View>
+        {([['Your watch', devices], ['Goals', goals], ['Reminders', nudges], ['Look and feel', look], ['More', more]] as const).map(([head, list], i) => (
+          <Animated.View key={head} entering={enter(i + 1)} style={{ gap: 8 }}>
+            <T v="h3" style={s.head}>{head}</T>
+            <View style={s.group}>{group(list as RowT[])}</View>
+          </Animated.View>
+        ))}
 
-        <Animated.View entering={enter(1)} style={{ gap: 8 }}>
-          <T v="label" style={s.head}>Look and feel</T>
-          <View style={s.group}>{group(look)}</View>
-        </Animated.View>
-
-        <Animated.View entering={enter(2)} style={{ gap: 8 }}>
-          <T v="label" style={s.head}>You and your plan</T>
-          <View style={s.group}>{group(rows)}</View>
-        </Animated.View>
-
-        <Animated.View entering={enter(3)} style={{ gap: 8 }}>
-          <T v="label" style={s.head}>More</T>
-          <View style={s.group}>{group(more)}</View>
-        </Animated.View>
-
-        <Animated.View entering={enter(4)}>
+        <Animated.View entering={enter(6)}>
           <T v="small" color={c.muted} style={{ textAlign: 'center' }}>
             {planById[planId] ? `Plan: ${planById[planId].name} · ` : ''}Not medical advice
           </T>
@@ -201,12 +201,12 @@ export default function You() {
         <View style={{ gap: 16 }}>
           <T v="h2">Theme and colours</T>
           <View style={{ gap: 8 }}>
-            <T v="label">Theme</T>
+            <T v="h3">Theme</T>
             <Segmented options={MODES} value={mode} onChange={(m) => pickLook({ mode: m })} />
             <T v="small">{mode === 'system' ? 'Follows your phone: light by day if your phone is set that way' : mode === 'light' ? 'Always light' : 'Always dark'}</T>
           </View>
           <View style={{ gap: 8 }}>
-            <T v="label">Accent colour</T>
+            <T v="h3">Accent colour</T>
             <View style={s.swatches}>
               {(Object.keys(ACCENTS) as AccentId[]).map((id) => {
                 const on = accent === id;
@@ -225,7 +225,7 @@ export default function You() {
             </View>
           </View>
           <View style={{ gap: 8 }}>
-            <T v="label">Colours for each part of your day</T>
+            <T v="h3">Colours for each part of your day</T>
             <View style={s.legend}>
               {([['train', 'barbell', 'Training'], ['heart', 'heart', 'Heart'], ['sleep', 'moon', 'Sleep'], ['kcal', 'flame', 'Food'],
                 ['protein', 'nutrition', 'Protein'], ['water', 'water', 'Water'], ['weight', 'scale', 'Weight'], ['streak', 'trophy', 'Streak']] as const).map(([k, icon, label]) => (
@@ -286,7 +286,7 @@ export default function You() {
 const s = StyleSheet.create({
   card: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1, overflow: 'hidden' },
   avatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  head: { paddingHorizontal: 4 },
+  head: { paddingHorizontal: 4, marginTop: 4 },
   group: { borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, paddingVertical: 10 },
   rule: { borderTopWidth: 1, borderTopColor: c.line },

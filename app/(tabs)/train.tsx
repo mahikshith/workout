@@ -13,6 +13,7 @@ import { useStore, type Profile } from '../../src/store';
 import { c, equip, f, r } from '../../src/theme';
 import { Avatar, ListRow, Row, Section, T, Tap, Thumb } from '../../src/ui';
 import { Enter, MuscleGrid, plural } from '../library';
+import { ChallengesDoor } from '../../src/challenges/Card';
 
 // Train: your plan, the whole exercise library (search + muscle grid) and every other plan, in one place.
 // Depth: Train -> plan / muscle page / exercise -> exercise (alternatives replace, never stack).
@@ -183,6 +184,11 @@ export default function Train() {
                 </Tap>
               </Enter>
             )}
+
+            {/* Challenges: 14 to 30 days with one task a day (round 13). */}
+            <Enter i={1} style={{ marginTop: cur ? 12 : 0 }}>
+              <ChallengesDoor />
+            </Enter>
 
             <Enter i={1}>
               <Section title="Muscles" action="All exercises" onAction={() => router.push('/library')} style={{ marginTop: 28 }}>

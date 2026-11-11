@@ -14,7 +14,8 @@ import guide from '../src/data/guide.json';
 import { gate } from '../src/engine';
 import { useLiveHr } from '../src/health/live';
 import { useReadinessAdvice } from '../src/health/useReadiness';
-import { EASE, goBack, useElapsed } from '../src/kit';
+import { Hint } from '../src/hint';
+import { EASE, goBack, nextOpen, useElapsed } from '../src/kit';
 import { reschedule, restAlert } from '../src/notify';
 import { ChangeList } from '../src/restday';
 import { Sheet } from '../src/sheet';
@@ -28,15 +29,22 @@ import { Button, Chip, Demo, haptic, Ring, Row, Stepper, T, Tap, Thumb } from '.
 // bar's mini bar. The exercise on screen and the rest timer live in the store (active.idx, active.restUntil) so the mini
 // bar shows the same thing.
 //
-// The flow carries itself: each ✓ logs the set and starts the rest; when the last set of an exercise is logged the rest
-// shows what is up next and, when it ends (or is skipped), the next exercise comes on screen. When every set is logged
-// the workout saves itself after a short, cancellable beat. The only finish control on screen is Finish workout on the
-// last exercise; everything else about the workout (edit, change, end early, discard) lives behind ⋯ in the header.
+// The flow carries itself (round 13, docs/round13/workout.md). The one big button at the bottom is "Done · log set N":
+// it logs the next set with the numbers shown and starts the rest (the ✓ on each row does the same, for people who
+// prefer it). While resting, the rest panel offers the choices in words: wait (the countdown, −15/+15), Pause, Next set
+// (rest over, go now) and Next exercise. "Next exercise · logs set N" under the big button logs the set in progress and
+// moves on, leaving that exercise's other sets for later (the strip at the top goes back); a tip explains it the first
+// two times and an Undo toast follows it. When the last set of an exercise is logged the rest shows what is up next and,
+// when it ends, the next exercise comes on screen. When every set is logged the workout saves itself after a short,
+// cancellable beat. The only Finish workout on screen is on the last exercise; everything else about the workout (edit,
+// change, end early, discard) lives behind ⋯ in the header.
 
 type Guide = { steps?: string[]; mistake?: string };
 const GUIDE = guide as Record<string, Guide>;
 const NO_WEIGHT = ['pelvic floor', 'stretching', 'mobility', 'eyes', 'desk', 'breathing', 'cardio'];
 const SAVE_BEAT = 3000; // ms between the last set and the automatic save, while "Add more" can still stop it
+const UNDO_MS = 5000; // how long Undo stays after Next logged a set
+const NEXT_TIP = 'Tapping Next logs this set with these numbers and moves on. You can always go back and edit.';
 
 type Kind = 'menu' | 'end' | 'discard' | 'swap' | 'info' | 'add' | 'edit' | 'change';
 type Icon = keyof typeof Ionicons.glyphMap;
@@ -55,15 +63,6 @@ const restEndHaptic = () => {
 // Seconds of the running workout right now, without pauses (read when a sheet opens; the clock itself ticks in Clock).
 const elapsedOf = (a: Session | null) =>
   !a || a.running === false ? 0 : Math.max(0, Math.floor(((a.pausedAt ?? Date.now()) - a.startedAt - (a.pausedMs ?? 0)) / 1000));
-
-// The next exercise after `from` that still has sets to log (wrapping round to ones skipped earlier), or -1.
-const nextOpen = (items: Item[], from: number) => {
-  for (let k = 1; k < items.length; k++) {
-    const n = (from + k) % items.length;
-    if (items[n].sets.some((x) => !x.done)) return n;
-  }
-  return -1;
-};
 
 // The live clock in the header. It is the only part of the header that re-renders every second.
 function Clock({ paused }: { paused: boolean }) {
@@ -110,6 +109,11 @@ export default function SessionScreen() {
   const [swapAt, setSwapAt] = useState(0); // the exercise the swap sheet is for
   const [back, setBack] = useState<Kind | null>(null); // the sheet to return to after a swap or add opened from Edit
   const [addJump, setAddJump] = useState(false); // an exercise added from the workout itself comes on screen
+  // Undo after "Next exercise · logs set N": which set it logged, for 5 s.
+  const [undo, setUndo] = useState<{ i: number; j: number; text: string } | null>(null);
+  useEffect(() => { if (!undo) return; const t = setTimeout(() => setUndo(null), UNDO_MS); return () => clearTimeout(t); }, [undo]);
+  const [barH, setBarH] = useState(120); // height of the bottom bar, so the Undo toast sits just above it
+  const [tipSeen, setTipSeen] = useState(false); // the Next tip is mounted (and counted) once per visit, the first time it applies
 
   const restUntil = active?.restUntil ?? null;
   const restTotal = active?.restTotal ?? 90;
@@ -218,10 +222,17 @@ export default function SessionScreen() {
   const lastLine = lastText(prev, timed);
   const isLast = idx >= active.items.length - 1;
   const elapsed = elapsedOf(active); // fresh whenever the screen re-renders (a sheet opening, a set logged)
-  // During a rest that follows the last set of an exercise, the panel says what comes next.
-  const from = active.restFrom;
-  const upNext = from !== undefined && from === idx && active.items[from]?.sets.every((x) => x.done) ? nextOpen(active.items, from) : -1;
-  const nextName = upNext >= 0 ? byId[active.items[upNext].exId]?.name : undefined;
+  // What comes next: the set to do now on this exercise (-1 once all are logged) and the next exercise with sets left.
+  const open = it.sets.findIndex((x) => !x.done);
+  const after = nextOpen(active.items, idx);
+  const afterName = after >= 0 ? byId[active.items[after].exId]?.name : undefined;
+  const finishHere = isLast || after < 0; // Finish workout shows only on the last exercise (or when nothing else is left)
+  const setText = (j: number) => {
+    const x = it.sets[j];
+    return timed ? fmtTime(x.reps) : showWeight && x.weight > 0 ? `${x.weight} kg × ${x.reps}` : `${x.reps} reps`;
+  };
+  const nextLogs = !ready && open >= 0 && !finishHere; // "Next exercise · logs set N" is on screen
+  if (nextLogs && !tipSeen) setTipSeen(true);
 
   // Pausing freezes the rest countdown too: on resume its deadline moves by the paused time.
   const doPause = () => { pause(); restAlert(null); haptic('medium'); };
@@ -252,6 +263,46 @@ export default function SessionScreen() {
     if (a && a.items.every((x) => x.sets.every((y) => y.done))) { skipRest(); return; } // the save beat takes over
     startRest(it.rest, idx);
   }
+
+  // Done · log set N: the big button logs the next set of this exercise, like its ✓. A fast second tap is ignored (the
+  // next set's button would be under the finger).
+  function logNow() {
+    if (open < 0 || Date.now() - lastTick.current.at < 600) return;
+    toggle(open);
+  }
+
+  // Next exercise · logs set N: the set in progress is logged with the numbers shown, the rest of this exercise's sets
+  // stay unlogged for later, and the next exercise with sets left comes on screen. Undo puts it back.
+  function nextLogging() {
+    const t = Date.now();
+    if (open < 0 || after < 0 || t - lastTick.current.at < 600) return;
+    lastTick.current = { key: 'next', at: t };
+    if (paused) doResume();
+    updateSet(idx, open, { done: true });
+    haptic('light');
+    skipRest();
+    setEnding(false);
+    setUndo({ i: idx, j: open, text: `Set ${open + 1} of ${ex.name} logged` });
+    const a = useStore.getState().active;
+    if (a && a.items.every((x) => x.sets.every((y) => y.done))) return; // the save beat takes over
+    setIdx(after);
+  }
+  function undoNext() {
+    if (!undo) return;
+    updateSet(undo.i, undo.j, { done: false });
+    setIdx(undo.i);
+    setUndo(null);
+    haptic('light');
+  }
+
+  // Rest panel: Next set ends the rest and stays; Next exercise ends it and moves on without logging anything.
+  const restNextSet = () => { skipRest(); setEnding(false); };
+  const restNextEx = () => {
+    skipRest();
+    setEnding(false);
+    const n = nextOpen(useStore.getState().active?.items ?? [], idx);
+    if (n >= 0) setIdx(n);
+  };
 
   function save() {
     if (leaving.current) return;
@@ -328,7 +379,7 @@ export default function SessionScreen() {
         })}
       </Row>
 
-      <ScrollView ref={scroll} contentContainerStyle={{ padding: 12, paddingBottom: 200 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scroll} contentContainerStyle={{ padding: 12, paddingBottom: barH + 24 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Animated.View key={it.exId + idx} entering={still ? undefined : FadeInDown.duration(300).easing(EASE)}>
           <T v="label">Exercise {idx + 1} of {active.items.length} · {title(ex.primary[0])} · {it.sets.length} × {it.target}</T>
           <Row style={{ alignItems: 'flex-start', marginTop: 4 }} gap={8}>
@@ -382,7 +433,14 @@ export default function SessionScreen() {
         </Animated.View>
       </ScrollView>
 
-      <View style={[s.bottom, { paddingBottom: ins.bottom + 12 }]}>
+      <View style={[s.bottom, { paddingBottom: ins.bottom + 12 }]} onLayout={(e) => setBarH(e.nativeEvent.layout.height)}>
+        {/* The Next tip mounts once per visit, the first time Next would log a set, and from then on only hides (it
+            stays mounted through rests), so one visit counts as one showing. */}
+        {tipSeen && (
+          <View style={[{ marginBottom: 6 }, !(nextLogs && !restUntil && !ending && !saving) && { display: 'none' }]}>
+            <Hint id="session-next-logs" text={NEXT_TIP} icon="information-circle-outline" />
+          </View>
+        )}
         {ready ? (
           <Animated.View exiting={FadeOut.duration(150)} style={{ gap: 10 }}>
             <T v="small" style={{ textAlign: 'center' }}>Look through the moves. The clock starts when you do.</T>
@@ -402,39 +460,78 @@ export default function SessionScreen() {
         ) : saving ? (
           <DonePanel still={still} onAddMore={addMore} />
         ) : restUntil || ending ? (
-          <RestPanel until={restUntil} total={restTotal} pausedAt={pausedAt} ending={ending} still={still} next={nextName} onEnded={restEnded}
+          <RestPanel until={restUntil} total={restTotal} pausedAt={pausedAt} ending={ending} still={still} onEnded={restEnded}
+            upNext={open >= 0 ? `Set ${open + 1} · ${setText(open)}` : afterName}
+            hasSets={open >= 0} canNextEx={after >= 0}
             onPause={pausedAt ? doResume : doPause}
             onLess={() => restUntil && changeRest(Math.max(Date.now() + 1000, restUntil - 15000))}
             onMore={() => restUntil && changeRest(restUntil + 15000, restTotal + 15)}
-            onSkip={() => { moveOn(); skipRest(); setEnding(false); }} />
+            onNextSet={restNextSet} onNextEx={restNextEx} />
         ) : (
-          <Animated.View entering={FadeIn.duration(200)}>
-          <Row gap={10}>
-            <Tap onPress={paused ? doResume : doPause} style={[s.nav, paused && { backgroundColor: c.accent }]} feedback="none"
-              accessibilityLabel={paused ? 'Resume workout' : 'Pause workout'}>
-              <Ionicons name={paused ? 'play' : 'pause'} size={24} color={paused ? c.accentInk : c.text} />
-            </Tap>
-            <Tap onPress={() => setIdx(idx - 1)} disabled={idx === 0} style={[s.nav, idx === 0 && s.off]} accessibilityLabel="Previous exercise">
-              <Ionicons name="chevron-back" size={22} color={c.text} />
-            </Tap>
-            {isLast || allDone ? (
-              <Tap onPress={finishTap} style={[s.wide, { flex: 1, backgroundColor: c.text }]} accessibilityLabel="Finish workout">
-                <T v="h3" color={c.bg} numberOfLines={1}>Finish workout</T><Ionicons name="checkmark" size={20} color={c.bg} />
+          <Animated.View entering={FadeIn.duration(200)} style={{ gap: 6 }}>
+            <Row gap={10}>
+              <Tap onPress={paused ? doResume : doPause} style={[s.nav, paused && { backgroundColor: c.accent }]} feedback="none"
+                accessibilityLabel={paused ? 'Resume workout' : 'Pause workout'}>
+                <Ionicons name={paused ? 'play' : 'pause'} size={24} color={paused ? c.accentInk : c.text} />
               </Tap>
-            ) : (
-              <>
-                <View style={{ flex: 1, alignItems: 'center' }}>
-                  <T v="label" numberOfLines={1}>{done}/{total} sets</T>
-                </View>
-                <Tap onPress={() => setIdx(idx + 1)} style={[s.wide, { backgroundColor: c.text }]} accessibilityLabel="Next exercise">
-                  <T v="h3" color={c.bg}>Next</T><Ionicons name="chevron-forward" size={20} color={c.bg} />
+              {open >= 0 ? (
+                <Tap onPress={logNow} style={[s.wide, { flex: 1, backgroundColor: c.accent }]} scale={0.97} feedback="none"
+                  accessibilityLabel={`Done, log set ${open + 1}, ${setText(open)}`}>
+                  <Ionicons name="checkmark" size={22} color={c.accentInk} />
+                  <T v="h3" color={c.accentInk} numberOfLines={1}>Done · log set {open + 1}</T>
                 </Tap>
-              </>
-            )}
-          </Row>
+              ) : finishHere ? (
+                <Tap onPress={finishTap} style={[s.wide, { flex: 1, backgroundColor: c.accent }]} accessibilityLabel="Finish workout">
+                  <T v="h3" color={c.accentInk} numberOfLines={1}>Finish workout</T><Ionicons name="checkmark" size={20} color={c.accentInk} />
+                </Tap>
+              ) : (
+                <Tap onPress={() => setIdx(after)} style={[s.wide, { flex: 1, backgroundColor: c.accent }]} accessibilityLabel={`Next exercise, ${afterName ?? ''}`}>
+                  <T v="h3" color={c.accentInk} numberOfLines={1}>Next exercise</T><Ionicons name="chevron-forward" size={20} color={c.accentInk} />
+                </Tap>
+              )}
+            </Row>
+            <Row style={{ justifyContent: 'space-between', minHeight: 44 }}>
+              {idx > 0 ? (
+                <Tap onPress={() => setIdx(idx - 1)} style={s.link} scale={0.97} accessibilityLabel="Previous exercise">
+                  <Ionicons name="chevron-back" size={18} color={c.muted} />
+                  <T v="small" color={c.muted} style={s.linkText}>Previous</T>
+                </Tap>
+              ) : <View />}
+              {open >= 0 ? (
+                finishHere ? (
+                  <Tap onPress={finishTap} style={s.link} scale={0.97} accessibilityLabel="Finish workout">
+                    <T v="small" color={c.text} style={s.linkText}>Finish workout</T>
+                    <Ionicons name="flag-outline" size={16} color={c.text} />
+                  </Tap>
+                ) : (
+                  <Tap onPress={nextLogging} style={s.link} scale={0.97} accessibilityLabel={`Next exercise, logs set ${open + 1} with ${setText(open)}`}>
+                    <T v="small" color={c.text} style={s.linkText}>Next exercise · logs set {open + 1}</T>
+                    <Ionicons name="chevron-forward" size={18} color={c.text} />
+                  </Tap>
+                )
+              ) : finishHere && afterName ? (
+                <Tap onPress={() => setIdx(after)} style={s.link} scale={0.97} accessibilityLabel={`Back to ${afterName}`}>
+                  <T v="small" color={c.text} style={s.linkText} numberOfLines={1}>Back to {afterName}</T>
+                  <Ionicons name="chevron-forward" size={18} color={c.text} />
+                </Tap>
+              ) : !finishHere && afterName ? (
+                <T v="small" numberOfLines={1} style={{ flexShrink: 1, paddingHorizontal: 8 }}>Up next · {afterName}</T>
+              ) : null}
+            </Row>
           </Animated.View>
         )}
       </View>
+
+      {undo && (
+        <Animated.View entering={still ? undefined : FadeInDown.duration(220).easing(EASE)} exiting={still ? undefined : FadeOut.duration(160)}
+          style={[s.toast, { bottom: barH + 8 }]} accessibilityLiveRegion="polite">
+          <Ionicons name="checkmark-circle" size={20} color={c.ok} />
+          <T v="small" color={c.bg} numberOfLines={1} style={{ flex: 1 }}>{undo.text}</T>
+          <Tap onPress={undoNext} style={s.undo} scale={0.95} accessibilityLabel="Undo, un-log that set">
+            <T v="h3" color={c.bg} style={{ fontSize: 15 }}>Undo</T>
+          </Tap>
+        </Animated.View>
+      )}
 
       <Sheet open={!!sheet} onClose={() => { setSheet(back && (sheet === 'swap' || sheet === 'add') ? back : null); setBack(null); }}>
         {kind === 'menu' && (
@@ -698,14 +795,18 @@ function DonePanel({ still, onAddMore }: { still: boolean; onAddMore: () => void
 }
 
 // The rest timer at the bottom. It owns the 250 ms clock, so only this panel re-renders while resting; the countdown
-// freezes while paused. When it reaches zero it tells the screen (late = it ran out while minimised) and pulses. After
-// the last set of an exercise it says what is up next; the screen moves there when the rest ends or is skipped.
-function RestPanel({ until, total, pausedAt, ending, still, next, onEnded, onPause, onLess, onMore, onSkip }: {
-  until: number | null; total: number; pausedAt?: number; ending: boolean; still: boolean; next?: string; onEnded: (late: boolean) => void;
-  onPause: () => void; onLess: () => void; onMore: () => void; onSkip: () => void;
+// freezes while paused. When it reaches zero it tells the screen (late = it ran out while minimised) and pulses.
+// It spells out the choices: keep resting (the countdown, −15/+15), Pause, Next set (go now) and Next exercise. After
+// the last set of an exercise it says what is up next; the screen moves there when the rest ends or on Next exercise.
+// Taps in its first half second are ignored, so a double tap on Done never skips the rest it just started.
+function RestPanel({ until, total, pausedAt, ending, still, upNext, hasSets, canNextEx, onEnded, onPause, onLess, onMore, onNextSet, onNextEx }: {
+  until: number | null; total: number; pausedAt?: number; ending: boolean; still: boolean; upNext?: string; hasSets: boolean; canNextEx: boolean;
+  onEnded: (late: boolean) => void; onPause: () => void; onLess: () => void; onMore: () => void; onNextSet: () => void; onNextEx: () => void;
 }) {
   const now = useNow(until && !pausedAt ? 250 : 1000);
   const left = until ? Math.max(0, until - (pausedAt ?? now)) : 0;
+  const born = useRef(Date.now());
+  const guard = (fn: () => void) => () => { if (Date.now() - born.current > 500) fn(); };
   const pulse = useSharedValue(1);
   useEffect(() => {
     if (!until || pausedAt || until > now) return;
@@ -714,30 +815,43 @@ function RestPanel({ until, total, pausedAt, ending, still, next, onEnded, onPau
     if (!late && !still) pulse.value = withSequence(withTiming(1.12, { duration: 160 }), withTiming(0.96, { duration: 160 }), withSpring(1, { damping: 10, stiffness: 220 }));
   }, [now, until, pausedAt]);
   const ringPulse = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+  // The filled button goes on: the next set while this exercise has sets left, otherwise the next exercise.
+  const go = hasSets ? { label: 'Next set', a11y: 'Skip rest, next set', on: onNextSet }
+    : canNextEx ? { label: 'Next exercise', a11y: 'Skip rest, next exercise', on: onNextEx }
+    : { label: 'Go now', a11y: 'Skip rest', on: onNextSet };
   return (
     <Animated.View entering={still ? undefined : FadeInDown.duration(320).easing(EASE)} exiting={still ? undefined : FadeOutDown.duration(200)} style={s.rest}>
-      <Animated.View style={ringPulse}>
-        <Ring size={64} stroke={7} progress={left / (total * 1000)} color={c.warm}>
-          <T style={{ fontFamily: f.bold, fontSize: 16, fontVariant: ['tabular-nums'] }}>{ending ? 'Go' : fmtTime(Math.ceil(left / 1000))}</T>
-        </Ring>
-      </Animated.View>
-      <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
-        <T v="label" color={c.warm} numberOfLines={1}>
-          {next ? `Up next · ${next}` : ending ? 'Rest over' : pausedAt ? 'Rest · paused' : 'Rest'}
-        </T>
-        <Row gap={8}>
-          {/* Pause works during rest too: the countdown freezes with the workout clock. */}
-          <Tap onPress={onPause} disabled={ending} style={[s.restPause, pausedAt ? { backgroundColor: c.warm } : null]} feedback="none"
-            accessibilityLabel={pausedAt ? 'Resume workout' : 'Pause workout'}>
-            <Ionicons name={pausedAt ? 'play' : 'pause'} size={20} color={pausedAt ? c.accentInk : c.text} />
+      <Row gap={14}>
+        <Animated.View style={ringPulse}>
+          <Ring size={64} stroke={6} progress={left / (total * 1000)} color={c.warm}>
+            <T v="h3" style={{ fontVariant: ['tabular-nums'] }}>{ending ? 'Go' : fmtTime(Math.ceil(left / 1000))}</T>
+          </Ring>
+        </Animated.View>
+        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+          <T v="label" color={c.warm} numberOfLines={1}>{ending ? 'Rest over' : pausedAt ? 'Rest · paused' : upNext ? 'Rest · up next' : 'Rest'}</T>
+          {upNext ? <T v="small" color={c.text} numberOfLines={2} style={{ fontFamily: f.semi }}>{upNext}</T> : null}
+        </View>
+        <Tap onPress={onLess} disabled={ending} style={s.restStep} accessibilityLabel="15 seconds less rest"><T v="h3" style={{ fontSize: 15 }}>−15</T></Tap>
+        <Tap onPress={onMore} disabled={ending} style={s.restStep} accessibilityLabel="15 seconds more rest"><T v="h3" style={{ fontSize: 15 }}>+15</T></Tap>
+      </Row>
+      <Row gap={8}>
+        {/* Pause works during rest too: the countdown freezes with the workout clock. */}
+        <Tap onPress={onPause} disabled={ending} style={[s.restBtn, s.restFit, pausedAt ? { backgroundColor: c.warm } : null]} feedback="none"
+          accessibilityLabel={pausedAt ? 'Resume workout' : 'Pause workout'}>
+          <Ionicons name={pausedAt ? 'play' : 'pause'} size={16} color={pausedAt ? c.accentInk : c.text} />
+          <T v="h3" color={pausedAt ? c.accentInk : c.text} style={{ fontSize: 15 }}>{pausedAt ? 'Resume' : 'Pause'}</T>
+        </Tap>
+        {hasSets && canNextEx && (
+          <Tap onPress={guard(onNextEx)} style={[s.restBtn, s.restFit]} accessibilityLabel="Skip rest, next exercise">
+            <T v="h3" numberOfLines={1} style={{ fontSize: 15 }}>Next exercise</T>
           </Tap>
-          <Tap onPress={onLess} disabled={ending} style={s.restBtn}><T v="h3">−15</T></Tap>
-          <Tap onPress={onMore} disabled={ending} style={s.restBtn}><T v="h3">+15</T></Tap>
-          <Tap onPress={onSkip} style={[s.restBtn, { backgroundColor: c.warm }]} accessibilityLabel={next ? 'Skip rest, next exercise' : 'Skip rest'}>
-            <T v="h3" color={c.accentInk}>Skip</T>
-          </Tap>
-        </Row>
-      </View>
+        )}
+        {/* One filled button: Resume while paused, otherwise the way on. */}
+        <Tap onPress={guard(go.on)} style={[s.restBtn, !pausedAt && { backgroundColor: c.warm }]} accessibilityLabel={go.a11y}>
+          <T v="h3" color={pausedAt ? c.text : c.accentInk} numberOfLines={1} style={{ fontSize: 15 }}>{go.label}</T>
+          <Ionicons name="chevron-forward" size={18} color={pausedAt ? c.text : c.accentInk} />
+        </Tap>
+      </Row>
     </Animated.View>
   );
 }
@@ -878,7 +992,6 @@ const s = StyleSheet.create({
   info: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' },
   centre: { position: 'absolute', left: 64, right: 64, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   off: { opacity: 0.35 },
-  restPause: { width: 44, height: 44, borderRadius: 22, backgroundColor: tint(c.warm, 1.8), alignItems: 'center', justifyContent: 'center' },
   live: { position: 'absolute', left: -14, top: '50%', marginTop: -4, width: 8, height: 8, borderRadius: 4, backgroundColor: c.danger },
   seg: { height: 4, borderRadius: 2, backgroundColor: c.card2, overflow: 'hidden' },
   pill: { flex: 1, height: 48, borderRadius: 24, backgroundColor: c.card2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
@@ -897,8 +1010,14 @@ const s = StyleSheet.create({
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 12, paddingTop: 12, backgroundColor: c.bg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   nav: { height: 52, width: 52, borderRadius: 26, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   wide: { height: 52, minWidth: 128, paddingHorizontal: 18, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  rest: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: tint(c.warm, 0.8), borderWidth: 1, borderColor: tint(c.warm, 1.6), borderRadius: r.lg, padding: 12 },
-  restBtn: { flex: 1, height: 44, borderRadius: 22, backgroundColor: tint(c.warm, 1.8), alignItems: 'center', justifyContent: 'center' },
+  rest: { gap: 12, backgroundColor: tint(c.warm, 0.8), borderWidth: 1, borderColor: tint(c.warm, 1.6), borderRadius: r.lg, padding: 12 },
+  restStep: { width: 48, height: 44, borderRadius: 22, backgroundColor: tint(c.warm, 1.8), alignItems: 'center', justifyContent: 'center' },
+  restBtn: { flexGrow: 1, flexBasis: 0, height: 48, paddingHorizontal: 10, borderRadius: 24, backgroundColor: tint(c.warm, 1.8), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  restFit: { flexGrow: 0, flexBasis: 'auto', paddingHorizontal: 14 },
+  link: { minHeight: 44, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 2, flexShrink: 1 },
+  linkText: { fontFamily: f.semi, fontSize: 15 },
+  toast: { position: 'absolute', left: 12, right: 12, minHeight: 52, paddingLeft: 14, paddingRight: 4, borderRadius: r.md, backgroundColor: c.text, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  undo: { height: 44, paddingHorizontal: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   done: { gap: 12, backgroundColor: c.card, borderRadius: r.lg, padding: 12, borderWidth: 1, borderColor: c.line },
   doneIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   addMore: { height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: c.card2, flexDirection: 'row', alignItems: 'center', gap: 4 },

@@ -13,7 +13,7 @@ import { c, f, tint } from '../../src/theme';
 // Four labelled tabs with the Start button in the middle (docs/REDESIGN.md, section 2). Profile, settings and
 // Watch & health open from the avatar at the top of every tab.
 const TABS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  index: { label: 'Today', icon: 'today' },
+  index: { label: 'Today', icon: 'home' }, // a house, not a calendar: the calendar is its own place (Progress)
   train: { label: 'Train', icon: 'barbell' },
   progress: { label: 'Progress', icon: 'stats-chart' },
   fuel: { label: 'Fuel', icon: 'nutrition' },

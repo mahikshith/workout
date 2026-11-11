@@ -76,7 +76,7 @@ export function RestDaySheet({ open, onClose }: { open: boolean; onClose: () => 
             <T v="small" numberOfLines={2}>{opts.next.reason.split('. ')[0]}</T>
           </View>
           <Button title={`Train anyway · ${opts.next.day.name}`} icon="play" onPress={trainAnyway} />
-          {opts.picks.length > 0 && <T v="label" style={{ marginTop: 4 }}>Quick 20 min</T>}
+          {opts.picks.length > 0 && <T v="small" color={c.label} style={{ marginTop: 4 }}>Quick 20 min</T>}
           {opts.picks.map((q) => (
             <Tap key={q.id} onPress={() => startQuick(q)} style={s.row} scale={0.98}>
               <View style={[s.icon, { backgroundColor: c.accent + '22' }]}><Ionicons name={q.icon} size={20} color={c.accent} /></View>
@@ -128,7 +128,7 @@ export function ChangeList({ place, current, note, onPick }: {
         <T v="small" numberOfLines={1}>{note ?? 'Pick what you want to do instead'}</T>
       </View>
       <ScrollView style={{ maxHeight: 500 }} contentContainerStyle={{ gap: 8, paddingBottom: 4 }} showsVerticalScrollIndicator={false}>
-        {plan && <T v="label" style={{ marginTop: 4 }} numberOfLines={1}>{plan.name}</T>}
+        {plan && <T v="small" color={c.label} style={{ marginTop: 4 }} numberOfLines={1}>{plan.name}</T>}
         {plan?.days.map((d, k) => {
           const now = current?.planId === plan.id && current.dayIndex === k;
           return (
@@ -143,7 +143,7 @@ export function ChangeList({ place, current, note, onPick }: {
             </Tap>
           );
         })}
-        {picks.length > 0 && <T v="label" style={{ marginTop: 8 }}>Quick 20 min</T>}
+        {picks.length > 0 && <T v="small" color={c.label} style={{ marginTop: 8 }}>Quick 20 min</T>}
         {picks.map((q) => (
           <Tap key={q.id} onPress={() => pick({ day: asDay(q.q), place: q.place })} style={s.row} scale={0.98} accessibilityLabel={`Change to ${q.name}`}>
             <View style={[s.icon, { backgroundColor: c.accent + '22' }]}><Ionicons name={q.icon} size={20} color={c.accent} /></View>
@@ -154,7 +154,7 @@ export function ChangeList({ place, current, note, onPick }: {
             <Ionicons name="chevron-forward" size={18} color={c.dim} />
           </Tap>
         ))}
-        <T v="label" style={{ marginTop: 8 }}>Different focus</T>
+        <T v="small" color={c.label} style={{ marginTop: 8 }}>Different focus</T>
         <View style={s.chips}>
           {focus.map((x) => (
             <Chip key={x.planId} label={x.label} on={current?.planId === x.planId}

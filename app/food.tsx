@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dayKey } from '../src/calc';
 import { perServing, recipeById, totals, type Recipe } from '../src/data/recipes';
 import { swapFor } from '../src/data/swaps';
-import { FoodPicker, isGentle, slotName, slotNow, SLOTS } from '../src/foodsheet';
+import { FoodPicker, isGentle, servings, slotName, slotNow, SLOTS } from '../src/foodsheet';
 import { EASE, goBack, Header, useMiniBarSpace } from '../src/kit';
 import { useStore, type MealSlot } from '../src/store';
 import { c, r } from '../src/theme';
@@ -15,7 +15,7 @@ import { Banner, Button, Card, haptic, Row, Section, Stepper, T, Tap, Tile } fro
 
 type Icon = keyof typeof Ionicons.glyphMap;
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
-const plural = (n: number) => `${fmt(n)} serving${n === 1 ? '' : 's'}`;
+const plural = (n: number) => `${Number.isInteger(n * 2) ? servings(n) : fmt(n)} serving${n === 1 ? '' : 's'}`; // ½, 1½
 const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
 const weighed = (amount: string) => /\d\s?(g|ml)\b/.test(amount); // gentle mode hides gram and ml amounts
 const isSlot = (x?: string): x is MealSlot => !!x && SLOTS.some((s) => s.id === x);

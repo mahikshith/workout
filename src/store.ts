@@ -59,7 +59,15 @@ export type Session = { id: string; title: string; planId?: string; dayIndex?: n
   source?: 'strong' | 'hevy' | 'fitnotes' | 'gymbuddy' }; // set on sessions imported from another app's CSV
 // A day the person excused from training (one tap on Today): the missed-workout nudge skips it and doesn't count it.
 export type Excuse = 'sick' | 'travel' | 'rest';
-export type Meal = { id: string; day: string; name: string; kcal: number; protein: number; slot?: MealSlot };
+// carbs/fat are optional (most quick logs only know kcal and protein). at: when it was logged (epoch ms).
+export type Meal = { id: string; day: string; name: string; kcal: number; protein: number; slot?: MealSlot; carbs?: number; fat?: number; at?: number };
+
+// Round 13. A supplement or daily habit the person takes, with an optional reminder at their own time.
+// days: 0 = Sunday ... 6 = Saturday; empty = every day. `name` matches State.supplements.taken entries.
+export type SupplementReminder = { id: string; name: string; dose?: string; hour: number; minute: number; days: number[]; on: boolean };
+// The challenge the person has joined. start: dayKey of day 1. done: dayKeys ticked by hand (days a workout or the
+// watch already covers are worked out from sessions and tracker data, see src/data/challenges.ts).
+export type ChallengeRun = { id: string; start: string; done: string[]; endedAt?: string; completed?: boolean };
 
 type State = {
   profile: Profile; // name === '' means the user hasn't set up a profile yet; the app works anyway
@@ -82,7 +90,22 @@ type State = {
   mediaPref: MediaPref;
   periods: { start: string; end?: string }[]; // logged periods, newest last
   excuses: Record<string, Excuse>; // dayKey -> why; only the last 60 days are kept. Missed days are counted from sessions.
-  excuse: (why: Excuse | null) => void; // excuses today, or clears today's excuse
+  // Round 13
+  challenge: ChallengeRun | null; // the one challenge running now
+  pastChallenges: ChallengeRun[]; // finished or left, newest last
+  joinChallenge: (id: string) => void; // starts today; replaces (and files away) any running one
+  tickChallenge: (day?: string, on?: boolean) => void; // marks a day of the running challenge done by hand (default today, toggles)
+  leaveChallenge: (completed?: boolean) => void;
+  supplementReminders: SupplementReminder[];
+  setSupplementReminders: (r: SupplementReminder[]) => void;
+  // State.water counts standard 250 ml glasses (a 500 ml bottle adds 2), so every screen that compares it with
+  // targets().water stays right whatever glass size is picked. glassMl: what one tap adds (src/water.ts drink()).
+  // auto (default when unset): the goal follows body weight; false once the person sets goalMl themselves.
+  waterPrefs: { glassMl: number; goalMl: number; auto?: boolean };
+  setWaterPrefs: (w: { glassMl: number; goalMl: number; auto?: boolean }) => void;
+  hints: Record<string, number>; // one-time hints and coach marks: id -> times shown
+  seeHint: (id: string) => void; // counts one showing
+  excuse: (why: Excuse | null, day?: string) => void; // excuses a day (default today), or clears that day's excuse
   importSessions: (list: Session[]) => { added: number; skipped: number }; // skips days that already have a workout
   logPeriod: (what: 'start' | 'end') => void;
   setupSkipped: boolean; // true after Skip on first-launch setup: Today keeps a Personalize card
@@ -120,7 +143,7 @@ type State = {
   discard: () => void;
   deleteSession: (id: string) => void;
   logWeight: (kg: number) => void;
-  addMeal: (m: Omit<Meal, 'id' | 'day'>) => void; // pass slot to file it under a meal
+  addMeal: (m: Omit<Meal, 'id' | 'day'> & { day?: string }) => void; // pass slot to file it under a meal; day (default today) logs a forgotten meal
   removeMeal: (id: string) => void;
   addWater: (n: number) => void;
   reset: () => void;
@@ -208,6 +231,8 @@ const initial = {
   nudges: { missed: true, streak: true, recap: true, quietFrom: 22, quietTo: 7 },
   supplements: { picked: [] as string[], taken: {} as Record<string, string[]> }, dismissed: {}, mediaPref: 'animated' as MediaPref, setupSkipped: false, periods: [] as { start: string; end?: string }[],
   excuses: {} as Record<string, Excuse>,
+  challenge: null as ChallengeRun | null, pastChallenges: [] as ChallengeRun[], supplementReminders: [] as SupplementReminder[],
+  waterPrefs: { glassMl: 250, goalMl: 2500 }, hints: {} as Record<string, number>,
 };
 
 export const useStore = create<State>()(
@@ -362,18 +387,36 @@ export const useStore = create<State>()(
         if (fresh.length) set({ sessions: [...sessions, ...fresh].sort((a, b) => a.startedAt - b.startedAt) });
         return { added: fresh.length, skipped: list.length - fresh.length };
       },
-      excuse: (why) =>
+      excuse: (why, day) =>
         set((s) => {
-          const today = dayKey(), cut = dayKey(Date.now() - 60 * 86400000);
+          const today = day ?? dayKey(), cut = dayKey(Date.now() - 60 * 86400000);
           const excuses = Object.fromEntries(Object.entries(s.excuses).filter(([d]) => d >= cut && d !== today));
           return { excuses: why ? { ...excuses, [today]: why } : excuses };
         }),
       deleteSession: (id) => set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) })),
       logWeight: (kg) =>
         set((s) => ({ weights: [...s.weights.filter((w) => w.day !== dayKey()), { day: dayKey(), kg }], profile: s.profile && { ...s.profile, weightKg: kg } })),
-      addMeal: (m) => set((s) => ({ meals: [...s.meals, { ...m, id: uid(), day: dayKey() }] })),
+      addMeal: (m) => set((s) => ({ meals: [...s.meals, { ...m, id: uid(), day: m.day ?? dayKey(), at: m.at ?? Date.now() }] })),
+      joinChallenge: (id) =>
+        set((s) => ({
+          pastChallenges: s.challenge ? [...s.pastChallenges, { ...s.challenge, endedAt: dayKey() }] : s.pastChallenges,
+          challenge: { id, start: dayKey(), done: [] },
+        })),
+      tickChallenge: (day = dayKey(), on) =>
+        set((s) => {
+          if (!s.challenge) return {};
+          const has = s.challenge.done.includes(day);
+          const want = on ?? !has;
+          const done = want ? [...new Set([...s.challenge.done, day])] : s.challenge.done.filter((d) => d !== day);
+          return { challenge: { ...s.challenge, done } };
+        }),
+      leaveChallenge: (completed = false) =>
+        set((s) => (s.challenge ? { challenge: null, pastChallenges: [...s.pastChallenges, { ...s.challenge, endedAt: dayKey(), completed }] } : {})),
+      setSupplementReminders: (supplementReminders) => set({ supplementReminders }),
+      setWaterPrefs: (waterPrefs) => set({ waterPrefs }),
+      seeHint: (id) => set((s) => ({ hints: { ...s.hints, [id]: (s.hints[id] ?? 0) + 1 } })),
       removeMeal: (id) => set((s) => ({ meals: s.meals.filter((m) => m.id !== id) })),
-      addWater: (n) => set((s) => ({ water: { ...s.water, [dayKey()]: Math.max(0, (s.water[dayKey()] ?? 0) + n) } })),
+      addWater: (n) => set((s) => ({ water: { ...s.water, [dayKey()]: Math.max(0, Math.round(((s.water[dayKey()] ?? 0) + n) * 100) / 100) } })),
       skipSetup: (setupSkipped) => set({ setupSkipped }),
       // A logged period start also becomes the profile's cycle anchor; the usual length is learned from past starts.
       logPeriod: (what) =>
@@ -407,7 +450,7 @@ export const useStore = create<State>()(
       reset: () => set(initial),
     }),
     {
-      name: 'gym-buddy', version: 5, storage: createJSONStorage(() => AsyncStorage),
+      name: 'gym-buddy', version: 6, storage: createJSONStorage(() => AsyncStorage),
       // Older saves lack the newer fields: fill them from `initial`, and turn the single setup reminder into the list.
       migrate: (old) => {
         const o = old as Partial<State> & { profile?: Profile | null };

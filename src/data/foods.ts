@@ -76,13 +76,39 @@ export const foodsFor = (diet: Diet) => foods.filter((f) => fits(diet, f.kind));
 export const proteinPicks = (diet: Diet, n = 5) =>
   foodsFor(diet).filter((f) => !f.shake).sort((a, b) => b.protein / b.kcal - a.protein / a.kcal).slice(0, n);
 
-// Optional extras for muscle and strength goals. `name` is the key stored in State.supplements.
-export type Supplement = { name: string; short: string; dose: string; note: string };
+// Supplements and daily habits (round 13): what people take regularly, each with a sensible default reminder time and
+// one line of safe, plain guidance. `name` is the key stored in State.supplements and State.supplementReminders (the
+// first two keep their old names so earlier ticks still count). Anything else the person types is a custom entry.
+// strong: creatine, pre-workout and citrulline are hidden for under-18s and in pregnancy or after birth.
+// caffeine: warn when the reminder is within about 6 hours of bedtime. shake: ticking it offers to log it as food.
+export type Supplement = {
+  name: string; short: string; dose: string; note: string; icon: keyof typeof Ionicons.glyphMap; hour: number; minute: number;
+  strong?: boolean; caffeine?: boolean; shake?: boolean;
+};
 export const SUPPLEMENTS: Supplement[] = [
-  { name: 'Creatine monohydrate', short: 'Creatine', dose: '3 to 5 g daily, any time', note: 'Strong evidence for strength and muscle.' },
-  { name: 'Whey or pea protein', short: 'Protein', dose: '1 scoop when food falls short', note: 'It is just food. Log the shake in a meal and it counts toward your protein.' },
-  { name: 'Citrulline malate', short: 'Citrulline', dose: '6 to 8 g before training', note: 'Mixed evidence. Some people feel less tired.' },
+  { name: 'Whey or pea protein', short: 'Protein shake', dose: '1 scoop', icon: 'flask', hour: 17, minute: 0, shake: true,
+    note: 'It is food: it counts toward your protein. Tick it and log it in one go.' },
+  { name: 'Creatine monohydrate', short: 'Creatine', dose: '3 to 5 g', icon: 'fitness', hour: 9, minute: 0, strong: true,
+    note: '3 to 5 g every day, any time. Taking it daily matters more than when.' },
+  { name: 'Coffee or caffeine', short: 'Caffeine', dose: '1 cup', icon: 'cafe', hour: 8, minute: 0, caffeine: true,
+    note: 'Stop about 6 hours before bed. Most adults stay under about 400 mg a day (around 4 cups of coffee).' },
+  { name: 'Pre-workout', short: 'Pre-workout', dose: '1 scoop', icon: 'flash', hour: 17, minute: 30, caffeine: true, strong: true,
+    note: 'About 30 minutes before training. It counts toward your caffeine, so skip it within about 6 hours of bed.' },
+  { name: 'Multivitamin', short: 'Multivitamin', dose: '1 tablet', icon: 'medical', hour: 9, minute: 0,
+    note: 'With a meal. It fills gaps; food still comes first.' },
+  { name: 'Omega-3', short: 'Omega-3', dose: '1 capsule', icon: 'fish', hour: 13, minute: 0,
+    note: 'With a meal that has some fat in it, so it is absorbed better.' },
+  { name: 'Vitamin D', short: 'Vitamin D', dose: '1 tablet', icon: 'sunny', hour: 9, minute: 0,
+    note: 'With a meal. Ask a doctor or pharmacist what dose is right for you.' },
+  { name: 'Electrolytes', short: 'Electrolytes', dose: '1 sachet', icon: 'water', hour: 17, minute: 0,
+    note: 'Useful on long or very sweaty sessions. Most days, water and food are enough.' },
+  { name: 'Citrulline malate', short: 'Citrulline', dose: '6 to 8 g', icon: 'leaf', hour: 17, minute: 0, strong: true,
+    note: 'About 45 minutes before training. Mixed evidence: some people feel less tired.' },
 ];
+export const supplementByName = (name: string) => SUPPLEMENTS.find((x) => x.name === name);
+export const shortName = (name: string) => supplementByName(name)?.short ?? name;
+// The shake that fits the diet, as a food to log.
+export const shakeFood = (diet: Diet) => foods.find((f) => f.shake && fits(diet, f.kind)) ?? foods.find((f) => f.shake)!;
 
 export const BLOATING: { food: string; fix: string }[] = [
   { food: 'Beans and lentils (rajma, chole, dal)', fix: 'Soak overnight, pressure-cook, and add them to your meals slowly.' },

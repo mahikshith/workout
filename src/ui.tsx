@@ -58,14 +58,16 @@ export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback
 type V = 'display' | 'h1' | 'h2' | 'h3' | 'body' | 'small' | 'label' | 'num';
 const tv: Record<V, object> = {
   // The whole type scale. Screens pick a variant; they never set their own font or size.
-  display: { fontFamily: f.display, fontSize: 34, lineHeight: 40, letterSpacing: 0.5, textTransform: 'uppercase' },
-  h1: { fontFamily: f.display, fontSize: 28, lineHeight: 34, letterSpacing: 0.4, textTransform: 'uppercase' },
-  h2: { fontFamily: f.bold, fontSize: 22, lineHeight: 28 },
+  // Round 13: no more all-caps condensed display face. Titles are sentence case in Outfit, like Fitbit and WHOOP.
+  // Headings SemiBold; Bold is kept for numbers (research: Fitbit/WHOOP keep heavy weights for metrics only).
+  display: { fontFamily: f.semi, fontSize: 28, lineHeight: 34, letterSpacing: -0.3 },
+  h1: { fontFamily: f.semi, fontSize: 22, lineHeight: 28, letterSpacing: -0.2 },
+  h2: { fontFamily: f.semi, fontSize: 19, lineHeight: 25 },
   h3: { fontFamily: f.semi, fontSize: 17, lineHeight: 23 },
   body: { fontFamily: f.regular, fontSize: 16, lineHeight: 23 },
   small: { fontFamily: f.medium, fontSize: 14, lineHeight: 19 },
-  label: { fontFamily: f.semi, fontSize: 13, lineHeight: 17, letterSpacing: 1.2, textTransform: 'uppercase' },
-  num: { fontFamily: f.display, fontSize: 28, lineHeight: 34 },
+  label: { fontFamily: f.semi, fontSize: 12, lineHeight: 16, letterSpacing: 0.8, textTransform: 'uppercase' },
+  num: { fontFamily: f.bold, fontSize: 28, lineHeight: 34 },
 };
 export function T({ v = 'body', color, style, ...p }: TextProps & { v?: V; color?: string }) {
   // Small print is grey; tags and labels are a lighter grey so they stay readable on dark cards.

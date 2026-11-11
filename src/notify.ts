@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { dayKey, targets } from './calc';
 import { byId } from './data/exercises';
-import { foodsFor, proteinPicks } from './data/foods';
+import { foodsFor, proteinPicks, shortName } from './data/foods';
 import { MINDSET, motivation } from './data/motivation';
 import { quick, type Quick } from './data/quick';
 import { hidden, tone } from './engine';
@@ -13,7 +13,7 @@ import { useStore, type Profile, type Reminder } from './store';
 // Every nudge is a local notification, rebuilt from the store: works offline, nothing leaves the phone.
 type St = ReturnType<typeof useStore.getState>;
 export type NudgeState = Pick<St, 'profile' | 'reminders' | 'hydration' | 'breaks' | 'motivation' | 'nudges' | 'sessions' | 'meals' | 'water' | 'active'>
-  & Partial<Pick<St, 'excuses' | 'planStart'>>;
+  & Partial<Pick<St, 'excuses' | 'planStart' | 'supplementReminders' | 'waterPrefs'>>;
 // rank: what survives the cap first. 0 repeating reminders, 1 missed and streak, 2 motivation, 3 water, 4 breaks. at = 0: repeating.
 type Req = { rank: number; at: number; content: Notifications.NotificationContentInput; trigger: Notifications.NotificationTriggerInput };
 
@@ -132,6 +132,15 @@ export function plan(s: NudgeState, now = Date.now()): Req[] {
   for (const r of s.reminders) if (r.kind === 'meal' && r.on)
     repeat(`${r.label ?? 'Meal'} time`, 'Eating at regular times keeps your energy steady.', { type: K.DAILY, hour: r.hour, minute: r.minute, channelId: 'nudges' }, '/fuel');
 
+  // Supplements and daily habits at the person's own times (src/supps.tsx). Like workout reminders they ring even inside
+  // quiet hours, because the person picked the time; the defaults all sit outside them and the screen says so.
+  for (const r of s.supplementReminders ?? []) if (r.on) {
+    const nm = shortName(r.name);
+    const body = `${r.dose ? `${r.dose}. ` : ''}Tick it off when you've had it.`;
+    if (everyDay(r.days)) repeat(`${nm} time`, body, { type: K.DAILY, hour: r.hour, minute: r.minute, channelId: 'nudges' }, '/supplements');
+    else for (const d of r.days) repeat(`${nm} time`, body, { type: K.WEEKLY, weekday: d + 1, hour: r.hour, minute: r.minute, channelId: 'nudges' }, '/supplements');
+  }
+
   if (n.recap && !quiet(19 * 60)) repeat('Your week', 'Open to see how it went.', { type: K.WEEKLY, weekday: 1, hour: 19, minute: 0, channelId: 'nudges' }, '/progress');
 
   // Missed workout: two hours after the day's last reminder, a short session instead. It backs off: after
@@ -178,12 +187,14 @@ export function plan(s: NudgeState, now = Date.now()): Req[] {
     once(at, 1, title, body);
   }
 
-  // Water: every N minutes from..to, today (until the day's glasses are reached) and tomorrow.
-  const h = s.hydration, t = targets(p), drank = s.water[today] ?? 0;
+  // Water: every N minutes from..to, today (until the day's goal is reached) and tomorrow. State.water counts 250 ml.
+  const h = s.hydration, t = targets(p), drank = Math.round((s.water[today] ?? 0) * 250);
+  const goal = s.waterPrefs?.auto === false && s.waterPrefs.goalMl > 0 ? s.waterPrefs.goalMl : t.water * 250;
+  const mlText = (x: number) => `${x.toLocaleString('en-US')} ml`;
   if (h.on) for (const off of [0, 1]) {
-    if (!off && drank >= t.water) continue;
+    if (!off && drank >= goal) continue;
     for (let m = h.from * 60, j = 0; m <= h.to * 60; m += Math.max(15, h.every), j++)
-      once(at(off, m), 3, 'Water break', off ? WATER[j % WATER.length] : `${drank} of ${t.water} glasses so far. ${WATER[j % WATER.length]}`, 'water');
+      once(at(off, m), 3, 'Water break', off ? WATER[j % WATER.length] : `${mlText(drank)} of ${mlText(goal)} so far. ${WATER[j % WATER.length]}`, 'water', '/fuel');
   }
 
   // Desk and eye breaks on weekdays, alternating, after each stretch of work.
@@ -215,7 +226,7 @@ export function plan(s: NudgeState, now = Date.now()): Req[] {
     if (p.goal === 'lose fat' && l) tips.push(`Hungry between meals? Try ${l.name.toLowerCase()}: about ${l.kcal} kcal for ${l.serving}, and filling.`);
     return tips[f % tips.length];
   };
-  const fixed = s.reminders.filter((r) => r.on).map((r) => r.hour * 60 + r.minute);
+  const fixed = [...s.reminders, ...(s.supplementReminders ?? [])].filter((r) => r.on).map((r) => r.hour * 60 + r.minute);
   const busy = (d: Date) => out.some((x) => x.at && Math.abs(x.at - d.getTime()) < 15 * 60000)
     || fixed.some((m) => Math.abs(m - d.getHours() * 60 - d.getMinutes()) < 15);
   if (mo.on) for (let off = 0, j = 0, f = 0; off < 2; off++)
@@ -250,7 +261,8 @@ export function rescheduleAll(s: NudgeState) {
 // Older callers; useNudgeSync already reschedules on every relevant store change.
 export const reschedule = (_p?: unknown, _s?: unknown) => rescheduleAll(useStore.getState());
 
-const watched = (s: St) => [s.reminders, s.hydration, s.breaks, s.motivation, s.nudges, s.sessions, s.meals, s.water, s.profile, s.active?.id, s.excuses];
+const watched = (s: St) => [s.reminders, s.hydration, s.breaks, s.motivation, s.nudges, s.sessions, s.meals, s.water, s.profile, s.active?.id, s.excuses,
+  s.supplementReminders, s.waterPrefs];
 
 // Mounted once in the root layout: keeps the schedule in sync with the store and opens the screen a tapped nudge points to.
 export function useNudgeSync() {

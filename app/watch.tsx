@@ -7,8 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dayKey } from '../src/calc';
 import { connect, disconnect, forgetStrap, READ_TYPES, startScan, stopScan, sync, useBle, type Found } from '../src/health';
 import { ColmiCard } from '../src/health/ColmiCard';
-import { BrandStatusCard, ConnectWatch } from '../src/health/ConnectWatch';
-import { GUIDES, originName, PHONE_ORIGINS, type Alt } from '../src/health/guides';
+import { ConnectWatch } from '../src/health/ConnectWatch';
+import { DataPath, hcPath, syncedAgo, useWatchLink } from '../src/health/DataPath';
+import type { Alt } from '../src/health/guides';
 import { LEVEL_WORD } from '../src/health/readiness';
 import { levelColor, useReadiness } from '../src/health/useReadiness';
 import { appsLine, commitApps, importFiles, pickFiles, summaryLine } from '../src/health/importFile';
@@ -16,20 +17,11 @@ import type { AppPlan } from '../src/importApps';
 import { useLiveHr } from '../src/health/live';
 import { DoorCard, EASE, goBack, Header, useMiniBarSpace } from '../src/kit';
 import { Sheet } from '../src/sheet';
-import { c, r } from '../src/theme';
+import { c, dom, r } from '../src/theme';
 import { latest, useTracker } from '../src/tracker';
-import { Button, IconBox, T, Tap } from '../src/ui';
+import { Button, Fold, IconBox, T, Tap } from '../src/ui';
 
 const ANDROID = Platform.OS === 'android';
-
-const ago = (iso?: string) => {
-  if (!iso) return 'Not synced yet';
-  const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
-  if (m < 1) return 'Synced just now';
-  if (m < 60) return `Synced ${m} min ago`;
-  const h = Math.round(m / 60);
-  return h < 24 ? `Synced ${h} h ago` : `Synced ${Math.round(h / 24)} d ago`;
-};
 
 // Skeleton while syncing: an opacity loop (1.2 s), never a spinner.
 function Shimmer({ height, style }: { height: number; style?: object }) {
@@ -62,7 +54,7 @@ function DisconnectHc({ disabled }: { disabled: boolean }) {
   };
   return (
     <>
-      <Button kind="danger" title="Disconnect" onPress={() => setOpen(true)} disabled={disabled} style={{ flex: 1, height: 48 }} />
+      <Button kind="danger" title="Disconnect Health Connect" icon="close" onPress={() => setOpen(true)} disabled={disabled} style={{ height: 48 }} />
       <Sheet open={open} onClose={() => !busy && setOpen(false)}>
         <View style={{ gap: 12 }}>
           <T v="h2">Disconnect Health Connect</T>
@@ -84,7 +76,8 @@ export default function Watch() {
   const strap = useTracker((s) => s.strap);
   const ble = useBle();
   // Opened from the Body & watch chart: the glance goes back to it instead of pushing another copy.
-  const fromChart = useLocalSearchParams<{ from?: string }>().from === 'chart';
+  const params = useLocalSearchParams<{ from?: string; connect?: string; do?: string }>();
+  const fromChart = params.from === 'chart';
   const bpm = useLiveHr();
   const [flowOpen, setFlowOpen] = useState(false);
   const [flowBrand, setFlowBrand] = useState<string | null>(null);
@@ -112,6 +105,16 @@ export default function Watch() {
     else if (a === 'import') setTimeout(() => setImportOpen(true), 300);
     else if (a === 'ring') setTimeout(() => scroll.current?.scrollTo({ y: Math.max(0, ringY.current - 16), animated: !still }), 300);
   };
+  // Opened from the Tracker or Today's tracker pane: straight into Connect your watch (connect=1 or a brand id), or to
+  // one of its other ways (do=strap|import|ring).
+  useEffect(() => {
+    // A beat after the screen arrives, so the sheet rises over it (and on web, after the page has laid out).
+    const t = setTimeout(() => {
+      if (params.connect) openFlow(params.connect === '1' ? null : params.connect);
+      else if (params.do === 'strap' || params.do === 'import' || params.do === 'ring') onAlt(params.do);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [params.connect, params.do]);
   const chooseFile = async () => {
     const assets = await pickFiles().catch(() => null);
     if (!assets) return;
@@ -134,12 +137,7 @@ export default function Watch() {
   };
 
   const today = daily[dayKey()];
-  // The watch apps that shared data in the last 7 days, by name: "From Google Health".
-  const fromPkgs = useMemo(() => {
-    const since = dayKey(new Date(Date.now() - 6 * 86400000));
-    return new Set(Object.values(daily).filter((d) => d.date >= since).flatMap((d) => d.origin ?? []));
-  }, [daily]);
-  const from = [...fromPkgs].filter((x) => !PHONE_ORIGINS.includes(x)).map(originName);
+  const link = useWatchLink();
   const on = READ_TYPES.filter((t) => hc.granted.includes(t.type)).map((t) => t.label);
   // One glance at today's numbers; their home is Progress › Body & watch (opened with from=watch so it links back here).
   const sleep = latest(daily, 'sleep', 1);
@@ -155,7 +153,7 @@ export default function Watch() {
         : ble.status === 'no-hr' ? 'No heart rate. Its broadcast mode is probably off'
           : ble.status === 'off' ? 'Turn on Bluetooth'
             : ble.status === 'denied' ? 'Allow Nearby devices to pair'
-              : strap ? `${strap.name} · reconnects on its own` : 'Live heart rate in workouts';
+              : strap ? `${strap.name} · reconnects on its own` : 'Chest straps, and watches in heart-rate broadcast mode';
 
   const enter = (i: number) => (still ? undefined : FadeInDown.delay(i * 60).duration(380).easing(EASE));
 
@@ -170,64 +168,46 @@ export default function Watch() {
           </View>
         )}
 
-        {/* Your watch: one primary button opens the guided Connect your watch sheet (brand, steps, check) */}
+        {/* Status first: the data path with a tick per working hop, and one action. */}
         <Animated.View entering={enter(0)} style={s.card}>
           <View style={s.row}>
-            <IconBox icon="watch-outline" color={c.blue} />
+            <IconBox icon="watch-outline" color={dom.heart} />
             <View style={{ flex: 1 }}>
               <T v="h3">Your watch</T>
-              <T v="small" numberOfLines={2}>
-                {hc.connected ? (from.length ? `From ${from.join(', ')}` : 'Health Connect on') : 'Fitbit, Pixel, Samsung, Garmin, WHOOP, Oura and more'}
+              <T v="small" numberOfLines={2} color={link.seen && hc.connected ? c.ok : undefined}>
+                {!hc.connected ? 'Not connected' : link.seen ? `From ${link.apps.join(', ')} · ${syncedAgo(hc.lastSync)}` : `Health Connect on · no watch data yet`}
               </T>
             </View>
-            {hc.connected && <Ionicons name="checkmark-circle" size={22} color={c.ok} />}
           </View>
-
           {syncing ? (
             <View style={{ gap: 8 }}>
               <Shimmer height={18} style={{ width: '60%' }} />
               <Shimmer height={18} style={{ width: '85%' }} />
             </View>
-          ) : hc.connected ? (
-            <View style={{ gap: 4 }}>
-              <T v="small" color={c.text}>{ago(hc.lastSync)}</T>
-              <T v="small" numberOfLines={3}>{on.length ? on.join(' · ') : 'No data types on'}</T>
-            </View>
           ) : (
-            <T v="small">Steps, sleep and heart rate through Health Connect · no Bluetooth pairing</T>
+            <DataPath nodes={hcPath({ app: link.apps[0] ?? 'Watch app', seen: link.seen, allowed: hc.connected })} />
           )}
-
           {hc.connected ? (
             <>
+              <T v="small">{on.length ? `${on.length} kinds of data allowed · what arrived is in Tracker` : 'No data types allowed. Tap Add a watch'}</T>
               <View style={s.row}>
-                <Button kind="ghost" title="Sync now" icon="refresh" onPress={runSync} disabled={syncing} style={{ flex: 1, height: 48 }} />
-                <DisconnectHc disabled={syncing} />
+                <Button kind="ghost" title="Sync now" icon="refresh" onPress={runSync} disabled={syncing || !ANDROID} style={{ flex: 1, height: 48, paddingHorizontal: 12 }} />
+                <Button kind="ghost" title="Add a watch" icon="add" onPress={() => openFlow()} style={{ flex: 1, height: 48, paddingHorizontal: 12 }} />
               </View>
-              <Tap onPress={() => openFlow()} style={{ alignSelf: 'flex-start', paddingVertical: 4 }} scale={0.97} accessibilityLabel="Check or add a watch">
-                <T v="small" color={c.blue}>Check or add a watch</T>
-              </Tap>
             </>
           ) : (
             <>
+              <T v="small">Your watch pairs with its own app (Google Health, WHOOP, Samsung Health…). That app shares to Health Connect, and we read it from there</T>
               <Button title="Connect your watch" icon="watch-outline" onPress={() => openFlow()} />
-              {/* Straight to the two most asked-for watches */}
-              <View style={s.row}>
-                {LIVE_GUIDES.map((g) => (
-                  <Tap key={g.id} onPress={() => openFlow(g.id)} style={[s.pill, { flex: 1 }]} scale={0.97} accessibilityLabel={`Connect ${g.name}`}>
-                    <T v="small" color={c.text} numberOfLines={1}>{g.id === 'fitbit' ? 'Fitbit or Pixel' : g.name}</T>
-                  </Tap>
-                ))}
-              </View>
             </>
           )}
         </Animated.View>
 
-        {/* Fitbit and WHOOP: daily data and live heart rate, each with its own status (shown once either is in use) */}
-        {LIVE_GUIDES.filter((g) => g.packages.some((p) => fromPkgs.has(p)) || (strap && g.live!.match.test(strap.name))).map((g, i) => (
-          <Animated.View key={g.id} entering={enter(1 + i)} style={s.card}>
-            <BrandStatusCard g={g} compact onPress={() => openFlow(g.id)} />
-          </Animated.View>
-        ))}
+        {/* The Tracker: every number your watch shares, live heart rate, watch workouts */}
+        <Animated.View entering={enter(1)}>
+          <DoorCard icon="pulse" color={dom.heart} title="Tracker" meta={bpm !== null ? `${bpm} bpm live now` : glance || 'Live heart rate, today\'s numbers, workouts'}
+            onPress={() => router.push('/tracker')} />
+        </Animated.View>
 
         {/* Readiness: one glance that opens its home, the Recovery screen */}
         {hc.connected && (
@@ -238,13 +218,13 @@ export default function Watch() {
           </Animated.View>
         )}
 
-        {/* Today's numbers: one glance that opens their home, Progress › Body & watch */}
-        {hc.connected && (syncing ? <Shimmer height={72} /> : (
+        {/* History over weeks lives in Progress › Body & watch */}
+        {hc.connected && (
           <Animated.View entering={enter(1)}>
-            <DoorCard icon="stats-chart" color={c.blue} title="Today's numbers" meta={glance || 'Waiting for the next sync'}
+            <DoorCard icon="stats-chart" color={c.blue} title="Body & watch" meta="HRV, resting HR and sleep over time"
               onPress={() => (fromChart ? goBack() : router.push({ pathname: '/chart/[kind]', params: { kind: 'body', from: 'watch' } }))} />
           </Animated.View>
-        ))}
+        )}
 
         <Animated.View entering={enter(2)} style={{ paddingHorizontal: 4, paddingTop: 12 }}>
           <T v="label">More ways</T>
@@ -276,12 +256,6 @@ export default function Watch() {
           )}
         </Animated.View>
 
-        <Animated.View entering={enter(4)} style={{ gap: 6, paddingHorizontal: 4 }}>
-          <T v="small">Chest straps, plus WHOOP, Fitbit Charge 6, Pixel Watch 2+, Garmin, Polar and Huawei in heart-rate broadcast mode</T>
-          <T v="small">Older Fitbits and Samsung watches don't pair here. Use Connect your watch</T>
-          <T v="small">Connects but no heart rate? Its broadcast mode is probably off</T>
-        </Animated.View>
-
         {/* Colmi smart ring (R02/R06/R10): steps, heart-rate log, battery, live HR in workouts */}
         <Animated.View entering={enter(5)} onLayout={(e) => { ringY.current = e.nativeEvent.layout.y; }}><ColmiCard /></Animated.View>
 
@@ -298,17 +272,21 @@ export default function Watch() {
         </Animated.View>
 
         {/* Gadgetbridge (and NOOP, OpenStrap, openScale): their Health Connect switches */}
-        <Animated.View entering={enter(6)} style={[s.note, { borderColor: c.line, alignItems: 'flex-start' }]}>
-          <Ionicons name="information-circle-outline" size={18} color={c.muted} style={{ marginTop: 1 }} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <T v="small" color={c.text}>Gadgetbridge: turn on all three</T>
+        <Animated.View entering={enter(6)}>
+          <Fold title="Using Gadgetbridge?" icon="information-circle-outline">
+            <T v="small" color={c.text}>Turn on all three in Gadgetbridge</T>
             <T v="small">1. Health Connect export on, in its settings</T>
             <T v="small">2. Your watch ticked under Select devices</T>
             <T v="small">3. Sync after device sync</T>
-            <T v="small">Data shows up about 10 s after the watch syncs</T>
-            <T v="small">NOOP, OpenStrap, openScale: turn on Health Connect sync</T>
-          </View>
+            <T v="small">Data shows up about 10 s after the watch syncs. NOOP, OpenStrap, openScale: turn on Health Connect sync</T>
+          </Fold>
         </Animated.View>
+
+        {hc.connected && (
+          <View style={{ paddingTop: 12 }}>
+            <DisconnectHc disabled={syncing} />
+          </View>
+        )}
       </ScrollView>
 
       <ConnectWatch open={flowOpen} brand={flowBrand} onClose={() => setFlowOpen(false)} onAlt={onAlt} />
@@ -368,8 +346,6 @@ export default function Watch() {
     </View>
   );
 }
-
-const LIVE_GUIDES = GUIDES.filter((g) => g.live);
 
 const FORMATS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
   { icon: 'watch-outline', label: 'Garmin .FIT file or Garmin export zip' },

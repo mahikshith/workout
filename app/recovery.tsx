@@ -57,7 +57,7 @@ export default function Recovery() {
           <T v="small" style={{ textAlign: 'center' }}>
             {advice ?? (rd.level ? 'Your body is about where it usually is' : noData ? 'Readiness needs HRV or resting HR from a watch' : 'Wear your watch to bed a few more nights')}
           </T>
-          {noData && <Button title="Connect your watch" icon="watch-outline" onPress={() => router.push('/watch')} style={{ alignSelf: 'stretch' }} />}
+          {noData && <Button title="Connect your watch" icon="watch-outline" onPress={() => router.push({ pathname: '/watch', params: { connect: '1' } })} style={{ alignSelf: 'stretch' }} />}
         </Animated.View>
 
         {rd.flags.map((f) => (

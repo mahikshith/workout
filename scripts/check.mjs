@@ -1,10 +1,10 @@
-// Fails if a plan or quick session references an exercise id that is not in src/data/exercises.json,
+// Fails if a plan, quick session or challenge session references an exercise id that is not in src/data/exercises.json,
 // or if src/data/guide.json describes an unknown exercise.
 import { existsSync, readFileSync } from 'node:fs';
 const read = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
 const ids = new Set(JSON.parse(read('../src/data/exercises.json')).map((e) => e.id));
 let bad = [], n = 0;
-for (const f of ['../src/data/plans.ts', '../src/data/quick.ts']) {
+for (const f of ['../src/data/plans.ts', '../src/data/quick.ts', '../src/data/challenges.ts']) {
   const used = [...read(f).matchAll(/x\('([^']+)'/g)].map((m) => m[1]);
   n += used.length;
   bad.push(...used.filter((id) => !ids.has(id)).map((id) => `${f}: ${id}`));
