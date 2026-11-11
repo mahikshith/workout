@@ -22,9 +22,9 @@ const pick = <T,>(xs: T[], seed: string) => xs[hash(seed) % xs.length];
 
 // --- exercise traits (from names and categories; conservative on purpose) ---
 const has = (e: Exercise, re: RegExp) => re.test(e.name);
-const impact = (e: Exercise) => e.category === 'plyometrics' || has(e, /jump|hop|burpee|skip|sprint|bound|jack|scissor|run|plyo|clap/i);
+export const impact = (e: Exercise) => e.category === 'plyometrics' || has(e, /jump|hop|burpee|skip|sprint|bound|jack|scissor|run|plyo|clap/i);
 const onBackOrFront = (e: Exercise) => has(e, /lying|supine|prone|bench press|floor press|crunch|sit-?up|dead bug|bridge|hip thrust|leg raise|flutter|pullover|skull|superman|reverse fly/i);
-const straining = (e: Exercise) =>
+export const straining = (e: Exercise) =>
   ['olympic weightlifting', 'strongman', 'powerlifting'].includes(e.category) || e.level === 'expert' || has(e, /deadlift|clean|snatch|jerk|good morning/i);
 const crunchy = (e: Exercise) => has(e, /crunch|sit-?up|v-?up|jackknife|roller|rollout|toes to bar|leg raise|russian twist|bicycle|air bike|knee raise|jack ?knife/i);
 const kneeHeavy = (e: Exercise) => impact(e) || has(e, /lunge|pistol|sissy|leg extension|step-?up|split squat|full squat|deep squat/i);

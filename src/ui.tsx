@@ -105,17 +105,19 @@ export function useScrollTopRef<V = ScrollView>() {
 
 // `top` overrides the top padding (screens with their own pinned header pass 0). `bottom` adds room for a fixed
 // bottom bar. Tapping the current tab scrolls a Screen to the top. Bottom padding always includes the mini bar.
-// `ambient` (default on) draws the soft colour glows of glass.tsx behind the content; they stay put while it scrolls.
-export function Screen({ children, scroll = true, pad = true, onScroll, top, bottom = 0, ambient = true }: {
+// `ambient` draws the soft colour glows of glass.tsx behind the content; they stay put while it scrolls. On by default
+// for full-height screens; a Screen under a header (`top` given) leaves it to the page root, which draws one
+// `<Ambient />` behind header and content together (no seam).
+export function Screen({ children, scroll = true, pad = true, onScroll, top, bottom = 0, ambient = top === undefined }: {
   children: ReactNode; scroll?: boolean; pad?: boolean; onScroll?: (y: number) => void; top?: number; bottom?: number; ambient?: boolean;
 }) {
   const ins = useSafeAreaInsets();
   const mini = useMiniBarSpace();
   const ref = useScrollTopRef<ScrollView>();
   const style = { paddingTop: top ?? ins.top + 12, paddingHorizontal: pad ? 12 : 0, paddingBottom: ins.bottom + 120 + mini + bottom };
-  if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg }, style]}>{ambient && <Ambient />}{children}</View>;
+  if (!scroll) return <View style={[{ flex: 1, backgroundColor: ambient ? c.bg : undefined }, style]}>{ambient && <Ambient />}{children}</View>;
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View style={{ flex: 1, backgroundColor: ambient ? c.bg : undefined }}>
       {ambient && <Ambient />}
       <ScrollView ref={ref} style={{ flex: 1 }} contentContainerStyle={style} showsVerticalScrollIndicator={false}
         onScroll={onScroll ? (e) => onScroll(e.nativeEvent.contentOffset.y) : undefined} scrollEventThrottle={onScroll ? 100 : undefined}>

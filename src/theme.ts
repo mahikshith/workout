@@ -30,7 +30,7 @@ const DARK = {
   media: '#F4F4F2', // behind exercise photos (the photos have white backgrounds)
   // Glass (src/glass.tsx): floating layers only. `glassFill` is the surface when there is no real blur behind it
   // (Android): nearly opaque, so text under it never shows through sharp. `glassThin` sits over a real blur.
-  glassFill: 'rgba(24,24,28,0.90)',
+  glassFill: 'rgba(24,24,28,0.94)',
   glassThin: 'rgba(24,24,28,0.60)',
   glassLine: 'rgba(255,255,255,0.11)', // hairline round glass
   glassHi: 'rgba(255,255,255,0.09)', // top of the soft highlight gradient (fades to clear)
@@ -56,7 +56,7 @@ const LIGHT: Neutrals = {
   dangerBg: '#FCE8E6',
   accentInk: '#FFFFFF',
   media: '#F4F4F2',
-  glassFill: 'rgba(255,255,255,0.90)',
+  glassFill: 'rgba(255,255,255,0.94)',
   glassThin: 'rgba(255,255,255,0.64)',
   glassLine: 'rgba(20,24,32,0.09)',
   glassHi: 'rgba(255,255,255,0.80)',
