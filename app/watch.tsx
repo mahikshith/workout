@@ -40,7 +40,7 @@ function Signal({ rssi }: { rssi: number | null }) {
   const n = bars(rssi);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
-      {[0, 1, 2].map((i) => <View key={i} style={{ width: 4, height: 6 + i * 4, borderRadius: 1, backgroundColor: i < n ? c.ok : c.dim }} />)}
+      {[0, 1, 2].map((i) => <View key={i} style={{ width: 4, height: 6 + i * 4, borderRadius: 1, backgroundColor: i < n ? c.ok : c.handle }} />)}
     </View>
   );
 }
@@ -271,7 +271,7 @@ export default function Watch() {
               <T v="h3">Import from a file</T>
               <T v="small" numberOfLines={1}>Garmin, Fitbit, GPX, Strong, Hevy, FitNotes</T>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={c.dim} />
+            <Ionicons name="chevron-forward" size={18} color={c.muted} />
           </Tap>
         </Animated.View>
 

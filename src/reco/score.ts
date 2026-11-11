@@ -7,6 +7,8 @@
 // Pure TypeScript. The scoring table is documented in docs/round14/engine.md; keep the two in step.
 import { available, byId, exercises, type Exercise } from '../data/exercises';
 import { benefit, GROUPS, office } from '../data/muscles';
+import { planById } from '../data/plans';
+import { quick } from '../data/quick';
 import { gate, hidden } from '../engine';
 import type { Goal } from '../store';
 import { buildPerson, type Person } from './model';
@@ -16,13 +18,15 @@ export type Target = { muscles?: string[]; pattern?: Pattern; kind?: Kind };
 export type Scored = { ex: Exercise; score: number; reasons: string[] };
 
 const HOUR = 3600000;
+// Moves the app's own office sessions use are fine at the office, whatever their name suggests.
+const DESK = new Set<string>([...quick.filter((q) => q.where.includes('office')).flatMap((q) => q.slots.map((s) => s.id)), ...(planById['desk-reset']?.days.flatMap((d) => d.slots.map((s) => s.id)) ?? [])]);
 
 // --- 1. hard rules ---
 // Returns why the exercise is not offered to this person right now, or null when it can be.
 export function blocked(person: Person, e: Exercise): string | null {
   const p = person.profile, t = traitsOf(e);
   if (!available(e, person.place, person.gear)) return person.place === 'home' ? `Needs ${/pull-?up|chin|hang/i.test(e.name) ? 'a pull-up bar' : e.equipment === 'other' ? 'gym equipment' : e.equipment === 'machine' || e.equipment === 'cable' ? `a ${e.equipment}` : e.equipment}, which you do not have at home.` : 'Needs equipment you do not have here.';
-  if (person.office && !office(e)) return 'Not a move for the office.';
+  if (person.office && !office(e) && !DESK.has(e.id)) return 'Not a move for the office.';
   const safe = hidden(e, p);
   if (safe) return safe;
   const lock = gate(e, p, person.sessionsDone);
@@ -74,60 +78,64 @@ const COMPOUND_WHY: Record<Goal, string> = {
   athletic: 'Whole-body strength that carries over to sport',
 };
 
-type Factor = [number, string?];
+// [points, reason, how high the reason ranks]. Reasons about the person (history, body, joints, balance) outrank
+// reasons about the goal, which outrank "it is a proven basic"; the points alone decide the score.
+type Factor = [number, string?, number?];
+const R = { history: 90, body: 80, balance: 70, level: 60, goal: 50, basic: 5 };
 
 function strengthFactors(person: Person, e: Exercise, t: Traits, f: Factor[]) {
   const g = person.profile.goal, s = SHAPE[g] ?? SHAPE['stay fit'];
   const free = e.equipment === 'dumbbell' || e.equipment === 'kettlebells';
   const guided = e.equipment === 'machine' || e.equipment === 'cable';
-  f.push(t.compound ? [s[0], COMPOUND_WHY[g]] : [s[1], s[1] > 0 ? 'Works the muscle directly' : undefined]);
+  f.push(t.compound ? [s[0], COMPOUND_WHY[g], R.goal] : [s[1]]);
   if (e.equipment === 'barbell') f.push([s[2]]);
   if (free) f.push([s[3]]);
   if (guided) f.push([s[4]]);
-  if (e.equipment === 'body only') f.push([s[5], s[5] >= 4 ? 'Uses your own body weight' : undefined]);
-  if (t.unilateral) f.push([s[6], s[6] >= 3 ? 'One side at a time, for balance' : undefined]);
-  if (t.hold) f.push([s[7], s[7] >= 4 ? 'A steady hold that builds control' : undefined]);
+  if (e.equipment === 'body only') f.push([s[5], s[5] >= 4 ? 'No equipment to set up' : undefined, R.goal - 2]);
+  if (t.unilateral) f.push([s[6], s[6] >= 3 ? 'One side at a time, for balance' : undefined, R.goal - 1]);
+  if (t.hold) f.push([s[7], s[7] >= 4 ? 'A steady hold that builds control' : undefined, R.goal + 1]);
 
   // Level.
   if (person.level === 0) {
     if (t.hardness === 0) f.push([6]);
-    if (t.supported) f.push([5, 'Guided, so it is easy to learn']);
+    if (t.supported) f.push([5, 'Guided, so it is easy to learn', R.level]);
     else if (free || e.equipment === 'body only') f.push([2]);
     if (e.equipment === 'barbell') f.push([t.staple ? -2 : -6]);
     if (t.unilateral && t.compound) f.push([-2]);
   } else if (person.level === 1) {
     if (t.hardness === 1) f.push([3]);
   } else {
-    if (t.hardness >= 1) f.push([5, 'A harder move to match your experience']);
+    if (t.hardness >= 1) f.push([5, 'A harder move to match your experience', R.level]);
     if (guided && t.compound) f.push([-2]);
     if (e.equipment === 'barbell') f.push([3]);
   }
 
   // Body, age, joints.
   if (person.heavy) {
-    if (t.supported) f.push([6, 'Supported, easy on your joints']);
+    if (t.supported) f.push([6, 'Supported, easy on your joints', R.body]);
     if (t.ownWeight) f.push([-10]);
-    if (t.easedOwnWeight) f.push([5, 'A lighter version that suits you now']);
+    if (t.easedOwnWeight) f.push([5, 'A lighter version that suits you now', R.body]);
     if (t.unilateral && t.region === 'lower') f.push([-4]);
   }
   if (person.weightClass === 'under' && t.compound && (free || e.equipment === 'barbell' || guided)) f.push([3]);
   if (person.ageBand === 'senior') {
-    if (t.supported) f.push([5, 'Steady and supported']);
+    if (t.supported) f.push([5, 'Steady and supported', R.body]);
     if (e.equipment === 'barbell' && /overhead|military|press/i.test(e.name) && t.pattern === 'press') f.push([-6]);
     if (t.unilateral && t.region === 'lower' && !t.supported) f.push([-3]);
     if (t.pattern === 'hinge' || t.pattern === 'squat' || t.pattern === 'carry') f.push([2]);
   }
   if (person.ageBand === 'teen' && (e.equipment === 'body only' || free)) f.push([3]);
-  if (person.back && t.supported) f.push([4, 'Kind to your back']);
-  if (person.knee && t.region === 'lower' && (t.supported || t.pattern === 'hinge')) f.push([4, 'Easy on your knees']);
-  if (person.profile.concerns?.includes('posture') && (t.pattern === 'row' || /face pull|pull apart|rear|reverse fl|y-raise|t-raise/i.test(e.name))) f.push([5, 'Strengthens the muscles that hold you upright']);
+  if (person.back && t.supported) f.push([4, 'Kind to your back', R.body + 2]);
+  if (person.knee && t.region === 'lower' && (t.pattern === 'hinge' || (t.supported && !/hack|extension/i.test(e.name)))) f.push([5, 'Easy on your knees', R.body + 2]);
+  if (person.knee && /hack|front squat|sissy/i.test(e.name)) f.push([-8]);
+  if (person.profile.concerns?.includes('posture') && (t.pattern === 'row' || /face pull|pull apart|rear|reverse fl|y-raise|t-raise/i.test(e.name))) f.push([5, 'Strengthens the muscles that hold you upright', R.body]);
   if (person.profile.concerns?.includes('tone') && person.profile.gender === 'female' && mainMuscle(e) === 'glutes') f.push([3]);
 
   // Balance over the last two weeks.
   const lag = person.history.lagging;
-  if (t.side !== 'none' && lag.includes(t.side)) f.push([6, t.side === 'pull' ? 'Evens out your pushing and pulling' : 'You have pulled more than pushed lately']);
-  if ((t.region === 'upper' || t.region === 'lower') && lag.includes(t.region)) f.push([5, t.region === 'lower' ? 'Your legs have had less work lately' : 'Your upper body has had less work lately']);
-  if (t.face !== 'none' && lag.includes(t.face)) f.push([4, t.face === 'back' ? 'Works the back of your body, which is behind' : undefined]);
+  if (t.side !== 'none' && lag.includes(t.side)) f.push([6, t.side === 'pull' ? 'Evens out your pushing and pulling' : 'You have pulled more than pushed lately', R.balance]);
+  if ((t.region === 'upper' || t.region === 'lower') && lag.includes(t.region)) f.push([5, t.region === 'lower' ? 'Your legs have had less work lately' : 'Your upper body has had less work lately', R.balance]);
+  if (t.face !== 'none' && lag.includes(t.face)) f.push([4, t.face === 'back' ? 'Works the back of your body, which is behind' : undefined, R.balance - 1]);
 }
 
 function cardioFactors(person: Person, e: Exercise, t: Traits, f: Factor[]) {
@@ -135,12 +143,13 @@ function cardioFactors(person: Person, e: Exercise, t: Traits, f: Factor[]) {
   const smooth = /bike|bicycl|elliptical|walk|row|swim|march|recumbent|ski/i.test(e.name);
   const steady = e.category === 'cardio' || /march/i.test(e.name);
   if (e.equipment === 'machine') f.push([5, 'You set the pace yourself']);
-  if (smooth) f.push([person.lowImpact ? 10 : 2, person.lowImpact ? 'No pounding on your joints' : undefined]);
+  if (smooth) f.push([person.lowImpact ? 10 : 2, person.lowImpact ? 'No pounding on your joints' : undefined, R.body]);
   if (g === 'endurance') f.push(steady ? [8, 'Steady work builds stamina'] : [2]);
   if (g === 'lose fat' || g === 'tone up') f.push(steady ? [4, 'Burns energy without wearing you out'] : [5, 'Short bursts that burn a lot']);
   if (g === 'athletic') f.push(steady ? [0] : [8, 'Fast bursts, like sport']);
   if (g === 'stay fit' || g === 'mobility') f.push(steady ? [5, 'Good for your heart'] : [1]);
   if (person.level === 0) f.push([t.hardness === 0 && steady ? 5 : 0]);
+  if (!person.lowImpact && /run|jog/i.test(e.name) && (person.profile.concerns?.some((c) => c === 'run') || g === 'endurance')) f.push(person.profile.concerns?.includes('run') ? [12, 'Running, as you asked', R.body] : [3]);
   if (person.heavy && t.ownWeight) f.push([-12]);
   if (person.ageBand === 'senior' && /walk|bike|recumbent|march/i.test(e.name)) f.push([4]);
   if (/stairmaster|step mill/i.test(e.name) && person.knee) f.push([-10]);
@@ -156,12 +165,22 @@ function mobilityFactors(person: Person, e: Exercise, t: Traits, f: Factor[]) {
   if (person.heavy && /standing|wall|chair|seated/i.test(e.name)) f.push([3]);
 }
 
+const HELPERS: Record<string, string> = { abdominals: 'core', quadriceps: 'thighs', 'middle back': 'upper back', lats: 'back', 'lower back': 'lower back' };
+// One plain line on what the exercise does.
+function what(e: Exercise, t: Traits): string {
+  if (t.kind !== 'strength') return benefit(e).replace(/\.$/, '');
+  const m = sayMuscle(mainMuscle(e));
+  const help = e.secondary.filter((x) => x !== mainMuscle(e)).slice(0, 2).map((x) => HELPERS[x] ?? x).filter((x) => x !== m);
+  if (t.hold) return `Builds steady strength in your ${m}`;
+  return t.compound && help.length ? `Works your ${m}, with your ${help.join(' and ')} helping` : `Works your ${m} on ${/s$/.test(m) ? 'their' : 'its'} own`;
+}
+
 export function scoreExercise(person: Person, e: Exercise, target?: Target): Scored {
   const t = traitsOf(e);
   const f: Factor[] = [];
   if (target?.muscles?.length) f.push(target.muscles.includes(mainMuscle(e)) ? [12] : e.secondary.some((m) => target.muscles!.includes(m)) ? [-6] : [-20]);
   if (target?.pattern) f.push(t.pattern === target.pattern ? [8] : [-4]);
-  if (t.staple) f.push([10, 'A tried and tested basic']);
+  if (t.staple) f.push([14, 'A tried and tested basic', R.basic]);
   if (t.odd) f.push([-14]);
   if (e.art || (!e.noPhoto && !e.noImages)) f.push([2]);
 
@@ -176,15 +195,15 @@ export function scoreExercise(person: Person, e: Exercise, target?: Target): Sco
   const h = person.history.ex[e.id];
   if (h) {
     if (person.now - h.lastAt < 40 * HOUR) f.push([-10]);
-    if (h.progressed) f.push([8, 'You are getting better at this one']);
+    if (h.progressed) f.push([8, 'You are getting better at this one', R.history]);
     else if (h.stalled) f.push([-4]);
-    else f.push([4, 'You know this one']);
-  } else if (person.history.sessions >= 12 && t.staple) f.push([2, 'A new move for a muscle you train often']);
+    else f.push([4, 'You know this one', R.history]);
+  } else if (person.history.sessions >= 12 && t.staple) f.push([2, 'A new move for a muscle you train often', R.basic + 1]);
 
   const score = Math.max(0, Math.min(100, Math.round(40 + f.reduce((a, [w]) => a + w, 0))));
   const seen = new Set<string>();
-  const reasons = f.filter(([w, why]) => w > 0 && !!why).sort((a, b) => b[0] - a[0]).map(([, why]) => why!).filter((w) => !seen.has(w) && !!seen.add(w)).slice(0, 3);
-  if (!reasons.length) reasons.push(benefit(e).replace(/\.$/, ''));
+  // What it is comes first (so no two exercises read the same), then up to two reasons about this person.
+  const reasons = [what(e, t), ...f.filter(([w, why]) => w > 0 && !!why).sort((a, b) => (b[2] ?? b[0]) - (a[2] ?? a[0])).map(([, why]) => why!).filter((w) => !seen.has(w) && !!seen.add(w)).slice(0, 2)];
   return { ex: e, score, reasons };
 }
 

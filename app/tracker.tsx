@@ -160,7 +160,7 @@ export default function Tracker() {
                 <T v="h3">Strap or ring?</T>
                 <T v="small" numberOfLines={3}>Straps and Colmi rings connect over Bluetooth</T>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={c.dim} />
+              <Ionicons name="chevron-forward" size={18} color={c.muted} />
             </Tap>
           </Animated.View>
           {!ANDROID && <WebNote />}
@@ -190,7 +190,7 @@ export default function Tracker() {
                       : 'Pair a strap, or turn on heart-rate broadcast on your watch'}
                 </T>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={c.dim} />
+              <Ionicons name="chevron-forward" size={18} color={c.muted} />
             </Tap>
           )}
         </Animated.View>
@@ -222,7 +222,7 @@ export default function Tracker() {
                   <Ionicons name={x.icon} size={16} color={x.color} />
                   <T v="small" numberOfLines={1} style={{ flex: 1 }}>{x.label}</T>
                 </View>
-                <T v="num" style={{ fontSize: 24, lineHeight: 30 }} color={x.value ? c.text : c.dim}>
+                <T v="num" style={{ fontSize: 24, lineHeight: 30 }} color={x.value ? c.text : c.muted}>
                   {x.value ?? '—'}{x.value && x.unit ? <T v="small"> {x.unit}</T> : null}
                 </T>
                 <T v="small" numberOfLines={2} style={{ fontSize: 12, lineHeight: 16 }}>{x.sub ?? ' '}</T>

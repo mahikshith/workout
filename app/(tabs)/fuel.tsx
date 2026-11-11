@@ -61,7 +61,7 @@ export default function Fuel() {
   const pickDiet = (diet: Profile['diet']) => { setProfile({ ...useStore.getState().profile, diet }); dismiss(setKey('diet')); };
 
   return (
-    <Screen>
+    <Screen tone={[dom.kcal, dom.water, dom.protein]}>
       <Animated.View entering={enter(0)}><TabTitle title="Fuel" /></Animated.View>
 
       {/* Which day: today, or up to six days back to fill in something forgotten. */}

@@ -73,7 +73,7 @@ export function WatchGives() {
       </View>
       <Row gap={10} style={s.flow}>
         <Ionicons name="watch-outline" size={16} color={c.muted} />
-        <Ionicons name="arrow-forward" size={12} color={c.dim} />
+        <Ionicons name="arrow-forward" size={12} color={c.muted} />
         <Ionicons name="barbell" size={16} color={c.accent} />
         <T v="small" color={c.text} style={{ flex: 1 }}>
           {gentle ? 'Your watch cannot see sets and reps. Every workout you log here gets its heart rate attached by itself'
@@ -86,7 +86,7 @@ export function WatchGives() {
             <T v="small" style={{ fontSize: 12, lineHeight: 16 }}>Last workout</T>
             <T v="small" color={c.text} numberOfLines={1} style={{ fontVariant: ['tabular-nums'] }}>{lastLine}</T>
           </View>
-          <Ionicons name="chevron-forward" size={16} color={c.dim} />
+          <Ionicons name="chevron-forward" size={16} color={c.muted} />
         </Tap>
       )}
       {denied && <T v="small">Calories are switched off for {APP_NAME} in Health Connect, so workouts show an estimate. Allow them under Health Connect › App permissions</T>}

@@ -1,5 +1,6 @@
 // Plan pieces shared by Home ("Plans for you") and the Plans tab: icons, the short "why" tag, the wide card.
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { postpartumWeek, pregnancyWeek } from './calc';
@@ -44,7 +45,9 @@ export function because(p: Profile, plan: Plan) {
 export function PlanCard({ plan, why, tag, width = 220 }: { plan: Plan; why?: string; tag?: string; width?: number }) {
   const col = PLAN_COLOR[plan.category];
   return (
-    <Tap onPress={() => openPlan(plan.id)} style={[s.card, { width }]} scale={0.97} accessibilityLabel={`${plan.name}, ${planMeta(plan)}`}>
+    <Tap onPress={() => openPlan(plan.id)} style={[s.card, { width, borderColor: tint(col, 1.4) }]} scale={0.97} accessibilityLabel={`${plan.name}, ${planMeta(plan)}`}>
+      {/* A soft wash of the plan's own colour, so a row of plans reads as different kinds at a glance. */}
+      <LinearGradient colors={[tint(col, 1.3), c.card]} locations={[0, 0.75]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
       <Row gap={8}>
         <IconBox icon={PLAN_ICON[plan.category]} color={col} size={40} />
         <View style={{ flex: 1 }} />
@@ -63,6 +66,6 @@ export function PlanCard({ plan, why, tag, width = 220 }: { plan: Plan; why?: st
 }
 
 const s = StyleSheet.create({
-  card: { gap: 6, padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  card: { overflow: 'hidden', gap: 6, padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   tag: { height: 22, paddingHorizontal: 8, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
 });

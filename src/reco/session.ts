@@ -10,12 +10,11 @@
 //      their weekly sets they are. An area that is still recovering is never today's focus.
 //   5. Exercises come from the scoring layer (src/reco/score.ts), sets, reps and rests from the goal and level, the
 //      order from src/data/order.ts, and the whole thing is trimmed to the time available.
-import { secsOf } from '../calc';
+import { postpartumWeek, secsOf } from '../calc';
 import { alternatives, byId, title, type Exercise } from '../data/exercises';
 import { order } from '../data/order';
 import { planById, type Day, type Slot } from '../data/plans';
-import { asDay, quickById } from '../data/quick';
-import { postpartumWeek } from '../calc';
+import { asDay, quick, quickById } from '../data/quick';
 import type { Goal } from '../store';
 import { buildPerson, FRESH, recovery, type Person } from './model';
 import { blocked, rankExercises, scoreExercise, type Scored, type Target } from './score';
@@ -94,6 +93,7 @@ export function prescribe(person: Person, e: Exercise): Slot {
   if (top(reps) < 8 && (easy || person.ageBand === 'senior' || person.ageBand === 'teen')) { reps = '8-10'; rest = Math.min(rest, 120); }
   if (e.equipment === 'body only' && top(reps) < 10) reps = '8-12';
   if (e.equipment === 'barbell' && t.compound && rest < 120 && (g === 'build muscle' || g === 'gain weight')) rest = 120;
+  if (t.pattern === 'core' || t.pattern === 'calves') { sets = Math.min(3, sets); if (top(reps) < 12) reps = '12-15'; rest = Math.min(rest, 60); }
   if (easy) sets = Math.max(2, sets - 1);
   if (person.ageBand === 'senior') sets = Math.min(3, sets);
   if (person.readiness.level === 'low') sets = Math.max(2, sets - 1);
@@ -176,9 +176,9 @@ function stretches(person: Person, muscles: string[], n: number, used: Set<strin
   return out;
 }
 
-function easyCardio(person: Person, mins: number, used: Set<string>): SessionPick | null {
+function easyCardio(person: Person, mins: number, used: Set<string>, onlyEasy = false): SessionPick | null {
   const all = rankExercises(person, { kind: 'cardio' }, 8, used);
-  const s = all.find((x) => steady(x.ex) && traitsOf(x.ex).hardness === 0) ?? all[0];
+  const s = all.find((x) => steady(x.ex) && traitsOf(x.ex).hardness === 0) ?? (onlyEasy ? undefined : all[0]);
   if (!s) return null;
   used.add(s.ex.id);
   return pick(s, cardioSlot(person, s.ex, mins));
@@ -186,8 +186,8 @@ function easyCardio(person: Person, mins: number, used: Set<string>): SessionPic
 
 function recoveryDay(person: Person, used: Set<string>): SessionIdea {
   const worked = Object.entries(person.history.lastWorked).filter(([, w]) => person.now - w.at < 72 * 3600000).sort((a, b) => b[1].at - a[1].at).map(([m]) => m);
-  const walk = easyCardio(person, 10, used);
-  const st = stretches(person, [...worked, 'lower back', 'hamstrings', 'glutes', 'chest', 'quadriceps', 'shoulders', 'calves'], 4, used);
+  const walk = easyCardio(person, 10, used, true);
+  const st = stretches(person, [...worked, 'lower back', 'hamstrings', 'glutes', 'chest', 'quadriceps', 'shoulders', 'calves'], walk ? 4 : 6, used);
   return finish(person, 'Easy Recovery', 'recovery', [...(walk ? [walk] : []), ...st], [person.readiness.why, 'Easy movement and stretches help you bounce back'], ['Light recovery']);
 }
 
@@ -229,7 +229,13 @@ function strengthPicks(person: Person, n: number, used: Set<string>, opts: Sessi
     const ok = asked ? a.muscles.some((m) => asked.includes(m)) || asked.includes(a.id) : fresh.includes(a);
     const posture = person.profile.concerns?.includes('posture') && a.id === 'back' ? 0.2 : 0;
     const glutes = person.profile.concerns?.includes('tone') && person.profile.gender === 'female' && a.id === 'posterior' ? 0.1 : 0;
-    prio.set(a.id, ok ? a.weight + 0.6 * need(a) + (LEAN[g]?.[a.id] ?? 0) + posture + glutes : 0);
+    // Balance over the last two weeks: the side that is behind moves up, the side that is ahead moves down a little.
+    const lag = h.lagging;
+    const even = (lag.includes('pull') ? (a.id === 'back' ? 0.45 : a.id === 'chest' || a.id === 'shoulders' ? -0.25 : 0) : 0)
+      + (lag.includes('push') ? (a.id === 'chest' ? 0.3 : a.id === 'back' ? -0.2 : 0) : 0)
+      + (lag.includes('lower') && a.region === 'lower' ? 0.3 : 0) + (lag.includes('upper') && a.region === 'upper' ? 0.3 : 0)
+      + (lag.includes('back') && (a.id === 'posterior' || a.id === 'back') ? 0.15 : 0);
+    prio.set(a.id, ok ? Math.max(0.05, a.weight + 0.6 * need(a) + (LEAN[g]?.[a.id] ?? 0) + posture + glutes + even) : 0);
   }
   // Shape: whole body for beginners, short weeks and goals that are not about one muscle; otherwise the half of the
   // body that is fresher and further behind, and never the half trained last time when the other is ready.
@@ -249,7 +255,8 @@ function strengthPicks(person: Person, n: number, used: Set<string>, opts: Sessi
     const k = taken[a.id] ?? 0;
     const target = a.targets[k % a.targets.length];
     const s = rankExercises(person, target, 1, used)[0];
-    prio.set(a.id, k + 1 >= 2 || !s ? 0 : (prio.get(a.id) ?? 0) * 0.4);
+    const most = a.id === 'core' && g !== 'tone up' && g !== 'mobility' ? 1 : 2; // one core move is enough unless the goal is the middle
+    prio.set(a.id, k + 1 >= most || !s ? 0 : (prio.get(a.id) ?? 0) * 0.4);
     if (!s) return false;
     taken[a.id] = k + 1;
     used.add(s.ex.id);
@@ -272,7 +279,7 @@ const restingLine = (person: Person, resting: Area[]): string | null => {
   if (!recent.length) return null;
   const hours = Math.min(...recent.flatMap((a) => a.muscles.map((m) => recovery(person, m).hoursSince ?? 999)));
   const when = hours < 14 ? 'earlier today' : hours < 38 ? 'yesterday' : 'in the last few days';
-  return `${cap(list(recent.map((a) => a.label.toLowerCase())))} worked hard ${when}, so ${recent.length > 1 || / and /.test(recent[0].label) ? 'they rest' : 'it rests'} today`;
+  return `${cap(list(recent.map((a) => a.label.toLowerCase())))} worked hard ${when}, so ${recent.length > 1 || !['Chest', 'Back', 'Core'].includes(recent[0].label) ? 'they rest' : 'it rests'} today`;
 };
 
 function strengthDay(person: Person, minutes: number, used: Set<string>, opts: SessionOpts): SessionIdea {
@@ -281,10 +288,9 @@ function strengthDay(person: Person, minutes: number, used: Set<string>, opts: S
   const lead: SessionPick[] = [];
   // Sport fitness: one or two fast moves first, for people whose joints allow it.
   if (g === 'athletic' && !Array.isArray(opts.focus) && opts.focus !== 'upper') {
-    for (const s of rankExercises(person, { kind: 'power' }, person.level === 0 ? 1 : 2, used)) {
+    for (const s of rankExercises(person, { kind: 'power' }, 6, used).filter((x) => recovery(person, mainMuscle(x.ex)).pct >= FRESH).slice(0, person.level === 0 ? 1 : 2)) {
       used.add(s.ex.id);
-      const hold = secsOf(s.ex.name) !== null;
-      lead.push(pick(s, { id: s.ex.id, sets: person.level === 0 ? 2 : 3, reps: hold ? '20s' : traitsOf(s.ex).unilateral ? '5/side' : '6', rest: 75 }));
+      lead.push(pick(s, { id: s.ex.id, sets: person.level === 0 ? 2 : 3, reps: traitsOf(s.ex).unilateral ? '5/side' : '6', rest: 75 }));
     }
   }
   const budget = minutes - finisherMin - lead.length * 4;
@@ -308,9 +314,9 @@ function strengthDay(person: Person, minutes: number, used: Set<string>, opts: S
   const areas = sp.areas.filter((a) => lifts.some((p) => a.muscles.includes(mainMuscle(byId[p.slot.id]))));
   const why: string[] = [];
   const rest = Array.isArray(opts.focus) ? null : restingLine(person, sp.resting);
-  if (person.history.sessions === 0) why.push('A first session: a bit of everything, nothing too hard');
+  if (person.history.sessions === 0) why.push(person.level === 0 ? 'A first session: a bit of everything, nothing too hard' : name === 'Full Body' ? 'A balanced first session to see where you are' : `Starting with your ${name === 'Upper Body' ? 'upper body; legs come next' : name === 'Lower Body' ? 'legs; upper body comes next' : 'whole body'}`);
   else if (rest) why.push(rest);
-  else if (areas.length) why.push(`${cap(list(areas.slice(0, 3).map((a) => a.label.toLowerCase())))} are fresh and due some work`);
+  else if (areas.length) why.push(`${cap(list(areas.slice(0, 3).map((a) => a.label.toLowerCase())))} ${areas.length > 1 || !['Chest', 'Back', 'Core'].includes(areas[0].label) ? 'are' : 'is'} fresh and due some work`);
   if (Array.isArray(opts.focus)) {
     const tired = opts.focus.filter((m) => recovery(person, m.toLowerCase()).pct < FRESH);
     if (tired.length) why.push(`Your ${list(tired.map((m) => sayMuscle(m.toLowerCase())))} worked recently: keep the weights a little lighter`);
@@ -342,16 +348,21 @@ function cardioDay(person: Person, minutes: number, used: Set<string>, opts: Ses
 export function suggestSession(person: Person, opts: SessionOpts = {}): SessionIdea {
   const used = new Set<string>(opts.exclude ?? []);
   const p = person.profile, g = p.goal;
+  // "Something else" for a life-stage session is the plan's next day (or another desk break), never a different kind of work.
+  const other = opts.exclude?.length ? 1 : 0;
   if (person.lifeStage === 'pregnant') {
     const plan = planById['pregnancy-safe'];
-    return fromDay(person, plan.days[person.sessionsDone % plan.days.length], ['Safe for your pregnancy', 'Gentle strength, walks and pelvic floor']);
+    return fromDay(person, plan.days[(person.sessionsDone + other) % plan.days.length], ['Safe for your pregnancy', 'Gentle strength, walks and pelvic floor']);
   }
   if (person.lifeStage === 'after birth') {
     const early = (postpartumWeek(p) ?? 0) < 6;
     const plan = planById[early ? 'pelvic-floor' : 'after-birth'];
-    return fromDay(person, plan.days[person.sessionsDone % plan.days.length], [early ? 'Breathing and pelvic floor come first after birth' : 'Made for your first weeks after birth', 'Short and gentle']);
+    return fromDay(person, plan.days[(person.sessionsDone + other) % plan.days.length], [early ? 'Breathing and pelvic floor come first after birth' : 'Made for your first weeks after birth', 'Short and gentle']);
   }
-  if (person.office) return fromDay(person, asDay(quickById.desk), ['Short resets for your workday', 'No gear or change of clothes']);
+  if (person.office) {
+    const q = other ? quick.find((x) => x.id !== 'desk' && x.where.some((w) => w === 'office' || w === 'anywhere') && x.slots.every((s) => !used.has(s.id) && byId[s.id] && !blocked(person, byId[s.id]))) : undefined;
+    return fromDay(person, asDay(q ?? quickById.desk), q ? [q.blurb.replace(/\.$/, ''), 'Fits between meetings'] : ['Short resets for your workday', 'No gear or change of clothes']);
+  }
   const minutes = Math.max(10, Math.min(90, opts.minutes ?? defaultMinutes(person)));
   if (opts.focus === 'mobility') return mobilityDay(person, minutes, used);
   if (opts.focus === 'cardio') return cardioDay(person, minutes, used, opts);
@@ -454,8 +465,11 @@ export function selfCheck() {
   // adjustDay: reports, offers, never edits.
   const day = planById['full-body-gym'].days[0];
   const copy = JSON.stringify(day);
-  assert(adjustDay(who({}), day).notes.length === 0 && adjustDay(who({}), day).lighter === null, 'a fresh person keeps the day as written');
-  const sore = adjustDay(who({}, [ses(20, ['Goblet_Squat', 'Leg_Press'], 4)]), day);
+  const lifter = { level: 'intermediate' };
+  assert(adjustDay(who(lifter), day).notes.length === 0 && adjustDay(who(lifter), day).lighter === null, 'a fresh person keeps the day as written');
+  // A brand-new beginner: the same stand-ins the store makes on start (harder moves open after six sessions), said out loud.
+  assert(adjustDay(who({}), day).notes.every((n) => n.kind === 'swap'), 'a new beginner only gets stand-ins');
+  const sore = adjustDay(who(lifter, [ses(20, ['Goblet_Squat', 'Leg_Press'], 4)]), day);
   assert(sore.notes.some((n) => n.kind === 'recovering' && n.muscle === 'quadriceps') && !!sore.lighter && sore.lighter.slots[0].sets < day.slots[0].sets && JSON.stringify(day) === copy, 'sore legs: a lighter offer, plan untouched');
   const homeSwap = adjustDay(who({ place: 'home' }), day);
   assert(homeSwap.notes.some((n) => n.kind === 'swap') && !!homeSwap.swapped && homeSwap.swapped.slots.every((s) => !blocked(who({ place: 'home' }), byId[s.id])), 'home: stand-ins for gym moves');

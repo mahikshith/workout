@@ -40,7 +40,7 @@ export type PlanHistory = { sessions: number; weeks: number; recent: Record<stri
 const has = (p: Profile, c: string) => !!p.concerns?.includes(c as never);
 
 // Exercise traits, kept conservative (same spirit as engine.ts).
-const impact = (e: Exercise) => e.category === 'plyometrics' || /jump|hop|burpee|skip|sprint|bound|jack|scissor|run|plyo|clap/i.test(e.name);
+const impact = (e: Exercise) => e.category === 'plyometrics' || /jump|hop|burpee|skip|sprint|bound|jack|scissor|run|plyo|clap|high knees|fast feet/i.test(e.name);
 const straining = (e: Exercise) => ['olympic weightlifting', 'strongman', 'powerlifting'].includes(e.category) || /deadlift|clean|snatch|jerk|good morning/i.test(e.name);
 const pulling = (e: Exercise) => ['middle back', 'lats', 'lower back', 'traps'].includes(e.primary[0]);
 const slotsOf = (plan: Plan) => plan.days.flatMap((d) => d.slots).map((s) => byId[s.id]).filter(Boolean);
@@ -92,14 +92,14 @@ const GOAL: Record<Goal, string> = {
 };
 const GOAL_CATEGORY: Partial<Record<Goal, Plan['category'][]>> = {
   'build muscle': ['Muscle'], 'get stronger': ['Strength'], 'lose fat': ['Fat loss', 'Cardio'],
-  'gain weight': ['Muscle'], endurance: ['Cardio'], athletic: ['Functional'], mobility: ['Recovery'],
+  'gain weight': ['Muscle'], 'tone up': ['Muscle'], endurance: ['Cardio'], athletic: ['Functional'], mobility: ['Recovery'],
 };
 // What each plan is, in a few words: the one reason no other plan shares, so two cards never read the same.
 const SIGNATURE: Record<string, string> = {
   'full-body-gym': 'Whole body every session', 'ppl-gym': 'Push, pull and legs days', 'upper-lower-gym': 'Upper and lower days in turn',
   'bro-split': 'One muscle group a day', 'arnold-split': 'Chest with back, lots of sets', phul: 'Heavy days and lighter days',
   'strength-5x5': 'Three big lifts a session', 'lean-gain': 'Big lifts with extra sets for size', 'fat-loss-gym': 'Circuits plus steady cardio',
-  'cardio-aerobic': 'Walks, bike, rower and easy runs', functional: 'Swings, carries and rowing', 'glutes-legs-gym': 'Glutes and legs come first',
+  'cardio-aerobic': 'Walks, bike and rower at your pace', functional: 'Swings, carries and rowing', 'glutes-legs-gym': 'Glutes and legs come first',
   'home-beginner': 'A gentle start at home', 'home-bodyweight': 'Just your body weight', 'home-dumbbell': 'Dumbbells and a band cover everything',
   'fat-burn-home': 'Fast circuits in a small space', 'move-better': 'Stretch flows and posture work', 'sport-ready': 'Quick feet, jumps and a strong core',
   'home-stamina': 'Steady marching, no jumping', 'pregnancy-safe': 'Safe for your pregnancy', 'after-birth': 'Short sessions around feeds',
@@ -107,6 +107,7 @@ const SIGNATURE: Record<string, string> = {
   'chest-day': 'An extra day for your chest', 'back-day': 'An extra day for your back', 'shoulder-day': 'An extra day for your shoulders',
   'arm-day': 'An extra day for your arms', 'leg-day': 'An extra day for your legs', 'glute-day': 'An extra day for your glutes', 'core-day': 'Twenty minutes for your middle',
 };
+export const baseSignature = (baseId: string): string | undefined => SIGNATURE[baseId];
 // A plan refitted into another split (full body turned upper/lower) is described by what it became.
 export const signature = (plan: Plan): string | undefined => {
   const base = planById[plan.base ?? plan.id] ?? plan;
@@ -137,7 +138,7 @@ function factors(p: Profile, plan: Plan, hist?: PlanHistory): Factor[] {
   // Level.
   if (beginner) {
     if (base.level === 'beginner') f.push(plan.easy ? [15, 'Lower volume for your first weeks', 100] : [15, 'Made for beginners', 20]);
-    else f.push([-5, 'Lower volume for your first weeks', 100]);
+    else f.push(plan.easy ? [-5, 'Lower volume for your first weeks', 100] : [-5]); // only the eased version can say so
   } else if (base.level === 'intermediate') f.push([12, 'Matches your experience', 10]);
   else f.push([p.level === 'advanced' ? -15 : -10]);
   if (p.body === 'muscular' && base.level === 'beginner') f.push([-6]);
@@ -154,6 +155,10 @@ function factors(p: Profile, plan: Plan, hist?: PlanHistory): Factor[] {
   if (p.goal === 'mobility' && (base.category === 'Muscle' || base.category === 'Strength')) f.push([-12]);
   if (p.goal === 'mobility' && !base.tags.includes('mobility') && base.level === 'beginner' && share(plan, impact) === 0) f.push([6, 'Gentle, controlled moves', 28]);
   if (p.goal === 'endurance' && base.category === 'Fat loss') f.push([6]);
+  if (p.goal === 'endurance' && base.category === 'Muscle') f.push([-12]);
+  if (p.goal === 'endurance' && base.id === 'cardio-aerobic') f.push([14]); // the plan made for exactly this
+  // Quick-feet work is for people who asked for sport fitness (or general fitness); it builds no size.
+  if (base.id === 'sport-ready' && p.goal !== 'athletic') f.push([GROWING.includes(p.goal) || p.goal === 'mobility' ? -25 : -10]);
   if (p.goal === 'athletic' && base.category === 'Strength') f.push([4, 'Strength is the base for speed', 28]);
 
   // Place and gear.
@@ -166,9 +171,12 @@ function factors(p: Profile, plan: Plan, hist?: PlanHistory): Factor[] {
   const joints = p.age >= 55 || p.body === 'more' || p.body === 'extra' || has(p, 'knee') || heavy(p);
   if (joints) {
     f.push([-60 * imp]);
+    if (imp >= 0.15) f.push([-30]); // a plan built on jumping is the wrong plan for these joints, whatever the goal
     if (imp === 0) f.push([6, has(p, 'knee') ? 'Low impact for your knees' : 'Easy on your joints', 60]);
   }
   if (p.age >= 55) {
+    // Past 55, lifting twice a week matters more than anything else for staying able: simple strength plans move up.
+    if (['full-body-gym', 'home-beginner'].includes(base.id) && ['stay fit', 'tone up', 'lose fat', 'mobility'].includes(p.goal)) f.push([8, 'Keeps muscle and bone strong', 58]);
     f.push([-30 * share(plan, straining)]);
     if (base.level === 'beginner') f.push([5]);
   }

@@ -185,7 +185,7 @@ export default function Today() {
 
   return (
     <>
-    <Ambient />
+    <Ambient colors={[c.accent, dom.train, dom.sleep]} strength={1.25} />
     <ScrollView ref={scroll} style={{ flex: 1 }} showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingTop: ins.top + 16, paddingHorizontal: 16, paddingBottom: ins.bottom + 120 + mini, gap: 24 }}>
       {/* 1. Header: date and streak, the title, + Log (the Quick log sheet), profile. */}

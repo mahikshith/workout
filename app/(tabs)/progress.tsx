@@ -96,7 +96,7 @@ export default function Progress() {
   ];
 
   return (
-    <Screen>
+    <Screen tone={[dom.streak, dom.sleep, dom.steps]}>
       <TabTitle title="Progress" />
 
       <Section title="This week" first>

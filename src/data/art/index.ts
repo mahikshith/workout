@@ -7,7 +7,6 @@ export const ART: Record<string, () => Art> = {
   'active-hang': () => require('./active-hang.json'),
   'archer-push-up': () => require('./archer-push-up.json'),
   'arm-circles': () => require('./arm-circles.json'),
-  'arnold-press': () => require('./arnold-press.json'),
   'assault-bike': () => require('./assault-bike.json'),
   'assisted-chin-up': () => require('./assisted-chin-up.json'),
   'assisted-dip': () => require('./assisted-dip.json'),
@@ -303,6 +302,5 @@ export const ART: Record<string, () => Art> = {
   'wide-grip-lat-pulldown': () => require('./wide-grip-lat-pulldown.json'),
   'wide-push-up': () => require('./wide-push-up.json'),
   'worlds-greatest-stretch': () => require('./worlds-greatest-stretch.json'),
-  'wrist-curl': () => require('./wrist-curl.json'),
   'wrist-extension': () => require('./wrist-extension.json'),
 };

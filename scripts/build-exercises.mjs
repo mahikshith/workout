@@ -46,14 +46,13 @@ const ALIAS = {
   'dumbbell-bent-over-row': ['Bent_Over_Two-Dumbbell_Row'], 'close-grip-lat-pulldown': ['Close-Grip_Front_Lat_Pulldown'],
   'bulgarian-split-squat': ['Split_Squat_with_Dumbbells'], 'smith-machine-bulgarian-split-squat': ['Smith_Single-Leg_Split_Squat'],
   'glute-bridge': ['Butt_Lift_Bridge'], 'cable-curl': ['Standing_Biceps_Cable_Curl'],
-  'wrist-curl': ['Palms-Up_Barbell_Wrist_Curl_Over_A_Bench', 'Seated_Palm-Up_Barbell_Wrist_Curl'],
   'overhead-tricep-extension': ['Cable_Rope_Overhead_Triceps_Extension', 'Triceps_Overhead_Extension_with_Rope'],
   'skull-crusher': ['EZ-Bar_Skullcrusher', 'Lying_Triceps_Press'], dip: ['Dips_-_Triceps_Version'], 'chest-dip': ['Dips_-_Chest_Version'],
   'side-plank': ['Side_Bridge'], 'ab-wheel': ['Ab_Roller'], running: ['Running_Treadmill'], walking: ['Walking_Treadmill'],
   cycling: ['Bicycling', 'Bicycling_Stationary'], rowing: ['Rowing_Stationary'], 'stair-climber': ['Stairmaster', 'Step_Mill'],
   elliptical: ['Elliptical_Trainer'], 'jump-rope': ['Rope_Jumping'], 'battle-ropes': ['Battling_Ropes'],
   'decline-dumbbell-press': ['Decline_Dumbbell_Bench_Press'], 'machine-shoulder-press': ['Machine_Shoulder_Military_Press', 'Leverage_Shoulder_Press'],
-  'plate-front-raise': ['Front_Plate_Raise'], 'single-arm-cable-row': ['Seated_One-arm_Cable_Pulley_Rows'],
+  'plate-front-raise': ['Front_Plate_Raise'], 'single-arm-cable-row': ['Shotgun_Row'],
   'back-extension': ['Hyperextensions_Back_Extensions'], 'goblet-squat': ['Goblet_Squat'], 'trap-bar-deadlift': ['Trap_Bar_Deadlift'],
   'nordic-hamstring-curl': ['Natural_Glute_Ham_Raise', 'Floor_Glute-Ham_Raise'], 'single-leg-romanian-deadlift': ['Kettlebell_One-Legged_Deadlift'],
   'reverse-lunge': ['Dumbbell_Rear_Lunge'], 'cable-kickback': ['One-Legged_Cable_Kickback'], 'hip-abduction-machine': ['Thigh_Abductor'],
@@ -63,7 +62,7 @@ const ALIAS = {
   'leg-press-calf-raise': ['Calf_Press_On_The_Leg_Press_Machine', 'Calf_Press'], 'jump-squat': ['Freehand_Jump_Squat'],
   'ez-bar-curl': ['EZ-Bar_Curl'], 'spider-curl': ['Spider_Curl'], 'rope-hammer-curl': ['Cable_Hammer_Curls_-_Rope_Attachment'],
   'rope-tricep-pushdown': ['Triceps_Pushdown_-_Rope_Attachment'], 'dumbbell-skull-crusher': ['Lying_Dumbbell_Tricep_Extension'],
-  'dumbbell-overhead-tricep-extension': ['Standing_Dumbbell_Triceps_Extension'],
+  'dumbbell-overhead-tricep-extension': ['Seated_Triceps_Press'],
   'single-arm-dumbbell-tricep-extension': ['Standing_One-Arm_Dumbbell_Triceps_Extension'], 'farmer-carry': ['Farmers_Walk'],
   'bicycle-crunch': ['Air_Bike'], 'cable-woodchop': ['Standing_Cable_Wood_Chop'], 'captains-chair-knee-raise': ['Knee_Hip_Raise_On_Parallel_Bars'],
   'weighted-crunch': ['Weighted_Crunches'], 'wide-push-up': ['Push-Up_Wide'], 'diamond-push-up': ['Push-Ups_-_Close_Triceps_Position'],
@@ -73,6 +72,12 @@ const ALIAS = {
 };
 // Same name, different pose (e.g. the free-exercise-db hamstring stretch is lying with a band).
 const NO_AUTO = new Set(['hamstring-stretch']);
+// Round 14 audit (every drawing looked at next to its exercise): drawings whose posture contradicts the exercise they
+// were matched to. wrist-curl is drawn standing (it was on a kneeling and a seated wrist curl) and arnold-press is drawn
+// standing while the instructions sit; neither is used. single-arm-cable-row is drawn standing, so it moved from the
+// seated one-arm row to Shotgun Row; dumbbell-overhead-tricep-extension is drawn seated, so it moved from the standing
+// extension to Seated Triceps Press.
+const SKIP_ART = new Set(['wrist-curl', 'arnold-press']);
 
 const feByKey = {};
 for (const e of out) (feByKey[key(e.name, feEq(e))] ??= []).push(e);
@@ -88,6 +93,7 @@ const MUSCLE = {
 let matched = 0;
 const added = [];
 for (const w of wg) {
+  if (SKIP_ART.has(w.slug)) continue;
   const eq = wgEq(w);
   const meq = eq === 'pull-up bar' ? 'body only' : eq; // free-exercise-db files bar work under body only / other
   const hits = ALIAS[w.slug]?.map((id) => feById[id] ?? console.warn(`alias ${w.slug} -> ${id} not found`)).filter(Boolean)

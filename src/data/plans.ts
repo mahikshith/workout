@@ -366,7 +366,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'home-beginner', name: 'Beginner Full Body at Home', tagline: 'Your first workouts. A wall, a door and the floor.',
-    place: 'home', level: 'beginner', tags: ['stay fit', 'lose fat', 'build muscle', 'tone up'], color: '', category: 'Home',
+    place: 'home', level: 'beginner', tags: ['stay fit', 'lose fat', 'build muscle', 'tone up', 'gain weight'], color: '', category: 'Home',
     about: 'Easy versions of squats, push-ups and rows wake up every big muscle without soreness that puts you off. Each week you get a little stronger and it feels easier.',
     who: 'Complete beginners, older adults and anyone nervous about starting.',
     why: 'Three short sessions with rest days between lets your body adapt and makes the habit stick.',
@@ -384,7 +384,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'home-bodyweight', name: 'Home, No Equipment', tagline: 'Just you and the floor. Twenty-five minutes.',
-    place: 'home', level: 'intermediate', tags: ['stay fit', 'lose fat', 'build muscle', 'tone up'], color: '', category: 'Home',
+    place: 'home', level: 'intermediate', tags: ['stay fit', 'lose fat', 'build muscle', 'tone up', 'gain weight'], color: '', category: 'Home',
     about: 'Squats, push-ups, lunges and bridges work your whole body with your own weight. You build strength and fitness without leaving the house.',
     who: 'Anyone training at home with no equipment who has done a few weeks of exercise.',
     why: 'Three days with rest between gives your muscles time to recover and still builds a steady habit.',
@@ -420,7 +420,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'fat-burn-home', name: 'Sweat Circuit', tagline: 'Short rests, high heart rate, anywhere.',
-    place: 'home', level: 'beginner', tags: ['lose fat', 'stay fit', 'tone up', 'endurance', 'athletic'], color: '', category: 'Fat loss',
+    place: 'home', level: 'beginner', tags: ['lose fat', 'stay fit', 'endurance', 'athletic'], color: '', category: 'Fat loss',
     about: 'Fast bodyweight moves with short rests push your heart rate up and burn calories. Core days strengthen your middle and give your legs a break.',
     who: 'People who want to lose fat at home and enjoy a sweaty session.',
     why: 'Three days: two hard circuits and one core day, with rest days so you come back fresh.',

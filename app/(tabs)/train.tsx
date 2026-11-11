@@ -15,6 +15,7 @@ import { Ambient } from '../../src/glass';
 import { useStore, type Profile } from '../../src/store';
 import { c, dom, equip, f, r, tint } from '../../src/theme';
 import { Sheet } from '../../src/sheet';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb } from '../../src/ui';
 import { Enter, MuscleGrid, plural } from '../library';
 
@@ -160,13 +161,15 @@ export default function Train() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Ambient />
+      <Ambient colors={[dom.train, dom.heart, dom.water]} strength={1.25} />
       {header}
       <ScrollView ref={browseRef} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: bottom }}>
         {/* Today's workout in one row: the same pick as Home, one Start (Resume while a workout runs). */}
         <Enter>
-          <View style={s.plan}>
+          <View style={[s.plan, { borderColor: tint(dom.train, 1.6), overflow: 'hidden' }]}>
+            <LinearGradient colors={[tint(dom.train, 1.5), tint(c.accent, 0.4), c.card]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill} pointerEvents="none" />
             <Row gap={12}>
               <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                 <T v="label">{today.active ? 'In progress' : 'Today'}</T>
@@ -186,13 +189,14 @@ export default function Train() {
           <Enter i={1}>
             <Section title="Short on time" style={{ marginTop: 24 }}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -12 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 12 }}>
-                {picks.map((q) => (
+                {picks.map((q, k) => { const col = QUICK_COLORS[k % QUICK_COLORS.length]; return (
                   <Tap key={q.id} onPress={() => startQuick(q)} style={s.quick} scale={0.97} accessibilityLabel={`Start ${q.name}`}>
-                    <IconBox icon={q.icon} color={c.accent} size={36} />
+                    <LinearGradient colors={[tint(col, 1.3), c.card]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
+                    <IconBox icon={q.icon} color={col} size={36} />
                     <T v="h3" numberOfLines={1} style={{ fontSize: 15 }}>{q.name}</T>
                     <T v="small" numberOfLines={1} style={{ fontSize: 12 }}>{q.sub}</T>
                   </Tap>
-                ))}
+                ); })}
               </ScrollView>
             </Section>
           </Enter>
@@ -240,6 +244,9 @@ export default function Train() {
   );
 }
 
+// Short sessions take turns through the domain colours, so the row is not one flat tone.
+const QUICK_COLORS = [dom.kcal, dom.steps, dom.sleep, dom.heart, dom.water, dom.streak];
+
 const PLACES: { k: Profile['place']; label: string; icon: Icon; sub: string }[] = [
   { k: 'gym', label: 'Gym', icon: 'barbell', sub: 'Machines and free weights' },
   { k: 'home', label: 'Home', icon: 'home', sub: 'Bodyweight and the gear you have' },
@@ -265,5 +272,5 @@ const s = StyleSheet.create({
   plan: { gap: 12, padding: 16, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   start: { height: 44, paddingHorizontal: 18, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
   placeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.md, borderWidth: 1, borderColor: c.line },
-  quick: { width: 150, gap: 6, padding: 12, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  quick: { overflow: 'hidden', width: 150, gap: 6, padding: 12, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
 });

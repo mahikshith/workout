@@ -13,7 +13,7 @@ import {
 export { readinessAdvice, LEVEL_WORD } from './readiness';
 export type { Readiness } from './readiness';
 
-export const levelColor = (l: Level | null) => (l === 'high' ? c.ok : l === 'low' ? c.warm : l === 'mid' ? dom.sleep : c.dim); // mid wears the recovery (sleep) colour
+export const levelColor = (l: Level | null) => (l === 'high' ? c.ok : l === 'low' ? c.warm : l === 'mid' ? dom.sleep : c.muted); // mid wears the recovery (sleep) colour
 
 // Today's readiness (score null while warming up or without HRV/resting HR).
 export function useReadiness(day = dayKey()): Readiness {

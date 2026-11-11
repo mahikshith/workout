@@ -7,7 +7,8 @@
 // "line" is anywhere from 2 to 5+ units wide depending on the drawing, which is why some looked heavy in the app. Here
 // every frame is measured (mean line width = 2 x filled area / outline length) and gets a knock-out width `k`: the app
 // draws the path filled in the text colour and strokes it in the pane colour, which trims k/2 off both sides of every
-// line, so all drawings come out the same weight. The three frames share one square crop `b` (their common extent), so
+// line, so all drawings come out the same weight (in 131 of the 302 drawings one of the three frames was 2 to 4 times
+// heavier than the other two, so the picture pulsed thick and thin as it played). The three frames share one square crop `b` (their common extent), so
 // small drawings fill the pane like large ones and the frames stay registered. Coordinates are re-encoded to one decimal.
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 
@@ -122,7 +123,7 @@ function measure(polys) {
   }
   let area = 0;
   for (const xs of rows) { xs.sort((p, q) => p - q); for (let i = 0; i + 1 < xs.length; i += 2) area += (xs[i + 1] - xs[i]) * STEP; }
-  return { w: (2 * area) / len, box: [x0, y0, x1, y1] };
+  return { w: (2 * area) / len, area, box: [x0, y0, x1, y1] };
 }
 
 // ---- re-encode: one decimal, relative, each step measured from the rounded point so nothing drifts ----
@@ -151,10 +152,10 @@ function encode(segs) {
   return parts.join('');
 }
 
-rmSync(OUT, { recursive: true, force: true });
-mkdirSync(OUT, { recursive: true });
+mkdirSync(OUT, { recursive: true }); // files are replaced in place (a running Metro loses a folder that is deleted and remade)
+for (const f of readdirSync(OUT)) if (f.endsWith('.json') && !slugs.includes(f.slice(0, -5))) rmSync(`${OUT}/${f}`);
 let bytes = 0, raw = 0;
-const widths = [];
+const widths = [], dropped = [];
 const queue = [...slugs];
 await Promise.all(Array.from({ length: 12 }, async () => {
   while (queue.length) {
@@ -173,8 +174,13 @@ await Promise.all(Array.from({ length: 12 }, async () => {
     const x1 = Math.max(...frames.map((f) => f.box[2])), y1 = Math.max(...frames.map((f) => f.box[3]));
     const side = Math.ceil(Math.max(x1 - x0, y1 - y0) * 1.04 + 4);
     const b = [Math.round(((x0 + x1 - side) / 2) * 10) / 10, Math.round(((y0 + y1 - side) / 2) * 10) / 10, side];
-    const k = frames.map((f) => { widths.push((f.w * 512) / side); return Math.round(Math.max(0, f.w - (TARGET * side) / 512) * 0.9 * 100) / 100; });
-    const json = JSON.stringify({ b, k, d: frames.map((f) => f.d) });
+    // A frame whose lines are too thin gets a negative k: the app then strokes it in the text colour by -k instead.
+    // Frames the source got wrong are left out (the loop plays the rest): a near-empty speckle, or one so heavy that
+    // trimming it would eat the drawing. `dropped` lists them in the log.
+    const med = [...frames.map((f) => f.area)].sort((p, q) => p - q)[1], tgt = (TARGET * side) / 512;
+    const keep = frames.filter((f, i) => { const ok = f.area > 0.3 * med && f.w > 0.3 * tgt && f.w < 4 * tgt; if (!ok) dropped.push(`${slug}#${i + 1}`); return ok; });
+    const k = keep.map((f) => { widths.push((f.w * 512) / side); return Math.round((f.w > tgt ? (f.w - tgt) * 0.9 : f.w < 0.8 * tgt ? (f.w - tgt) * 0.5 : 0) * 100) / 100; });
+    const json = JSON.stringify({ b, k, d: keep.map((f) => f.d) });
     bytes += json.length;
     writeFileSync(`${OUT}/${slug}.json`, json);
   }
@@ -190,4 +196,5 @@ ${slugs.map((s) => `  '${s}': () => require('./${s}.json'),`).join('\n')}
 widths.sort((a, b) => a - b);
 const q = (p) => widths[Math.floor(p * (widths.length - 1))].toFixed(2);
 console.log(`art: ${slugs.length} drawings, ${readdirSync(OUT).length - 1} files, ${(raw / 1e6).toFixed(1)} MB of originals -> ${(bytes / 1e6).toFixed(1)} MB`);
-console.log(`line width before (per 512 of crop): p10 ${q(0.1)}, median ${q(0.5)}, p90 ${q(0.9)}, max ${q(1)}; after: ${TARGET} wherever it was wider`);
+console.log(`left out ${dropped.length} broken frames: ${dropped.sort().join(', ')}`);
+console.log(`line width before (per 512 of crop): p10 ${q(0.1)}, median ${q(0.5)}, p90 ${q(0.9)}, max ${q(1)}; after: about ${TARGET} everywhere`);

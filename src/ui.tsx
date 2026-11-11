@@ -110,17 +110,17 @@ export function useScrollTopRef<V = ScrollView>() {
 // `ambient` draws the soft colour glows of glass.tsx behind the content; they stay put while it scrolls. On by default
 // for full-height screens; a Screen under a header (`top` given) leaves it to the page root, which draws one
 // `<Ambient />` behind header and content together (no seam).
-export function Screen({ children, scroll = true, pad = true, onScroll, top, bottom = 0, ambient = top === undefined }: {
-  children: ReactNode; scroll?: boolean; pad?: boolean; onScroll?: (y: number) => void; top?: number; bottom?: number; ambient?: boolean;
+export function Screen({ children, scroll = true, pad = true, onScroll, top, bottom = 0, ambient = top === undefined, tone }: {
+  children: ReactNode; scroll?: boolean; pad?: boolean; onScroll?: (y: number) => void; top?: number; bottom?: number; ambient?: boolean; tone?: [string, string?, string?]; // tone: this screen's own glow colours
 }) {
   const ins = useSafeAreaInsets();
   const mini = useMiniBarSpace();
   const ref = useScrollTopRef<ScrollView>();
   const style = { paddingTop: top ?? ins.top + 12, paddingHorizontal: pad ? 12 : 0, paddingBottom: ins.bottom + 120 + mini + bottom };
-  if (!scroll) return <View style={[{ flex: 1, backgroundColor: ambient ? c.bg : undefined }, style]}>{ambient && <Ambient />}{children}</View>;
+  if (!scroll) return <View style={[{ flex: 1, backgroundColor: ambient ? c.bg : undefined }, style]}>{ambient && <Ambient colors={tone} strength={tone ? 1.25 : 1} />}{children}</View>;
   return (
     <View style={{ flex: 1, backgroundColor: ambient ? c.bg : undefined }}>
-      {ambient && <Ambient />}
+      {ambient && <Ambient colors={tone} strength={tone ? 1.25 : 1} />}
       <ScrollView ref={ref} style={{ flex: 1 }} contentContainerStyle={style} showsVerticalScrollIndicator={false}
         onScroll={onScroll ? (e) => onScroll(e.nativeEvent.contentOffset.y) : undefined} scrollEventThrottle={onScroll ? 100 : undefined}>
         {children}
@@ -508,7 +508,8 @@ function Frame({ uri, slot, p, solid, onLoad, onError }: { uri: string; slot: nu
 function ArtSvg({ art, i, size, small }: { art: Art; i: number; size: number | `${number}%`; small?: boolean }) {
   const [x, y, side] = art.b;
   const px = typeof size === 'number' ? size : 216;
-  const edge = small ? { stroke: c.text, strokeWidth: Math.max(0, (0.9 * side) / px - 3) } : { stroke: c.card2, strokeWidth: art.k[i] };
+  const k = art.k[i]; // > 0: trim a heavy outline with the pane colour; < 0: thicken a faint one with the line colour
+  const edge = small ? { stroke: c.text, strokeWidth: Math.max(0, (0.9 * side) / px - 3) } : { stroke: k < 0 ? c.text : c.card2, strokeWidth: Math.abs(k) };
   return (
     // viewBox origin 0,0 and a translate, as in figure.tsx (react-native-svg misplaces a non-zero origin on phones)
     <Svg width={size} height={size} viewBox={`0 0 ${side} ${side}`} preserveAspectRatio="xMidYMid meet">
@@ -518,7 +519,7 @@ function ArtSvg({ art, i, size, small }: { art: Art; i: number; size: number | `
     </Svg>
   );
 }
-// The three poses played 1→2→3→2→1 like the photos: each held 700 ms, 450 ms crossfades, every frame on its own opaque
+// The poses played 1→2→3→2→1 like the photos: each held 700 ms, 450 ms crossfades, every frame on its own opaque
 // pane so the outlines never stack up mid-blend.
 function Drawing({ slug }: { slug: string }) {
   const art = ART[slug]();
@@ -527,7 +528,9 @@ function Drawing({ slug }: { slug: string }) {
     cancelAnimation(p); p.value = 0;
     const fade = (v: number) => withTiming(v, { duration: 450, easing: Easing.inOut(Easing.quad) });
     const hold = (v: number) => withTiming(v, { duration: 700 });
-    p.value = withRepeat(withSequence(hold(0), ...[1, 2, 1, 0].flatMap((v) => [fade(v), hold(v)]).slice(0, -1)), -1);
+    const n = art.d.length; // usually 3; a frame the source got wrong is left out by scripts/art.mjs
+    if (n < 2) return;
+    p.value = withRepeat(withSequence(hold(0), ...(n > 2 ? [1, 2, 1, 0] : [1, 0]).flatMap((v) => [fade(v), hold(v)]).slice(0, -1)), -1);
     return () => cancelAnimation(p);
   }, [slug]);
   return (

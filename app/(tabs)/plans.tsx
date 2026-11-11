@@ -9,7 +9,8 @@ import { Segmented, useMiniBarSpace, useScrollTopRef, useToday } from '../../src
 import { because, openPlan, PLAN_COLOR, PLAN_ICON, PlanCard, planFits, planMeta, type Where } from '../../src/plansui';
 import { Ambient } from '../../src/glass';
 import { useStore } from '../../src/store';
-import { c, r, tint } from '../../src/theme';
+import { c, dom, r, tint } from '../../src/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, IconBox, ListRow, Row, Section, T, Tap } from '../../src/ui';
 import { ChallengeCard } from '../../src/challenges/Card';
 import { ChallengesBody } from '../challenges';
@@ -32,7 +33,7 @@ export default function Plans() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Ambient />
+      <Ambient colors={[dom.sleep, dom.streak, dom.train]} strength={1.25} />
       <View style={{ paddingTop: ins.top + 12, paddingHorizontal: 12, gap: 14, paddingBottom: 12 }}>
         <Row gap={10}>
           <T v="display" numberOfLines={1} style={{ flex: 1 }}>Plans</T>
@@ -85,7 +86,9 @@ function PlansList() {
         <T v="label" style={{ marginBottom: 8 }}>Doing now</T>
         <View style={{ gap: 8 }}>
           {cur && (
-            <Tap onPress={() => openPlan(cur.id)} style={s.plan} scale={0.98}>
+            <Tap onPress={() => openPlan(cur.id)} style={[s.plan, { borderColor: tint(PLAN_COLOR[cur.category], 1.6) }]} scale={0.98}>
+              <LinearGradient colors={[tint(PLAN_COLOR[cur.category], 1.5), tint(c.accent, 0.4), c.card]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill} pointerEvents="none" />
               <Row gap={12}>
                 <IconBox icon={PLAN_ICON[cur.category]} color={PLAN_COLOR[cur.category]} size={44} />
                 <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
@@ -142,7 +145,7 @@ function PlansList() {
 }
 
 const s = StyleSheet.create({
-  plan: { gap: 10, padding: 16, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1, borderColor: tint(c.accent, 1.6) },
+  plan: { overflow: 'hidden', gap: 10, padding: 16, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1, borderColor: tint(c.accent, 1.6) },
   start: { height: 44, paddingHorizontal: 18, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
   pip: { flex: 1, height: 6, borderRadius: 3 },
   dot: { width: 10, height: 10, borderRadius: 5 },

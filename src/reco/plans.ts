@@ -5,7 +5,7 @@
 import { byId } from '../data/exercises';
 import { CATEGORIES, perWeek, planById, plans, type Category, type Plan } from '../data/plans';
 import { MAIN } from '../data/split';
-import { assess, fitFor, hiddenShare, impactShare, lifeStagePlan, planAllowed, planFor, signature } from '../planner';
+import { assess, baseSignature, fitFor, hiddenShare, impactShare, lifeStagePlan, planAllowed, planFor, signature } from '../planner';
 import { buildPerson, type Person } from './model';
 import { mainMuscle, sayMuscle } from './traits';
 
@@ -73,8 +73,8 @@ function addOn(person: Person, plan: Plan): Omit<RankedPlan, 'pick'> {
   if (plan.place === 'gym' && person.place === 'home') return out(5, [sig], false, 'Needs a gym');
   const hid = hiddenShare(p, plan);
   if (hid > 0.34) return out(8, [sig], false, 'Too many of its moves are paused for you right now');
-  const f: [number, string][] = [[0, sig]];
-  let fit = 46;
+  const f: [number, string][] = [[100, sig]];
+  let fit = 42;
   if (plan.tags.includes(p.goal)) { fit += 10; f.push([10, 'Adds to your goal']); }
   const why = ADD_ON_WHY[plan.id];
   if (why && has(person, ...why[0])) { fit += 18; f.push([18, why[1]]); }
@@ -83,6 +83,7 @@ function addOn(person: Person, plan: Plan): Omit<RankedPlan, 'pick'> {
   for (const s of plan.days[0].slots) { const e = byId[s.id]; if (e) count[mainMuscle(e)] = (count[mainMuscle(e)] ?? 0) + s.sets; }
   const main = Object.entries(count).sort((a, b) => b[1] - a[1])[0]?.[0];
   if (main && person.history.sessions >= 4 && (person.history.sets14[main] ?? 0) < 4) { fit += 10; f.push([12, `Your ${sayMuscle(main)} has had little work lately`]); }
+  if (plan.id === 'glute-day' && p.gender === 'male' && !has(person, 'tone')) fit -= 8;
   if (plan.level === 'intermediate' && person.level === 0) fit -= 15;
   if (person.level === 0 && person.sessionsDone < 6) fit -= 6; // first weeks: the main plan is enough
   if (person.lowImpact && impactShare(plan) > 0) fit -= 20;
@@ -97,7 +98,7 @@ function gentle(person: Person, plan: Plan, life: string | null): Omit<RankedPla
   const sig = signature(plan) ?? plan.tagline;
   if (plan.id === 'pregnancy-safe') return person.lifeStage === 'pregnant' ? out(97, ['Safe for your pregnancy', 'Gentle strength, walks and pelvic floor']) : out(3, [sig], false, 'Made for pregnancy');
   if (plan.id === 'after-birth') return person.lifeStage === 'after birth' ? out(97, ['Made for your first weeks after birth', 'Short sessions around feeds']) : out(3, [sig], false, 'Made for the first weeks after birth');
-  const f: [number, string][] = [[0, sig]];
+  const f: [number, string][] = [[100, sig]];
   let fit = 40;
   const add = (n: number, why: string) => { fit += n; f.push([n, why]); };
   const sits = has(person, 'desk', 'posture') || ['desk', 'wfh', 'student', 'driving'].includes(p.lifestyle ?? '');
@@ -158,6 +159,17 @@ export function rankPlans(person: Person): RankedPlan[] {
     // The pick is the planner's answer, with the planner's reasons, and never sits below another plan.
     return { ...r, planId: pick.planId, days: perWeek(planById[pick.planId] ?? r.plan), reasons: pick.reasons.length ? pick.reasons : r.reasons, suitable: true, caution: null, fit: clamp(Math.max(r.fit, top + 1, 80), 3, 99), pick: true };
   });
+  // Every card leads with a line of its own: what the plan is comes first, and when two plans would still open with
+  // the same words the later one falls back to its own description.
+  const said = new Set<string>();
+  const order = [...out].sort((a, b) => Number(b.pick) - Number(a.pick) || b.fit - a.fit);
+  for (const r of order) {
+    const pl = planById[r.planId] ?? r.plan;
+    const own = [signature(pl), baseSignature(r.baseId), r.plan.tagline.replace(/\.$/, ''), r.plan.name].filter((x): x is string => !!x);
+    const lead = own.find((x) => !said.has(x)) ?? own[0];
+    said.add(lead);
+    r.reasons = [lead, ...r.reasons.filter((x) => x !== lead && !own.slice(0, 2).includes(x))];
+  }
   out.sort((a, b) => Number(b.pick) - Number(a.pick) || Number(b.suitable) - Number(a.suitable) || b.fit - a.fit || a.baseId.localeCompare(b.baseId));
   CACHE.set(person, out);
   return out;
@@ -181,7 +193,7 @@ export function planGroups(person: Person): PlanGroup[] {
   const all = rankPlans(person);
   const ok = all.filter((r) => r.suitable);
   const mains = ok.filter((r) => !r.addOn);
-  const best = [...mains.filter((r) => r.pick || r.fit >= 50).slice(0, 4), ...ok.filter((r) => r.addOn && r.fit >= 64).slice(0, 1)];
+  const best = [...mains.filter((r) => r.pick || r.fit >= 60).slice(0, 4), ...ok.filter((r) => r.addOn && r.fit >= 64).slice(0, 1)];
   const lead = person.profile.place === 'home' ? ['Home' as Category] : [];
   const order = [...new Set<Category>([...lead, ...(FIRST[person.profile.goal] ?? []), ...CATEGORIES])];
   const groups: PlanGroup[] = [{ id: 'best', title: 'Best for you', plans: best.length ? best : ok.slice(0, 3) }];
@@ -205,8 +217,7 @@ export function selfCheck() {
   assert(r.every((x) => x.reasons.length > 0 && x.reasons.every((s) => s.length > 0) && x.fit >= 0 && x.fit <= 100 && (x.suitable || !!x.caution)), 'reasons, fit and cautions');
   assert(r.every((x, i) => i === 0 || !r[i - 1].suitable || !x.suitable || x.pick || r[i - 1].pick || r[i - 1].fit >= x.fit), 'sorted by fit');
   // Cards read differently: among the suitable plans no two lead with the same line.
-  const lead = (x: RankedPlan) => x.reasons.find((s) => !/days/.test(s)) ?? x.reasons[0];
-  const leads = r.filter((x) => x.suitable).map(lead);
+  const leads = r.map((x) => x.reasons[0]);
   assert(new Set(leads).size === leads.length, `each plan leads with its own reason: ${leads.filter((s, i) => leads.indexOf(s) !== i).join(', ')}`);
   // A man never sees women's plans as suitable; a gym-goer never a home plan; a home trainer never a gym plan.
   assert(r.filter((x) => x.category === 'Women').every((x) => !x.suitable) && r.filter((x) => x.plan.place === 'home').every((x) => !x.suitable), 'gym man');
@@ -231,7 +242,7 @@ export function selfCheck() {
   assert(preg[0].baseId === 'pregnancy-safe' && preg.find((x) => x.baseId === 'pelvic-floor')!.fit >= 75 && preg.filter((x) => x.addOn).every((x) => !x.suitable), 'pregnancy');
   // Groups: best first, every plan in exactly one category or "other" group.
   const g = planGroups(who({}));
-  assert(g[0].id === 'best' && g[0].plans[0].pick && g[0].plans.length >= 2 && g[0].plans.length <= 5, 'best group');
+  assert(g[0].id === 'best' && g[0].plans[0].pick && g[0].plans.length >= 1 && g[0].plans.length <= 5, 'best group');
   const rest = g.slice(1).flatMap((x) => x.plans.map((y) => y.baseId));
   assert(rest.length === plans.length && new Set(rest).size === plans.length, 'groups cover every plan once');
   assert(g[1].id === 'Muscle' && planGroups(who({ goal: 'lose fat' }))[1].id === 'Fat loss', "the goal's category comes first");

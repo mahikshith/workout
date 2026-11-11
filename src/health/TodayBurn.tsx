@@ -54,7 +54,7 @@ export function TodayBurn() {
           <T v="small">{live !== null ? 'live' : 'bpm'}</T>
         </Row>
       )}
-      <Ionicons name="chevron-forward" size={18} color={c.dim} />
+      <Ionicons name="chevron-forward" size={18} color={c.muted} />
     </Tap>
   );
 }

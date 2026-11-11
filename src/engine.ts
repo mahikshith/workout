@@ -22,7 +22,7 @@ const pick = <T,>(xs: T[], seed: string) => xs[hash(seed) % xs.length];
 
 // --- exercise traits (from names and categories; conservative on purpose) ---
 const has = (e: Exercise, re: RegExp) => re.test(e.name);
-export const impact = (e: Exercise) => e.category === 'plyometrics' || has(e, /jump|hop|burpee|skip|sprint|bound|jack|scissor|run|plyo|clap/i);
+export const impact = (e: Exercise) => e.category === 'plyometrics' || has(e, /jump|hop|burpee|skip|sprint|bound|jack|scissor|run|plyo|clap|high knees|fast feet/i);
 const onBackOrFront = (e: Exercise) => has(e, /lying|supine|prone|bench press|floor press|crunch|sit-?up|dead bug|bridge|hip thrust|leg raise|flutter|pullover|skull|superman|reverse fly/i);
 export const straining = (e: Exercise) =>
   ['olympic weightlifting', 'strongman', 'powerlifting'].includes(e.category) || e.level === 'expert' || has(e, /deadlift|clean|snatch|jerk|good morning/i);

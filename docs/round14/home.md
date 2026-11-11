@@ -40,3 +40,12 @@ notes are all still there, folded or moved lower.
 Owner's note: the muscle icons in the exercise section were too small. Each tile now shows a close-up
 (`MuscleZoom` in `src/body.tsx`): the body drawing cropped to a square window around that muscle group, 84 px, on the
 side that shows it best. Windows were measured from the outlines' bounding boxes.
+
+## Colour: each place has its own mood
+
+Owner's note: the app read as monochrome, every screen the same. Each tab now has its own soft background glow
+(`Ambient` colours, `Screen tone=`) from the domain colours: Home green and teal, Progress amber and indigo, Workouts
+teal and red, Fuel orange, blue and pink, Plans indigo and amber. Plan cards carry a wash of their kind's colour
+(muscle teal, fat loss orange, cardio red, recovery indigo...), short sessions take turns through the domain colours,
+and the "today" and "doing now" cards use the same tinted gradient as Home's recommendation. Text stays on solid
+cards, so contrast is unchanged.

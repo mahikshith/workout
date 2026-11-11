@@ -52,9 +52,9 @@ const OWN = /push-?up|pull-?up|chin-?up|\bdips?\b|plank|burpee|handstand|muscle.
 const EASED = /wall|knee push|kneeling push|incline push|assisted|negative|band.assisted|doorway|towel row/i;
 // Calisthenics and gym moves the dataset marks as easy but that are not.
 const HARD2 = /pistol|shrimp|dragon flag|handstand|muscle.?up|l-sit|one.?arm (chin|pull|push)|wall walk|archer|typewriter|kipping|planche|front lever|rope climb|side to side chin|gironda|london bridge|clap|commando|towel pull/i;
-const HARD1 = /weighted|sissy|v-up|hindu|skater squat|copenhagen|cossack|feet.elevated|decline push|burpee|plyo|pull-?up|chin-?up|\bdips?\b|hanging|toes to bar|ab roller|rollout|jack.?knife|hollow rock|deficit|single.?leg (squat|deadlift)|nordic|glute.ham|good morning|hip airplane|depth jump|box jump|sprawl/i;
-const ODD = /chain|with bands|- with bands|board press|reverse band|pin press|anti-gravity|zercher|jefferson|kneeling squat|off pins|speed box|powerlifting|sled|suspended|balance board|plate pinch|otis|cuban|scott|drag curl|one handed hang|neck resistance|head harness|bosu|landmine|rickshaw|axle|keg|atlas|tire|yoke|log lift|conan|circus|car driver|iron cross|around the world|svend|bradford|sots|muscle snatch|drop snatch|frankenstein|hang |from blocks|rack delivery|carioca|defensive slide|moving claw|arm drill/i;
-const RISKY = /behind (the )?(neck|head)|guillotine|neck press|upright row|kipping|good morning|jefferson|sissy|straight.?leg deadlift|stiff.?leg|bradford/i;
+const HARD1 = /hack squat|weighted|sissy|v-up|hindu|skater squat|copenhagen|cossack|feet.elevated|decline push|burpee|plyo|pull-?up|chin-?up|\bdips?\b|hanging|toes to bar|ab roller|rollout|jack.?knife|hollow rock|deficit|single.?leg (squat|deadlift)|nordic|glute.ham|good morning|hip airplane|depth jump|box jump|sprawl/i;
+const ODD = /manual|partner|chain|with bands|- with bands|board press|reverse band|pin press|anti-gravity|zercher|jefferson|kneeling squat|off pins|speed box|powerlifting|sled|suspended|balance board|plate pinch|otis|cuban|scott|drag curl|one handed hang|neck resistance|head harness|bosu|landmine|rickshaw|axle|keg|atlas|tire|yoke|log lift|conan|circus|car driver|iron cross|around the world|svend|bradford|sots|muscle snatch|drop snatch|frankenstein|hang |from blocks|rack delivery|carioca|defensive slide|moving claw|arm drill/i;
+const RISKY = /behind (the )?(neck|head)|guillotine|neck press|upright row|kipping|good morning|jefferson|sissy|bradford/i;
 
 // Every exercise the app's own plans, quick sessions and cardio ladder use.
 // The dataset files a few moves under a muscle they only help with. The engine reads the main muscle through here.
@@ -128,7 +128,7 @@ function build(e: Exercise): Traits {
     hold: !!e.timed || (HOLD.test(n) && !/jack|tap|push|walk|jump|up to|march|dip/i.test(n)),
     staple: STAPLES.has(e.id),
     odd: !STAPLES.has(e.id) && (ODD.test(n) || e.category === 'strongman' || (e.equipment === 'other' && !/dip|hyperextension|back extension|inverted row|pull-?up|chin|trap bar|plate raise/i.test(n))),
-    risky: RISKY.test(n),
+    risky: RISKY.test(n) && !STAPLES.has(e.id),
   };
 }
 

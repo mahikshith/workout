@@ -114,7 +114,7 @@ export function GetsTable({ g, arrived }: { g: Guide; arrived: Metric[] }) {
             const maybe = unsure.includes(m);
             return (
               <View key={m} style={s.cell} accessible accessibilityLabel={`${METRIC_LABEL[m]}: ${got ? 'received' : cant ? "we can't read it yet" : maybe ? 'depends on your plan or model' : 'not yet'}`}>
-                <Ionicons name={got ? 'checkmark-circle' : cant ? 'remove-circle-outline' : maybe ? 'help-circle-outline' : 'ellipse-outline'} size={18} color={got ? c.ok : c.dim} />
+                <Ionicons name={got ? 'checkmark-circle' : cant ? 'remove-circle-outline' : maybe ? 'help-circle-outline' : 'ellipse-outline'} size={18} color={got ? c.ok : c.muted} />
                 <T v="small" color={got ? c.text : c.muted} numberOfLines={1} style={{ flex: 1 }}>{cap(METRIC_LABEL[m])}</T>
               </View>
             );
@@ -123,9 +123,9 @@ export function GetsTable({ g, arrived }: { g: Guide; arrived: Metric[] }) {
       ) : <T v="small">Whatever your watch's app shares shows up here with a tick</T>}
       <View style={[s.row, { flexWrap: 'wrap', columnGap: 14, rowGap: 4 }]}>
         <Key icon="checkmark-circle" color={c.ok} text="Received this week" />
-        <Key icon="ellipse-outline" color={c.dim} text="Not here yet" />
-        {rows.some((m) => unsure.includes(m) && !arrived.includes(m)) && <Key icon="help-circle-outline" color={c.dim} text="Depends on plan or model" />}
-        {rows.some((m) => NOT_READ.includes(m)) && <Key icon="remove-circle-outline" color={c.dim} text="We can't read it yet" />}
+        <Key icon="ellipse-outline" color={c.muted} text="Not here yet" />
+        {rows.some((m) => unsure.includes(m) && !arrived.includes(m)) && <Key icon="help-circle-outline" color={c.muted} text="Depends on plan or model" />}
+        {rows.some((m) => NOT_READ.includes(m)) && <Key icon="remove-circle-outline" color={c.muted} text="We can't read it yet" />}
       </View>
       {notShared.length > 0 && <T v="small">{g.direct ? 'The ring' : app} doesn't send {listOf(notShared.map((m) => METRIC_LABEL[m]))}</T>}
     </View>
@@ -460,7 +460,7 @@ const s = StyleSheet.create({
   diagram: { gap: 12, padding: 14, borderRadius: r.md, backgroundColor: c.card2 },
   block: { gap: 12, padding: 14, borderRadius: r.md, borderWidth: 1, borderColor: c.line },
   step: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  num: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: c.dim, alignItems: 'center', justifyContent: 'center' },
+  num: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: c.muted, alignItems: 'center', justifyContent: 'center' },
   btn: { height: 48, alignSelf: 'flex-start', paddingHorizontal: 18 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 10 },
   cell: { width: '50%', flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },
