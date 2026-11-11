@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps, BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 import { Redirect, Tabs } from 'expo-router';
 import { Easing, StyleSheet, Text, View } from 'react-native';
-import { useReducedMotion } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import { useEffect } from 'react';
+import { spring } from '../../src/motion';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fmtTime } from '../../src/calc';
 import { TAB_BAR_HEIGHT, useElapsed, useToday } from '../../src/kit';
@@ -31,6 +33,28 @@ const fadeRise: BottomTabNavigationOptions['sceneStyleInterpolator'] = ({ curren
   },
 });
 
+// The selected tab's icon sits in a soft accent pill. The pill grows out from the middle on a spring and the icon
+// gives a small bounce when its tab is picked (transform and opacity only; still with reduced motion).
+function Pill({ on, icon }: { on: boolean; icon: keyof typeof Ionicons.glyphMap }) {
+  const still = useReducedMotion();
+  const p = useSharedValue(on ? 1 : 0);
+  const pop = useSharedValue(1);
+  useEffect(() => {
+    p.value = still ? (on ? 1 : 0) : withSpring(on ? 1 : 0, spring.snappy);
+    if (on && !still) pop.value = withSequence(withTiming(0.82, { duration: 70 }), withSpring(1, spring.bouncy));
+  }, [on, still]);
+  const fill = useAnimatedStyle(() => ({ opacity: p.value, transform: [{ scaleX: 0.4 + 0.6 * p.value }] }));
+  const bounce = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
+  return (
+    <View style={s.pill}>
+      <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 14, backgroundColor: tint(c.accent, 1.3) }, fill]} />
+      <Animated.View style={bounce}>
+        <Ionicons name={on ? icon : (`${icon}-outline` as keyof typeof Ionicons.glyphMap)} size={22} color={on ? c.accent : c.muted} />
+      </Animated.View>
+    </View>
+  );
+}
+
 function Bar({ state, navigation }: BottomTabBarProps) {
   const today = useToday();
   const elapsed = useElapsed();
@@ -50,10 +74,7 @@ function Bar({ state, navigation }: BottomTabBarProps) {
     return (
       <Tap key={route.key} onPress={press} style={s.item} scale={0.92} feedback="none"
         accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={t.label}>
-        {/* Material 3 style: the selected tab's icon sits in a soft pill of the accent. */}
-        <View style={[s.pill, on && { backgroundColor: tint(c.accent, 1.3) }]}>
-          <Ionicons name={on ? t.icon : (`${t.icon}-outline` as keyof typeof Ionicons.glyphMap)} size={22} color={on ? c.accent : c.muted} />
-        </View>
+        <Pill on={on} icon={t.icon} />
         <Text style={[s.label, { color: on ? c.accent : c.muted }]}>{t.label}</Text>
       </Tap>
     );
