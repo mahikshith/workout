@@ -14,7 +14,7 @@ import { reschedule, restAlert } from './notify';
 import { byId, type Place } from './data/exercises';
 import { asDay, quickById } from './data/quick';
 import { suggest } from './engine';
-import { useStore } from './store';
+import { useStore, type Item } from './store';
 import { c, f, r } from './theme';
 import { CENTRE_RISE, haptic, MINI_BAR_HEIGHT, MINI_GAP, T, TAB_BAR_HEIGHT, Tap, useMiniBarPlace } from './ui';
 
@@ -183,8 +183,19 @@ export function DockedMiniBar() {
   return <MiniBar bottom={bottom} />;
 }
 
-// Docked above the tab bar while a started workout is minimised (a ready one never shows it). Tap opens it; ✓ logs the
-// next set.
+// The next exercise after `from` that still has sets to log (wrapping round to ones skipped earlier), or -1. The workout
+// screen and the mini bar move on with it.
+export const nextOpen = (items: Item[], from: number) => {
+  for (let k = 1; k < items.length; k++) {
+    const n = (from + k) % items.length;
+    if (items[n].sets.some((x) => !x.done)) return n;
+  }
+  return -1;
+};
+
+// Docked above the tab bar while a started workout is minimised (a ready one never shows it). Tap opens it. It mirrors
+// the workout's bottom bar: ✓ logs the next set (and starts its rest); during a rest it shows the countdown and Next,
+// which ends the rest (and, when that exercise is all logged, brings on the next one, as the workout does).
 export function MiniBar({ bottom }: { bottom: number }) {
   const a = useStore((s) => s.active);
   const elapsed = useElapsed();
@@ -210,7 +221,7 @@ export function MiniBar({ bottom }: { bottom: number }) {
   const left = a.items.some((x) => x.sets.some((y) => !y.done)); // ✓ logs the next set anywhere, so it shows while any is left
   const done = a.items.reduce((n, x) => n + x.sets.filter((y) => y.done).length, 0);
   const total = a.items.reduce((n, x) => n + x.sets.length, 0);
-  const rest = a.restUntil && a.restUntil > now ? Math.ceil((a.restUntil - now) / 1000) : 0;
+  const rest = a.restUntil ? Math.max(0, Math.ceil((a.restUntil - (a.pausedAt ?? now)) / 1000)) : 0; // frozen while paused
   // Logs the next unfinished set anywhere in the workout, the same way the workout screen does.
   const tick = () => {
     const { active, updateSet, setRest, setIdx, resume } = useStore.getState();
@@ -229,6 +240,22 @@ export function MiniBar({ bottom }: { bottom: number }) {
     setRest(Date.now() + item.rest * 1000, item.rest, ii);
     restAlert(item.rest);
   };
+  // Next during a rest: the rest ends now. If the exercise whose set started it is all logged (and still the one
+  // chosen), the next one with sets left comes on, so opening the workout shows what to do next.
+  const next = () => {
+    const { active, setRest, setIdx, resume } = useStore.getState();
+    if (!active) return;
+    const from = active.restFrom;
+    setRest(null);
+    restAlert(null);
+    if (active.pausedAt) resume();
+    haptic('light');
+    if (from !== undefined && (active.idx ?? 0) === from && active.items[from]?.sets.every((x) => x.done)) {
+      const n = nextOpen(active.items, from);
+      if (n >= 0) setIdx(n);
+    }
+  };
+  const resting = rest > 0;
   return (
     <Animated.View entering={FadeInDown.duration(320).easing(EASE)} exiting={FadeOutDown.duration(200)} style={[k.mini, { bottom, borderColor: c.accent + '55' }]}>
       <Tap onPress={openWorkout} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 14 }} scale={0.98}
@@ -236,13 +263,20 @@ export function MiniBar({ bottom }: { bottom: number }) {
         <View style={{ flex: 1, minWidth: 0 }}>
           <T v="h3" numberOfLines={1} style={{ fontSize: 15 }}>{ex?.name ?? a.title}</T>
           <T v="small" color={rest ? c.warm : c.accent} numberOfLines={1} style={{ fontVariant: ['tabular-nums'] }}>
-            {rest ? `Rest ${fmtTime(rest)}` : a.pausedAt ? 'Paused' : fmtTime(elapsed)} · {done}/{total} sets
+            {rest ? `${a.pausedAt ? 'Paused · rest' : 'Rest'} ${fmtTime(rest)}` : a.pausedAt ? 'Paused' : fmtTime(elapsed)} · {done}/{total} sets
           </T>
         </View>
       </Tap>
-      <Tap onPress={tick} style={[k.miniTick, { backgroundColor: c.accent }]} scale={0.9} feedback="none" accessibilityLabel={left ? 'Log next set' : 'Open workout'}>
-        <Ionicons name={left ? 'checkmark' : 'chevron-up'} size={22} color={c.accentInk} />
-      </Tap>
+      {resting ? (
+        <Tap onPress={next} style={[k.miniNext, { backgroundColor: c.warm }]} scale={0.95} feedback="none" accessibilityLabel="Skip rest, next">
+          <T v="h3" color={c.accentInk} style={{ fontSize: 15 }}>Next</T>
+          <Ionicons name="chevron-forward" size={18} color={c.accentInk} />
+        </Tap>
+      ) : (
+        <Tap onPress={tick} style={[k.miniTick, { backgroundColor: c.accent }]} scale={0.9} feedback="none" accessibilityLabel={left ? 'Log next set' : 'Open workout'}>
+          <Ionicons name={left ? 'checkmark' : 'chevron-up'} size={22} color={c.accentInk} />
+        </Tap>
+      )}
     </Animated.View>
   );
 }
@@ -288,6 +322,7 @@ const k = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: c.scheme === 'light' ? 0.16 : 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10,
   },
   miniTick: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  miniNext: { height: 44, paddingLeft: 14, paddingRight: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 2 },
   empty: { alignItems: 'center', gap: 10, paddingVertical: 24, paddingHorizontal: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   emptyBtn: { height: 44, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
   door: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },

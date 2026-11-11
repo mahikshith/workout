@@ -88,7 +88,7 @@ const Block = memo(function Block({ g, n, onOpen }: { g: Group; n: number; onOpe
     <Tap onPress={() => onOpen(g.id)} style={s.block} scale={0.96}>
       {g.muscles ? <MuscleMap primary={g.muscles} secondary={NONE} size={56} side={SIDE[g.id] ?? 'front'} still />
         : <View style={s.circle}><Ionicons name={ICON[g.id] ?? 'fitness'} size={24} color={RED} /></View>}
-      <T v="h3" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ marginTop: 6, textAlign: 'center', fontSize: 15 }}>{g.label}</T>
+      <T v="h3" numberOfLines={2} style={{ marginTop: 6, textAlign: 'center', fontSize: 15, lineHeight: 18 }}>{g.label}</T>
       <T v="small" style={{ textAlign: 'center', fontSize: 12 }}>{plural(n, 'move')}</T>
     </Tap>
   );
@@ -208,9 +208,10 @@ export default function Library() {
             {SORTED.map((x) => <Chip key={x.id} label={x.label} on={gid === x.id} onPress={() => setGid(x.id)} />)}
           </ScrollView>
         )}
-        <View style={[s.wrap, { paddingHorizontal: 12 }]}>
+        {/* One scrolling row like the muscle and equipment rows (wrapping left "Expert" alone on a second line). */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
           {[ALL, ...LEVELS].map((l) => <Chip key={l} label={l === ALL ? 'All levels' : title(l)} on={lvl === l} onPress={() => setLvl(l)} />)}
-        </View>
+        </ScrollView>
         {kits.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
             {[ALL, ...kits].map((k) => {
@@ -263,7 +264,7 @@ const ExRow = memo(function ExRow({ e, focus, locked, match, onPress, at }: { e:
     <Tap onPress={onPress} style={[s.row, at !== undefined && { borderColor: c.ok + '55' }]} scale={0.98}>
       <Thumb ex={e} size={56} />
       <View style={{ flex: 1, gap: 4 }}>
-        <T v="h3" numberOfLines={1}>{e.name}</T>
+        <T v="h3" numberOfLines={2}>{e.name}</T>
         <Row gap={6} style={{ flexWrap: 'wrap' }}>
           <View style={[s.tag, { backgroundColor: q.color + '22' }]}><T v="small" color={q.color}>{q.label}</T></View>
           <View style={s.tag}><T v="small" color={c.text}>{title(e.level)}</T></View>
@@ -288,7 +289,7 @@ const s = StyleSheet.create({
   list: { paddingHorizontal: 12, paddingTop: 4, paddingBottom: 120 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
   spacer: { width: '31.5%' },
-  block: { width: '31.5%', height: 118, padding: 8, borderRadius: r.lg, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: LINE },
+  block: { width: '31.5%', minHeight: 118, padding: 8, borderRadius: r.lg, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: LINE },
   circle: { width: 56, height: 56, borderRadius: 28, backgroundColor: RED + '22', alignItems: 'center', justifyContent: 'center' },
   edge: { borderWidth: 1, borderColor: LINE, borderRadius: r.lg },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: LINE },

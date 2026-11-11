@@ -1,4 +1,3 @@
-import { Anton_400Regular } from '@expo-google-fonts/anton';
 import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { useFonts } from 'expo-font';
 import { router, Stack, usePathname, type Href } from 'expo-router';
@@ -25,7 +24,7 @@ function RestDayHost() {
 }
 
 export default function Root() {
-  const [fonts] = useFonts({ Anton_400Regular, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold });
+  const [fonts] = useFonts({ Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold });
   const [hydrated, setHydrated] = useState(useStore.persist.hasHydrated());
   useEffect(() => useStore.persist.onFinishHydration(() => setHydrated(true)), []);
   const ready = fonts && hydrated;

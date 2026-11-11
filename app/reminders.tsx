@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AppState, Linking, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
@@ -8,8 +9,10 @@ import { askPermission, hasPermission, rescheduleAll } from '../src/notify';
 import { Sheet } from '../src/sheet';
 import { TimePicker } from '../src/timepicker';
 import { useStore, type Interval, type NudgePrefs, type Reminder } from '../src/store';
+import { clock as hm, useMySupplements } from '../src/supps';
 import { c } from '../src/theme';
-import { Button, Card, Chip, Row, Stepper, T, Tap } from '../src/ui';
+import { Button, Card, Chip, IconBox, Row, T, Tap } from '../src/ui';
+import { ml, useWater } from '../src/water';
 
 const WEEK = [1, 2, 3, 4, 5, 6, 0]; // Monday first; the store counts 0 = Sunday
 const SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -18,7 +21,7 @@ const MEALS: [string, number, number][] = [['Breakfast', 8, 0], ['Lunch', 13, 0]
 const web = Platform.OS === 'web';
 const wrap = (n: number, m: number) => (n + m) % m;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
-const clock = (h: number, m: number) => `${h}:${String(m).padStart(2, '0')}`;
+const clock = (h: number, m: number) => `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; // "6:00 pm", as on You and in the time picker
 const dayList = (d: number[]) => (!d.length || d.length >= 7 ? 'Every day' : WEEK.filter((x) => d.includes(x)).map((x) => SHORT[x]).join(' '));
 const JUMPS: { label: string; to: (m: number) => number; at?: number }[] = [
   { label: '−5', to: (m) => wrap(m - 5, 60) },
@@ -40,6 +43,8 @@ export default function Reminders() {
   const [tried, setTried] = useState(false);
   const [edit, setEdit] = useState<Reminder | null>(null);
   const [open, setOpen] = useState(false);
+  const supps = useMySupplements();
+  const water = useWater();
 
   // Checked again when coming back from the phone's settings.
   useEffect(() => {
@@ -70,6 +75,8 @@ export default function Reminders() {
   const setN = (patch: Partial<NudgePrefs>) => { st.setNudges({ ...nudges, ...patch }); turnedOn(!!(patch.missed || patch.streak || patch.recap)); };
 
   const workouts = reminders.filter((r) => r.kind === 'workout');
+  const suppOn = supps.flatMap((x) => x.times.filter((t) => t.on).map((t) => `${x.short} ${hm(t.hour, t.minute)}`));
+  const suppLine = suppOn.length ? suppOn.join(' · ') : supps.length ? `${supps.map((x) => x.short).join(', ')} · no reminders on` : 'Protein shake, creatine, coffee… at your own times';
   const meals = MEALS.map(([label, hour, minute]): Reminder =>
     reminders.find((r) => r.kind === 'meal' && r.label === label) ?? { id: `meal-${label.toLowerCase()}`, kind: 'meal', hour, minute, days: [], on: false, label });
 
@@ -95,8 +102,9 @@ export default function Reminders() {
           </Section>
         )}
 
+        <Group title="Training" />
         <Section i={2}>
-          <T v="h2">Workout reminders</T>
+          <T v="h2">Workouts</T>
           {!workouts.length && <T v="small">None yet. Add up to five.</T>}
           {workouts.map((r) => <Line key={r.id} r={r} sub={dayList(r.days)} onOpen={() => show(r)} onToggle={(on) => toggle(r, on)} />)}
           {workouts.length < 5 && <Button title="Add reminder" kind="ghost" icon="add" onPress={add} />}
@@ -105,47 +113,61 @@ export default function Reminders() {
         <Section i={3}>
           <Toggle title="Missed workout nudge" sub="Two hours after a missed reminder, a short session"
             value={nudges.missed} onChange={(missed) => setN({ missed })} />
+          <View style={s.rule} />
+          <Toggle title="Streak alert" sub="After two days without a workout" value={nudges.streak} onChange={(streak) => setN({ streak })} />
+          <View style={s.rule} />
+          <Toggle title="Weekly recap" sub="Sundays at 7:00 pm" value={nudges.recap} onChange={(recap) => setN({ recap })} />
         </Section>
 
+        <Group title="Food and drink" />
         <Section i={4}>
-          <Toggle title="Motivation and tips" sub="Every few hours, a line or a food tip"
-            value={motivation.on} onChange={(on) => { st.setMotivation({ ...motivation, on }); turnedOn(on); }} />
-          {motivation.on && <Hours value={motivation} set={st.setMotivation} opts={[[120, '2 h'], [180, '3 h'], [240, '4 h']]} />}
+          <T v="h2">Meals</T>
+          {meals.map((m) => <Line key={m.id} r={m} sub={m.label ?? 'Meal'} onOpen={() => show(m)} onToggle={(on) => toggle(m, on)} />)}
         </Section>
 
         <Section i={5}>
           <Toggle title="Water"
-            sub={hydration.on ? `Every ${hydration.every} min, ${clock(hydration.from, 0)}–${clock(hydration.to, 0)} · stops when you hit today's glasses` : 'Gentle reminders to drink'}
+            sub={hydration.on ? `Every ${hydration.every} min, ${clock(hydration.from, 0)}–${clock(hydration.to, 0)} · stops at your ${ml(water.goal)}` : 'Gentle reminders to drink'}
             value={hydration.on} onChange={(on) => { st.setHydration({ ...hydration, on }); turnedOn(on); }} />
           {hydration.on && <Hours value={hydration} set={st.setHydration} opts={[[60, '60 min'], [90, '90 min'], [120, '120 min']]} />}
         </Section>
 
         <Section i={6}>
+          <Tap onPress={() => router.push('/supplements')} scale={0.98} style={s.door} accessibilityLabel="Supplements and their reminders">
+            <IconBox icon="flask" color={c.ok} size={36} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <T v="h3">Supplements</T>
+              <T v="small" numberOfLines={2}>{suppLine}</T>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={c.dim} />
+          </Tap>
+        </Section>
+
+        <Group title="Through the day" />
+        <Section i={7}>
+          <Toggle title="Motivation and tips" sub="Every few hours, a line or a food tip"
+            value={motivation.on} onChange={(on) => { st.setMotivation({ ...motivation, on }); turnedOn(on); }} />
+          {motivation.on && <Hours value={motivation} set={st.setMotivation} opts={[[120, '2 h'], [180, '3 h'], [240, '4 h']]} />}
+        </Section>
+
+        <Section i={8}>
           <Toggle title="Desk and eye breaks" sub="Weekdays: stand up, rest your eyes"
             value={breaks.on} onChange={(on) => { st.setBreaks({ ...breaks, on }); turnedOn(on); }} />
           {breaks.on && <Hours value={breaks} set={st.setBreaks} opts={[[45, '45 min'], [60, '60 min'], [90, '90 min']]} labels={['Work starts', 'Work ends']} />}
         </Section>
 
-        <Section i={7}>
-          <T v="h2">Meals</T>
-          {meals.map((m) => <Line key={m.id} r={m} sub={m.label ?? 'Meal'} onOpen={() => show(m)} onToggle={(on) => toggle(m, on)} />)}
-        </Section>
-
-        <Section i={8}>
-          <Toggle title="Streak alert" sub="After two days without a workout" value={nudges.streak} onChange={(streak) => setN({ streak })} />
-          <Toggle title="Weekly recap" sub="Sundays at 19:00" value={nudges.recap} onChange={(recap) => setN({ recap })} />
-          <View style={s.rule} />
+        <Section i={9}>
           <View style={{ gap: 2 }}>
             <T v="h3">Quiet hours</T>
-            <T v="small">{nudges.quietFrom === nudges.quietTo ? 'Off while both times match' : 'Automatic nudges stay silent · your own reminders still ring'}</T>
+            <T v="small">{nudges.quietFrom === nudges.quietTo ? 'Off while both times match' : 'Automatic nudges stay silent · times you set yourself still ring'}</T>
           </View>
           <Row style={{ justifyContent: 'space-between' }}>
             <T v="body">From</T>
-            <Stepper value={nudges.quietFrom} min={-1} onChange={(h) => setN({ quietFrom: wrap(h, 24) })} suffix=":00" />
+            <HourStepper value={nudges.quietFrom} onChange={(h) => setN({ quietFrom: wrap(h, 24) })} />
           </Row>
           <Row style={{ justifyContent: 'space-between' }}>
             <T v="body">Until</T>
-            <Stepper value={nudges.quietTo} min={-1} onChange={(h) => setN({ quietTo: wrap(h, 24) })} suffix=":00" />
+            <HourStepper value={nudges.quietTo} onChange={(h) => setN({ quietTo: wrap(h, 24) })} />
           </Row>
         </Section>
         </ScrollView>
@@ -192,6 +214,9 @@ export default function Reminders() {
     </>
   );
 }
+
+// A small heading over a group of cards, so the list scans as Training, Food and drink, Through the day.
+const Group = ({ title }: { title: string }) => <T v="label" style={{ marginTop: 24, marginLeft: 4 }}>{title}</T>;
 
 function Section({ i, children }: { i: number; children: ReactNode }) {
   const still = useReducedMotion();
@@ -244,18 +269,31 @@ function Hours({ value, set, opts, labels = ['From', 'Until'] }: {
       </Row>
       <Row style={{ justifyContent: 'space-between' }}>
         <T v="body">{labels[0]}</T>
-        <Stepper value={value.from} onChange={(h) => set({ ...value, from: clamp(h, 0, value.to - 1) })} suffix=":00" />
+        <HourStepper value={value.from} onChange={(h) => set({ ...value, from: clamp(h, 0, value.to - 1) })} />
       </Row>
       <Row style={{ justifyContent: 'space-between' }}>
         <T v="body">{labels[1]}</T>
-        <Stepper value={value.to} onChange={(h) => set({ ...value, to: clamp(h, value.from + 1, 23) })} suffix=":00" />
+        <HourStepper value={value.to} onChange={(h) => set({ ...value, to: clamp(h, value.from + 1, 23) })} />
       </Row>
     </Animated.View>
   );
 }
 
+// Whole hours shown the same way as every other time in the app ("9:00 pm", not "21 :00"); − and + are 44 px.
+function HourStepper({ value, onChange }: { value: number; onChange: (h: number) => void }) {
+  return (
+    <Row gap={4}>
+      <Tap onPress={() => onChange(value - 1)} style={s.hourBtn} accessibilityLabel="Earlier"><Ionicons name="remove" size={18} color={c.text} /></Tap>
+      <T v="body" color={c.text} style={{ minWidth: 84, textAlign: 'center' }}>{clock(((value % 24) + 24) % 24, 0)}</T>
+      <Tap onPress={() => onChange(value + 1)} style={s.hourBtn} accessibilityLabel="Later"><Ionicons name="add" size={18} color={c.text} /></Tap>
+    </Row>
+  );
+}
+
 const s = StyleSheet.create({
+  hourBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card2 },
   pill: { flex: 1, height: 36, borderRadius: 18, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   day: { flex: 1, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   rule: { height: StyleSheet.hairlineWidth, backgroundColor: c.line },
+  door: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
 });

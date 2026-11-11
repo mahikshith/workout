@@ -13,6 +13,7 @@ import { useStore, type Profile } from '../../src/store';
 import { c, equip, f, r } from '../../src/theme';
 import { Avatar, ListRow, Row, Section, T, Tap, Thumb } from '../../src/ui';
 import { Enter, MuscleGrid, plural } from '../library';
+import { ChallengesDoor } from '../../src/challenges/Card';
 
 // Train: your plan, the whole exercise library (search + muscle grid) and every other plan, in one place.
 // Depth: Train -> plan / muscle page / exercise -> exercise (alternatives replace, never stack).
@@ -41,6 +42,9 @@ function because(p: Profile, plan: Plan) {
   if (plan.level === 'beginner' && p.level === 'beginner') return 'Beginner friendly';
   return days ? 'Fits your week' : 'A change of pace';
 }
+
+// Every exercise some plan uses: search lists these familiar moves first.
+const IN_PLANS = new Set(plans.flatMap((p) => p.days.flatMap((d) => d.slots.map((sl) => sl.id))));
 
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const meta = (p: Plan) => `${plural(perWeek(p), 'day')} · ${cap(p.level)}`;
@@ -90,8 +94,10 @@ export default function Train() {
   const exHits = useMemo(() => {
     if (!words.length) return [];
     const hits = exercises.filter((e) => words.every((w) => e.name.toLowerCase().includes(w) || e.equipment.includes(w) || e.primary.some((m) => m.includes(w))));
+    // Moves the plans use (the everyday ones) first, then names that start with the first word.
     const head = words[0];
-    return hits.sort((a, b) => Number(b.name.toLowerCase().startsWith(head)) - Number(a.name.toLowerCase().startsWith(head)));
+    const rank = (e: Exercise) => (IN_PLANS.has(e.id) ? 2 : 0) + (e.name.toLowerCase().startsWith(head) ? 1 : 0);
+    return hits.sort((a, b) => rank(b) - rank(a));
   }, [q]);
   const searching = words.length > 0;
   const placeLabel = profile.place === 'both' ? 'Gym and home' : cap(profile.place);
@@ -109,9 +115,9 @@ export default function Train() {
       </Row>
       <View style={s.search}>
         <Ionicons name="search" size={18} color={c.muted} />
-        <TextInput value={q} onChangeText={setQ} placeholder={`Search ${exercises.length} exercises and plans`} placeholderTextColor={c.dim}
+        <TextInput value={q} onChangeText={setQ} placeholder={`Search ${exercises.length.toLocaleString('en-US')} exercises and plans`} placeholderTextColor={c.dim}
           style={s.input} returnKeyType="search" autoCorrect={false} />
-        {!!q && <Tap onPress={() => setQ('')} feedback="none"><Ionicons name="close-circle" size={18} color={c.muted} /></Tap>}
+        {!!q && <Tap onPress={() => setQ('')} feedback="none" style={s.clear} accessibilityLabel="Clear search"><Ionicons name="close-circle" size={18} color={c.muted} /></Tap>}
       </View>
     </View>
   );
@@ -139,7 +145,15 @@ export default function Train() {
               {exHits.length > 0 && <T v="label" style={{ marginTop: planHits.length ? 12 : 0 }}>{`Exercises · ${exHits.length}`}</T>}
             </View>
           }
-          ListEmptyComponent={planHits.length ? null : <T v="small" style={{ marginTop: 8 }}>Nothing matches. Try a muscle or a piece of kit.</T>}
+          ListEmptyComponent={planHits.length ? null : (
+            <View style={{ gap: 4, marginTop: 8 }}>
+              <T v="small">Nothing matches. Try a muscle or a piece of kit.</T>
+              <Tap onPress={() => { setQ(''); router.push('/library'); }} style={s.browse} scale={0.97}>
+                <T v="h3" color={c.accent}>Browse all exercises</T>
+                <Ionicons name="chevron-forward" size={16} color={c.accent} />
+              </Tap>
+            </View>
+          )}
           renderItem={({ item }) => <Hit e={item} />}
         />
       </View>
@@ -184,6 +198,11 @@ export default function Train() {
               </Enter>
             )}
 
+            {/* Challenges: 14 to 30 days with one task a day (round 13). */}
+            <Enter i={1} style={{ marginTop: cur ? 12 : 0 }}>
+              <ChallengesDoor />
+            </Enter>
+
             <Enter i={1}>
               <Section title="Muscles" action="All exercises" onAction={() => router.push('/library')} style={{ marginTop: 28 }}>
                 <MuscleGrid where={where} onOpen={openMuscle} />
@@ -216,9 +235,11 @@ function Hit({ e }: { e: Exercise }) {
 }
 
 const s = StyleSheet.create({
-  place: { height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: c.card2, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  clear: { width: 44, height: 44, marginRight: -12, alignItems: 'center', justifyContent: 'center' },
+  browse: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, alignSelf: 'flex-start' },
+  place: { height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: c.card2, flexDirection: 'row', alignItems: 'center', gap: 6 },
   search: { height: 48, borderRadius: 14, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: c.line },
-  input: { flex: 1, color: c.text, fontFamily: f.medium, fontSize: 16, height: 48 },
+  input: { flex: 1, color: c.text, fontFamily: f.medium, fontSize: 16, height: 48, outlineWidth: 0 },
   plan: { gap: 12, padding: 16, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   start: { height: 44, paddingHorizontal: 18, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
   pip: { flex: 1, height: 6, borderRadius: 3 },

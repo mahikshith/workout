@@ -31,7 +31,8 @@ const APress = Animated.createAnimatedComponent(Pressable);
 
 // Every tappable surface springs down a little and ticks a haptic (no scale with reduced motion).
 // Accessibility props pass through; the role defaults to button.
-export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback = 'light', accessibilityRole = 'button', accessibilityLabel, accessibilityHint, accessibilityState }: {
+export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback = 'light', accessibilityRole = 'button', accessibilityLabel, accessibilityHint, accessibilityState, hitSlop }: {
+  hitSlop?: number; // extends the touch area past a small visual (steppers in tight rows) to reach 44 px
   onPress?: () => void; style?: StyleProp<ViewStyle>; children: ReactNode; disabled?: boolean; scale?: number; feedback?: 'light' | 'medium' | 'none';
   accessibilityRole?: AccessibilityRole; accessibilityLabel?: string; accessibilityHint?: string; accessibilityState?: AccessibilityState;
 }) {
@@ -41,6 +42,7 @@ export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback
   return (
     <APress
       disabled={disabled}
+      hitSlop={hitSlop}
       onPressIn={() => { if (!still) s.value = withTiming(scale, { duration: 120, easing: Easing.out(Easing.quad) }); }}
       onPressOut={() => { if (!still) s.value = withTiming(1, { duration: 220, easing: Easing.bezier(0.32, 0.72, 0, 1) }); }}
       onPress={() => { if (feedback !== 'none') haptic(feedback); onPress?.(); }}
@@ -58,14 +60,16 @@ export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback
 type V = 'display' | 'h1' | 'h2' | 'h3' | 'body' | 'small' | 'label' | 'num';
 const tv: Record<V, object> = {
   // The whole type scale. Screens pick a variant; they never set their own font or size.
-  display: { fontFamily: f.display, fontSize: 34, lineHeight: 40, letterSpacing: 0.5, textTransform: 'uppercase' },
-  h1: { fontFamily: f.display, fontSize: 28, lineHeight: 34, letterSpacing: 0.4, textTransform: 'uppercase' },
-  h2: { fontFamily: f.bold, fontSize: 22, lineHeight: 28 },
+  // Round 13: no more all-caps condensed display face. Titles are sentence case in Outfit, like Fitbit and WHOOP.
+  // Headings SemiBold; Bold is kept for numbers (research: Fitbit/WHOOP keep heavy weights for metrics only).
+  display: { fontFamily: f.semi, fontSize: 28, lineHeight: 34, letterSpacing: -0.3 },
+  h1: { fontFamily: f.semi, fontSize: 22, lineHeight: 28, letterSpacing: -0.2 },
+  h2: { fontFamily: f.semi, fontSize: 19, lineHeight: 25 },
   h3: { fontFamily: f.semi, fontSize: 17, lineHeight: 23 },
   body: { fontFamily: f.regular, fontSize: 16, lineHeight: 23 },
   small: { fontFamily: f.medium, fontSize: 14, lineHeight: 19 },
-  label: { fontFamily: f.semi, fontSize: 13, lineHeight: 17, letterSpacing: 1.2, textTransform: 'uppercase' },
-  num: { fontFamily: f.display, fontSize: 28, lineHeight: 34 },
+  label: { fontFamily: f.semi, fontSize: 12, lineHeight: 16, letterSpacing: 0.8, textTransform: 'uppercase' },
+  num: { fontFamily: f.bold, fontSize: 28, lineHeight: 34 },
 };
 export function T({ v = 'body', color, style, ...p }: TextProps & { v?: V; color?: string }) {
   // Small print is grey; tags and labels are a lighter grey so they stay readable on dark cards.
@@ -208,8 +212,8 @@ export function ListRow({ icon, color, thumb, title, sub, right, onPress, style 
     <Press onPress={onPress} style={[st.listRow, style]}>
       {thumb ?? (icon ? <IconBox icon={icon} color={color} /> : null)}
       <View style={{ flex: 1, gap: 2 }}>
-        <T v="h3" numberOfLines={1}>{title}</T>
-        {sub ? <T v="small" numberOfLines={1}>{sub}</T> : null}
+        <T v="h3" numberOfLines={2}>{title}</T>
+        {sub ? <T v="small" numberOfLines={2}>{sub}</T> : null}
       </View>
       {right ?? (onPress ? <Ionicons name="chevron-forward" size={18} color={c.dim} /> : null)}
     </Press>
@@ -606,7 +610,7 @@ export function Stepper({ value, onChange, step = 1, min = 0, suffix, big }: {
   };
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: big ? 16 : 2 }}>
-      <Tap onPress={() => onChange(Math.max(min, +(value - step).toFixed(2)))} style={[st.step, big && st.stepBig]}>
+      <Tap onPress={() => onChange(Math.max(min, +(value - step).toFixed(2)))} style={[st.step, big && st.stepBig]} hitSlop={big ? 0 : 6} accessibilityLabel="Less">
         <Ionicons name="remove" size={big ? 26 : 18} color={c.text} />
       </Tap>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', minWidth: big ? 120 : 34 }}>
@@ -616,7 +620,7 @@ export function Stepper({ value, onChange, step = 1, min = 0, suffix, big }: {
             borderBottomWidth: txt !== null ? 1.5 : 0, borderBottomColor: c.accent }} />
         {suffix ? <Text style={{ fontFamily: f.semi, fontSize: big ? 18 : 12, color: c.muted }}>{suffix}</Text> : null}
       </View>
-      <Tap onPress={() => onChange(+(value + step).toFixed(2))} style={[st.step, big && st.stepBig]}>
+      <Tap onPress={() => onChange(+(value + step).toFixed(2))} style={[st.step, big && st.stepBig]} hitSlop={big ? 0 : 6} accessibilityLabel="More">
         <Ionicons name="add" size={big ? 26 : 18} color={c.text} />
       </Tap>
     </View>

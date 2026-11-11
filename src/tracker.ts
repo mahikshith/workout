@@ -49,6 +49,10 @@ export type ImportedWorkout = {
 export type HrStat = { avg: number; max: number };
 export type SessionHr = HrStat & { sets?: (HrStat | null)[][]; rest?: HrStat; sparse?: boolean; origin?: string; readAt: string };
 
+// Today's heart rate from Health Connect, for the Tracker screen: average bpm per `stepMin` bucket from midnight (null
+// where the watch wrote nothing), and minutes per heart-rate zone 0-5 (src/health/readiness.ts zoneOf).
+export type HrDay = { date: string; stepMin: number; bpm: (number | null)[]; min: number; max: number; avg: number; zoneMin: number[]; origin?: string; readAt: string };
+
 export type HrDevice = { id: string; name: string; lastConnected?: string };
 // A paired Colmi smart ring (src/health/colmiDevice.ts).
 export type RingDevice = { id: string; name: string; lastSync?: string; battery?: number; charging?: boolean };
@@ -69,6 +73,8 @@ type TrackerState = {
   // Watch workouts merged into one of our sessions (linkedSessionId set), by workout id. They live here instead of
   // `workouts`, so every list of imported workouts leaves them out without knowing about merging.
   merged: Record<string, ImportedWorkout>;
+  hrDay: HrDay | null;
+  setHrDay: (d: HrDay | null) => void;
   upsertDaily: (rows: DailyMetrics[]) => void;
   upsertWorkouts: (rows: ImportedWorkout[]) => void;
   setHc: (patch: Partial<TrackerState['hc']>) => void;
@@ -107,6 +113,8 @@ export const useTracker = create<TrackerState>()(
       sessionHr: {},
       hcWritten: {},
       merged: {},
+      hrDay: null,
+      setHrDay: (hrDay) => set({ hrDay }),
       upsertDaily: (rows) =>
         set((s) => {
           const daily = { ...s.daily };
@@ -139,6 +147,7 @@ export const useTracker = create<TrackerState>()(
           workouts: Object.fromEntries(Object.entries(s.workouts).filter(([, w]) => w.source !== 'health_connect')),
           merged: Object.fromEntries(Object.entries(s.merged).filter(([, w]) => w.source !== 'health_connect')),
           sessionHr: {},
+          hrDay: null,
           hcWritten: removeWritten ? {} : s.hcWritten,
         })),
       setSetTimes: (id, times) => set((s) => ({ setTimes: trim({ ...s.setTimes, [id]: times }, id) })),

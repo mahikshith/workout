@@ -91,24 +91,24 @@ export default function ExerciseDetail() {
             <View style={[s.tag, { backgroundColor: eq.color + '22' }]}><T v="small" color={eq.color}>{eq.label}</T></View>
             <View style={s.tag}><T v="small" color={c.text}>{title(ex.level)}</T></View>
             {muscle && <View style={s.tag}><T v="small" color={c.text}>{title(muscle)}</T></View>}
-            <View style={s.tag}><T v="small" color={c.text}>{effort(ex)}</T></View>
+            <View style={s.tag}><T v="small" color={c.text}>{`${effort(ex)} effort`}</T></View>
           </Row>
           {at !== undefined && (
-            <View style={{ marginTop: 12 }}><Banner icon="checkmark-circle" color={c.ok} title={`Done ${doneNote(at).day} · fresh in ${doneNote(at).left}d`} /></View>
+            <View style={{ marginTop: 12 }}><Banner icon="checkmark-circle" color={c.ok} title={`Done ${doneNote(at).day} · ready again in ${plural(doneNote(at).left, 'day')}`} /></View>
           )}
           <Row gap={10} style={{ marginTop: 16 }}>
             <Tile icon="repeat" value={doseText(d)} label={d.sets > 1 ? 'Sets × reps' : 'Do'} />
             <Tile icon="timer-outline" color={c.blue} value={restText(d)} label="Rest" />
             <Tile icon="flame-outline" color={c.pink} value={`~${kcal(ex, profile.weightKg)}`} unit="kcal" label="All sets" />
           </Row>
-          {best.e1rm > 0 && <View style={{ marginTop: 12 }}><Banner icon="trophy" title={`Your best · ${Math.round(best.e1rm)} kg 1RM`} /></View>}
+          {best.e1rm > 0 && <View style={{ marginTop: 12 }}><Banner icon="trophy" title={`Your best · about ${Math.round(best.e1rm)} kg for one rep`} /></View>}
           {/* Locked: the card sits in the page (it used to float over the bottom of it). One short line, no paragraph. */}
           {lock.locked && (
             <View style={s.lock}>
               <Row gap={10}><Ionicons name="lock-closed" size={18} color={c.muted} /><T v="h3" style={{ flex: 1 }}>{lock.title}</T></Row>
               <T v="small" style={{ marginTop: 6 }}>{lock.safety || !lock.sessionsLeft ? lock.reason : `Opens after ${plural(lock.sessionsLeft, 'more session')}.`}</T>
               {!lock.safety && (
-                <Tap onPress={() => setSheet(true)} feedback="none" style={{ marginTop: 6, paddingVertical: 6, alignSelf: 'flex-start' }}>
+                <Tap onPress={() => setSheet(true)} feedback="none" style={{ marginTop: 2, minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
                   <T v="small" color={c.text} style={{ textDecorationLine: 'underline' }}>{"I've trained before"}</T>
                 </Tap>
               )}

@@ -1,19 +1,24 @@
-// "Connect your watch": one sheet, three steps. Pick the brand, follow its numbered steps (in the brand's app, then
-// Allow access here), then a check that reads what actually arrived in Health Connect and names the app it came from.
+// "Connect your watch": one sheet. Pick the brand, then one page for it: the data-path diagram (watch → its app →
+// Health Connect → us) with a tick on each hop we have seen data pass, at most three numbered steps with one button
+// each (the current step's button is the filled one), and "What Gym Buddy gets": what the brand's app usually shares
+// and what has really arrived. Brands that can also send live heart rate over Bluetooth get that below.
 // Brand data lives in ./guides.ts. Android only for the actions; on web and iOS the steps still show, with a note.
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Linking, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
+import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
+import { dayKey } from '../calc';
 import { EASE } from '../kit';
 import { Sheet } from '../sheet';
 import { c, r } from '../theme';
 import { useTracker } from '../tracker';
 import { Button, T, Tap } from '../ui';
 import { connect, forgetStrap, startScan, stopScan, useBle } from './ble';
-import { brandStatus } from './brandStatus';
-import { GADGETBRIDGE, GUIDES, METRIC_LABEL, originName, PHONE_ORIGINS, playUrl, playWeb, type Alt, type Guide } from './guides';
-import { checkData, HC_PLAY_URL, HC_PLAY_WEB, isAvailable, openHcSettings, requestPermissions, sync, type DataCheck, type HcStatus } from './healthConnect';
+import { brandStatus, metricsFrom } from './brandStatus';
+import { useRing } from './colmiDevice';
+import { APP_NAME, DataPath, directPath, hcPath, syncedAgo } from './DataPath';
+import { GADGETBRIDGE, GUIDES, METRIC_LABEL, METRIC_ORDER, NOT_READ, originName, PHONE_ORIGINS, playUrl, playWeb, type Alt, type Guide, type Metric } from './guides';
+import { checkData, HC_PLAY_URL, HC_PLAY_WEB, isAvailable, requestHistory, requestPermissions, sync, type DataCheck, type HcStatus } from './healthConnect';
 import { useLiveHr } from './live';
 
 const ANDROID = Platform.OS === 'android';
@@ -24,52 +29,25 @@ const openPlay = (pkg: string) => {
 };
 const installHc = () => (ANDROID ? Linking.openURL(HC_PLAY_URL).catch(() => Linking.openURL(HC_PLAY_WEB)) : Linking.openURL(HC_PLAY_WEB)).catch(() => {});
 
-// 'steps', 'sleep', 'heart rate' -> 'Steps, sleep and heart rate'
-const andList = (xs: string[]) => {
-  const s = xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
-  return s ? s[0].toUpperCase() + s.slice(1) : s;
+// The brand picker: the eight most asked-for first, the rest as small chips under them.
+const PICK = ['fitbit', 'whoop', 'samsung', 'garmin', 'zepp', 'xiaomi', 'colmi', 'other'];
+const MORE = ['oura', 'huawei', 'polar'];
+const byId = (id: string) => GUIDES.find((g) => g.id === id)!;
+
+const lastWord = (day?: string) => {
+  if (!day) return 'recently';
+  const n = Math.round((Date.parse(`${dayKey()}T12:00:00`) - Date.parse(`${day}T12:00:00`)) / 86400000);
+  return n <= 0 ? 'today' : n === 1 ? 'yesterday' : `${n} days ago`;
 };
+const listOf = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
-function Pulse({ height, width }: { height: number; width: `${number}%` }) {
-  const still = useReducedMotion();
-  const o = useSharedValue(1);
-  useEffect(() => {
-    if (!still) o.value = withRepeat(withTiming(0.4, { duration: 600, easing: Easing.inOut(Easing.ease) }), -1, true);
-  }, [still]);
-  const a = useAnimatedStyle(() => ({ opacity: o.value }));
-  return <Animated.View style={[{ height, width, borderRadius: r.md, backgroundColor: c.card2 }, a]} />;
-}
+// The app between the watch and Health Connect, by name.
+const appOf = (g: Guide) => g.app?.name ?? (g.id === 'huawei' ? 'Gadgetbridge' : 'Watch app');
+const deviceOf = (g: Guide) => (g.id === 'whoop' ? 'Your WHOOP' : g.id === 'oura' || g.id === 'colmi' ? 'Your ring' : 'Your watch');
+const deviceIcon = (g: Guide) => (g.id === 'oura' || g.id === 'colmi' ? 'ellipse-outline' as const : g.id === 'whoop' ? 'fitness-outline' as const : 'watch-outline' as const);
 
-function Steps({ lines, start = 1 }: { lines: string[]; start?: number }) {
-  return (
-    <View style={{ gap: 10 }}>
-      {lines.map((l, i) => (
-        <View key={i} style={s.stepRow}>
-          <View style={s.num}><T v="small" color={c.text}>{start + i}</T></View>
-          <T v="body" style={{ flex: 1 }}>{l}</T>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function Line({ icon, color, text, sub }: { icon: keyof typeof Ionicons.glyphMap; color: string; text: string; sub?: boolean }) {
-  return (
-    <View style={[s.stepRow, { alignItems: 'flex-start' }]}>
-      <Ionicons name={icon} size={20} color={color} style={{ marginTop: 1 }} />
-      <T v={sub ? 'small' : 'body'} style={{ flex: 1 }}>{text}</T>
-    </View>
-  );
-}
-
-const ago = (iso?: string) => {
-  if (!iso) return 'not synced yet';
-  const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
-  return m < 1 ? 'synced just now' : m < 60 ? `synced ${m} min ago` : m < 1440 ? `synced ${Math.round(m / 60)} h ago` : `synced ${Math.round(m / 1440)} d ago`;
-};
-
-// One brand's state: daily data through Health Connect (what came in, what's missing and its fix) and live heart rate
-// over Bluetooth (saved, streaming now, or not set up).
+// One brand's state: what came in through Health Connect, and live heart rate over Bluetooth.
 export function useBrand(g: Guide | null) {
   const daily = useTracker((x) => x.daily);
   const workouts = useTracker((x) => x.workouts);
@@ -78,56 +56,105 @@ export function useBrand(g: Guide | null) {
   const strap = useTracker((x) => x.strap);
   const ble = useBle();
   const bpm = useLiveHr();
-  const st = useMemo(() => (g ? brandStatus(g, daily, workouts, merged) : null), [g, daily, workouts, merged]);
+  const st = useMemo(() => {
+    if (!g) return null;
+    if (g.id !== 'other') return brandStatus(g, daily, workouts, merged);
+    // Other: any app that isn't the phone itself counts.
+    const pkgs = [...new Set(Object.values(daily).flatMap((d) => d.origin ?? []))].filter((x) => !PHONE_ORIGINS.includes(x) && x !== 'colmi');
+    const got = metricsFrom(pkgs, daily, [...Object.values(workouts), ...Object.values(merged)]);
+    return { arrived: [...got.arrived], missing: [] as Metric[], days: got.days, last: got.last };
+  }, [g, daily, workouts, merged]);
   const saved = !!(g?.live && strap && g.live.match.test(strap.name));
   const liveNow = saved && ble.status === 'connected' && ble.deviceId === strap!.id;
   return { st, hc, strap: saved ? strap : null, liveNow, bpm: liveNow ? bpm : null };
 }
 
-const listOf = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
-
-// The status block at the top of a brand's page (and, compact, on the Watch screen).
-export function BrandStatusCard({ g, compact, onPress }: { g: Guide; compact?: boolean; onPress?: () => void }) {
-  const b = useBrand(g);
-  const arrived = b.st?.arrived ?? [];
-  const missing = b.st?.missing ?? [];
-  const daily = !b.hc.connected ? { icon: 'ellipse-outline' as const, color: c.dim, text: 'Daily data: not connected' }
-    : arrived.length ? { icon: 'checkmark-circle' as const, color: c.ok, text: `Daily data: connected, ${ago(b.hc.lastSync)}` }
-      : { icon: 'alert-circle-outline' as const, color: c.warm, text: `Daily data: nothing from ${g.app?.name ?? g.name} yet` };
-  const live = !g.live ? null
-    : b.liveNow ? { icon: 'heart' as const, color: c.pink, text: b.bpm ? `Live heart rate: ${b.bpm} bpm now` : 'Live heart rate: connected' }
-      : b.strap ? { icon: 'checkmark-circle-outline' as const, color: c.ok, text: `Live heart rate: ${b.strap.name}, reconnects in workouts` }
-        : { icon: 'ellipse-outline' as const, color: c.dim, text: 'Live heart rate: not set up' };
-  const body = (
-    <View style={[s.status, compact && { padding: 0, borderWidth: 0, backgroundColor: 'transparent' }]}>
-      {compact && <T v="h3">{g.name}</T>}
-      <Line icon={daily.icon} color={daily.color} text={daily.text} sub />
-      {b.hc.connected && arrived.length > 0 && <T v="small" style={s.indent}>Got {listOf(arrived.map((m) => METRIC_LABEL[m]))}</T>}
-      {b.hc.connected && !compact && missing.slice(0, 2).map((m) => (
-        <T key={m} v="small" style={s.indent}>No {METRIC_LABEL[m]} yet · {g.missing?.[m] ?? g.fix}</T>
-      ))}
-      {b.hc.connected && compact && missing.length > 0 && <T v="small" style={s.indent}>No {listOf(missing.map((m) => METRIC_LABEL[m]))} yet</T>}
-      {!compact && g.info && <T v="small" style={s.indent}>{g.info}</T>}
-      {live && <Line icon={live.icon} color={live.color} text={live.text} sub />}
+// A numbered step: number (a tick once done), one line, an optional second line, and its one button.
+function Step({ n, done, title, sub, children }: { n: number; done: boolean; title: string; sub?: string; children?: ReactNode }) {
+  return (
+    <View style={s.step}>
+      <View style={[s.num, done && { backgroundColor: c.ok, borderColor: c.ok }]}>
+        {done ? <Ionicons name="checkmark" size={16} color={c.accentInk} /> : <T v="small" color={c.text}>{n}</T>}
+      </View>
+      <View style={{ flex: 1, gap: 8 }}>
+        <View style={{ gap: 2 }}>
+          <T v="h3" color={done ? c.muted : c.text}>{title}</T>
+          {sub ? <T v="small">{sub}</T> : null}
+        </View>
+        {children}
+      </View>
     </View>
   );
-  return onPress ? <Tap onPress={onPress} scale={0.98} accessibilityLabel={`${g.name} status`}>{body}</Tap> : body;
 }
 
-const IMPORT_LINE: Record<string, string> = {
-  fitbit: 'Your Fitbit data as a Google Takeout zip',
-  garmin: 'A Garmin export zip or .FIT file',
-};
+function Line({ icon, color, text }: { icon: keyof typeof Ionicons.glyphMap; color: string; text: string }) {
+  return (
+    <View style={[s.row, { alignItems: 'flex-start' }]}>
+      <Ionicons name={icon} size={18} color={color} style={{ marginTop: 1 }} />
+      <T v="small" color={c.text} style={{ flex: 1 }}>{text}</T>
+    </View>
+  );
+}
+
+// "What Gym Buddy gets": a two-column grid, a tick for each number that has arrived in the last 7 days.
+export function GetsTable({ g, arrived }: { g: Guide; arrived: Metric[] }) {
+  const app = appOf(g);
+  const expected = g.shares ?? [];
+  const unsure = g.unsure ?? [];
+  const rows = METRIC_ORDER.filter((m) => expected.includes(m) || unsure.includes(m) || arrived.includes(m));
+  const notShared = g.shares ? METRIC_ORDER.filter((m) => !rows.includes(m) && !NOT_READ.includes(m)) : [];
+  return (
+    <View style={s.block}>
+      <T v="h3">What {APP_NAME} gets</T>
+      {rows.length ? (
+        <View style={s.grid}>
+          {rows.map((m) => {
+            const got = arrived.includes(m);
+            const cant = NOT_READ.includes(m);
+            const maybe = unsure.includes(m);
+            return (
+              <View key={m} style={s.cell} accessible accessibilityLabel={`${METRIC_LABEL[m]}: ${got ? 'received' : cant ? "we can't read it yet" : maybe ? 'depends on your plan or model' : 'not yet'}`}>
+                <Ionicons name={got ? 'checkmark-circle' : cant ? 'remove-circle-outline' : maybe ? 'help-circle-outline' : 'ellipse-outline'} size={18} color={got ? c.ok : c.dim} />
+                <T v="small" color={got ? c.text : c.muted} numberOfLines={1} style={{ flex: 1 }}>{cap(METRIC_LABEL[m])}</T>
+              </View>
+            );
+          })}
+        </View>
+      ) : <T v="small">Whatever your watch's app shares shows up here with a tick</T>}
+      <View style={[s.row, { flexWrap: 'wrap', columnGap: 14, rowGap: 4 }]}>
+        <Key icon="checkmark-circle" color={c.ok} text="Received this week" />
+        <Key icon="ellipse-outline" color={c.dim} text="Not here yet" />
+        {rows.some((m) => unsure.includes(m) && !arrived.includes(m)) && <Key icon="help-circle-outline" color={c.dim} text="Depends on plan or model" />}
+        {rows.some((m) => NOT_READ.includes(m)) && <Key icon="remove-circle-outline" color={c.dim} text="We can't read it yet" />}
+      </View>
+      {notShared.length > 0 && <T v="small">{g.direct ? 'The ring' : app} doesn't send {listOf(notShared.map((m) => METRIC_LABEL[m]))}</T>}
+    </View>
+  );
+}
+
+const Key = ({ icon, color, text }: { icon: keyof typeof Ionicons.glyphMap; color: string; text: string }) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+    <Ionicons name={icon} size={13} color={color} />
+    <T v="small" style={{ fontSize: 12 }}>{text}</T>
+  </View>
+);
 
 export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; onClose: () => void; onAlt: (a: Alt) => void; brand?: string | null }) {
   const still = useReducedMotion();
   const { height } = useWindowDimensions();
   const daily = useTracker((x) => x.daily);
-  const [step, setStep] = useState<'pick' | 'guide' | 'check'>('pick');
+  const hcConnected = useTracker((x) => x.hc.connected);
+  const lastSync = useTracker((x) => x.hc.lastSync);
+  const hasHistory = useTracker((x) => x.hc.granted.includes('ReadHealthDataHistory'));
+  const ringSaved = useTracker((x) => x.ring);
+  const ringSt = useRing();
+  const [step, setStep] = useState<'pick' | 'guide'>('pick');
   const [id, setId] = useState<string | null>(null);
   const [status, setStatus] = useState<HcStatus | 'checking'>(ANDROID ? 'checking' : 'unavailable');
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<DataCheck | null | undefined>(undefined);
+  const [tapped, setTapped] = useState<Record<string, boolean>>({}); // "Get" and "Open" tapped, per brand and step
+  const [every, setEvery] = useState(false); // every tap of step 2 shown
   const g = GUIDES.find((x) => x.id === id) ?? null;
 
   useEffect(() => {
@@ -137,7 +164,7 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
     setStep(start ? 'guide' : 'pick');
     setResult(undefined);
     setShowAll(false);
-    setShowDaily(false);
+    setEvery(false);
     if (ANDROID) isAvailable().then(setStatus);
   }, [open, brand]);
 
@@ -146,7 +173,6 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
   const b = useBrand(g);
   const [scanning, setScanning] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const [showDaily, setShowDaily] = useState(false);
   const guideScroll = useRef<ScrollView>(null);
   const liveY = useRef(0);
   useEffect(() => { if (ble.status !== 'scanning') setScanning(false); }, [ble.status]);
@@ -157,16 +183,16 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
     guideScroll.current?.scrollTo({ y: liveY.current, animated: !still });
   };
   const pickDevice = (d: { id: string; name: string }) => { stopScan(); setScanning(false); connect(d.id, d.name); };
-  const dailyDone = !!(g?.live && b.hc.connected && b.st?.arrived.length);
   const brandFound = g?.live ? ble.found.filter((d) => g.live!.match.test(d.name)) : [];
   const listed = showAll || !g?.live ? ble.found : brandFound;
 
   // Apps that already shared something (from earlier syncs): their brand tile gets a tick.
-  const seen = useMemo(() => new Set(Object.values(daily).flatMap((d) => d.origin ?? [])), [daily]);
+  const seenPkgs = useMemo(() => new Set(Object.values(daily).flatMap((d) => d.origin ?? [])), [daily]);
+  const firstPkg = [...seenPkgs].find((p) => !PHONE_ORIGINS.includes(p) && p !== 'colmi');
+  const firstApp = firstPkg ? originName(firstPkg) : undefined;
 
-  const pick = (x: Guide) => { setId(x.id); setStep('guide'); };
+  const pick = (x: Guide) => { setId(x.id); setStep('guide'); setResult(undefined); setEvery(false); };
   const runCheck = async () => {
-    setStep('check');
     setChecking(true);
     setResult(undefined);
     try {
@@ -177,212 +203,230 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
     }
   };
   const allow = async () => {
-    const granted = await requestPermissions().catch(() => [] as string[]);
+    const granted = await requestPermissions(false).catch(() => [] as string[]);
     if (granted.some((k) => !k.startsWith('write:'))) runCheck();
-    else { setStep('check'); setResult({ granted: 0, sources: [] }); }
+    else setResult({ granted: 0, sources: [] });
   };
   const alt = (a: Alt) => { onClose(); onAlt(a); };
+  const tap = (k: string) => setTapped((t) => ({ ...t, [`${id}:${k}`]: true }));
 
   const hcMissing = status === 'not_installed' || status === 'needs_update';
   const canAllow = ANDROID && status === 'available';
-  const scrollMax = Math.max(280, height * 0.6);
-  const enter = (i: number) => (still ? undefined : FadeIn.delay(Math.min(i, 6) * 50).duration(300).easing(EASE));
+  const scrollMax = Math.max(320, height * 0.72);
+  const enter = (i: number) => (still ? undefined : FadeIn.delay(Math.min(i, 8) * 40).duration(260).easing(EASE));
 
   const androidNote = !ANDROID && (
     <View style={s.note}>
       <Ionicons name="phone-portrait-outline" size={18} color={c.blue} />
-      <T v="small" color={c.text} style={{ flex: 1 }}>This needs the Android app</T>
+      <T v="small" color={c.text} style={{ flex: 1 }}>Connecting needs the Android app. Here you can read the steps</T>
     </View>
   );
 
-  // --- Step 1: pick the brand
+  // --- Pick the brand
   const pickView = (
-    <View style={{ gap: 12 }}>
+    <ScrollView style={{ maxHeight: scrollMax }} contentContainerStyle={{ gap: 14, paddingBottom: 4 }} showsVerticalScrollIndicator={false}>
       <T v="h2">Connect your watch</T>
-      <T v="small">Daily data comes through your watch's own app and Health Connect. Fitbit, Pixel and WHOOP can also send live heart rate over Bluetooth in workouts</T>
+      <DataPath nodes={hcPath({ app: firstApp, seen: !!firstApp, allowed: hcConnected })} />
+      <T v="small">Watches don't pair with {APP_NAME} directly. Your watch's own app passes its data on through Health Connect</T>
       {androidNote}
-      <ScrollView style={{ maxHeight: scrollMax }} contentContainerStyle={s.grid} showsVerticalScrollIndicator={false}>
-        {/* Fitbit and WHOOP first and full width: daily data plus live heart rate in workouts */}
-        {GUIDES.filter((x) => x.live).map((x, i) => (
-          <Animated.View key={x.id} entering={enter(i)} style={s.tileWide}>
-            <Tap onPress={() => pick(x)} style={[s.tile, { minHeight: 72 }]} scale={0.97} accessibilityLabel={x.name}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <T v="h3" numberOfLines={1}>{x.name}</T>
-                <T v="small" numberOfLines={1}>Daily data and live heart rate</T>
-              </View>
-              {x.packages.some((p) => seen.has(p)) && <Ionicons name="checkmark-circle" size={18} color={c.ok} />}
-              <Ionicons name="chevron-forward" size={18} color={c.dim} />
-            </Tap>
-          </Animated.View>
-        ))}
-        {GUIDES.filter((x) => !x.live).map((x, j) => {
-          const i = j + 2;
-          const on = x.packages.some((p) => seen.has(p));
+      <T v="label">Pick yours</T>
+      <View style={s.tiles}>
+        {PICK.map(byId).map((x, i) => {
+          const on = x.packages.some((p) => seenPkgs.has(p)) || (x.id === 'colmi' && !!ringSaved);
           return (
-            <Animated.View key={x.id} entering={enter(i)} style={x.id === 'other' ? s.tileWide : s.tileHalf}>
+            <Animated.View key={x.id} entering={enter(i)} style={s.tileHalf}>
               <Tap onPress={() => pick(x)} style={s.tile} scale={0.97} accessibilityLabel={x.name}>
-                <T v="h3" numberOfLines={2} style={{ flex: 1 }}>{x.name}</T>
+                <Ionicons name={deviceIcon(x)} size={18} color={c.muted} />
+                <T v="h3" numberOfLines={2} style={{ flex: 1, fontSize: 15, lineHeight: 20 }}>{x.tile ?? x.name}</T>
                 {on && <Ionicons name="checkmark-circle" size={18} color={c.ok} />}
               </Tap>
             </Animated.View>
           );
         })}
-      </ScrollView>
-    </View>
-  );
-
-  // --- Step 2: the brand's steps, then ours
-  const guideView = g && (
-    <View style={{ gap: 12 }}>
-      <Tap onPress={() => setStep('pick')} style={s.back} scale={0.97} accessibilityLabel="All brands">
-        <Ionicons name="chevron-back" size={18} color={c.muted} />
-        <T v="small">All brands</T>
-      </Tap>
-      <T v="h2">{g.name}</T>
-      {androidNote}
-      <ScrollView ref={guideScroll} style={{ maxHeight: scrollMax }} contentContainerStyle={{ gap: 14, paddingBottom: 4 }} showsVerticalScrollIndicator={false}>
-        {g.live && <BrandStatusCard g={g} />}
-        {g.live && <T v="h3">1. Daily data</T>}
-        {dailyDone && !showDaily && (
-          <Tap onPress={() => setShowDaily(true)} style={s.back} scale={0.97} accessibilityLabel="Show the daily data steps">
-            <T v="small" color={c.blue}>Done. Show the steps again</T>
+      </View>
+      <View style={[s.row, { flexWrap: 'wrap', gap: 8 }]}>
+        <T v="small">Also</T>
+        {MORE.map(byId).map((x) => (
+          <Tap key={x.id} onPress={() => pick(x)} style={s.chip} scale={0.96} accessibilityLabel={x.name}>
+            <T v="small" color={c.text}>{x.tile ?? x.name.split(' /')[0]}</T>
           </Tap>
-        )}
-        {(!dailyDone || showDaily) && g.note && <Line icon="information-circle-outline" color={c.blue} text={g.note} sub />}
-        {(!dailyDone || showDaily) && g.hc && g.steps.length > 0 && (
-          <Animated.View entering={still ? undefined : FadeInDown.duration(380).easing(EASE)} style={s.block}>
-            <T v="label">{g.app ? `In ${g.app.name}` : 'In your watch app'}</T>
-            <Steps lines={g.steps} />
-            {g.app && <Button kind="ghost" title={`Open ${g.app.name}`} icon="open-outline" onPress={() => openPlay(g.app!.pkg)} />}
-          </Animated.View>
-        )}
-        {/* No Health Connect in the brand's app: Gadgetbridge comes first, then our steps. */}
-        {!g.hc && g.alts?.includes('gadgetbridge') && <AltBlock a="gadgetbridge" g={g} onPick={alt} />}
-        {g.id !== 'colmi' && (!dailyDone || showDaily) && (
-          <View style={s.block}>
-            <T v="label">Then here</T>
-            <Steps lines={['Tap Allow access below', 'Turn on all, then tap Allow', 'We check what arrived']} />
-            {hcMissing
-              ? <Button kind="ghost" title={status === 'needs_update' ? 'Update Health Connect' : 'Install Health Connect'} icon="download-outline" onPress={installHc} />
-              : <Button kind="ghost" title="Open Health Connect" icon="settings-outline" onPress={() => { if (!openHcSettings()) installHc(); }} disabled={!ANDROID} />}
-          </View>
-        )}
-        {g.live && (
-          <View style={{ gap: 14 }} onLayout={(e) => { liveY.current = e.nativeEvent.layout.y; }}>
-            <T v="h3">2. Live heart rate in workouts</T>
-            {g.live.devices.map((d) => (
-              <View key={d.name} style={s.block}>
-                <T v="label">{d.name}</T>
-                <Steps lines={d.steps} />
-              </View>
-            ))}
-            {g.live.note && <Line icon="information-circle-outline" color={c.blue} text={g.live.note} sub />}
-            {(scanning || ble.found.length > 0 || ble.status === 'no-hr' || ble.status === 'denied' || ble.status === 'off') && (
-              <View style={s.block}>
-                <T v="label">Nearby</T>
-                <T v="small">
-                  {ble.status === 'off' ? 'Turn on Bluetooth' : ble.status === 'denied' ? 'Allow Nearby devices to find it'
-                    : ble.status === 'no-hr' ? `Broadcast is off. ${g.strapHint ?? 'Turn it on on the device'}`
-                      : ble.status === 'connecting' ? 'Connecting'
-                        : scanning ? (brandFound.length ? 'Tap yours to connect' : `Looking for your ${g.live.short}…`)
-                          : listed.length ? 'Tap yours to connect' : `No ${g.live.short} found. Is broadcast on?`}
-                </T>
-                {listed.slice(0, 8).map((d) => (
-                  <Tap key={d.id} onPress={() => pickDevice(d)} style={s.device} scale={0.98} accessibilityLabel={d.name}>
-                    <Ionicons name="pulse" size={18} color={c.pink} />
-                    <T v="body" numberOfLines={1} style={{ flex: 1 }}>{d.name}</T>
-                    {b.strap?.id === d.id && <Ionicons name="checkmark-circle" size={18} color={c.ok} />}
-                  </Tap>
-                ))}
-                {!showAll && ble.found.length > brandFound.length && (
-                  <Tap onPress={() => setShowAll(true)} style={s.back} scale={0.97}><T v="small" color={c.blue}>Show all {ble.found.length} devices</T></Tap>
-                )}
-              </View>
-            )}
-            {b.strap && (
-              <Tap onPress={() => forgetStrap()} style={s.back} scale={0.97} accessibilityLabel="Forget this device">
-                <T v="small" color={c.blue}>Forget {b.strap.name}</T>
-              </Tap>
-            )}
-          </View>
-        )}
-        {(g.alts ?? []).filter((a) => g.hc || a !== 'gadgetbridge').map((a) => <AltBlock key={a} a={a} g={g} onPick={alt} />)}
-      </ScrollView>
-      {g.id === 'colmi'
-        ? <Button title="Go to ring card" onPress={() => alt('ring')} />
-        : g.live && b.hc.connected && !b.strap
-          ? <Button title={scanning ? 'Looking…' : `Find my ${g.live.short}`} icon="bluetooth" onPress={find} disabled={!ANDROID || scanning} />
-          : g.live && b.hc.connected
-            ? <Button title="Check data" icon="refresh" onPress={runCheck} disabled={!ANDROID} />
-            : <Button title="Allow access" icon="shield-checkmark-outline" onPress={allow} disabled={!canAllow} />}
-    </View>
+        ))}
+      </View>
+    </ScrollView>
   );
 
-  // --- Step 3: what arrived
-  const watchSources = (result?.sources ?? []).filter((x) => !PHONE_ORIGINS.includes(x.origin));
-  const phoneSources = (result?.sources ?? []).filter((x) => PHONE_ORIGINS.includes(x.origin));
-  const mine = g ? watchSources.filter((x) => (g.id === 'other' ? true : g.packages.includes(x.origin))) : watchSources;
-  const others = watchSources.filter((x) => !mine.includes(x));
-  const appName = g?.app?.name ?? (g?.id === 'huawei' || g?.id === 'colmi' ? 'Gadgetbridge' : 'your watch');
-  const checkView = (
-    <View style={{ gap: 14 }}>
-      <Tap onPress={() => setStep(g ? 'guide' : 'pick')} style={s.back} scale={0.97} accessibilityLabel="Back to steps">
-        <Ionicons name="chevron-back" size={18} color={c.muted} />
-        <T v="small">Steps</T>
-      </Tap>
-      <T v="h2">{checking ? 'Checking for data…' : mine.length ? 'Connected' : 'Not there yet'}</T>
-      {checking || result === undefined ? (
+  // --- One brand's page
+  const arrived = b.st?.arrived ?? [];
+  const seen = arrived.length > 0;
+  const app = g ? appOf(g) : '';
+  const src = g?.app ? originName(g.app.pkg) : app; // where numbers come from: "Fitbit", not its app's new name
+  const ringOn = !!ringSaved && (ringSt.status === 'connected' || ringSt.status === 'syncing');
+  // The filled button: the first step not done, or Check again / Done once access is on.
+  const done1 = seen || !!tapped[`${id}:get`];
+  const done2 = seen || !!tapped[`${id}:open`];
+  const cur: 1 | 2 | 3 | 'check' | 'done' = seen && hcConnected ? 'done' : hcConnected ? 'check' : !done1 ? 1 : !done2 ? 2 : 3;
+  const kind = (k: typeof cur) => (k === cur ? 'primary' as const : 'ghost' as const);
+  const status1 = !g ? '' : g.direct
+    ? (ringOn ? 'Connected over Bluetooth' : ringSaved ? `${ringSaved.name} saved · connects when it's near` : 'Not connected yet')
+    : !hcConnected ? 'Not connected yet'
+      : seen ? `Last data ${lastWord(b.st?.last)} from ${src} · ${syncedAgo(lastSync)}` : `Health Connect is on · waiting for data from ${src}`;
+
+  const hcSteps = g && !g.direct && (
+    <View style={{ gap: 18 }}>
+      <Step n={1} done={done1} title={g.hc ? (g.app ? `Get ${app}` : "Get your watch's app") : 'Get Gadgetbridge'}
+        sub={g.id === 'other' ? "The app you paired your watch with" : g.hc ? `Sign in and pair ${deviceOf(g).replace('Your', 'your')} in it` : 'Pair your watch in it instead of Huawei Health'}>
+        {g.app ? <Button kind={kind(1)} title={`Get ${app}`} icon="download-outline" onPress={() => { tap('get'); openPlay(g.app!.pkg); }} style={s.btn} />
+          : !g.hc ? <Button kind={kind(1)} title="Get Gadgetbridge" icon="download-outline" onPress={() => { tap('get'); Linking.openURL(GADGETBRIDGE.url).catch(() => {}); }} style={s.btn} />
+            : <Button kind={kind(1)} title="I have it" icon="checkmark" onPress={() => tap('get')} style={s.btn} />}
+      </Step>
+      <Step n={2} done={done2} title={`Turn on Health Connect in ${g.hc ? (g.app ? app : "your watch's app") : 'Gadgetbridge'}`} sub={g.path}>
+        {g.app ? <Button kind={kind(2)} title={`Open ${app}`} icon="open-outline" onPress={() => { tap('open'); openPlay(g.app!.pkg); }} style={s.btn} />
+          : <Button kind={kind(2)} title="It's on" icon="checkmark" onPress={() => tap('open')} style={s.btn} />}
+        <Tap onPress={() => setEvery(!every)} style={s.link} scale={0.97} accessibilityLabel="Show every tap">
+          <T v="small" color={c.blue}>{every ? 'Hide the taps' : 'Show every tap'}</T>
+        </Tap>
+        {every && (
+          <View style={{ gap: 6 }}>
+            {(g.hc ? g.steps : GADGETBRIDGE.steps).map((l, i) => <T key={i} v="small" color={c.text}>{i + 1}. {l}</T>)}
+            {g.note && <T v="small">{g.note}</T>}
+          </View>
+        )}
+      </Step>
+      <Step n={3} done={hcConnected} title={`Allow ${APP_NAME} to read it`} sub="Turn on all, then tap Allow">
+        {hcMissing
+          ? <Button kind={kind(3)} title={status === 'needs_update' ? 'Update Health Connect' : 'Install Health Connect'} icon="download-outline" onPress={installHc} style={s.btn} />
+          : <Button kind={kind(3)} title={hcConnected ? 'Allowed' : 'Allow access'} icon="shield-checkmark-outline" onPress={allow} disabled={!canAllow || hcConnected} style={s.btn} />}
+      </Step>
+      {hcConnected && (
         <View style={{ gap: 10 }}>
-          <Pulse height={20} width="70%" />
-          <Pulse height={20} width="50%" />
-        </View>
-      ) : result === null ? (
-        <>
-          <Line icon="alert-circle-outline" color={c.warm} text="Couldn't reach Health Connect" />
-          <Button kind="ghost" title="Install Health Connect" icon="download-outline" onPress={installHc} />
-        </>
-      ) : result.granted === 0 ? (
-        <>
-          <Line icon="alert-circle-outline" color={c.warm} text="Access is off" />
-          <Line icon="arrow-forward-circle-outline" color={c.muted} text="Tap Allow access, turn on all, then Allow" sub />
-          <Line icon="arrow-forward-circle-outline" color={c.muted} text="No pop-up? Turn it on in Health Connect, under App permissions" sub />
-          <Button kind="ghost" title="Open Health Connect" icon="settings-outline" onPress={() => { if (!openHcSettings()) installHc(); }} disabled={!ANDROID} />
-          <Button title="Allow access" icon="shield-checkmark-outline" onPress={allow} disabled={!canAllow} />
-        </>
-      ) : (
-        <>
-          {mine.map((x) => <Line key={x.origin} icon="checkmark-circle" color={c.ok} text={`${andList(x.types)} from ${originName(x.origin)} found`} />)}
-          {others.map((x) => <Line key={x.origin} icon="checkmark-circle-outline" color={c.ok} text={`${andList(x.types)} from ${originName(x.origin)}`} sub />)}
-          {phoneSources.map((x) => <Line key={x.origin} icon="phone-portrait-outline" color={c.muted} text={`${andList(x.types)} from ${originName(x.origin)}`} sub />)}
-          {!mine.length && (
-            <>
-              <Line icon="alert-circle-outline" color={c.warm} text={`Nothing from ${appName} yet`} />
-              <Line icon="arrow-forward-circle-outline" color={c.muted} text={g?.fix ?? 'Open your watch app once so it syncs, then try again'} sub />
-              {g?.app && <Button kind="ghost" title={`Open ${g.app.name}`} icon="open-outline" onPress={() => openPlay(g.app!.pkg)} />}
-              <Button kind="ghost" title="Open Health Connect" icon="settings-outline" onPress={() => { if (!openHcSettings()) installHc(); }} disabled={!ANDROID} />
-            </>
+          {checking ? <T v="small">Checking for data…</T>
+            : seen ? <Line icon="checkmark-circle" color={c.ok} text={`Data is arriving from ${src}. See what below`} />
+              : (
+                <>
+                  <Line icon="alert-circle-outline" color={c.warm} text={result?.granted === 0 ? 'Access is off. Turn it on in Health Connect, under App permissions' : `Nothing from ${src} yet`} />
+                  <T v="small" style={{ paddingLeft: 28 }}>{g.fix}</T>
+                  {(result?.sources ?? []).filter((x) => !PHONE_ORIGINS.includes(x.origin)).map((x) => (
+                    <Line key={x.origin} icon="checkmark-circle-outline" color={c.ok} text={`${cap(listOf(x.types))} from ${originName(x.origin)}`} />
+                  ))}
+                </>
+              )}
+          {!hasHistory && (
+            <View style={[s.row, { alignItems: 'flex-start' }]}>
+              <Ionicons name="time-outline" size={18} color={c.muted} style={{ marginTop: 1 }} />
+              <View style={{ flex: 1, gap: 4 }}>
+                <T v="small">We read the last 30 days. Want older history too?</T>
+                <Tap onPress={async () => { if (await requestHistory()) sync(365).catch(() => {}); }} style={s.link} scale={0.97} accessibilityLabel="Allow older history" disabled={!ANDROID}>
+                  <T v="small" color={c.blue}>Allow older history</T>
+                </Tap>
+              </View>
+            </View>
           )}
-          {mine.length > 0
+          {cur === 'done'
             ? <Button title="Done" icon="checkmark" onPress={onClose} />
-            : <Button title="Check again" icon="refresh" onPress={runCheck} />}
-        </>
+            : <Button title={checking ? 'Checking…' : 'Check again'} icon="refresh" onPress={runCheck} disabled={!ANDROID || checking} />}
+        </View>
       )}
     </View>
   );
 
+  const ringSteps = g?.direct && (
+    <View style={{ gap: 18 }}>
+      <Step n={1} done={!!ringSaved} title="Charge the ring" sub="Keep it near your phone, off the charger" />
+      <Step n={2} done={ringOn} title="Find it on the Smart ring card" sub="We connect over Bluetooth. No other app needed">
+        <Button title="Go to ring card" icon="bluetooth" onPress={() => alt('ring')} style={s.btn} />
+      </Step>
+    </View>
+  );
+
+  const guideView = g && (
+    <ScrollView ref={guideScroll} style={{ maxHeight: scrollMax }} contentContainerStyle={{ gap: 16, paddingBottom: 4 }} showsVerticalScrollIndicator={false}>
+      <Tap onPress={() => setStep('pick')} style={s.link} scale={0.97} accessibilityLabel="All brands">
+        <View style={s.row}>
+          <Ionicons name="chevron-back" size={18} color={c.muted} />
+          <T v="small">All brands</T>
+        </View>
+      </Tap>
+      <View style={{ gap: 4 }}>
+        <T v="h2">{g.name}</T>
+        <T v="small" color={seen || ringOn ? c.ok : c.muted}>{status1}</T>
+      </View>
+      <View style={s.diagram}>
+        {g.direct
+          ? <DataPath nodes={directPath({ device: deviceOf(g), deviceIcon: 'ellipse-outline', ok: ringOn })} link="Bluetooth" />
+          : <DataPath nodes={hcPath({ device: deviceOf(g), deviceIcon: deviceIcon(g), app, seen, allowed: hcConnected })} />}
+        <T v="small">
+          {g.direct ? `The ring talks to ${APP_NAME} itself`
+            : g.hc ? `${deviceOf(g)} only pairs with ${g.app ? `the ${app} app` : 'its own app'}${src !== app ? ` (the ${src} app's new name)` : ''}. It shares your data with Health Connect, and ${APP_NAME} reads it from there`
+              : `Huawei Health doesn't share. Gadgetbridge can take its place`}
+        </T>
+      </View>
+      {androidNote}
+      {hcSteps}
+      {ringSteps}
+
+      <GetsTable g={g} arrived={g.direct ? [...metricsFrom(['colmi'], daily, []).arrived] : arrived} />
+
+      {g.live && (
+        <View style={s.block} onLayout={(e) => { liveY.current = e.nativeEvent.layout.y; }}>
+          <T v="h3">Live heart rate in workouts</T>
+          <T v="small">The one thing your {g.live.short} can send {APP_NAME} directly, over Bluetooth</T>
+          <DataPath nodes={directPath({ device: deviceOf(g), deviceIcon: deviceIcon(g), ok: b.liveNow || !!b.strap })} link="Bluetooth" />
+          {b.liveNow && <Line icon="heart" color={c.pink} text={b.bpm ? `${b.bpm} bpm now` : 'Connected'} />}
+          {g.live.devices.map((d) => (
+            <View key={d.name} style={{ gap: 4 }}>
+              <T v="label">{d.name}</T>
+              {d.steps.map((l, i) => <T key={i} v="small" color={c.text}>{i + 1}. {l}</T>)}
+            </View>
+          ))}
+          {g.live.note && <T v="small">{g.live.note}</T>}
+          {(scanning || ble.found.length > 0 || ble.status === 'no-hr' || ble.status === 'denied' || ble.status === 'off') && (
+            <View style={{ gap: 8 }}>
+              <T v="small">
+                {ble.status === 'off' ? 'Turn on Bluetooth' : ble.status === 'denied' ? 'Allow Nearby devices to find it'
+                  : ble.status === 'no-hr' ? `Broadcast is off. ${g.strapHint ?? 'Turn it on on the device'}`
+                    : ble.status === 'connecting' ? 'Connecting'
+                      : scanning ? (brandFound.length ? 'Tap yours to connect' : `Looking for your ${g.live.short}…`)
+                        : listed.length ? 'Tap yours to connect' : `No ${g.live.short} found. Is broadcast on?`}
+              </T>
+              {listed.slice(0, 8).map((d) => (
+                <Tap key={d.id} onPress={() => pickDevice(d)} style={s.device} scale={0.98} accessibilityLabel={d.name}>
+                  <Ionicons name="pulse" size={18} color={c.pink} />
+                  <T v="body" numberOfLines={1} style={{ flex: 1 }}>{d.name}</T>
+                  {b.strap?.id === d.id && <Ionicons name="checkmark-circle" size={18} color={c.ok} />}
+                </Tap>
+              ))}
+              {!showAll && ble.found.length > brandFound.length && (
+                <Tap onPress={() => setShowAll(true)} style={s.link} scale={0.97}><T v="small" color={c.blue}>Show all {ble.found.length} devices</T></Tap>
+              )}
+            </View>
+          )}
+          {b.strap
+            ? <Button kind="ghost" title={`Forget ${b.strap.name}`} icon="close" onPress={() => forgetStrap()} />
+            : <Button kind="ghost" title={scanning ? 'Looking…' : `Find my ${g.live.short}`} icon="bluetooth" onPress={find} disabled={!ANDROID || scanning} />}
+        </View>
+      )}
+      {(g.alts ?? []).filter((a) => a !== 'ring' && (g.hc || a !== 'gadgetbridge')).map((a) => <AltBlock key={a} a={a} g={g} onPick={alt} />)}
+    </ScrollView>
+  );
+
   return (
     <Sheet open={open} onClose={onClose}>
-      {step === 'pick' ? pickView : step === 'guide' ? guideView : checkView}
+      {step === 'pick' || !g ? pickView : guideView}
     </Sheet>
   );
 }
+
+const IMPORT_LINE: Record<string, string> = {
+  fitbit: 'Your Fitbit history as a Google Takeout zip',
+  garmin: 'A Garmin export zip or .FIT file',
+};
 
 function AltBlock({ a, g, onPick }: { a: Alt; g: Guide; onPick: (a: Alt) => void }) {
   if (a === 'gadgetbridge') {
     return (
       <View style={s.block}>
-        <T v="label">{g.hc ? 'Or use Gadgetbridge' : 'Use Gadgetbridge'}</T>
-        <Steps lines={GADGETBRIDGE.steps} />
+        <T v="h3">Or use Gadgetbridge</T>
+        <T v="small">A free app that pairs with many watches itself, then shares to Health Connect</T>
         <Button kind="ghost" title="Get Gadgetbridge" icon="open-outline" onPress={() => Linking.openURL(GADGETBRIDGE.url).catch(() => {})} />
       </View>
     );
@@ -390,40 +434,36 @@ function AltBlock({ a, g, onPick }: { a: Alt; g: Guide; onPick: (a: Alt) => void
   if (a === 'strap') {
     return (
       <View style={s.block}>
-        <T v="label">Live heart rate in workouts</T>
-        <Steps lines={[g.strapHint ?? 'Turn on its heart-rate broadcast', 'Tap Pair a strap, then pick it']} />
+        <T v="h3">Heart-rate strap</T>
+        <DataPath nodes={directPath({ device: 'Your strap', ok: false })} link="Bluetooth" />
+        <T v="small">{g.strapHint ?? 'Chest straps and watches in broadcast mode connect directly for live heart rate'}</T>
         <Button kind="ghost" title="Pair a strap" icon="pulse" onPress={() => onPick('strap')} disabled={!ANDROID} />
-      </View>
-    );
-  }
-  if (a === 'ring') {
-    return (
-      <View style={s.block}>
-        <T v="label">Smart ring</T>
-        <Steps lines={['Charge the ring and keep it close', 'Tap Find ring on the Smart ring card']} />
       </View>
     );
   }
   return (
     <View style={s.block}>
-      <T v="label">Or import a file</T>
-      <T v="body">{IMPORT_LINE[g.id] ?? 'GPX, TCX, FIT or a Takeout zip'}</T>
+      <T v="h3">Or import a file</T>
+      <T v="small">{IMPORT_LINE[g.id] ?? 'GPX, TCX, FIT or a Takeout zip'}</T>
       <Button kind="ghost" title="Import a file" icon="download-outline" onPress={() => onPick('import')} />
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 4 },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tileHalf: { width: '48.5%' },
-  tileWide: { width: '100%' },
-  tile: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: r.md, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingVertical: 4 },
+  tile: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderRadius: r.md, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
+  chip: { height: 36, paddingHorizontal: 14, borderRadius: 18, justifyContent: 'center', backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  link: { alignSelf: 'flex-start', minHeight: 32, justifyContent: 'center' },
+  diagram: { gap: 12, padding: 14, borderRadius: r.md, backgroundColor: c.card2 },
   block: { gap: 12, padding: 14, borderRadius: r.md, borderWidth: 1, borderColor: c.line },
-  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  num: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: c.dim, alignItems: 'center', justifyContent: 'center' },
-  status: { gap: 8, padding: 14, borderRadius: r.md, borderWidth: 1, borderColor: c.line, backgroundColor: c.card2 },
-  indent: { paddingLeft: 32 },
+  step: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  num: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: c.dim, alignItems: 'center', justifyContent: 'center' },
+  btn: { height: 48, alignSelf: 'flex-start', paddingHorizontal: 18 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 10 },
+  cell: { width: '50%', flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },
   device: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: r.md, backgroundColor: c.card2 },
   note: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderRadius: r.md, backgroundColor: c.card2, borderWidth: 1, borderColor: c.blue + '55' },
 });

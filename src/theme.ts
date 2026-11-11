@@ -131,7 +131,8 @@ export const TOKEN_OF: Record<string, keyof Neutrals | 'warm' | 'pink' | 'blue' 
 })();
 
 export const f = {
-  display: 'Anton_400Regular',
+  // Big numbers (timers, counters). Was Anton (condensed, all caps); round 13 toned it down to Outfit Bold.
+  display: 'Outfit_700Bold',
   regular: 'Outfit_400Regular',
   medium: 'Outfit_500Medium',
   semi: 'Outfit_600SemiBold',

@@ -78,7 +78,7 @@ const midOf = (n: SleepNight) => {
 
 const effectOf = (z: number, sign = 1): -1 | 0 | 1 => (z * sign > 0.5 ? 1 : z * sign < -0.5 ? -1 : 0);
 const pct = (x: number, base: number) => `${x >= base ? '+' : '−'}${Math.abs(Math.round((x / base - 1) * 100))}%`;
-const hm = (min: number) => `${Math.floor(min / 60)}h ${pad(Math.round(min % 60))}m`;
+const hm = (min: number) => { const t = Math.round(min), h = Math.floor(t / 60), m = t % 60; return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`; }; // never "0h 10m" or "7h 60m"
 
 export function levelOf(score: number): Level {
   return score >= 67 ? 'high' : score >= 34 ? 'mid' : 'low';
@@ -110,13 +110,16 @@ export function computeReadiness(i: Inputs, day: string): Readiness {
     factors.push({ key: 'rhr', label: 'Resting HR', value: `${Math.round(rhr)} bpm`, vs: diff === 0 ? 'Same as usual' : `${diff > 0 ? '+' : '−'}${Math.abs(diff)} vs usual`, effect: effectOf(-z) });
   }
   const sleep = d?.sleep;
-  if (sleep && sleep.minutes >= 60) {
+  if (sleep && Number.isFinite(sleep.minutes) && sleep.minutes >= 60) {
     const z = clamp((sleep.minutes - SLEEP_NEED_MIN) / 60, -2, 1);
     terms.push({ w: W.sleep, z });
     factors.push({ key: 'sleep', label: 'Sleep', value: hm(sleep.minutes), vs: sleep.minutes >= SLEEP_NEED_MIN ? 'Enough' : `${hm(SLEEP_NEED_MIN - sleep.minutes)} short`, effect: effectOf(z) });
   }
   // Regular sleep times: spread of the night's middle over the last 7 nights.
-  const mids = Array.from({ length: 7 }, (_, k) => i.daily[dayBefore(day, k)]?.sleep).filter((n): n is SleepNight => !!n && n.minutes >= 120).map(midOf);
+  // A night without start/end times (some apps only send a length) can't say when you slept: skip it, never NaN.
+  const mids = Array.from({ length: 7 }, (_, k) => i.daily[dayBefore(day, k)]?.sleep)
+    .filter((n): n is SleepNight => !!n && n.minutes >= 120 && Number.isFinite(Date.parse(n.start)) && Number.isFinite(Date.parse(n.end)))
+    .map(midOf);
   if (mids.length >= 4) {
     const spread = sd(mids);
     const z = clamp((60 - spread) / 45, -2, 1);
@@ -142,6 +145,7 @@ export function computeReadiness(i: Inputs, day: string): Readiness {
   const wsum = terms.reduce((a, t) => a + t.w, 0);
   const z = terms.reduce((a, t) => a + t.w * t.z, 0) / wsum;
   // A gentler curve than the raw normal (z / 1.25) and a floor of 5, so one rough night reads as low, not as zero.
+  if (!Number.isFinite(z)) return { day, score: null, level: null, nights, factors, flags, sleep };
   const score = Math.round(clamp(100 * phi(z / 1.25) - penalty, 5, 99));
   return { day, score, level: levelOf(score), nights, factors, flags, sleep };
 }
@@ -240,6 +244,10 @@ export function selfCheck() {
   const ill = computeReadiness({ daily: { ...resp, [today]: { ...mk(50, 55.5), respRate: 17.5 } } }, today);
   assert(ill.flags.includes('Breathing rate is up') && (ill.score ?? 99) < (same.score ?? 0), 'breathing flag');
   assert(readinessSeries({ daily: { ...base, [today]: mk(50, 55) } }, today, 7).length === 7, 'series length');
+  // A night with only a length (no start/end) never turns the score into NaN.
+  const noTimes = Object.fromEntries(Object.entries(base).map(([k, v]) => [k, { ...v, sleep: { minutes: 470 } as unknown as SleepNight }]));
+  const nt = computeReadiness({ daily: { ...noTimes, [today]: { ...mk(50, 55.5), sleep: { minutes: 470 } as unknown as SleepNight } } }, today);
+  assert(nt.score !== null && Number.isFinite(nt.score), `sleep without times scores (got ${nt.score})`);
 
   // Effort: monotonic in HR and time, zero without HR, saturating.
   const mx = hrMaxFor(30), rest = 55;

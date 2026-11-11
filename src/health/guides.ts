@@ -9,10 +9,15 @@
 export type Alt = 'gadgetbridge' | 'strap' | 'ring' | 'import';
 
 // What a brand's app can put in Health Connect, as we store it (src/tracker.ts DailyMetrics + workouts).
-export type Metric = 'steps' | 'sleep' | 'hr' | 'rhr' | 'hrv' | 'spo2' | 'resp' | 'workouts';
+export type Metric = 'steps' | 'sleep' | 'hr' | 'rhr' | 'hrv' | 'spo2' | 'resp' | 'workouts' | 'kcal' | 'weight' | 'vo2' | 'temp';
 export const METRIC_LABEL: Record<Metric, string> = {
   steps: 'steps', sleep: 'sleep', hr: 'heart rate', rhr: 'resting HR', hrv: 'HRV', spo2: 'SpO2', resp: 'breathing rate', workouts: 'workouts',
+  kcal: 'calories', weight: 'weight', vo2: 'VO2 max', temp: 'skin temperature',
 };
+// The "What Gym Buddy gets" table, in this order.
+export const METRIC_ORDER: Metric[] = ['hr', 'rhr', 'hrv', 'spo2', 'resp', 'sleep', 'steps', 'kcal', 'workouts', 'weight', 'vo2', 'temp'];
+// Shared by some watch apps but not read by us yet (react-native-health-connect 3.5.3 has no skin temperature record).
+export const NOT_READ: Metric[] = ['temp'];
 
 // Live heart rate during workouts over standard Bluetooth (0x180D), with the steps on the device itself.
 export type Live = {
@@ -39,6 +44,13 @@ export type Guide = {
   missing?: Partial<Record<Metric, string>>; // one-line fix per missing metric
   info?: string; // one line under the status, e.g. what the brand never shares
   live?: Live;
+  tile?: string; // shorter name for the brand picker
+  path?: string; // where the Health Connect switch is in the brand's app, as one line: "Connections › Partner apps › ..."
+  // What the brand's app usually writes to Health Connect (from its own help page where it has one; varies by model).
+  // Only used to say what to expect; what really arrived is always read from the data.
+  shares?: Metric[];
+  unsure?: Metric[]; // sources disagree on these: shown as "depends on your plan or model", never as "doesn't share"
+  direct?: boolean; // talks to us over Bluetooth itself, no brand app in between (Colmi ring)
 };
 
 export const GUIDES: Guide[] = [
@@ -59,9 +71,12 @@ export const GUIDES: Guide[] = [
     packages: ['com.fitbit.FitbitMobile'],
     fix: 'Open Google Health once so it syncs, then try again',
     alts: ['import'],
+    tile: 'Fitbit / Pixel',
+    path: 'Connections › Partner apps › Sync your favorite health apps › Set up › Allow all',
+    // Fitbit help 14506680: writes steps, total calories, sleep, HR, resting HR, HRV, breathing, VO2 max, weight, skin
+    // temperature and exercise; only reads SpO2 and active calories.
+    shares: ['hr', 'rhr', 'hrv', 'resp', 'sleep', 'steps', 'kcal', 'workouts', 'weight', 'vo2', 'temp'],
     source: 'https://support.google.com/fitbit/answer/14506680',
-    // Google Health writes these to Health Connect; it only reads SpO2, so SpO2 is not expected.
-    expects: ['steps', 'sleep', 'hr', 'rhr', 'hrv', 'resp', 'workouts'],
     missing: {
       sleep: 'Wear it to bed, then open Google Health in the morning',
       hrv: 'HRV comes in after a night with the watch on',
@@ -96,6 +111,10 @@ export const GUIDES: Guide[] = [
     ],
     packages: ['com.sec.android.app.shealth'],
     fix: 'Open Samsung Health once so it syncs, then try again',
+    tile: 'Samsung Galaxy',
+    path: 'Settings › Health Connect › Get started › Allow',
+    // Samsung's developer mapping table: steps, SpO2, exercise, heart rate, sleep with stages, weight.
+    shares: ['hr', 'spo2', 'sleep', 'steps', 'workouts', 'weight'],
     source: 'https://developer.samsung.com/health/blog/en/accessing-samsung-health-data-through-health-connect',
   },
   {
@@ -115,6 +134,9 @@ export const GUIDES: Guide[] = [
     fix: 'Sync your watch in Garmin Connect, then try again',
     strapHint: 'On the watch, turn on Broadcast heart rate',
     alts: ['strap', 'import'],
+    path: 'More › Settings › Connected apps › Health Connect › Allow all',
+    // Garmin's list (press, 2025): steps, distance, calories, sleep, heart rate, weight, activities. No HRV status.
+    shares: ['hr', 'sleep', 'steps', 'kcal', 'workouts', 'weight'],
     source: 'https://www.scorevitals.com/howtos/sync-garmin-watch-to-health-connect',
   },
   {
@@ -132,8 +154,12 @@ export const GUIDES: Guide[] = [
     packages: ['com.whoop.android'],
     fix: 'Open WHOOP once so it syncs, then try again',
     strapHint: 'In WHOOP, turn on Broadcast Heart Rate',
+    path: 'More › Account & Settings › Integrations › Health Connect › Set Up',
+    // WHOOP support (via research.md §4): sleep, workouts, calories, body metrics; resting HR and breathing rate on
+    // plans with Health Monitor. Never heart-rate samples, HRV, VO2 max, recovery or strain. Steps and SpO2: unclear.
+    shares: ['rhr', 'resp', 'sleep', 'kcal', 'workouts', 'weight'],
+    unsure: ['steps', 'spo2'],
     source: 'https://ultrafit360.com/blog/whoop-apple-health-health-connect',
-    expects: ['steps', 'sleep', 'rhr', 'spo2', 'resp', 'workouts'],
     missing: {
       sleep: 'Open WHOOP after you wake up so it syncs',
       rhr: "Resting HR needs WHOOP's Health Monitor",
@@ -142,7 +168,7 @@ export const GUIDES: Guide[] = [
       steps: 'Open WHOOP so it syncs',
       workouts: 'Start or confirm one in WHOOP and it shows up here',
     },
-    info: "WHOOP doesn't share HRV. Live heart rate in workouts gives us yours",
+    info: "WHOOP doesn't share heart rate or HRV. Live heart rate in workouts gives us yours",
     live: {
       short: 'WHOOP',
       match: /whoop/i,
@@ -166,6 +192,8 @@ export const GUIDES: Guide[] = [
     ],
     packages: ['com.ouraring.oura'],
     fix: 'Open Oura once so the ring syncs, then try again',
+    path: 'Menu › Settings › Data sharing › Health Connect',
+    shares: ['hr', 'sleep', 'steps', 'kcal', 'workouts'],
     source: 'https://support.ouraring.com/hc/en-us/articles/10786105824531',
   },
   {
@@ -183,6 +211,9 @@ export const GUIDES: Guide[] = [
     packages: ['com.huami.watch.hmwatchmanager', 'com.xiaomi.hm.health'],
     fix: 'Open Zepp once so the watch syncs, then try again',
     alts: ['gadgetbridge'],
+    tile: 'Amazfit / Zepp',
+    path: 'Profile › 3rd-party account linking › Health Connect › Allow all',
+    shares: ['hr', 'spo2', 'sleep', 'steps', 'kcal', 'workouts'],
     source: 'https://www.notebookcheck.net/Amazfit-smartwatches-get-new-Health-Connect-data-sync-feature.951489.0.html',
   },
   {
@@ -201,6 +232,9 @@ export const GUIDES: Guide[] = [
     packages: ['com.xiaomi.wearable'],
     fix: 'Open Mi Fitness and leave it open a minute, then try again',
     alts: ['gadgetbridge'],
+    tile: 'Xiaomi / Mi Band',
+    path: 'Profile › Third-party data › Health Connect › Connect',
+    shares: ['hr', 'sleep', 'steps', 'kcal'],
     source: 'https://www.mi.com/global/support/faq/details/KA-230357/',
   },
   {
@@ -213,6 +247,8 @@ export const GUIDES: Guide[] = [
     fix: 'Pair the watch in Gadgetbridge and sync it, then try again',
     strapHint: 'On the watch, open Settings, then HR Data Broadcasts',
     alts: ['gadgetbridge', 'strap'],
+    path: 'Gadgetbridge: Settings › External integrations › Health Connect',
+    shares: ['hr', 'spo2', 'sleep', 'steps', 'workouts'],
     source: 'https://consumer.huawei.com/en/support/content/en-us15827504/',
   },
   {
@@ -231,6 +267,8 @@ export const GUIDES: Guide[] = [
     fix: 'Sync your Polar watch in Polar Flow, then try again',
     strapHint: 'Wear the strap so it wakes up',
     alts: ['strap'],
+    path: 'General settings › Health Connect › Allow',
+    shares: ['hr', 'sleep', 'steps', 'kcal', 'workouts'],
     source: 'https://support.polar.com/en/flow-app-health-connect',
   },
   {
@@ -239,9 +277,13 @@ export const GUIDES: Guide[] = [
     hc: false,
     note: 'We read this ring directly over Bluetooth',
     steps: [],
-    packages: ['nodomain.freeyourgadget.gadgetbridge'],
+    packages: ['colmi', 'nodomain.freeyourgadget.gadgetbridge'],
     fix: 'Use the Smart ring card instead',
     alts: ['ring'],
+    tile: 'Colmi ring',
+    direct: true,
+    // src/health/colmiDevice.ts: steps, active calories, the heart-rate log and SpO2 on demand.
+    shares: ['hr', 'spo2', 'steps', 'kcal'],
     source: 'https://gadgetbridge.org/basics/integrations/health-connect/',
   },
   {
@@ -256,6 +298,8 @@ export const GUIDES: Guide[] = [
     packages: [],
     fix: "Open your watch's app once so it syncs, then try again",
     alts: ['gadgetbridge', 'import', 'strap'],
+    tile: 'Other or a strap',
+    path: "Your watch app's settings › Health Connect › Allow all",
     source: 'https://support.google.com/android/answer/12201227',
   },
 ];
@@ -275,9 +319,12 @@ export const GADGETBRIDGE = {
   source: 'https://gadgetbridge.org/basics/integrations/health-connect/',
 };
 
-// Friendly names for Health Connect data origins (package names), for "Steps from Google Health found".
+// Friendly names for Health Connect data origins (package names), for "Steps from Fitbit found". Naming rule: the
+// Fitbit app ships as "Google Health" now, but people know their watch as a Fitbit. The brand page says it once
+// ("The Fitbit app is now called Google Health") and names the app where you must find it (Get / Open Google Health);
+// everywhere a number's source is named (Tracker, Watch & health, Calendar) it is plain "Fitbit".
 const ORIGINS: Record<string, string> = {
-  'com.fitbit.FitbitMobile': 'Google Health',
+  'com.fitbit.FitbitMobile': 'Fitbit',
   'com.google.android.apps.fitness': 'Google Fit',
   'com.sec.android.app.shealth': 'Samsung Health',
   'com.garmin.android.apps.connectmobile': 'Garmin Connect',
@@ -291,6 +338,7 @@ const ORIGINS: Record<string, string> = {
   'nodomain.freeyourgadget.gadgetbridge': 'Gadgetbridge',
   'com.google.android.apps.healthdata': 'Health Connect',
   android: 'your phone',
+  colmi: 'your ring',
 };
 // Origins that are the phone itself, not a watch.
 export const PHONE_ORIGINS = ['android', 'com.google.android.apps.healthdata', 'com.google.android.apps.fitness'];

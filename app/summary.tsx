@@ -6,9 +6,12 @@ import Animated, {
   Easing, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { dayKey, doneSets, isTimed, prs, streak, volume } from '../src/calc';
+import { goalColor, useRun } from '../src/challenges/use';
+import { doneSets, isTimed, prs, streak, volume } from '../src/calc';
 import { badges, level } from '../src/data/badges';
+import { taskTitle } from '../src/data/challenges';
 import { byId } from '../src/data/exercises';
+import { planById } from '../src/data/plans';
 import { FoodSheet } from '../src/foodsheet';
 import { sessionMinutes } from '../src/glance';
 import { sessionKcal } from '../src/journey';
@@ -16,6 +19,7 @@ import { CountUp, EASE, EASE_POP, Empty, Header, toToday } from '../src/kit';
 import { useStore, type MealSlot, type Session } from '../src/store';
 import { c, dom, f, r } from '../src/theme';
 import { mergedFor, useTracker } from '../src/tracker';
+import { drink, ml, useWater } from '../src/water';
 import { Button, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb } from '../src/ui';
 
 // The end of a workout (docs/REDESIGN.md rule 8). Nothing here leaves the screen except Done (pinned at the bottom, so it
@@ -107,8 +111,10 @@ export default function Summary() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const sessions = useStore((st) => st.sessions);
   const profile = useStore((st) => st.profile);
-  const addWater = useStore((st) => st.addWater);
-  const glasses = useStore((st) => st.water[dayKey()] ?? 0);
+  const water = useWater(); // ml today; a tap adds one of the person's own glasses
+  const planId = useStore((st) => st.planId);
+  const nextDay = useStore((st) => st.nextDay);
+  const { ch, prog, ctx } = useRun(); // the running challenge, if any, worked out with this workout counted
   const [food, setFood] = useState(false);
   const pop = useSharedValue(still ? 1 : 0);
 
@@ -149,6 +155,21 @@ export default function Summary() {
   const kg = Math.round(volume(s));
   const reps = s.items.reduce((n, it) => n + (isTimed(it.target) ? 0 : it.sets.reduce((a, x) => a + (x.done ? x.reps : 0), 0)), 0);
   const colors = [c.accent, c.warm, c.pink, c.blue, dom.weight];
+  // What comes next time, so the end of a workout points at the next one (only for a plan workout; the plan has already
+  // moved on to it).
+  const plan = s.planId && s.planId === planId ? planById[planId] : undefined;
+  const nextName = plan && plan.days.length > 1 ? plan.days[nextDay % plan.days.length]?.name : undefined;
+  // The running challenge (read-only): today's day done, or this workout counted with something still to do. Nothing
+  // when today's task isn't one a workout can count for (steps, water…), so it never claims what didn't happen.
+  const chLine = (() => {
+    const day = prog?.today;
+    if (!ch || !prog || !day || prog.over || !day.tasks.some((t) => t.done && t.task.kind !== 'steps' && t.task.kind !== 'protein' && t.task.kind !== 'water')) return null;
+    const week = prog.weeks?.find((w) => w.from <= prog.todayIdx && prog.todayIdx <= w.to);
+    const where = week ? `${Math.min(week.have, week.need)} of ${week.need} this week` : `Day ${prog.todayIdx + 1} of ${ch.days}`;
+    if (day.done) return { done: true, title: 'Challenge day done', sub: `${ch.name} · ${where}` };
+    const left = day.tasks.find((t) => !t.done);
+    return { done: false, title: `${ch.name} · workout counted`, sub: left ? `Still today: ${taskTitle(left.task, ctx)}` : where };
+  })();
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -171,9 +192,30 @@ export default function Summary() {
           {kg > 0 ? <CountTile i={2} icon="barbell" value={kg} suffix=" kg" label="Volume" />
             : reps > 0 ? <CountTile i={2} icon="repeat" value={reps} label="Reps" />
             : <CountTile i={2} icon="list" value={s.items.length} label="Exercises" />}
-          <CountTile i={3} icon="flame" color={c.warm} value={run} label="Streak" />
+          <CountTile i={3} icon="flame" color={c.warm} value={run} label="Day streak" />
         </Row>
         <HeartRate s={s} i={4} />
+
+        {chLine && ch && (
+          <Animated.View entering={FadeInDown.delay(340).duration(400).easing(EASE)} style={[s2.hr, { marginTop: 12 }]}>
+            <IconBox icon={chLine.done ? 'trophy' : ch.icon} color={goalColor(ch)} size={32} />
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <T v="h3" numberOfLines={1}>{chLine.title}</T>
+              <T v="small" numberOfLines={1}>{chLine.sub}</T>
+            </View>
+            {chLine.done && <Ionicons name="checkmark-circle" size={24} color={c.ok} />}
+          </Animated.View>
+        )}
+
+        {nextName && (
+          <Animated.View entering={FadeInDown.delay(380).duration(400).easing(EASE)} style={[s2.hr, { marginTop: 12 }]}>
+            <IconBox icon="calendar-outline" color={dom.train} size={32} />
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <T v="h3" numberOfLines={1}>Next time · {nextName}</T>
+              <T v="small" numberOfLines={1}>{plan!.name} moves on by itself</T>
+            </View>
+          </Animated.View>
+        )}
 
         {records.length > 0 && (
           <Animated.View entering={FadeInDown.delay(400).duration(400).easing(EASE)}>
@@ -205,9 +247,9 @@ export default function Summary() {
               <Ionicons name="restaurant" size={18} color={c.pink} />
               <T v="h3">Log a meal</T>
             </Tap>
-            <Tap onPress={() => addWater(1)} style={s2.action}>
-              <Ionicons name="water" size={18} color={c.blue} />
-              <T v="h3" style={{ fontVariant: ['tabular-nums'] }}>Add water · {glasses}</T>
+            <Tap onPress={() => drink()} style={s2.action} accessibilityLabel={`Add ${water.glass} ml of water${water.ml ? `, ${ml(water.ml)} today` : ''}`}>
+              <Ionicons name={water.ml ? 'add' : 'water'} size={18} color={c.blue} />
+              <T v="h3" numberOfLines={1} style={{ flexShrink: 1, fontVariant: ['tabular-nums'] }}>{water.ml ? `Water · ${ml(water.ml)}` : 'Add water'}</T>
             </Tap>
           </Row>
         </Animated.View>
