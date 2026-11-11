@@ -62,6 +62,7 @@ export default function You() {
   const mode = useLook((s) => s.mode);
   const accent = useLook((s) => s.accent);
   const haptics = useLook((s) => s.haptics);
+  const blur = useLook((s) => s.blur);
   const [sheet, setSheet] = useState<'look' | 'data' | 'demo' | null>(() => {
     const again = reopenLook || params.sheet === 'look';
     reopenLook = false;
@@ -129,6 +130,8 @@ export default function You() {
     { icon: 'play-circle', color: dom.water, t: 'Exercise demos', v: DEMOS.find((d) => d.k === mediaPref)?.label, go: () => setSheet('demo') },
     // Haptics are phone-only (the web has none).
     ...(web ? [] : [{ icon: 'pulse' as Icon, color: dom.sleep, t: 'Haptics', toggle: { on: haptics, set: (on: boolean) => { setPrefs({ haptics: on }); } } }]),
+    // Android only: real blur behind the bars costs frames on older phones, so it is a choice.
+    ...(Platform.OS === 'android' ? [{ icon: 'water' as Icon, color: dom.water, t: 'Real glass blur', toggle: { on: blur, set: (on: boolean) => { setPrefs({ blur: on }); } } }] : []),
   ];
   const mealReminders = reminders.filter((x) => x.kind === 'meal' && x.on).length;
   // Your watch: connecting Fitbit, WHOOP and the rest is the main way data gets in, so it comes first.

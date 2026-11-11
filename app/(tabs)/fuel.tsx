@@ -52,7 +52,7 @@ export default function Fuel() {
   const protein = list.reduce((a, m) => a + m.protein, 0);
   const over = kcal > t.kcal;
   const plan = mealPlan(profile, gentle);
-  const light = !gentle && profile.goal === 'lose fat' ? foodsFor(profile.diet).filter((fd) => fd.light) : [];
+  const light = !gentle && (profile.goal === 'lose fat' || profile.goal === 'tone up') ? foodsFor(profile.diet).filter((fd) => fd.light) : [];
   const enter = (i: number) => (still ? undefined : FadeInDown.delay(i * 60).duration(380).easing(EASE));
   const openFood = (a: Ask = {}) => { setEdit(null); setWaterOpen(false); setAsk(a); };
   const findFood = (fd: Food) => openFood({ food: fd.name });

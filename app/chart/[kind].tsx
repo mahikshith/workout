@@ -250,8 +250,8 @@ function Weight() {
   const recentW = sorted.map((x, i) => ({ ...x, diff: i > 0 ? x.kg - sorted[i - 1].kg : null })).slice(-5).reverse();
   const today = lastW?.day === dayKey() ? lastW.kg : null;
   const same = today !== null && today === +kg.toFixed(1);
-  const losing = profile.goal === 'lose fat' || profile.goalWeightKg < profile.weightKg;
-  const showJourney = profile.goal === 'lose fat' || profile.concerns?.some((x) => x === 'lose-weight' || x === 'gain') || Math.abs(profile.goalWeightKg - profile.weightKg) >= 1;
+  const losing = profile.goal !== 'gain weight' && (profile.goal === 'lose fat' || profile.goalWeightKg < profile.weightKg);
+  const showJourney = profile.goal === 'lose fat' || profile.goal === 'gain weight' || profile.concerns?.some((x) => x === 'lose-weight' || x === 'gain') || Math.abs(profile.goalWeightKg - profile.weightKg) >= 1;
 
   return (
     <>

@@ -27,7 +27,8 @@ import { Hint } from '../../src/hint';
 import { QuickLogSheet } from '../../src/quicklog';
 import { useWater } from '../../src/water';
 import { Avatar, Button, Chip, Ring, Row, Section, T, Tap } from '../../src/ui';
-import { explain, ranked } from '../../src/coach';
+import { explain } from '../../src/coach';
+import { useReco } from '../../src/reco/use';
 import { planById } from '../../src/data/plans';
 import { because, PlanCard } from '../../src/plansui';
 
@@ -99,14 +100,15 @@ export default function Today() {
   const muscles = [...new Set(day.slots.map((sl) => byId[sl.id]?.primary[0]).filter(Boolean))].slice(0, 3).map(title);
   const button = active?.running ? 'Resume' : rest ? 'Train anyway' : 'Start';
   // Why this workout: the engine's top reasons for the plan it comes from (two short lines at most).
-  const why = useMemo(() => (today.planId ? explain(profile, today.planId).slice(0, 2) : []), [profile, today.planId]);
+  const reco = useReco();
+  const why = useMemo(() => (reco.today.why.length ? reco.today.why : today.planId ? explain(profile, today.planId) : []).slice(0, 2), [reco, profile, today.planId]);
   // Plans for you: the one you are on first, then the engine's best fits.
   const curBase = planById[planId]?.base ?? planId;
   const forYou = useMemo(() => {
-    const list = ranked(profile);
-    const cur = planById[curBase];
-    return [...(cur ? [cur] : []), ...list.filter((x) => x.id !== curBase)].slice(0, 7);
-  }, [profile, curBase]);
+    const mine = reco.plans.find((x) => x.baseId === curBase || x.planId === planId);
+    const rest = reco.plans.filter((x) => x !== mine && x.suitable && !x.addOn);
+    return [...(mine ? [mine] : []), ...rest].slice(0, 7);
+  }, [reco, curBase, planId]);
 
   // "Not today?" excuse chips: on a planned day with no workout yet once the evening is near (or the day's last
   // reminder has passed), or the day after a missed planned day. An excused day pauses the missed-workout nudge.
@@ -232,9 +234,9 @@ export default function Today() {
           {!active && kind === 'plan' && why.length > 0 && (
             <View style={{ gap: 4 }}>
               {why.map((line) => (
-                <Row key={line} gap={6}>
+                <Row key={line} gap={6} style={{ alignItems: 'flex-start' }}>
                   <Ionicons name="checkmark-circle" size={15} color={dom.train} />
-                  <T v="small" color={c.soft} numberOfLines={1} style={{ flex: 1 }}>{line}</T>
+                  <T v="small" color={c.soft} numberOfLines={2} style={{ flex: 1 }}>{line}</T>
                 </Row>
               ))}
             </View>
@@ -312,10 +314,11 @@ export default function Today() {
       <Enter i={3}>
         <Section title="Plans for you" action="All plans" onAction={() => router.navigate('/plans')} first>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 16 }}>
-            {forYou.map((p) => (
-              <PlanCard key={p.id} plan={p} tag={p.id === curBase ? 'Your plan' : undefined}
-                why={explain(profile, p.id).find((x) => !/days/.test(x)) ?? because(profile, p)} />
-            ))}
+            {forYou.map((x, k) => {
+              const yours = x.baseId === curBase || x.planId === planId;
+              return <PlanCard key={x.planId} plan={x.plan} tag={yours ? 'Your plan' : k < 4 ? `${x.fit}% match` : undefined}
+                why={x.reasons.find((y) => !/days/.test(y)) ?? because(profile, x.plan)} />;
+            })}
           </ScrollView>
         </Section>
       </Enter>

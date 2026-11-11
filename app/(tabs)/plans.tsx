@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { explain, ranked } from '../../src/coach';
+import { useReco } from '../../src/reco/use';
 import { CATEGORIES, perWeek, planById, plans, type Plan } from '../../src/data/plans';
 import { Segmented, useMiniBarSpace, useScrollTopRef, useToday } from '../../src/kit';
 import { because, openPlan, PLAN_COLOR, PLAN_ICON, PlanCard, planFits, planMeta, type Where } from '../../src/plansui';
@@ -69,10 +69,10 @@ function PlansList() {
   const curBase = cur?.base ?? planId;
 
   // Best fit first (the engine's ranking); the top three sit in their own row with a reason each.
-  const order = useMemo(() => ranked(profile), [profile]);
-  const best = order.filter((p) => p.id !== curBase).slice(0, 4);
-  const bestIds = new Set(best.map((p) => p.id));
-  const rank = useMemo(() => new Map(order.map((p, i) => [p.id, i])), [order]);
+  const reco = useReco();
+  const best = reco.plans.filter((x) => x.baseId !== curBase && x.planId !== planId && x.suitable && !x.addOn).slice(0, 4);
+  const bestIds = new Set(best.map((x) => x.baseId));
+  const rank = useMemo(() => new Map(reco.plans.map((x, i) => [x.baseId, i])), [reco]);
   const groups = CATEGORIES.map((cat) => ({
     cat,
     list: plans.filter((p) => p.category === cat && planFits(p, where) && (cat !== 'Women' || profile.gender !== 'male'))
@@ -114,7 +114,7 @@ function PlansList() {
         <Enter i={1}>
           <Section title="Recommended for you" style={{ marginTop: 28 }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -12 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 12 }}>
-              {best.map((p) => <PlanCard key={p.id} plan={p} why={explain(profile, p.id).find((x) => !/days/.test(x)) ?? because(profile, p)} />)}
+              {best.map((x) => <PlanCard key={x.planId} plan={x.plan} tag={`${x.fit}% match`} why={x.reasons.find((y) => !/days/.test(y)) ?? because(profile, x.plan)} />)}
             </ScrollView>
           </Section>
         </Enter>
