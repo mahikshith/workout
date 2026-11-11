@@ -73,10 +73,10 @@ export function RestDaySheet({ open, onClose }: { open: boolean; onClose: () => 
         <View style={{ gap: 12 }}>
           <View style={{ gap: 2 }}>
             <T v="h2">{opts.next.reason.startsWith('Done') ? 'Done for today' : 'Rest day'}</T>
-            <T v="small" numberOfLines={2}>{opts.next.reason.split('. ')[0]}</T>
+            <T v="small" numberOfLines={2}>{restLine(opts.next.reason)}</T>
           </View>
           <Button title={`Train anyway · ${opts.next.day.name}`} icon="play" onPress={trainAnyway} />
-          {opts.picks.length > 0 && <T v="small" color={c.label} style={{ marginTop: 4 }}>Quick 20 min</T>}
+          {opts.picks.length > 0 && <T v="small" color={c.label} style={{ marginTop: 4 }}>Short on time</T>}
           {opts.picks.map((q) => (
             <Tap key={q.id} onPress={() => startQuick(q)} style={s.row} scale={0.98}>
               <View style={[s.icon, { backgroundColor: c.accent + '22' }]}><Ionicons name={q.icon} size={20} color={c.accent} /></View>
@@ -99,6 +99,13 @@ export function RestDaySheet({ open, onClose }: { open: boolean; onClose: () => 
       )}
     </Sheet>
   );
+}
+
+// The engine's reason as one short line under a "Done for today" / "Rest day" title, without saying "Done for today"
+// twice: "Done for today · next: Full Body B Fri. Rest helps…" → "Next: Full Body B on Fri".
+export function restLine(reason: string) {
+  const first = (reason.match(/^[^.]*\./)?.[0] ?? reason).trim().replace(/\.$/, '');
+  return first.replace(/^Done for today · next: /, 'Next: ').replace(/^(Next: .+) (Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/, '$1 on $2');
 }
 
 // Change workout (the workout's ⋯ sheet, and Change next to Start on Today): another day of the current plan, a quick
@@ -143,7 +150,7 @@ export function ChangeList({ place, current, note, onPick }: {
             </Tap>
           );
         })}
-        {picks.length > 0 && <T v="small" color={c.label} style={{ marginTop: 8 }}>Quick 20 min</T>}
+        {picks.length > 0 && <T v="small" color={c.label} style={{ marginTop: 8 }}>Short on time</T>}
         {picks.map((q) => (
           <Tap key={q.id} onPress={() => pick({ day: asDay(q.q), place: q.place })} style={s.row} scale={0.98} accessibilityLabel={`Change to ${q.name}`}>
             <View style={[s.icon, { backgroundColor: c.accent + '22' }]}><Ionicons name={q.icon} size={20} color={c.accent} /></View>

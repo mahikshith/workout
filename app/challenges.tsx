@@ -2,11 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { cheer, challengeById, challenges, GOAL_COLOR, GOALS, LEVELS, type Challenge, type GoalTag, type Level } from '../src/data/challenges';
+import { cheer, challengeById, challenges, GOALS, LEVELS, type Challenge, type GoalTag, type Level } from '../src/data/challenges';
 import { Header } from '../src/kit';
-import { goalColor, openChallenge, Pill, TodayTasks, useRecommended, useRun, useTaskActions } from '../src/challenges/use';
+import { extraPills, goalColor, goalTint, openChallenge, Pill, TodayTasks, useRecommended, useRun, useTaskActions } from '../src/challenges/use';
 import { useStore } from '../src/store';
-import { c, dom, r, tint } from '../src/theme';
+import { SafetyNote } from '../src/safety';
+import { c, dom, f, r, tint } from '../src/theme';
 import { Button, Chip, IconBox, Ring, Row, Screen, Section, T, Tap } from '../src/ui';
 import { Enter } from './library';
 
@@ -27,6 +28,13 @@ export default function Challenges() {
   const list = recs.filter((x) => (level === 'All' || x.level === level) && (goal === 'Any' || x.goal === goal));
   const goals = GOALS.filter((g) => challenges.some((x) => x.goal === g));
   const top = recs[0];
+  // With no filter on, the catalogue is short: three picked for you, then one block per goal showing its best two
+  // (in fit order) and "See all n" (which sets that goal's filter). A filter shows the plain matching list.
+  const filtered = level !== 'All' || goal !== 'Any';
+  const picks = recs.filter((x) => x.id !== mine?.id && (mine || x.id !== top?.id)).slice(0, 3);
+  const shownPicks = new Set(picks.map((x) => x.id));
+  const groups = goals.map((g) => ({ g, total: recs.filter((x) => x.goal === g).length, all: recs.filter((x) => x.goal === g && !shownPicks.has(x.id) && x.id !== mine?.id && (mine || x.id !== top?.id)) }))
+    .filter((x) => x.all.length > 0);
 
   const join = (ch: Challenge) => {
     useStore.getState().joinChallenge(ch.id);
@@ -110,6 +118,11 @@ export default function Challenges() {
           </Enter>
         )}
 
+        {/* Choosing is never a lock-in: say so where people choose. */}
+        <View style={{ marginTop: 12 }}>
+          <SafetyNote text="Switch or stop any time; your done days and badges stay. General fitness ideas, not medical advice." />
+        </View>
+
         <Enter i={2}>
           <Section title={mine ? 'More challenges' : 'All challenges'}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }} style={{ marginHorizontal: -12 }}>
@@ -117,14 +130,31 @@ export default function Challenges() {
             </ScrollView>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }} style={{ marginHorizontal: -12, marginTop: 8 }}>
               {(['Any', ...goals] as const).map((g) => (
-                <Chip key={g} label={g === 'Any' ? 'Any goal' : g} on={goal === g} onPress={() => setGoal(g)} color={g === 'Any' ? c.accent : dom[GOAL_COLOR[g]]} />
+                <Chip key={g} label={g === 'Any' ? 'Any goal' : g} on={goal === g} onPress={() => setGoal(g)} color={g === 'Any' ? c.accent : goalTint(g)} />
               ))}
             </ScrollView>
             <View style={{ gap: 12, marginTop: 16 }}>
-              {list.map((ch) => (
-                <ChallengeRow key={ch.id} ch={ch} running={mine?.id === ch.id} done={finished.has(ch.id)} forYou={level === 'All' && goal === 'Any' && forYou.has(ch.id)} />
+              {!filtered && picks.length > 0 && <T v="h3">Recommended for you</T>}
+              {!filtered && picks.map((ch) => <ChallengeRow key={ch.id} ch={ch} running={false} done={finished.has(ch.id)} forYou={forYou.has(ch.id)} />)}
+              {!filtered && groups.map(({ g, all, total }) => (
+                <View key={g} style={{ gap: 12, marginTop: 12 }}>
+                  <Row gap={8}>
+                    <View style={[s.dot, { backgroundColor: goalTint(g) }]} />
+                    <T v="h3" style={{ flex: 1 }}>{g}</T>
+                    {all.length > 2 && (
+                      <Tap onPress={() => setGoal(g)} style={s.seeAll} scale={0.96} accessibilityLabel={`See all ${g} challenges`}>
+                        <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>{`See all ${total}`}</T>
+                        <Ionicons name="chevron-forward" size={14} color={c.accent} />
+                      </Tap>
+                    )}
+                  </Row>
+                  {all.slice(0, 2).map((ch) => <ChallengeRow key={ch.id} ch={ch} running={false} done={finished.has(ch.id)} forYou={false} grouped />)}
+                </View>
               ))}
-              {!list.length && (
+              {filtered && list.map((ch) => (
+                <ChallengeRow key={ch.id} ch={ch} running={mine?.id === ch.id} done={finished.has(ch.id)} forYou={forYou.has(ch.id)} />
+              ))}
+              {filtered && !list.length && (
                 <View style={s.empty}>
                   <T v="body" color={c.muted} style={{ textAlign: 'center' }}>No challenge matches both filters.</T>
                   <Tap onPress={() => { setLevel('All'); setGoal('Any'); }} style={{ height: 44, justifyContent: 'center' }}><T v="h3" color={c.accent}>Show all</T></Tap>
@@ -139,8 +169,9 @@ export default function Challenges() {
   );
 }
 
-function ChallengeRow({ ch, running, done, forYou }: { ch: Challenge; running: boolean; done: boolean; forYou: boolean }) {
+function ChallengeRow({ ch, running, done, forYou, grouped }: { ch: Challenge; running: boolean; done: boolean; forYou: boolean; grouped?: boolean }) {
   const col = goalColor(ch);
+  const extra = extraPills(ch)[0];
   return (
     <Tap onPress={() => openChallenge(ch.id)} style={s.card} scale={0.98} accessibilityLabel={`${ch.name}, ${ch.level}, ${ch.days} days`}>
       <Row gap={12} style={{ alignItems: 'flex-start' }}>
@@ -151,10 +182,14 @@ function ChallengeRow({ ch, running, done, forYou }: { ch: Challenge; running: b
             {running ? <Tag text="Yours" color={c.accent} /> : done ? <Tag text="Finished" color={c.ok} icon="checkmark" /> : forYou ? <Tag text="For you" color={col} /> : null}
           </Row>
           <T v="small" numberOfLines={2}>{ch.tagline}</T>
-          <Row gap={6} style={{ marginTop: 8, flexWrap: 'wrap' }}>
+          {/* One line of pills: level, days, then the goal (or, inside a goal's block, the kit / who it's for); the last
+              one shrinks rather than wrapping. */}
+          <Row gap={6} style={{ marginTop: 8 }}>
             <Pill text={ch.level} />
             <Pill text={`${ch.days} days`} />
-            <Pill text={ch.goal} color={col} bg={tint(col, 0.9)} />
+            {grouped
+              ? extra && <Pill text={extra.text} shrink />
+              : <Pill text={ch.goal} color={col} bg={tint(col, 0.9)} shrink />}
           </Row>
         </View>
         <Ionicons name="chevron-forward" size={18} color={c.dim} style={{ alignSelf: 'center' }} />
@@ -176,5 +211,7 @@ const s = StyleSheet.create({
   card: { padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   badge: { width: 128, gap: 6, padding: 12, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   medal: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 44, paddingLeft: 8 },
   empty: { alignItems: 'center', gap: 4, padding: 20, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
 });

@@ -18,9 +18,10 @@ import { Hint } from '../src/hint';
 import { EASE, goBack, nextOpen, useElapsed } from '../src/kit';
 import { reschedule, restAlert } from '../src/notify';
 import { ChangeList } from '../src/restday';
+import { PlateSheet } from '../src/plates';
 import { Sheet } from '../src/sheet';
 import { useStore, type Item, type Profile, type Session, type SetLog } from '../src/store';
-import { c, f, r, tint } from '../src/theme';
+import { c, dom, f, r, tint } from '../src/theme';
 import { Button, Chip, Demo, haptic, Ring, Row, Stepper, T, Tap, Thumb } from '../src/ui';
 
 // The live workout (docs/REDESIGN.md "Workout", rules 6-7). It opens ready, with the clock stopped: the person can look
@@ -106,6 +107,7 @@ export default function SessionScreen() {
   const kind = last.current; // keeps sheet content on screen while it slides away
   const sheetOpen = useRef(false);
   sheetOpen.current = !!sheet;
+  const [plates, setPlates] = useState(false); // plate calculator (its own sheet, only opened from the screen)
   const [swapAt, setSwapAt] = useState(0); // the exercise the swap sheet is for
   const [back, setBack] = useState<Kind | null>(null); // the sheet to return to after a swap or add opened from Edit
   const [addJump, setAddJump] = useState(false); // an exercise added from the workout itself comes on screen
@@ -220,6 +222,7 @@ export default function SessionScreen() {
   const showWeight = !(NO_WEIGHT.includes(ex.category) || timed);
   const prev = lastSets(sessions, it.exId);
   const lastLine = lastText(prev, timed);
+  const barLift = showWeight && (ex.equipment === 'barbell' || ex.equipment === 'e-z curl bar');
   const isLast = idx >= active.items.length - 1;
   const elapsed = elapsedOf(active); // fresh whenever the screen re-renders (a sheet opening, a set logged)
   // What comes next: the set to do now on this exercise (-1 once all are logged) and the next exercise with sets left.
@@ -245,7 +248,17 @@ export default function SessionScreen() {
   };
   // Start workout: the clock runs from this tap (begin() ignores a second tap).
   const doBegin = () => { if (useStore.getState().active?.running !== false) return; begin(); haptic('medium'); };
-  const startRest = (secs: number, at: number) => { setRest(Date.now() + secs * 1000, secs, at); restAlert(secs); };
+  // The rest-over notification names what comes next: the next set of this exercise, or the next exercise.
+  const nextText = (at: number) => {
+    const a = useStore.getState().active;
+    const it = a?.items[at];
+    if (!a || !it) return undefined;
+    const j = it.sets.findIndex((x) => !x.done);
+    if (j >= 0) { const x = it.sets[j]; return `Set ${j + 1} · ${byId[it.exId]?.name ?? ''}${x.weight ? ` ${x.weight} kg ×` : ''} ${x.reps}`.replace(/\s+/g, ' ').trim(); }
+    const n = nextOpen(a.items, at);
+    return n >= 0 ? `Up next: ${byId[a.items[n].exId]?.name ?? 'next exercise'}` : undefined;
+  };
+  const startRest = (secs: number, at: number) => { setRest(Date.now() + secs * 1000, secs, at); restAlert(secs, nextText(at)); };
   const changeRest = (until: number, tot?: number) => { setRest(until, tot); restAlert((until - Date.now()) / 1000); };
   const skipRest = () => { setRest(null); restAlert(null); };
 
@@ -385,7 +398,9 @@ export default function SessionScreen() {
           <Row style={{ alignItems: 'flex-start', marginTop: 4 }} gap={8}>
             <View style={{ flex: 1 }}>
               <T v="h2">{ex.name}</T>
-              {lastLine ? <T v="small">{lastLine}</T>
+              {lastLine ? (
+                <T v="small">{lastLine}{it.up ? <T v="small" color={dom.train} style={{ fontFamily: f.semi }}>{` · Go heavier: +${it.up} kg`}</T> : null}</T>
+              )
                 : showWeight && it.sets[0]?.weight > 0 ? <T v="small">{`First time · start light at ${it.sets[0].weight} kg`}</T> : null}
               {it.swappedFrom && byId[it.swappedFrom] && <T v="small" color={c.warm}>Alternative to {byId[it.swappedFrom].name}</T>}
               {ready && idx === 0 && advice && <T v="small" color={c.warm}>{advice}</T>}
@@ -403,6 +418,12 @@ export default function SessionScreen() {
               {showWeight && <T v="label" style={{ flex: 1, textAlign: 'center' }}>Kg</T>}
               <T v="label" style={{ flex: 1, textAlign: 'center' }}>{timed ? 'Time' : 'Reps'}</T>
               <View style={{ width: 44 }} />
+              {/* Plate calculator for bar lifts: which plates go on each side for this set's weight. */}
+              {barLift && (
+                <Tap onPress={() => setPlates(true)} style={s.plates} scale={0.95} accessibilityLabel="Plates for this weight">
+                  <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>Plates</T>
+                </Tap>
+              )}
             </Row>
             {it.sets.map((x, j) => (
               <SetRow key={j} n={j + 1} done={x.done} still={still} locked={ready}
@@ -533,6 +554,7 @@ export default function SessionScreen() {
         </Animated.View>
       )}
 
+      <PlateSheet open={plates && !sheet} onClose={() => setPlates(false)} kg={it.sets[open >= 0 ? open : it.sets.length - 1]?.weight ?? 0} />
       <Sheet open={!!sheet} onClose={() => { setSheet(back && (sheet === 'swap' || sheet === 'add') ? back : null); setBack(null); }}>
         {kind === 'menu' && (
           <View style={{ gap: 8 }}>
@@ -728,7 +750,7 @@ function EditSheet({ items, idx, onSwap, onAdd, onDone }: {
               <Row gap={10}>
                 <T v="h3" color={i === idx ? c.accent : c.muted} style={{ width: 20, textAlign: 'center' }}>{i + 1}</T>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <T v="h3" numberOfLines={1}>{e?.name ?? it.exId}</T>
+                  <T v="h3" numberOfLines={2}>{e?.name ?? it.exId}</T>
                   <T v="small" numberOfLines={1}>{logged ? `${logged} of ${n} logged` : `${n} × ${it.target}`}</T>
                 </View>
                 <Tap onPress={() => onSwap(i)} style={s.smallPill} scale={0.95} accessibilityLabel={`Swap ${e?.name ?? ''}`}>
@@ -989,6 +1011,7 @@ function SetTimer({ value, target, done, locked, onChange, onStart, onFinish }: 
 
 const s = StyleSheet.create({
   icon: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
+  plates: { position: 'absolute', right: 0, top: -14, width: 64, height: 44, alignItems: 'center', justifyContent: 'center' },
   info: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' },
   centre: { position: 'absolute', left: 64, right: 64, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   off: { opacity: 0.35 },

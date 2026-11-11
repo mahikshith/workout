@@ -8,6 +8,7 @@ import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appList, DaySheet, kcalShort, Legend, MonthGrid, monthDays, monthSummary, syncedAgo } from '../src/calendar';
 import { Bars } from '../src/charts';
+import { PHONE_ORIGINS } from '../src/health/guides';
 import { bestStreak, dayKey, streak, targets } from '../src/calc';
 import { EASE, Header, useMiniBarSpace } from '../src/kit';
 import { useStore } from '../src/store';
@@ -61,7 +62,8 @@ export default function History() {
   const cut = dayKey(Date.now() - 30 * 86400000);
   const recent = Object.values(daily).filter((d) => d.date >= cut);
   const recentW = Object.values({ ...workouts, ...merged }).filter((w) => w.start.slice(0, 10) >= cut);
-  const apps = appList([...recent.flatMap((d) => d.origin ?? []), ...recentW.flatMap((w) => (w.originApp ? [w.originApp] : []))]);
+  // Watch apps only: the phone's own step counter isn't "from your watch".
+  const apps = appList([...recent.flatMap((d) => d.origin ?? []), ...recentW.flatMap((w) => (w.originApp ? [w.originApp] : []))].filter((p) => !PHONE_ORIGINS.includes(p)));
   const kinds = [recentW.length ? 'workouts' : null, !gentle && recent.some((d) => d.activeKcal !== undefined) ? 'calories' : null,
     recent.some((d) => d.steps !== undefined) ? 'steps' : null, recent.some((d) => d.sleep) ? 'sleep' : null].filter(Boolean) as string[];
   const lastSync = [hc.lastSync, ring?.lastSync, strap?.lastConnected].filter(Boolean).sort().pop();
@@ -128,7 +130,7 @@ export default function History() {
               <IconBox icon="watch-outline" color={c.blue} />
               <View style={{ flex: 1, gap: 2 }}>
                 <T v="h3" numberOfLines={1}>From your watch</T>
-                <T v="small" numberOfLines={1}>{[apps.length ? apps.join(', ') : hc.connected ? 'Health Connect' : ring?.name ?? strap?.name ?? 'Your watch', lastSync ? `synced ${syncedAgo(lastSync)}` : null].filter(Boolean).join(' · ')}</T>
+                <T v="small" numberOfLines={2}>{[apps.length ? apps.join(', ') : hc.connected ? 'Health Connect' : ring?.name ?? strap?.name ?? 'Your watch', lastSync ? `synced ${syncedAgo(lastSync)}` : null].filter(Boolean).join(' · ')}</T>
                 <T v="small" numberOfLines={1} color={c.dim}>{kinds.length ? `Sends ${kinds.join(', ')}` : 'Nothing synced lately'}</T>
               </View>
               <Ionicons name="chevron-forward" size={18} color={c.dim} />

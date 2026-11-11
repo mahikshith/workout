@@ -11,7 +11,7 @@ import { motivation } from '../../src/data/motivation';
 import { FoodSheet } from '../../src/foodsheet';
 import { STREAK_SUFFIX } from '../../src/glance';
 import { CountUp, EASE, openWorkout, useMiniBarSpace, useScrollTopRef, useToday } from '../../src/kit';
-import { ChangeList, type ChangePick } from '../../src/restday';
+import { ChangeList, restLine, type ChangePick } from '../../src/restday';
 import { Sheet } from '../../src/sheet';
 import { askPermission, hasPermission, lastReminderMin, plannedOn, reschedule } from '../../src/notify';
 import { useStore, type Excuse } from '../../src/store';
@@ -42,8 +42,6 @@ const Enter = ({ i, children, style }: { i: number; children: ReactNode; style?:
   <Animated.View entering={FadeInDown.delay(i * 60).duration(380).easing(EASE)} style={style}>{children}</Animated.View>
 );
 
-// The first sentence of the engine's reason, so a rest day explains itself in one short line.
-const firstSentence = (s: string) => (s.match(/^[^.]*\./)?.[0] ?? s).trim();
 
 export default function Today() {
   const ins = useSafeAreaInsets();
@@ -158,7 +156,7 @@ export default function Today() {
   const noPlan = setupSkipped && !planStart; // skipped setup before picking a plan
   const firstSteps: Step[] = [
     ...(noPlan ? [{ id: 'plan', icon: 'sparkles' as Icon, color: c.accent, text: 'Get a plan made for you', done: false, go: () => router.push('/onboarding') }] : []),
-    { id: 'workout', icon: 'play', color: dom.train, text: 'Start your first workout', done: sessions.length > 0, go: start },
+    { id: 'workout', icon: 'play', color: dom.train, text: active ? 'Finish your first workout' : 'Start your first workout', done: sessions.length > 0, go: start },
     { id: 'watch', icon: 'watch', color: dom.heart, text: 'Connect a watch', done: watchOn, go: () => router.push('/watch') },
     { id: 'reminder', icon: 'notifications', color: dom.streak, text: 'Set a workout reminder', done: reminderOn, go: () => router.push('/reminders') },
     { id: 'meal', icon: 'restaurant', color: dom.kcal, text: 'Log a meal', done: meals.length > 0, go: () => setFood(true) },
@@ -210,7 +208,7 @@ export default function Today() {
               {muscles.map((m) => <View key={m} style={[s.chip, { backgroundColor: tint(dom.train, 1.1) }]}><T v="small" color={c.soft}>{m}</T></View>)}
             </Row>
           )}
-          {!active && kind !== 'plan' && <T v="small" color={c.soft} numberOfLines={1}>{firstSentence(reason)}</T>}
+          {!active && kind !== 'plan' && <T v="small" color={c.soft} numberOfLines={1}>{restLine(reason)}</T>}
           {/* One primary button; Change (before a workout is open) picks something else to start instead. */}
           <Row gap={10} style={{ marginTop: 4 }}>
             <Button title={button} icon="play" onPress={start} style={{ flex: 1, paddingHorizontal: 16 }} />
@@ -271,7 +269,9 @@ export default function Today() {
             // No watch data: water, which you can fill yourself in one tap (Quick log). Connecting a watch is offered by
             // the tracker pane below and the Get started card, so the ring doesn't ask a third time.
             <Dial i={2} progress={water.ml / Math.max(1, water.goal)} color={dom.water} label="Water" onPress={() => setLog(true)}>
-              <CountUp value={Math.round(water.ml / 100) / 10} decimals={1} suffix=" L" style={s.ringNum} />
+              {water.ml >= 1000
+                ? <CountUp value={Math.round(water.ml / 100) / 10} decimals={1} suffix=" L" style={s.ringNum} />
+                : <CountUp value={water.ml} suffix=" ml" style={[s.ringNum, { fontSize: 15 }]} />}
             </Dial>
           )}
         </Row>
@@ -279,7 +279,8 @@ export default function Today() {
 
       {/* Challenge and tracker panes (each hides itself when it has nothing to show). */}
       <ChallengeCard />
-      <TrackerCard />
+      {/* While Get started still lists "Connect a watch", the tracker pane would ask a second time. */}
+      {!(showSteps && !watchOn) && <TrackerCard />}
 
       {/* 4. This week: a dot per day, filled when you trained, a ring around today. The whole strip opens the calendar. */}
       <Enter i={3}>

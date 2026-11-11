@@ -11,6 +11,7 @@ import { GOALS, Pill, Tiles, type Opt } from '../src/context';
 import { HOME_GEAR, title } from '../src/data/exercises';
 import { perWeek, planById } from '../src/data/plans';
 import { EASE, goBack, Segmented, toToday } from '../src/kit';
+import { SafetyNote } from '../src/safety';
 import { setSetupFinish } from '../src/setupflow';
 import { hasPermission, reschedule } from '../src/notify';
 import { useStore, type Goal, type Profile } from '../src/store';
@@ -161,6 +162,7 @@ export default function Onboarding() {
   let body: ReactNode = null;
   let cta: { title: string; on: () => void } | null = null;
   let link: { title: string; on: () => void } | null = null;
+  let note = false; // the quiet safety line under the commit button (plan step)
   if (step === 'welcome') {
     body = (
       <View style={{ gap: 16, paddingTop: 40 }}>
@@ -175,7 +177,7 @@ export default function Onboarding() {
             </Row>
           ))}
         </View>
-        <T v="small" style={{ marginTop: 8 }}>4 quick questions, about a minute.</T>
+        <T v="small" style={{ marginTop: 8 }}>5 quick steps, about a minute.</T>
       </View>
     );
     cta = { title: 'Get started', on: () => go(idx + 1) };
@@ -246,6 +248,7 @@ export default function Onboarding() {
       </Q>
     );
     cta = { title: 'Use this plan', on: () => go(idx + 1) };
+    note = true;
   } else if (step === 'name') {
     const first = p.name.trim().split(' ')[0];
     body = (
@@ -303,6 +306,7 @@ export default function Onboarding() {
       {(cta || link) && (
         <View style={[s.bar, { paddingBottom: ins.bottom + 12 }]}>
           {cta && <Button title={cta.title} onPress={cta.on} />}
+          {note && <SafetyNote center />}
           {link && (
             <Tap onPress={link.on} style={s.link} scale={0.97}><T v="body" color={c.muted}>{link.title}</T></Tap>
           )}

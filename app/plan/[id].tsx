@@ -12,7 +12,8 @@ import { goalWeeks, timeline } from '../../src/data/expect';
 import { Empty, Header, Segmented, openWorkout, toToday } from '../../src/kit';
 import { runSetupFinish } from '../../src/setupflow';
 import { useStore } from '../../src/store';
-import { c, r } from '../../src/theme';
+import { SafetyNote } from '../../src/safety';
+import { c, f, r } from '../../src/theme';
 import { Button, Card, Fold, haptic, IconBox, Row, Screen, Section, T, Tap, Thumb, Tile } from '../../src/ui';
 import { Enter, useOpenSession } from '../library';
 
@@ -111,12 +112,12 @@ export default function PlanDetail() {
           {isCurrent && !welcome && (
             <Row gap={8} style={[s.current, { backgroundColor: c.accent }]}>
               <Ionicons name="checkmark-circle" size={16} color={c.accentInk} />
-              <T v="label" color={c.accentInk}>Your current plan</T>
+              <T v="small" color={c.accentInk} style={{ fontFamily: f.semi }}>Your current plan</T>
             </Row>
           )}
           <T v="body" color={c.muted} style={{ marginTop: 8 }}>{plan.tagline}</T>
           {!isCurrent && !welcome && (
-            <Button title="Start this plan" icon="checkmark" style={{ marginTop: 16 }} onPress={() => { setPlan(plan.id); leave(); }} />
+            <Button title={planId ? 'Switch to this plan' : 'Start this plan'} icon="checkmark" style={{ marginTop: 16 }} onPress={() => { setPlan(plan.id); leave(); }} />
           )}
           {welcome && reasons.map((line) => (
             <Row key={line} gap={8} style={{ marginTop: 10 }}>
@@ -217,12 +218,13 @@ export default function PlanDetail() {
           </Section>
         </Enter>
 
-        {welcome && <T v="small" color={c.dim} style={{ textAlign: 'center', marginTop: 24 }}>You can redo setup anytime in Profile</T>}
+        {welcome && <T v="small" color={c.dim} style={{ textAlign: 'center', marginTop: 24 }}>You can change your plan any time in Train</T>}
       </Screen>
       {/* Welcome: the commit button stays on screen, so setup never needs a scroll to finish. */}
       {welcome && (
         <View style={[s.bar, { paddingBottom: ins.bottom + 12 }]}>
-          <Button title="Start this plan" icon="checkmark" onPress={() => { if (preview && runSetupFinish()) return; if (!isCurrent) setPlan(plan.id); toToday(); }} />
+          <Button title={preview ? 'Use this plan' : 'Start this plan'} icon="checkmark" onPress={() => { if (preview && runSetupFinish()) return; if (!isCurrent) setPlan(plan.id); toToday(); }} />
+          <SafetyNote center />
         </View>
       )}
     </View>
@@ -235,5 +237,5 @@ const s = StyleSheet.create({
   day: { flex: 1, height: 56, borderRadius: r.sm, alignItems: 'center', justifyContent: 'center', gap: 2 },
   num: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   bar: { paddingHorizontal: 16, paddingTop: 12, backgroundColor: c.bg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-  go: { height: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  go: { height: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

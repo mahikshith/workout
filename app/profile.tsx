@@ -11,6 +11,7 @@ import { planFor } from '../src/coach';
 
 import { EASE, Header, Segmented, useMiniBarSpace } from '../src/kit';
 import { answered, setKey, type Answerable } from '../src/glance';
+import { SafetyNote } from '../src/safety';
 import { useStore, type Body, type Goal, type Profile } from '../src/store';
 import { c, f, r } from '../src/theme';
 import { Button, Row, Stepper, T } from '../src/ui';
@@ -147,10 +148,12 @@ export default function ProfilePage() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bg }}>
-      <Header title={TITLES[part]} action="Theme" actionIcon="color-palette-outline" onAction={() => router.dismissTo({ pathname: '/you', params: { sheet: 'look' } })} />
+      {/* No "Theme" button here: it was a filled button unrelated to plan or profile. Theme lives in You › Look and feel. */}
+      <Header title={TITLES[part]} />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 40 + mini, gap: 12 }}
         keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {part === 'plan' ? plan : part === 'place' ? place : about}
+        <SafetyNote />
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -16,7 +16,7 @@ import { haptic, Row, T, Tap } from './ui';
 type Icon = keyof typeof Ionicons.glyphMap;
 export type MySupp = { name: string; short: string; dose: string; icon: Icon; cat?: Supplement; times: SupplementReminder[] };
 
-export const clock = (h: number, m: number) => `${h}:${String(m).padStart(2, '0')}`;
+export const clock = (h: number, m: number) => `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; // "6:00 pm", as on You and in the time picker
 const SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
 export const dayList = (d: number[]) => (!d.length || d.length >= 7 ? 'every day' : WEEK.filter((x) => d.includes(x)).map((x) => SHORT[x]).join(' '));
@@ -106,7 +106,7 @@ export function SupplementTicks({ items }: { items: MySupp[] }) {
             {gentle ? `Log the shake as food at ${slotName(slotNow()).toLowerCase()}?` : `Log the shake as food? +${shake.protein} g protein`}
           </T>
           <Tap onPress={logShake} style={{ height: 44, paddingHorizontal: 14, justifyContent: 'center' }} accessibilityLabel="Log the shake as food">
-            <T v="small" color={dom.protein} style={{ fontFamily: f.bold }}>Log it</T>
+            <T v="small" color={dom.protein} style={{ fontFamily: f.semi }}>Log it</T>
           </Tap>
         </Animated.View>
       )}
@@ -115,7 +115,7 @@ export function SupplementTicks({ items }: { items: MySupp[] }) {
           <Ionicons name="checkmark-circle" size={18} color={c.ok} />
           <T v="small" color={c.text} style={{ flex: 1 }}>{`Shake added to ${slotName(slotNow()).toLowerCase()}`}</T>
           <Tap onPress={() => { removeMeal(logged); setLogged(null); }} style={{ height: 44, paddingHorizontal: 14, justifyContent: 'center' }} accessibilityLabel="Undo">
-            <T v="small" color={c.accent} style={{ fontFamily: f.bold }}>Undo</T>
+            <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>Undo</T>
           </Tap>
         </Animated.View>
       )}

@@ -97,7 +97,7 @@ export function useWatchLink() {
     const apps = [...pkgs].filter((x) => !PHONE_ORIGINS.includes(x) && x !== 'colmi');
     return {
       allowed: hc.connected,
-      apps: apps.map(originName), // "Google Health", the watch apps that shared in the last 7 days
+      apps: apps.map(originName), // "Fitbit", "WHOOP": the watch apps that shared in the last 7 days
       pkgs: apps,
       seen: apps.length > 0,
       lastSync: hc.lastSync,

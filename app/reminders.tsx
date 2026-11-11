@@ -11,7 +11,7 @@ import { TimePicker } from '../src/timepicker';
 import { useStore, type Interval, type NudgePrefs, type Reminder } from '../src/store';
 import { clock as hm, useMySupplements } from '../src/supps';
 import { c } from '../src/theme';
-import { Button, Card, Chip, IconBox, Row, Stepper, T, Tap } from '../src/ui';
+import { Button, Card, Chip, IconBox, Row, T, Tap } from '../src/ui';
 import { ml, useWater } from '../src/water';
 
 const WEEK = [1, 2, 3, 4, 5, 6, 0]; // Monday first; the store counts 0 = Sunday
@@ -21,7 +21,7 @@ const MEALS: [string, number, number][] = [['Breakfast', 8, 0], ['Lunch', 13, 0]
 const web = Platform.OS === 'web';
 const wrap = (n: number, m: number) => (n + m) % m;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
-const clock = (h: number, m: number) => `${h}:${String(m).padStart(2, '0')}`;
+const clock = (h: number, m: number) => `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; // "6:00 pm", as on You and in the time picker
 const dayList = (d: number[]) => (!d.length || d.length >= 7 ? 'Every day' : WEEK.filter((x) => d.includes(x)).map((x) => SHORT[x]).join(' '));
 const JUMPS: { label: string; to: (m: number) => number; at?: number }[] = [
   { label: '−5', to: (m) => wrap(m - 5, 60) },
@@ -116,7 +116,7 @@ export default function Reminders() {
           <View style={s.rule} />
           <Toggle title="Streak alert" sub="After two days without a workout" value={nudges.streak} onChange={(streak) => setN({ streak })} />
           <View style={s.rule} />
-          <Toggle title="Weekly recap" sub="Sundays at 19:00" value={nudges.recap} onChange={(recap) => setN({ recap })} />
+          <Toggle title="Weekly recap" sub="Sundays at 7:00 pm" value={nudges.recap} onChange={(recap) => setN({ recap })} />
         </Section>
 
         <Group title="Food and drink" />
@@ -163,11 +163,11 @@ export default function Reminders() {
           </View>
           <Row style={{ justifyContent: 'space-between' }}>
             <T v="body">From</T>
-            <Stepper value={nudges.quietFrom} min={-1} onChange={(h) => setN({ quietFrom: wrap(h, 24) })} suffix=":00" />
+            <HourStepper value={nudges.quietFrom} onChange={(h) => setN({ quietFrom: wrap(h, 24) })} />
           </Row>
           <Row style={{ justifyContent: 'space-between' }}>
             <T v="body">Until</T>
-            <Stepper value={nudges.quietTo} min={-1} onChange={(h) => setN({ quietTo: wrap(h, 24) })} suffix=":00" />
+            <HourStepper value={nudges.quietTo} onChange={(h) => setN({ quietTo: wrap(h, 24) })} />
           </Row>
         </Section>
         </ScrollView>
@@ -269,17 +269,29 @@ function Hours({ value, set, opts, labels = ['From', 'Until'] }: {
       </Row>
       <Row style={{ justifyContent: 'space-between' }}>
         <T v="body">{labels[0]}</T>
-        <Stepper value={value.from} onChange={(h) => set({ ...value, from: clamp(h, 0, value.to - 1) })} suffix=":00" />
+        <HourStepper value={value.from} onChange={(h) => set({ ...value, from: clamp(h, 0, value.to - 1) })} />
       </Row>
       <Row style={{ justifyContent: 'space-between' }}>
         <T v="body">{labels[1]}</T>
-        <Stepper value={value.to} onChange={(h) => set({ ...value, to: clamp(h, value.from + 1, 23) })} suffix=":00" />
+        <HourStepper value={value.to} onChange={(h) => set({ ...value, to: clamp(h, value.from + 1, 23) })} />
       </Row>
     </Animated.View>
   );
 }
 
+// Whole hours shown the same way as every other time in the app ("9:00 pm", not "21 :00"); − and + are 44 px.
+function HourStepper({ value, onChange }: { value: number; onChange: (h: number) => void }) {
+  return (
+    <Row gap={4}>
+      <Tap onPress={() => onChange(value - 1)} style={s.hourBtn} accessibilityLabel="Earlier"><Ionicons name="remove" size={18} color={c.text} /></Tap>
+      <T v="body" color={c.text} style={{ minWidth: 84, textAlign: 'center' }}>{clock(((value % 24) + 24) % 24, 0)}</T>
+      <Tap onPress={() => onChange(value + 1)} style={s.hourBtn} accessibilityLabel="Later"><Ionicons name="add" size={18} color={c.text} /></Tap>
+    </Row>
+  );
+}
+
 const s = StyleSheet.create({
+  hourBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card2 },
   pill: { flex: 1, height: 36, borderRadius: 18, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   day: { flex: 1, height: 40, borderRadius: 20, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   rule: { height: StyleSheet.hairlineWidth, backgroundColor: c.line },

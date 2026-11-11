@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { postpartumWeek, pregnancyWeek } from '../src/calc';
 import { EASE, Header, useMiniBarSpace } from '../src/kit';
 import { askPermission, hasPermission } from '../src/notify';
+import { SafetyNote } from '../src/safety';
 import { Sheet } from '../src/sheet';
 import { addSupplement, catalogue, clock, dayList, removeSupplement, SupplementTicks, useMySupplements, type MySupp } from '../src/supps';
 import { TimePicker } from '../src/timepicker';
@@ -67,7 +68,7 @@ export default function Supplements() {
               <Ionicons name="notifications-off-outline" size={18} color={c.accent} />
               <T v="small" color={c.text} style={{ flex: 1 }}>Notifications are off, so reminders can’t ring.</T>
               <Tap onPress={async () => { if (await askPermission()) setGranted(true); else Linking.openSettings(); }} style={s.textBtn}>
-                <T v="small" color={c.accent} style={{ fontFamily: f.bold }}>Turn on</T>
+                <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>Turn on</T>
               </Tap>
             </Animated.View>
           )}
@@ -126,9 +127,9 @@ export default function Supplements() {
             </Card>
           </Animated.View>
 
-          <T v="small" color={c.dim} style={{ marginTop: 16 }}>
-            Not medical advice. Ask a doctor first if you are pregnant, have a health condition or take medication.
-          </T>
+          <View style={{ marginTop: 12 }}>
+            <SafetyNote text="Supplements are your choice. Read the label, and ask a doctor first if you are pregnant, have a health condition or take medication." />
+          </View>
         </ScrollView>
       </View>
 

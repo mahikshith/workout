@@ -8,7 +8,8 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { dayKey } from './calc';
 import { FoodSheet } from './foodsheet';
 import { setKey } from './glance';
-import { drink, useWater } from './water';
+import { shortName } from './data/foods';
+import { drink, ml, useWater } from './water';
 import { Sheet } from './sheet';
 import { useStore, type Mood } from './store';
 import { c, dom, r, tint } from './theme';
@@ -22,7 +23,6 @@ const MOODS: { m: Mood; label: string; icon: Icon }[] = [
   { m: 4, label: 'Fired up', icon: 'flash-outline' },
 ];
 
-const mlText = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')} L` : `${n} ml`);
 const NONE: string[] = []; // stable empty list for store selectors
 
 // Close the sheet first, then move, so a sheet never sits over a pushed screen.
@@ -89,11 +89,11 @@ function Body({ onClose, openFood }: { onClose: () => void; openFood: () => void
 
       {/* Food: the full food sheet (search, recipes, your own). */}
       <Item icon="restaurant" color={dom.kcal} title="Food"
-        sub={todays.length ? (gentle ? `${todays.length} logged today` : `${kcal} kcal · ${protein} g protein today`) : 'Nothing logged yet today'}
+        sub={todays.length ? (gentle ? `${todays.length} logged today` : `${Math.round(kcal).toLocaleString('en-US')} kcal · ${Math.round(protein)} g protein today`) : 'Nothing logged yet today'}
         onPress={openFood} right={<Ionicons name="chevron-forward" size={18} color={c.dim} />} />
 
       {/* Water: one tap, right here. */}
-      <Item icon="water" color={dom.water} title="Water" sub={`${mlText(water.ml)} of ${mlText(water.goal)}`}
+      <Item icon="water" color={dom.water} title="Water" sub={`${water.ml.toLocaleString('en-US')} of ${ml(water.goal)}`}
         right={(
           <View style={s.line}>
             {undo && (
@@ -147,9 +147,9 @@ function Body({ onClose, openFood }: { onClose: () => void; openFood: () => void
               return (
                 <Tap key={name} onPress={() => { useStore.getState().takeSupplement(name); haptic(on ? 'light' : 'success'); }} scale={0.95}
                   style={[s.chip, on && { backgroundColor: dom.steps, borderColor: dom.steps }]}
-                  accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={`${name}, ${on ? 'taken' : 'not taken'}`}>
+                  accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={`${shortName(name)}, ${on ? 'taken' : 'not taken'}`}>
                   <Ionicons name={on ? 'checkmark-circle' : 'ellipse-outline'} size={16} color={on ? c.accentInk : c.muted} />
-                  <T v="small" color={on ? c.accentInk : c.text} numberOfLines={1}>{name}</T>
+                  <T v="small" color={on ? c.accentInk : c.text} numberOfLines={1}>{shortName(name)}</T>
                 </Tap>
               );
             })}
@@ -193,7 +193,7 @@ function Item({ icon, color, title, sub, right, onPress }: { icon: Icon; color: 
       <IconBox icon={icon} color={color} size={36} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <T v="h3">{title}</T>
-        <T v="small" numberOfLines={1}>{sub}</T>
+        <T v="small" numberOfLines={2}>{sub}</T>
       </View>
       {right}
     </>
@@ -206,9 +206,9 @@ function Item({ icon, color, title, sub, right, onPress }: { icon: Icon; color: 
 const s = StyleSheet.create({
   card: { padding: 12, borderRadius: r.lg, backgroundColor: c.bg, borderWidth: 1, borderColor: c.line },
   line: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 40, paddingHorizontal: 14, borderRadius: 20, minWidth: 44, justifyContent: 'center' },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 44, paddingHorizontal: 14, borderRadius: 22, minWidth: 44, justifyContent: 'center' },
   ghost: { height: 44, minWidth: 44, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 12, borderRadius: 20, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line, maxWidth: '100%' },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: 12, borderRadius: 22, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line, maxWidth: '100%' },
   mood: { flex: 1, minWidth: 0, height: 60, borderRadius: r.md, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
 });

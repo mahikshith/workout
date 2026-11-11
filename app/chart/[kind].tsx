@@ -12,7 +12,8 @@ import { dayKey, e1rm, isTimed, targets, volume } from '../../src/calc';
 import { badges, level } from '../../src/data/badges';
 import { byId, title } from '../../src/data/exercises';
 import { Journey } from '../../src/journey';
-import { EASE, Empty, goBack, Header, Segmented, useMiniBarSpace } from '../../src/kit';
+import { goalMl, ml, toMl } from '../../src/water';
+import { EASE, Empty, goBack, Header, Segmented, toToday, useMiniBarSpace } from '../../src/kit';
 import { Achievements } from '../../src/medals';
 import { useStore } from '../../src/store';
 import { c, dom, r } from '../../src/theme';
@@ -24,7 +25,7 @@ const DAY = 86400000;
 const TITLES: Record<string, string> = { strength: 'Strength', weight: 'Body weight', body: 'Body & watch', fuel: 'Fuel and water', achievements: 'Achievements' };
 const kgShort = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`);
 const short = (t: number | string) => new Date(t).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-const hm = (min: number) => `${Math.floor(min / 60)}h ${Math.round(min % 60)}m`;
+const hm = (min: number) => { const t = Math.round(min), h = Math.floor(t / 60), m = t % 60; return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`; }; // never "0h 10m" or "7h 60m"
 // The last 14 days, oldest first, anchored at noon so DST never shifts a day.
 const fortnight = () => Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - (13 - i)); return d; });
 
@@ -67,13 +68,21 @@ function Draw({ k, children }: { k: string; children: ReactNode }) {
 }
 
 // A big number, one caption line, then the chart. With nothing logged yet, just the empty line.
-function Panel({ value, unit, cap, empty, children }: { value: string | number; unit?: string; cap: string; empty?: string | false; children?: ReactNode }) {
-  if (empty) return <T v="body" color={c.muted}>{empty}</T>;
+function Panel({ value, unit, cap, empty, act, children }: {
+  value: string | number; unit?: string; cap: string; empty?: string | false; act?: { title: string; onPress: () => void }; children?: ReactNode;
+}) {
+  // Empty states carry one action when there is an obvious one (no dead ends).
+  if (empty) return (
+    <View style={{ gap: 12 }}>
+      <T v="body" color={c.muted}>{empty}</T>
+      {act && <Button kind="ghost" title={act.title} onPress={act.onPress} style={{ alignSelf: 'flex-start', height: 44, paddingHorizontal: 18 }} />}
+    </View>
+  );
   return (
     <View style={{ gap: 12 }}>
       <View>
         <T v="num">{value}{unit ? <T v="small"> {unit}</T> : null}</T>
-        <T v="small" numberOfLines={1}>{cap}</T>
+        <T v="small" numberOfLines={2}>{cap}</T>
       </View>
       {children}
     </View>
@@ -146,10 +155,10 @@ function Strength() {
             </ScrollView>
           )}
           <Panel value={lastSet ? `${lastSet.weight} kg × ${lastSet.reps}` : '-'}
-            cap={`${byId[cur ?? '']?.name ?? 'Lift'} · best set last time · est. 1RM ${cur ? Math.round(best[cur]) : 0} kg`}
-            empty={!topIds.length && 'Log sets with weight to see your lifts'}>
+            cap={`${byId[cur ?? '']?.name ?? 'Lift'} · best set last time · about ${cur ? Math.round(best[cur]) : 0} kg for one rep`}
+            empty={!topIds.length && 'Log sets with weight to see your lifts'} act={{ title: "See today's workout", onPress: toToday }}>
             <Draw k={cur ?? ''}><LineChart values={curve} fmt={(v) => `${Math.round(v)} kg`} height={140} color={dom.train} /></Draw>
-            <T v="small">Estimated 1RM · last {curve.length} session{curve.length === 1 ? '' : 's'}</T>
+            <T v="small">Estimated one-rep max · last {curve.length} session{curve.length === 1 ? '' : 's'}</T>
           </Panel>
         </Card>
       </Animated.View>
@@ -159,7 +168,7 @@ function Strength() {
           <Section title="Top lifts">
             <View style={{ gap: 8 }}>
               {lifts.slice(0, 5).map(([id, v], i) => (
-                <ListRow key={id} icon={i === 0 ? 'trophy' : 'barbell'} title={byId[id]?.name ?? id} sub={`#${i + 1} · est. 1RM`}
+                <ListRow key={id} icon={i === 0 ? 'trophy' : 'barbell'} title={byId[id]?.name ?? id} sub={`#${i + 1} · estimated one-rep max`}
                   onPress={() => setPick(id)} right={<T v="h3" color={dom.train}>{Math.round(v)} kg</T>} />
               ))}
             </View>
@@ -228,7 +237,8 @@ function Weight() {
   const profile = useStore((s) => s.profile);
   const meals = useStore((s) => s.meals);
   const logWeight = useStore((s) => s.logWeight);
-  const [kg, setKg] = useState(profile?.weightKg ?? 70);
+  // The stepper starts at your last weigh-in, so a small change is one or two taps.
+  const [kg, setKg] = useState(() => [...weights].sort((a, b) => a.day.localeCompare(b.day)).pop()?.kg ?? profile?.weightKg ?? 70);
   const enter = useEnter();
   if (!profile) return null;
   const gentle = !!(profile.gentle || profile.concerns?.includes('food'));
@@ -247,7 +257,7 @@ function Weight() {
     <>
       <Animated.View entering={enter(0)}>
         <Card>
-          <Panel value={lastW ? lastW.kg.toFixed(1) : '-'} unit={lastW ? 'kg' : undefined} cap={`Goal ${profile.goalWeightKg} kg · ${weights.length} weigh-ins`}
+          <Panel value={lastW ? lastW.kg.toFixed(1) : '-'} unit={lastW ? 'kg' : undefined} cap={`Goal ${profile.goalWeightKg} kg · ${weights.length} weigh-in${weights.length === 1 ? '' : 's'}`}
             empty={!w.length && 'No weigh-ins yet'}>
             <Draw k="w"><LineChart values={w.map((p) => p.kg)} goal={profile.goalWeightKg} fmt={(v) => `${v.toFixed(1)} kg`} height={140} color={dom.weight} /></Draw>
             <Row gap={8}><View style={[s.dash, { borderColor: c.warm }]} /><T v="small">Goal</T></Row>
@@ -284,7 +294,7 @@ function Weight() {
                 <Row key={x.day} style={{ height: 36 }}>
                   <T v="small" color={c.text} style={{ flex: 1 }} numberOfLines={1}>{x.day === dayKey() ? 'Today' : short(x.day + 'T12:00:00')}</T>
                   <T v="small" color={c.text} style={{ width: 72, textAlign: 'right' }}>{x.kg.toFixed(1)} kg</T>
-                  <T v="small" style={{ width: 56, textAlign: 'right' }}>{x.diff === null ? '-' : `${x.diff > 0 ? '+' : x.diff < 0 ? '−' : ''}${Math.abs(x.diff).toFixed(1)}`}</T>
+                  <T v="small" style={{ width: 56, textAlign: 'right' }}>{x.diff === null ? '' : `${x.diff > 0 ? '+' : x.diff < 0 ? '−' : ''}${Math.abs(x.diff).toFixed(1)}`}</T>
                 </Row>
               ))}
             </Card>
@@ -390,10 +400,11 @@ function BodyWatch() {
         <Section title="Last 14 days">
           <Card style={{ gap: 16 }}>
             <Segmented options={[{ k: 'steps', label: 'Steps' }, { k: 'sleep', label: 'Sleep' }]} value={metric} onChange={setMetric} />
-            <Panel value={metric === 'steps' ? avgOf(stepBars.map((b) => b.value)).toFixed(1) : avgOf(sleepBars.map((b) => b.value)).toFixed(1)}
-              unit={metric === 'steps' ? 'k steps' : 'h'} cap={metric === 'steps' ? 'Average day · thousands of steps' : 'Average night · hours asleep'}
+            {/* Whole steps and hours + minutes: "9,012 steps", "7h 18m", never "9.0 k steps" or "7.3 h". */}
+            <Panel value={metric === 'steps' ? Math.round(avgOf(stepBars.map((b) => b.value)) * 1000).toLocaleString('en-US') : hm(avgOf(sleepBars.map((b) => b.value)) * 60)}
+              unit={metric === 'steps' ? 'steps' : undefined} cap={metric === 'steps' ? 'Average day' : 'Average night asleep'}
               empty={!bars.some((b) => b.value > 0) && (metric === 'steps' ? 'No steps synced yet' : 'No sleep synced yet')}>
-              <Draw k={metric}><Bars items={bars} now={13} height={100} color={metric === 'steps' ? dom.steps : dom.sleep} goal={8} /></Draw>
+              <Draw k={metric}><Bars items={bars} now={13} height={100} color={metric === 'steps' ? dom.steps : dom.sleep} goal={8} fmt={(v) => (v ? `${v}${metric === 'steps' ? 'k' : 'h'}` : '0')} /></Draw>
             </Panel>
           </Card>
         </Section>
@@ -429,6 +440,7 @@ function Fuel() {
   const profile = useStore((s) => s.profile);
   const meals = useStore((s) => s.meals);
   const water = useStore((s) => s.water);
+  const waterPrefs = useStore((s) => s.waterPrefs);
   const [fuel, setFuel] = useState<FuelK>('water');
   const enter = useEnter();
   if (!profile) return null;
@@ -440,7 +452,9 @@ function Fuel() {
   const keys = fortnight().map((d) => dayKey(d));
   const t = targets(profile);
   const glasses = keys.map((k) => water[k] ?? 0);
-  const hitWater = glasses.filter((g) => g >= t.water).length;
+  // Water in ml against the person's own goal (State.water counts 250 ml units; see src/water.ts).
+  const wGoalMl = goalMl(profile, waterPrefs);
+  const hitWater = glasses.filter((g) => toMl(g) >= wGoalMl).length;
   const dayMeals = keys.map((k) => meals.filter((m) => m.day === k));
   const kcal = dayMeals.map((ms) => ms.reduce((a, m) => a + m.kcal, 0));
   const protein = dayMeals.map((ms) => ms.reduce((a, m) => a + m.protein, 0));
@@ -462,8 +476,8 @@ function Fuel() {
         <Segmented options={fuels} value={fu} onChange={setFuel} />
         <Draw k={fu}>
           {fu === 'water' && (
-            <Panel value={hitWater} unit="/ 14 days" cap={`On target · ${t.water} glasses a day`} empty={!glasses.some((g) => g > 0) && 'Log water on the Fuel tab'}>
-              <Bars items={aWater.map((g, i) => ({ label: aLabels[i], value: g }))} goal={t.water} height={100} now={7} color={c.blue} />
+            <Panel value={hitWater} unit="/ 14 days" cap={`Days at your goal · ${ml(wGoalMl)} a day`} empty={!glasses.some((g) => g > 0) && 'Log water on the Fuel tab'}>
+              <Bars items={aWater.map((g, i) => ({ label: aLabels[i], value: Math.round(toMl(g) / 100) / 10 }))} goal={wGoalMl / 1000} height={100} now={7} color={c.blue} fmt={(v) => `${v} L`} />
             </Panel>
           )}
           {fu === 'protein' && (

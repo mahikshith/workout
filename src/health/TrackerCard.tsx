@@ -36,7 +36,7 @@ export function TrackerCard() {
   const stats: { icon: keyof typeof Ionicons.glyphMap; color: string; v?: string; label: string }[] = [
     { icon: 'footsteps', color: dom.steps, v: t?.steps?.toLocaleString(), label: 'steps' },
     { icon: 'flame', color: dom.kcal, v: kcal?.toLocaleString(), label: 'kcal' },
-    { icon: 'heart', color: dom.heart, v: rhr !== undefined ? String(Math.round(rhr)) : undefined, label: 'resting' },
+    { icon: 'heart', color: dom.heart, v: rhr !== undefined ? String(Math.round(rhr)) : undefined, label: 'resting bpm' },
   ];
   const meta = bpm !== null ? 'Live now'
     : link.allowed ? cap(syncedAgo(link.lastSync))

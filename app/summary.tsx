@@ -7,7 +7,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { goalColor, useRun } from '../src/challenges/use';
-import { dayKey, doneSets, isTimed, prs, streak, volume } from '../src/calc';
+import { doneSets, isTimed, prs, streak, volume } from '../src/calc';
 import { badges, level } from '../src/data/badges';
 import { taskTitle } from '../src/data/challenges';
 import { byId } from '../src/data/exercises';
@@ -19,6 +19,7 @@ import { CountUp, EASE, EASE_POP, Empty, Header, toToday } from '../src/kit';
 import { useStore, type MealSlot, type Session } from '../src/store';
 import { c, dom, f, r } from '../src/theme';
 import { mergedFor, useTracker } from '../src/tracker';
+import { drink, ml, useWater } from '../src/water';
 import { Button, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb } from '../src/ui';
 
 // The end of a workout (docs/REDESIGN.md rule 8). Nothing here leaves the screen except Done (pinned at the bottom, so it
@@ -110,8 +111,7 @@ export default function Summary() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const sessions = useStore((st) => st.sessions);
   const profile = useStore((st) => st.profile);
-  const addWater = useStore((st) => st.addWater);
-  const glasses = useStore((st) => st.water[dayKey()] ?? 0);
+  const water = useWater(); // ml today; a tap adds one of the person's own glasses
   const planId = useStore((st) => st.planId);
   const nextDay = useStore((st) => st.nextDay);
   const { ch, prog, ctx } = useRun(); // the running challenge, if any, worked out with this workout counted
@@ -192,7 +192,7 @@ export default function Summary() {
           {kg > 0 ? <CountTile i={2} icon="barbell" value={kg} suffix=" kg" label="Volume" />
             : reps > 0 ? <CountTile i={2} icon="repeat" value={reps} label="Reps" />
             : <CountTile i={2} icon="list" value={s.items.length} label="Exercises" />}
-          <CountTile i={3} icon="flame" color={c.warm} value={run} label="Streak" />
+          <CountTile i={3} icon="flame" color={c.warm} value={run} label="Day streak" />
         </Row>
         <HeartRate s={s} i={4} />
 
@@ -247,9 +247,9 @@ export default function Summary() {
               <Ionicons name="restaurant" size={18} color={c.pink} />
               <T v="h3">Log a meal</T>
             </Tap>
-            <Tap onPress={() => addWater(1)} style={s2.action}>
-              <Ionicons name="water" size={18} color={c.blue} />
-              <T v="h3" style={{ fontVariant: ['tabular-nums'] }}>Add water · {glasses}</T>
+            <Tap onPress={() => drink()} style={s2.action} accessibilityLabel={`Add ${water.glass} ml of water${water.ml ? `, ${ml(water.ml)} today` : ''}`}>
+              <Ionicons name={water.ml ? 'add' : 'water'} size={18} color={c.blue} />
+              <T v="h3" numberOfLines={1} style={{ flexShrink: 1, fontVariant: ['tabular-nums'] }}>{water.ml ? `Water · ${ml(water.ml)}` : 'Add water'}</T>
             </Tap>
           </Row>
         </Animated.View>

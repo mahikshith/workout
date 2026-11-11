@@ -10,7 +10,7 @@ import { badges, level } from '../../src/data/badges';
 import { byId } from '../../src/data/exercises';
 import { sessionMinutes, streakLabel } from '../../src/glance';
 import { weekDays, WeekStrip } from '../../src/calendar';
-import { CountUp, DoorCard, EASE } from '../../src/kit';
+import { CountUp, DoorCard, EASE, toToday } from '../../src/kit';
 import { useStore, type Session } from '../../src/store';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,7 +19,7 @@ import { latest, useTracker } from '../../src/tracker';
 import { LEVEL_WORD, levelColor, useReadiness } from '../../src/health/useReadiness';
 import { Screen, Section, T, TabTitle, Tap } from '../../src/ui';
 
-const hm = (min: number) => `${Math.floor(min / 60)}h ${Math.round(min % 60)}m`;
+const hm = (min: number) => { const t = Math.round(min), h = Math.floor(t / 60), m = t % 60; return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`; }; // never "0h 10m" or "7h 60m"
 
 export default function Progress() {
   const sessions = useStore((s) => s.sessions);
@@ -90,7 +90,8 @@ export default function Progress() {
   ];
   const tiles: { icon: ComponentProps<typeof Ionicons>['name']; node: ReactElement; label: string }[] = [
     { icon: 'barbell', node: <CountUp value={week.length} style={s.num} />, label: 'workouts' },
-    { icon: 'layers', node: <CountUp value={tonnes ? vol / 1000 : Math.round(vol)} decimals={tonnes ? 1 : 0} suffix={tonnes ? ' t' : ' kg'} style={s.num} />, label: 'volume' },
+    // "8.6 tonnes lifted" reads plainer than "8.6 t volume" for a beginner.
+    { icon: 'layers', node: <CountUp value={tonnes ? vol / 1000 : Math.round(vol)} decimals={tonnes ? 1 : 0} suffix={tonnes ? '' : ' kg'} style={s.num} />, label: tonnes ? 'tonnes lifted' : 'lifted' },
     { icon: 'time', node: <CountUp value={minutes} suffix=" min" style={s.num} />, label: 'minutes' },
   ];
 
@@ -102,7 +103,17 @@ export default function Progress() {
         {/* This week's training, on a teal wash: the training colour. */}
         <View style={[s.week, { borderColor: tint(dom.train, 1.6) }]}>
           <LinearGradient colors={[tint(dom.train, 1.5), tint(dom.train, 0.3)]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-          {tiles.map((x, i) => (
+          {/* Nothing logged ever: one encouraging line and the way to today's workout, not three zeros. */}
+          {!sessions.length ? (
+            <Tap onPress={toToday} scale={0.98} style={s.first} accessibilityRole="button" accessibilityLabel="Your first workout fills this in. See today's workout">
+              <Ionicons name="barbell" size={22} color={dom.train} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <T v="h3">Your first workout fills this in</T>
+                <T v="small">Start today's workout to see your week here</T>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={c.accent} />
+            </Tap>
+          ) : tiles.map((x, i) => (
             <Animated.View key={x.label} entering={enter(i)} style={[s.tile, i > 0 && { borderLeftWidth: 1, borderLeftColor: tint(dom.train, 1.6) }]}>
               <Ionicons name={x.icon} size={18} color={dom.train} />
               {x.node}
@@ -151,6 +162,7 @@ export default function Progress() {
 const s = StyleSheet.create({
   week: { flexDirection: 'row', borderRadius: r.xl, borderWidth: 1, overflow: 'hidden', backgroundColor: c.card },
   tile: { flex: 1, minWidth: 0, paddingVertical: 14, paddingHorizontal: 14, gap: 2 },
+  first: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, minHeight: 72 },
   num: { fontSize: 24, lineHeight: 30 },
   cal: { marginTop: 12, padding: 16, paddingBottom: 8, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   calIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

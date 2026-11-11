@@ -259,6 +259,7 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
   const arrived = b.st?.arrived ?? [];
   const seen = arrived.length > 0;
   const app = g ? appOf(g) : '';
+  const src = g?.app ? originName(g.app.pkg) : app; // where numbers come from: "Fitbit", not its app's new name
   const ringOn = !!ringSaved && (ringSt.status === 'connected' || ringSt.status === 'syncing');
   // The filled button: the first step not done, or Check again / Done once access is on.
   const done1 = seen || !!tapped[`${id}:get`];
@@ -268,17 +269,17 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
   const status1 = !g ? '' : g.direct
     ? (ringOn ? 'Connected over Bluetooth' : ringSaved ? `${ringSaved.name} saved · connects when it's near` : 'Not connected yet')
     : !hcConnected ? 'Not connected yet'
-      : seen ? `Last data ${lastWord(b.st?.last)} from ${app} · ${syncedAgo(lastSync)}` : `Health Connect is on · waiting for data from ${app}`;
+      : seen ? `Last data ${lastWord(b.st?.last)} from ${src} · ${syncedAgo(lastSync)}` : `Health Connect is on · waiting for data from ${src}`;
 
   const hcSteps = g && !g.direct && (
     <View style={{ gap: 18 }}>
-      <Step n={1} done={done1} title={g.hc ? `Get ${app}` : 'Get Gadgetbridge'}
+      <Step n={1} done={done1} title={g.hc ? (g.app ? `Get ${app}` : "Get your watch's app") : 'Get Gadgetbridge'}
         sub={g.id === 'other' ? "The app you paired your watch with" : g.hc ? `Sign in and pair ${deviceOf(g).replace('Your', 'your')} in it` : 'Pair your watch in it instead of Huawei Health'}>
         {g.app ? <Button kind={kind(1)} title={`Get ${app}`} icon="download-outline" onPress={() => { tap('get'); openPlay(g.app!.pkg); }} style={s.btn} />
           : !g.hc ? <Button kind={kind(1)} title="Get Gadgetbridge" icon="download-outline" onPress={() => { tap('get'); Linking.openURL(GADGETBRIDGE.url).catch(() => {}); }} style={s.btn} />
             : <Button kind={kind(1)} title="I have it" icon="checkmark" onPress={() => tap('get')} style={s.btn} />}
       </Step>
-      <Step n={2} done={done2} title={`Turn on Health Connect in ${g.hc ? app : 'Gadgetbridge'}`} sub={g.path}>
+      <Step n={2} done={done2} title={`Turn on Health Connect in ${g.hc ? (g.app ? app : "your watch's app") : 'Gadgetbridge'}`} sub={g.path}>
         {g.app ? <Button kind={kind(2)} title={`Open ${app}`} icon="open-outline" onPress={() => { tap('open'); openPlay(g.app!.pkg); }} style={s.btn} />
           : <Button kind={kind(2)} title="It's on" icon="checkmark" onPress={() => tap('open')} style={s.btn} />}
         <Tap onPress={() => setEvery(!every)} style={s.link} scale={0.97} accessibilityLabel="Show every tap">
@@ -299,10 +300,10 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
       {hcConnected && (
         <View style={{ gap: 10 }}>
           {checking ? <T v="small">Checking for data…</T>
-            : seen ? <Line icon="checkmark-circle" color={c.ok} text={`Data is arriving from ${app}. See what below`} />
+            : seen ? <Line icon="checkmark-circle" color={c.ok} text={`Data is arriving from ${src}. See what below`} />
               : (
                 <>
-                  <Line icon="alert-circle-outline" color={c.warm} text={result?.granted === 0 ? 'Access is off. Turn it on in Health Connect, under App permissions' : `Nothing from ${app} yet`} />
+                  <Line icon="alert-circle-outline" color={c.warm} text={result?.granted === 0 ? 'Access is off. Turn it on in Health Connect, under App permissions' : `Nothing from ${src} yet`} />
                   <T v="small" style={{ paddingLeft: 28 }}>{g.fix}</T>
                   {(result?.sources ?? []).filter((x) => !PHONE_ORIGINS.includes(x.origin)).map((x) => (
                     <Line key={x.origin} icon="checkmark-circle-outline" color={c.ok} text={`${cap(listOf(x.types))} from ${originName(x.origin)}`} />
@@ -355,7 +356,7 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
           : <DataPath nodes={hcPath({ device: deviceOf(g), deviceIcon: deviceIcon(g), app, seen, allowed: hcConnected })} />}
         <T v="small">
           {g.direct ? `The ring talks to ${APP_NAME} itself`
-            : g.hc ? `${deviceOf(g)} only pairs with ${app}. ${app} shares its data with Health Connect, and ${APP_NAME} reads it from there`
+            : g.hc ? `${deviceOf(g)} only pairs with ${g.app ? `the ${app} app` : 'its own app'}${src !== app ? ` (the ${src} app's new name)` : ''}. It shares your data with Health Connect, and ${APP_NAME} reads it from there`
               : `Huawei Health doesn't share. Gadgetbridge can take its place`}
         </T>
       </View>

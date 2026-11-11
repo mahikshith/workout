@@ -31,7 +31,8 @@ const APress = Animated.createAnimatedComponent(Pressable);
 
 // Every tappable surface springs down a little and ticks a haptic (no scale with reduced motion).
 // Accessibility props pass through; the role defaults to button.
-export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback = 'light', accessibilityRole = 'button', accessibilityLabel, accessibilityHint, accessibilityState }: {
+export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback = 'light', accessibilityRole = 'button', accessibilityLabel, accessibilityHint, accessibilityState, hitSlop }: {
+  hitSlop?: number; // extends the touch area past a small visual (steppers in tight rows) to reach 44 px
   onPress?: () => void; style?: StyleProp<ViewStyle>; children: ReactNode; disabled?: boolean; scale?: number; feedback?: 'light' | 'medium' | 'none';
   accessibilityRole?: AccessibilityRole; accessibilityLabel?: string; accessibilityHint?: string; accessibilityState?: AccessibilityState;
 }) {
@@ -41,6 +42,7 @@ export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback
   return (
     <APress
       disabled={disabled}
+      hitSlop={hitSlop}
       onPressIn={() => { if (!still) s.value = withTiming(scale, { duration: 120, easing: Easing.out(Easing.quad) }); }}
       onPressOut={() => { if (!still) s.value = withTiming(1, { duration: 220, easing: Easing.bezier(0.32, 0.72, 0, 1) }); }}
       onPress={() => { if (feedback !== 'none') haptic(feedback); onPress?.(); }}
@@ -210,8 +212,8 @@ export function ListRow({ icon, color, thumb, title, sub, right, onPress, style 
     <Press onPress={onPress} style={[st.listRow, style]}>
       {thumb ?? (icon ? <IconBox icon={icon} color={color} /> : null)}
       <View style={{ flex: 1, gap: 2 }}>
-        <T v="h3" numberOfLines={1}>{title}</T>
-        {sub ? <T v="small" numberOfLines={1}>{sub}</T> : null}
+        <T v="h3" numberOfLines={2}>{title}</T>
+        {sub ? <T v="small" numberOfLines={2}>{sub}</T> : null}
       </View>
       {right ?? (onPress ? <Ionicons name="chevron-forward" size={18} color={c.dim} /> : null)}
     </Press>
@@ -608,7 +610,7 @@ export function Stepper({ value, onChange, step = 1, min = 0, suffix, big }: {
   };
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: big ? 16 : 2 }}>
-      <Tap onPress={() => onChange(Math.max(min, +(value - step).toFixed(2)))} style={[st.step, big && st.stepBig]}>
+      <Tap onPress={() => onChange(Math.max(min, +(value - step).toFixed(2)))} style={[st.step, big && st.stepBig]} hitSlop={big ? 0 : 6} accessibilityLabel="Less">
         <Ionicons name="remove" size={big ? 26 : 18} color={c.text} />
       </Tap>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', minWidth: big ? 120 : 34 }}>
@@ -618,7 +620,7 @@ export function Stepper({ value, onChange, step = 1, min = 0, suffix, big }: {
             borderBottomWidth: txt !== null ? 1.5 : 0, borderBottomColor: c.accent }} />
         {suffix ? <Text style={{ fontFamily: f.semi, fontSize: big ? 18 : 12, color: c.muted }}>{suffix}</Text> : null}
       </View>
-      <Tap onPress={() => onChange(+(value + step).toFixed(2))} style={[st.step, big && st.stepBig]}>
+      <Tap onPress={() => onChange(+(value + step).toFixed(2))} style={[st.step, big && st.stepBig]} hitSlop={big ? 0 : 6} accessibilityLabel="More">
         <Ionicons name="add" size={big ? 26 : 18} color={c.text} />
       </Tap>
     </View>

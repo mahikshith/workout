@@ -380,7 +380,7 @@ export function FoodPicker({ slot: slot0, tab: tab0 = 'foods', query: q0 = '', f
           <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(220)} style={s.toast}>
             <Ionicons name="checkmark-circle" size={18} color={c.ok} />
             <T v="small" color={c.text}>{added.n > 1 ? `Added ${added.n} to ${where}` : `Added to ${where}`}</T>
-            <Tap onPress={undo} feedback="none" style={s.undo} accessibilityLabel="Undo"><T v="small" color={c.accent} style={{ fontFamily: f.bold }}>Undo</T></Tap>
+            <Tap onPress={undo} feedback="none" style={s.undo} accessibilityLabel="Undo"><T v="small" color={c.accent} style={{ fontFamily: f.semi }}>Undo</T></Tap>
           </Animated.View>
         )}
       </View>

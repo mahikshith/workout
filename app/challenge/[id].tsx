@@ -11,15 +11,16 @@ import {
 import { Empty, Header, toToday, useMiniBarSpace } from '../../src/kit';
 import { Sheet } from '../../src/sheet';
 import {
-  DayGrid, DaySheet, goalColor, MilestoneSheet, Pill, Stars, TodayTasks, useCtx, useRun, useTaskActions,
+  DayGrid, DaySheet, extraPills, goalColor, MilestoneSheet, Pill, Stars, TodayTasks, useCtx, useRun, useTaskActions,
 } from '../../src/challenges/use';
+import { SafetyNote } from '../../src/safety';
 import { useStore } from '../../src/store';
 import { c, dom, r, tint } from '../../src/theme';
 import { Banner, Button, haptic, IconBox, Ring, Row, Screen, Section, T, Tap } from '../../src/ui';
 import { Enter } from '../library';
 
 // One challenge: what it is and asks (hero, what you'll do, the days, the rules) and Join; once joined, where you
-// stand (ring, streak, stars), today's task with its one button, and the day grid. Leave sits in the ⋯ menu.
+// stand (ring, streak, stars), today's task with its one button, and the day grid. Leave: "Need a break?" row and ⋯.
 
 export default function ChallengeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -57,7 +58,7 @@ export default function ChallengeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Header title={ch.name} actionIcon={prog ? 'ellipsis-horizontal' : undefined} onAction={prog ? () => setMenu('menu') : undefined} />
-      <Screen top={4} bottom={prog ? 0 : 84}>
+      <Screen top={4} bottom={prog ? 0 : 130}>
         {/* Hero: where you stand, the finish, or what this is. */}
         <Enter>
           <View style={[s.hero, { borderColor: tint(col, 1.6) }]}>
@@ -115,6 +116,7 @@ export default function ChallengeScreen() {
                   <Pill icon="calendar-outline" text={`${ch.days} days`} />
                   <Pill icon="time-outline" text={ch.effort} />
                   {ch.gear === 'gym' && <Pill icon="barbell-outline" text="Gym" />}
+                  {extraPills(ch).map((x) => <Pill key={x.text} icon={x.icon} text={x.text} />)}
                 </Row>
                 <T v="small" color={c.muted}>{ch.why}</T>
               </>
@@ -146,6 +148,18 @@ export default function ChallengeScreen() {
           </Section>
         </Enter>
 
+        {/* Taking a break is the person's call: a plain, visible way out (also in ⋯), never a guilt trip. */}
+        {prog && !prog.over && (
+          <Tap onPress={() => setMenu('leave')} style={s.breakRow} scale={0.98} accessibilityLabel="Take a break or leave this challenge">
+            <Ionicons name="pause-circle-outline" size={20} color={c.muted} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <T v="h3">Need a break?</T>
+              <T v="small">Leave any time. Your done days stay, and you can start again later.</T>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={c.dim} />
+          </Tap>
+        )}
+
         <Enter i={3}>
           <Section title="What you’ll do">
             <View style={[s.card, { gap: 14 }]}><Plan ch={ch} /></View>
@@ -163,6 +177,7 @@ export default function ChallengeScreen() {
       {!prog && (
         <View style={[s.bar, { paddingBottom: ins.bottom + 12 + mini }]}>
           <Button title={win ? 'Go again · starts today' : 'Join · starts today'} icon="flag" onPress={join} />
+          <SafetyNote text="Leave any time. General fitness ideas, not medical advice." center />
         </View>
       )}
 
@@ -174,10 +189,10 @@ export default function ChallengeScreen() {
       <Sheet open={!!menu} onClose={() => setMenu(null)}>
         {menu === 'leave' && prog ? (
           <View style={{ gap: 12 }}>
-            <T v="h2">{`Leave ${ch.name}?`}</T>
-            <T v="body" color={c.muted}>{`You’re on day ${prog.todayIdx + 1} with ${prog.done} done. It’s kept in your past challenges, and you can start again anytime.`}</T>
-            <Button title="Keep going" onPress={() => setMenu(null)} style={{ marginTop: 4 }} />
-            <Button title="Leave challenge" kind="danger" onPress={() => { useStore.getState().leaveChallenge(false); setMenu(null); }} />
+            <T v="h2">{`Take a break from ${ch.name}?`}</T>
+            <T v="body" color={c.muted}>{`No problem. Your ${prog.done} done ${prog.done === 1 ? 'day stays' : 'days stay'} in your past challenges, and you can start again any time.`}</T>
+            <Button title="Leave challenge" onPress={() => { useStore.getState().leaveChallenge(false); setMenu(null); }} style={{ marginTop: 4 }} />
+            <Button title="Keep going" kind="ghost" onPress={() => setMenu(null)} />
           </View>
         ) : (
           <View style={{ gap: 8 }}>
@@ -304,6 +319,7 @@ const s = StyleSheet.create({
   card: { padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   medal: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
   link: { height: 44, alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' },
-  bar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 12, paddingHorizontal: 16, backgroundColor: c.glass, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
+  bar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 12, paddingHorizontal: 16, backgroundColor: c.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
+  breakRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, marginTop: 24, padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: 14, height: 52, paddingHorizontal: 4 },
 });

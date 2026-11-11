@@ -15,6 +15,7 @@ import { Sheet } from '../src/sheet';
 import { answered } from '../src/glance';
 import { useStore, type MediaPref } from '../src/store';
 import { ACCENTS, accentHex, c, dom, r, tint, type AccentId, type Mode } from '../src/theme';
+import { useWatchLink } from '../src/health/DataPath';
 import { useTracker } from '../src/tracker';
 import { Button, IconBox, T, Tap } from '../src/ui';
 
@@ -44,6 +45,7 @@ export default function You() {
   const reminders = useStore((s) => s.reminders);
   const reset = useStore((s) => s.reset);
   const connected = useTracker((s) => s.hc.connected || !!s.strap);
+  const link = useWatchLink();
   const challenge = useStore((s) => s.challenge);
   const hydration = useStore((s) => s.hydration);
   const supplements = useStore((s) => s.supplements.picked.length);
@@ -129,7 +131,7 @@ export default function You() {
   const mealReminders = reminders.filter((x) => x.kind === 'meal' && x.on).length;
   // Your watch: connecting Fitbit, WHOOP and the rest is the main way data gets in, so it comes first.
   const devices: RowT[] = [
-    { icon: 'watch', color: dom.heart, t: connected ? 'Watch & health' : 'Connect a watch', v: connected ? 'Connected' : 'Fitbit, WHOOP', go: () => router.push('/watch') },
+    { icon: 'watch', color: dom.heart, t: connected ? 'Connected watch' : 'Connect a watch', v: connected ? (link.apps.join(', ') || link.strap?.name || 'Health Connect') : 'Fitbit, WHOOP…', go: () => router.push('/watch') },
     { icon: 'pulse', color: dom.heart, t: 'Tracker', v: 'Heart rate, today', go: () => router.push('/tracker' as Href) },
     { icon: 'battery-charging', color: dom.sleep, t: 'Recovery', v: 'Readiness, sleep', go: () => router.push('/recovery') },
   ];
@@ -140,7 +142,7 @@ export default function You() {
   ];
   const nudges: RowT[] = [
     { icon: 'barbell', color: dom.train, t: 'Workout', v: next ? clock12(next.hour, next.minute) : 'Off', go: () => router.push('/reminders') },
-    { icon: 'water', color: dom.water, t: 'Meals and water', v: [mealReminders ? `${mealReminders} meal${mealReminders > 1 ? 's' : ''}` : '', hydration.on ? 'water on' : ''].filter(Boolean).join(', ') || 'Off',
+    { icon: 'water', color: dom.water, t: 'Meals and water', v: ([mealReminders ? `${mealReminders} meal${mealReminders > 1 ? 's' : ''}` : '', hydration.on ? 'water' : ''].filter(Boolean).join(' and ') || '').replace(/^./, (x) => x.toUpperCase()).replace(/^(.+)$/, '$1 on') || 'Off',
       go: () => router.push('/reminders') },
     { icon: 'medkit', color: dom.steps, t: 'Supplements', v: supplements ? `${supplements} picked${suppReminders ? ', reminders on' : ''}` : 'Add yours', go: () => router.push('/supplements' as Href) },
   ];
@@ -150,6 +152,7 @@ export default function You() {
       v: last ? `${inPeriod ? 'Started' : 'Last'} ${dayLabel(last.start)}` : 'Today', go: () => logPeriod(inPeriod ? 'end' : 'start'), act: true }] : []),
     { icon: 'people', color: dom.sleep, t: 'Gym etiquette', go: () => router.push('/etiquette') },
     { icon: 'server', color: c.muted, t: 'Your data', v: 'On this phone', go: () => setSheet('data') },
+    { icon: 'shield-checkmark', color: c.muted, t: 'Safety and disclaimer', go: () => router.push('/safety' as Href) },
   ];
   const enter = (i: number) => (still ? undefined : FadeInDown.delay(i * 60).duration(380).easing(EASE));
   const group = (list: RowT[]) => list.map((x, i) => (
@@ -182,7 +185,7 @@ export default function You() {
           </Tap>
         </Animated.View>
 
-        {([['Your watch', devices], ['Goals', goals], ['Reminders', nudges], ['Look and feel', look], ['More', more]] as const).map(([head, list], i) => (
+        {([['Watch & health', devices], ['Goals', goals], ['Reminders', nudges], ['Look and feel', look], ['More', more]] as const).map(([head, list], i) => (
           <Animated.View key={head} entering={enter(i + 1)} style={{ gap: 8 }}>
             <T v="h3" style={s.head}>{head}</T>
             <View style={s.group}>{group(list as RowT[])}</View>

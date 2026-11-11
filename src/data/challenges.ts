@@ -8,7 +8,7 @@
 // Forgiving by design: every challenge has free misses. The badge needs no more misses than that; after it, the person
 // can still finish, and the end screen says honestly how many days they got.
 import type { Ionicons } from '@expo/vector-icons';
-import { dayKey, postpartumWeek, pregnancyWeek } from '../calc';
+import { dayKey, parseReps, postpartumWeek, pregnancyWeek } from '../calc';
 import type { ChallengeRun, Profile } from '../store';
 import type { Domain } from '../theme';
 import { CARDIO } from './cardio';
@@ -17,12 +17,13 @@ import { quickById, type Quick } from './quick';
 
 type Icon = keyof typeof Ionicons.glyphMap;
 export type Level = 'Beginner' | 'Intermediate' | 'Advanced';
-export type GoalTag = 'Weight loss' | 'Muscle gain' | 'Strength' | 'HIIT' | 'Core' | 'Mobility' | 'Steps' | 'Habits' | 'Consistency';
+export type GoalTag = 'Weight loss' | 'Muscle gain' | 'Strength' | 'HIIT' | 'Cardio' | 'Core' | 'Mobility' | 'Steps' | 'Habits' | 'Consistency';
 export const LEVELS: Level[] = ['Beginner', 'Intermediate', 'Advanced'];
-export const GOALS: GoalTag[] = ['Weight loss', 'Muscle gain', 'Strength', 'HIIT', 'Core', 'Mobility', 'Steps', 'Habits', 'Consistency'];
-// One domain colour per goal (src/theme.ts DOMAINS), read as dom[GOAL_COLOR[goal]] at render time.
+export const GOALS: GoalTag[] = ['Weight loss', 'Muscle gain', 'Strength', 'HIIT', 'Cardio', 'Core', 'Mobility', 'Steps', 'Habits', 'Consistency'];
+// One domain colour per goal (src/theme.ts DOMAINS), read as dom[GOAL_COLOR[goal]] at render time. Cardio shares the
+// heart colour with HIIT: both are heart work, and there are more goals than domains.
 export const GOAL_COLOR: Record<GoalTag, Domain> = {
-  'Weight loss': 'kcal', 'Muscle gain': 'train', Strength: 'weight', HIIT: 'heart', Core: 'protein', Mobility: 'sleep', Steps: 'steps', Habits: 'water', Consistency: 'streak',
+  'Weight loss': 'kcal', 'Muscle gain': 'train', Strength: 'weight', HIIT: 'heart', Cardio: 'heart', Core: 'protein', Mobility: 'sleep', Steps: 'steps', Habits: 'water', Consistency: 'streak',
 };
 
 export type Task =
@@ -41,6 +42,9 @@ export type Challenge = {
   free: number; // missed days forgiven (missed weeks for weekly challenges)
   weekly?: number; // weekly challenge: this many workouts in each 7-day block, any days
   gear?: 'gym'; // needs a gym (barbells)
+  needs?: string[]; // home kit it uses (Profile.gear values: 'dumbbell', 'kettlebells', 'pull-up bar'); swapped out by the engine if missing
+  impact?: boolean; // running or jumping: kept out of the top picks in pregnancy, after birth, at 55+ and for heavier bodies
+  who?: 'after birth' | '55+'; // made for this group: picked first for them (after birth: sinks for everyone else)
   day: (i: number) => ChDay; // what day i (0-based) asks
 };
 
@@ -73,6 +77,67 @@ export const circuits: Quick[] = [
   ...([['3', '8'], ['4', '10'], ['4', '12'], ['5', '12']] as const).map(([sets, reps], w) =>
     Q(`ch-push-${w + 1}`, `Push-ups · week ${w + 1}`, 5 + w * 2, 'fitness', ['strength'], ['home', 'anywhere'], `${sets} × ${reps} push-ups, plus scapular push-ups for healthy shoulders.`,
       [x('wg_scapular-push-up', 2, '10', 30), x('Pushups', +sets, reps, 60)])),
+
+  // --- Round 13b. Week-by-week sessions grow a little each week (more reps, longer holds), never a big jump.
+  // Squat 30: 36 squats a session in week 1, 100 in week 4.
+  ...([[3, '12', '20s'], [4, '15', '30s'], [4, '20', '40s'], [5, '20', '45s']] as const).map(([sets, reps, wall], w) =>
+    Q(`ch-squat-${w + 1}`, `Squats · week ${w + 1}`, 6 + w * 2, 'body', ['strength'], ['home', 'anywhere'], `${sets} × ${reps} squats, a ${wall} wall sit and bridges.`,
+      [x('Bodyweight_Squat', sets, reps, 45), x('wg_wall-sit', 2, wall, 30), x('Butt_Lift_Bridge', 2, '12', 20)])),
+  // Plank 30: the hold grows from 20 to 60 seconds; split it into shorter holds if your hips sag.
+  ...([[20, 15], [30, 20], [45, 25], [60, 30]] as const).map(([hold, side], w) =>
+    Q(`ch-plank-${w + 1}`, `Planks · week ${w + 1}`, [5, 6, 8, 10][w], 'body', ['core'], ['home', 'anywhere'], `3 × ${hold}s plank, side planks and bird dogs.`,
+      [x('Plank', 3, `${hold}s`, 30), x('Side_Bridge', 2, `${side}s/side`, 20), x('wg_bird-dog', 2, '8/side', 15)])),
+  // Walk to run 28 (Couch to 5K's first four weeks): warm-up walk, jog intervals that grow, cool-down walk.
+  ...([[8, '60s', 90], [6, '90s', 90], [5, '2 min', 60], [4, '3 min', 90]] as const).map(([n, jog, rest], w) =>
+    Q(`ch-run-${w + 1}`, `Run-walk · week ${w + 1}`, [30, 28, 25, 28][w], 'walk', ['cardio'], ['anywhere'], `Walk 5 min, then jog ${jog} and walk ${rest}s, × ${n}. Walk 5 min to finish.`,
+      [x('Walking_Treadmill', 1, '5 min', 0), x('Jogging_Treadmill', n, jog, rest), x('Walking_Treadmill', 1, '5 min', 0)])),
+  // Steady and strong (55+): leg strength, balance and getting up from a chair. A chair or wall stays in reach.
+  Q('ch-balance-1', 'Steady and strong · 1', 15, 'accessibility', ['strength', 'mobility'], ['home', 'anywhere'], 'Chair squats, wall push-ups, calf raises, step-ups. Keep a chair or wall within reach.',
+    [x('March_In_Place', 1, '60s', 15), x('Sit_Squats', 2, '8', 45), x('wg_wall-push-up', 2, '8', 45), x('wg_calf-raise', 2, '10', 30), x('Step-up_with_Knee_Raise', 2, '6/side', 45), x('wg_bird-dog', 2, '6/side', 30), x('Standing_Hip_Circles', 1, '30s', 0)]),
+  Q('ch-balance-2', 'Steady and strong · 2', 20, 'accessibility', ['strength', 'mobility'], ['home', 'anywhere'], 'More reps, plus a hip airplane with one hand on a chair.',
+    [x('March_In_Place', 1, '90s', 15), x('Sit_Squats', 3, '10', 45), x('wg_wall-push-up', 3, '10', 45), x('wg_calf-raise', 3, '12', 30), x('Step-up_with_Knee_Raise', 3, '8/side', 45), x('wg_hip-airplane', 2, '4/side', 30), x('wg_bird-dog', 2, '8/side', 30)]),
+  // Desk 14: the Desk reset (src/data/quick.ts) one day, this the next.
+  Q('ch-desk-move', 'Desk mover', 6, 'desktop', ['desk', 'mobility'], ['office', 'anywhere'], 'Leg raises, hip stretch, calf raises and wall push-ups. Fits in a coffee break.',
+    [x('Desk_Seated_Leg_Raise', 2, '10', 15), x('Desk_Figure_Four', 1, '30s/side', 10), x('Chair_Lower_Back_Stretch', 1, '30s', 10), x('wg_calf-raise', 2, '15', 15), x('wg_wall-push-up', 2, '10', 20), x('March_In_Place', 1, '60s', 0)]),
+  // Gentle core after birth: breathing and pelvic floor first, no planks, crunches or jumps (src/engine.ts hides those
+  // until about 12 weeks after birth anyway).
+  Q('ch-pp-1', 'Gentle core · weeks 1–2', 10, 'flower', ['pelvic', 'core'], ['home', 'anywhere'], 'Belly breathing, pelvic floor squeezes, pelvic tilts, bridges and clams.',
+    [x('Diaphragmatic_Breathing', 1, '6 breaths', 15), x('Kegel_Long_Hold', 2, '5', 30), x('Kegel_Quick_Flick', 1, '10', 20), x('Standing_Pelvic_Tilt', 2, '8', 15), x('Butt_Lift_Bridge', 2, '8', 30), x('wg_clamshell', 2, '10/side', 20)]),
+  Q('ch-pp-2', 'Gentle core · weeks 3–4', 12, 'flower', ['pelvic', 'core'], ['home', 'anywhere'], 'Breathing, then bridge marches, bird dogs, slow dead bugs and wall push-ups.',
+    [x('Diaphragmatic_Breathing', 1, '6 breaths', 15), x('Kegel_Elevator', 2, '5', 30), x('wg_glute-bridge-march', 2, '6/side', 30), x('wg_bird-dog', 2, '6/side', 20), x('Dead_Bug', 2, '6/side', 30), x('wg_side-lying-hip-abduction', 2, '10/side', 20), x('wg_wall-push-up', 2, '10', 30)]),
+  // Glutes 28: bodyweight, level 2 from week 3.
+  Q('ch-glute-1', 'Glutes · level 1', 15, 'body', ['strength'], ['home', 'anywhere'], 'Bridges, donkey kicks, fire hydrants, clams, squats and a wall sit.',
+    [x('Butt_Lift_Bridge', 3, '15', 30), x('wg_donkey-kick', 3, '12/side', 30), x('wg_fire-hydrant', 3, '12/side', 30), x('wg_clamshell', 2, '15/side', 20), x('Bodyweight_Squat', 3, '15', 30), x('wg_wall-sit', 2, '30s', 30)]),
+  Q('ch-glute-2', 'Glutes · level 2', 20, 'body', ['strength'], ['home', 'anywhere'], 'Single-leg bridges, frog pumps, curtsy lunges, side leg raises, bridge marches.',
+    [x('Single_Leg_Glute_Bridge', 3, '10/side', 30), x('wg_frog-pump', 3, '20', 30), x('wg_curtsy-lunge', 3, '10/side', 45), x('wg_side-lying-hip-abduction', 3, '15/side', 20), x('wg_glute-bridge-march', 3, '10/side', 30), x('wg_wall-sit', 3, '45s', 30)]),
+  // Burpee 30: half burpees first, then full ones, 24 to 50 a session.
+  ...([['wg_half-burpee', 3, '8'], ['wg_burpee', 3, '8'], ['wg_burpee', 4, '10'], ['wg_burpee', 5, '10']] as const).map(([id, sets, reps], w) =>
+    Q(`ch-burpee-${w + 1}`, `Burpees · week ${w + 1}`, [6, 7, 9, 11][w], 'flash', ['cardio'], ['home', 'anywhere'], `${sets} × ${reps} ${w ? '' : 'half '}burpees after a one-minute march. Rest as long as you need.`,
+      [x('March_In_Place', 1, '60s', 15), x(id, sets, reps, 60), x('Plank', 1, '30s', 0)])),
+  // Dumbbell 28: two full-body days with one pair of dumbbells, alternating.
+  Q('ch-db-a', 'Dumbbell A: squat, press, row', 35, 'barbell', ['strength'], ['home', 'gym'], 'Squats, overhead press, rows, lunges, curls and kickbacks.',
+    [x('Dumbbell_Squat', 3, '10', 60), x('Standing_Dumbbell_Press', 3, '10', 60), x('Bent_Over_Two-Dumbbell_Row', 3, '10', 60), x('Dumbbell_Lunges', 3, '8/side', 60), x('Hammer_Curls', 2, '12', 45), x('Tricep_Dumbbell_Kickback', 2, '12', 45)], ['dumbbell']),
+  Q('ch-db-b', 'Dumbbell B: hinge, lunge, push', 35, 'barbell', ['strength'], ['home', 'gym'], 'Romanian deadlifts, hip bridges, rows, side lunges, push-ups and raises.',
+    [x('Stiff-Legged_Dumbbell_Deadlift', 3, '10', 60), x('wg_dumbbell-glute-bridge', 3, '12', 45), x('One-Arm_Dumbbell_Row', 3, '10/side', 45), x('wg_dumbbell-lateral-lunge', 3, '8/side', 60), x('Pushups', 3, '10', 60), x('Side_Lateral_Raise', 2, '12', 45)], ['dumbbell']),
+  // Kettlebell 21: swings are the engine; one bell is enough.
+  Q('ch-kb-1', 'Kettlebell · week 1', 20, 'barbell', ['strength', 'cardio'], ['home', 'gym'], 'Swings, goblet squats, deadlifts, floor press, pirate ships.',
+    [x('wg_kettlebell-swing', 5, '15', 45), x('Goblet_Squat', 3, '10', 45), x('wg_kettlebell-romanian-deadlift', 3, '10', 45), x('Alternating_Floor_Press', 3, '8/side', 45), x('Kettlebell_Pirate_Ships', 2, '10', 30)], ['kettlebells']),
+  Q('ch-kb-2', 'Kettlebell · weeks 2–3', 25, 'barbell', ['strength', 'cardio'], ['home', 'gym'], 'More swings, one more set, and a one-arm row.',
+    [x('wg_kettlebell-swing', 6, '20', 40), x('Goblet_Squat', 4, '10', 45), x('wg_kettlebell-romanian-deadlift', 3, '12', 45), x('Alternating_Floor_Press', 3, '10/side', 45), x('One-Arm_Kettlebell_Row', 3, '10/side', 45), x('Kettlebell_Pirate_Ships', 2, '12', 30)], ['kettlebells']),
+  // Pull-up 28: hang, then lower slowly (negatives), then your first pull-ups in week 4.
+  Q('ch-pull-1', 'Pull-up · week 1', 15, 'barbell', ['strength'], ['home', 'gym'], 'Dead hangs, scapular pull-ups and towel rows. Grip and shoulders first.',
+    [x('wg_dead-hang', 3, '20s', 60), x('Scapular_Pull-Up', 3, '8', 60), x('wg_towel-row', 3, '10', 45)], ['pull-up bar']),
+  Q('ch-pull-2', 'Pull-up · week 2', 18, 'barbell', ['strength'], ['home', 'gym'], 'Longer hangs, active hangs and your first slow negatives.',
+    [x('wg_dead-hang', 3, '30s', 60), x('wg_active-hang', 3, '15s', 45), x('wg_negative-pull-up', 3, '3', 90), x('wg_towel-row', 3, '12', 45)], ['pull-up bar']),
+  Q('ch-pull-3', 'Pull-up · week 3', 20, 'barbell', ['strength'], ['home', 'gym'], 'More negatives and band-assisted pull-ups.',
+    [x('wg_dead-hang', 3, '40s', 60), x('wg_negative-pull-up', 4, '4', 90), x('Band_Assisted_Pull-Up', 3, '5', 90), x('wg_active-hang', 2, '20s', 45)], ['pull-up bar']),
+  Q('ch-pull-4', 'Pull-up · week 4', 20, 'barbell', ['strength'], ['home', 'gym'], 'Try your first pull-ups. One clean rep is a win.',
+    [x('wg_dead-hang', 2, '45s', 60), x('Pullups', 3, '3', 120), x('wg_negative-pull-up', 3, '5', 90), x('Scapular_Pull-Up', 2, '10', 45)], ['pull-up bar']),
+  // Calisthenics 28 (advanced): hard bodyweight moves, a bar for pulling.
+  Q('ch-cali-push', 'Calisthenics: push and legs', 35, 'body', ['strength'], ['home', 'gym', 'anywhere'], 'Archer and pike push-ups, assisted pistols, cossack squats, dips, hollow holds.',
+    [x('wg_archer-push-up', 4, '6/side', 90), x('wg_pike-push-up', 4, '8', 90), x('wg_assisted-pistol-squat', 4, '6/side', 90), x('wg_cossack-squat', 3, '8/side', 60), x('wg_chair-dip', 3, '12', 60), x('wg_hollow-body-hold', 3, '30s', 45)]),
+  Q('ch-cali-pull', 'Calisthenics: pull and core', 35, 'body', ['strength'], ['home', 'gym'], 'Pull-ups, commando pull-ups, skater squats, L-sits and dragon flags.',
+    [x('Pullups', 5, '6', 120), x('wg_commando-pull-up', 3, '4/side', 90), x('wg_skater-squat', 3, '6/side', 90), x('wg_l-sit-hold', 4, '15s', 60), x('wg_dragon-flag', 3, '5', 90), x('wg_typewriter-push-up', 3, '4/side', 90)], ['pull-up bar']),
 ];
 const C = Object.fromEntries(circuits.map((q) => [q.id, q])) as Record<string, Quick>;
 
@@ -168,6 +233,102 @@ export const challenges: Challenge[] = [
     effort: '3 workouts a week', icon: 'calendar', badge: 'Never miss a week', free: 1, weekly: 3,
     why: 'Results come from showing up week after week. Pick your days; any workout counts, from the app or your watch.',
     day: () => ({ tasks: [W] }),
+  },
+
+  // --- Round 13b (docs/round13/challenges.md, "More challenges"). Popular app and community challenges, made gentle
+  // enough to finish: rest days built in, free misses, and the session grows by week instead of by day.
+  {
+    id: 'squat-30', name: 'Squat 30', tagline: 'From 36 squats a session to 100, in four weeks.', level: 'Beginner', goal: 'Strength', days: 30,
+    effort: '6–12 min a day', icon: 'body', badge: 'Squat squad', free: 3,
+    why: 'The classic 30-day squat challenge, with a rest every fourth day. Strong legs make stairs, runs and every lift easier.',
+    day: (i) => (i % 4 === 3 ? { tasks: [] } : { tasks: [S(C[`ch-squat-${Math.min(4, Math.floor(i / 7) + 1)}`])] }),
+  },
+  {
+    id: 'plank-30', name: 'Plank 30', tagline: 'Hold a 20-second plank today, a full minute by week four.', level: 'Beginner', goal: 'Core', days: 30,
+    effort: '5–10 min a day', icon: 'timer', badge: 'Plank boss', free: 3,
+    why: 'The hold grows a little each week, with a rest day every week. Side planks and bird dogs train the rest of your core.',
+    day: (i) => (i % 7 === 5 ? { tasks: [] } : { tasks: [S(C[`ch-plank-${Math.min(4, Math.floor(i / 7) + 1)}`])] }),
+  },
+  {
+    id: 'walk-run-28', name: 'Walk to run 28', tagline: 'Your first runs: jog a minute, walk, repeat.', level: 'Beginner', goal: 'Cardio', days: 28,
+    effort: '25–30 min, 3 days a week', icon: 'walk', badge: 'Up and running', free: 2, impact: true,
+    why: 'Like the first four weeks of Couch to 5K: three run-walks a week with a rest day between, and the jogs get longer each week.',
+    day: (i) => { const r = [S(C[`ch-run-${Math.min(4, Math.floor(i / 7) + 1)}`])]; return every([r, [], r, [], r, [], []])(i); },
+  },
+  {
+    id: 'balance-28', name: 'Steady and strong 28', tagline: 'Leg strength and balance for 55 and over.', level: 'Beginner', goal: 'Mobility', days: 28,
+    effort: '15–20 min, 5 days a week', icon: 'accessibility', badge: 'Steady', free: 3, who: '55+',
+    why: 'Health guidelines for older adults ask for strength, balance and walking every week. Three short sessions and two walks do all three. Keep a chair close.',
+    day: (i) => { const b = [S(C[i < 14 ? 'ch-balance-1' : 'ch-balance-2'])]; return every([b, [CARD(20)], [], b, [CARD(20)], b, []])(i); },
+  },
+  {
+    id: 'desk-14', name: 'Desk 14', tagline: 'Five minutes at your desk, every workday.', level: 'Beginner', goal: 'Mobility', days: 14,
+    effort: '5–6 min a day', icon: 'desktop', badge: 'Desk hero', free: 2,
+    why: 'Long sitting stiffens your neck, back and hips. Two short routines, swapped each day, with weekends off.',
+    day: every([[S(quickById.desk)], [S(C['ch-desk-move'])], [S(quickById.desk)], [S(C['ch-desk-move'])], [S(quickById.desk)], [], []]),
+  },
+  {
+    id: 'postnatal-core-28', name: 'Gentle core after birth', tagline: 'Breathing and pelvic floor first. No planks, no crunches.', level: 'Beginner', goal: 'Core', days: 28,
+    effort: '10–12 min, 5 days a week', icon: 'flower', badge: 'Strong mama', free: 4, who: 'after birth',
+    why: 'Start after your postnatal check (often about 6 weeks, longer after a C-section). Stop if you feel pain, leaking or heaviness, or your belly domes, and ask your doctor or a pelvic health physio.',
+    day: (i) => { const g = [S(C[i < 14 ? 'ch-pp-1' : 'ch-pp-2'])]; return every([g, g, [], g, g, g, []])(i); },
+  },
+  {
+    id: 'glutes-28', name: 'Glutes 28', tagline: 'Four bodyweight glute sessions a week, harder from week three.', level: 'Intermediate', goal: 'Muscle gain', days: 28,
+    effort: '15–20 min, 4 days a week', icon: 'flame', badge: 'Peach power', free: 3,
+    why: 'Bridges, kicks and lunges from every angle. Two rest days a week let the muscle grow. Add a dumbbell on your hips when it gets easy.',
+    day: (i) => { const g = [S(C[i < 14 ? 'ch-glute-1' : 'ch-glute-2'])]; return every([g, [], g, [], g, g, []])(i); },
+  },
+  {
+    id: 'burpee-30', name: 'Burpee 30', tagline: 'Half burpees on day one, fifty full ones by the end.', level: 'Intermediate', goal: 'HIIT', days: 30,
+    effort: '6–11 min a day', icon: 'flash', badge: 'Burpee beast', free: 3, impact: true,
+    why: 'Two days on, one off. The count grows every week, so your heart and legs keep up. Step back instead of jumping any time.',
+    day: (i) => (i % 3 === 2 ? { tasks: [] } : { tasks: [S(C[`ch-burpee-${Math.min(4, Math.floor(i / 7) + 1)}`])] }),
+  },
+  {
+    id: 'dumbbell-28', name: 'Dumbbell 28', tagline: 'One pair of dumbbells, three full-body workouts a week.', level: 'Intermediate', goal: 'Muscle gain', days: 28,
+    effort: '35 min, 3 days a week', icon: 'barbell', badge: 'Dumbbell devotee', free: 2, needs: ['dumbbell'],
+    why: 'Two workouts, A and B, take turns. Add a rep each session; when you hit the top of the range, go heavier.',
+    day: (i) => {
+      const k = [0, -1, 1, -1, 2, -1, -1][i % 7];
+      return k < 0 ? { tasks: [] } : { tasks: [S(C[(Math.floor(i / 7) * 3 + k) % 2 ? 'ch-db-b' : 'ch-db-a'])] };
+    },
+  },
+  {
+    id: 'kettlebell-21', name: 'Kettlebell 21', tagline: 'Swings, squats and steps. One bell, big burn.', level: 'Intermediate', goal: 'Weight loss', days: 21,
+    effort: '20–25 min, 3 days a week', icon: 'barbell', badge: 'Swing king', free: 2, needs: ['kettlebells'],
+    why: 'Swings work your whole back side and get your heart up. Three bell days and two walking days a week burn energy without wrecking your legs.',
+    day: (i) => { const kb = [S(C[i < 7 ? 'ch-kb-1' : 'ch-kb-2'])]; return every([kb, [STEPS(8000)], kb, [], kb, [STEPS(8000)], []])(i); },
+  },
+  {
+    id: 'pullup-28', name: 'First pull-up 28', tagline: 'Hang, lower slowly, then pull. Your first pull-up in four weeks.', level: 'Intermediate', goal: 'Strength', days: 28,
+    effort: '15–20 min, 3 days a week', icon: 'trending-up', badge: 'Bar raiser', free: 2, needs: ['pull-up bar'],
+    why: 'Dead hangs build grip and shoulders, slow negatives build the pulling strength. Rest days between, because tendons adapt slower than muscle.',
+    day: (i) => { const s = [S(C[`ch-pull-${Math.min(4, Math.floor(i / 7) + 1)}`])]; return every([s, [], s, [], s, [], []])(i); },
+  },
+  {
+    id: 'zone2-28', name: 'Zone 2 28', tagline: 'Easy cardio you can talk through, a little longer each week.', level: 'Intermediate', goal: 'Cardio', days: 28,
+    effort: '30–45 min, 4 days a week', icon: 'heart', badge: 'Big engine', free: 3,
+    why: 'Walk briskly, ride or jog at a pace where you can still talk. Four sessions a week, 30 minutes growing to 45: about 150 minutes, the weekly amount health guidelines ask for.',
+    day: (i) => { const c = [CARD(30 + 5 * Math.min(3, Math.floor(i / 7)))]; return every([c, [], c, [], c, c, []])(i); },
+  },
+  {
+    id: 'soft-30', name: 'Soft 30', tagline: 'Move, drink your water, eat well. Every day for a month.', level: 'Intermediate', goal: 'Habits', days: 30,
+    effort: '45 min a day, plus water and food', icon: 'sparkles', badge: 'Soft but strong', free: 3,
+    why: 'Inspired by 75 Soft: a workout six days a week and an active walk on the seventh, your water goal and your protein every day. Missed a day? Keep going, nothing resets.',
+    day: (i) => plus(H2O, plus(P, every([[W], [W], [W], [W], [W], [W], [STEPS(7000)]])(i))),
+  },
+  {
+    id: 'calisthenics-28', name: 'Calisthenics 28', tagline: 'Bodyweight strength: pull-ups, pistols and more.', level: 'Advanced', goal: 'Muscle gain', days: 28,
+    effort: '35 min, 4 days a week', icon: 'medal', badge: 'Bodyweight boss', free: 2, needs: ['pull-up bar'],
+    why: 'Hard bodyweight moves build real muscle when the reps stay low and clean. Push and legs, then pull and core, twice a week.',
+    day: every([[S(C['ch-cali-push'])], [S(C['ch-cali-pull'])], [], [S(C['ch-cali-push'])], [S(C['ch-cali-pull'])], [], []]),
+  },
+  {
+    id: 'hybrid-28', name: 'Hybrid 28', tagline: 'Lift three days, run or ride three. Strong and fit at once.', level: 'Advanced', goal: 'Cardio', days: 28,
+    effort: '40–60 min, 6 days a week', icon: 'infinite', badge: 'Hybrid athlete', free: 2, impact: true,
+    why: 'Three workouts from your plan, one hard HIIT day, a 40-minute and a 60-minute easy cardio session each week. One full rest day.',
+    day: every([[W], [CARD(40)], [W], [S(C['ch-hiit-3'])], [W], [CARD(60)], []]),
   },
 ];
 export const challengeById: Record<string, Challenge> = Object.fromEntries(challenges.map((x) => [x.id, x]));
@@ -402,10 +563,10 @@ export function cheer(p: Progress): string {
 // --- Picked for you: goal first, then level, then what the person told us. Pregnancy and after birth keep to the
 // gentle ones; harder challenges sink but stay listed.
 const GOAL_FIT: Record<Profile['goal'], Partial<Record<GoalTag, number>>> = {
-  'lose fat': { 'Weight loss': 6, Steps: 4, HIIT: 3, Habits: 2, Consistency: 1 },
+  'lose fat': { 'Weight loss': 6, Steps: 4, HIIT: 3, Cardio: 3, Habits: 2, Consistency: 1 },
   'build muscle': { 'Muscle gain': 6, Strength: 4, Consistency: 2, Core: 1 },
   'get stronger': { Strength: 6, 'Muscle gain': 4, Core: 2 },
-  'stay fit': { Consistency: 5, HIIT: 3, Steps: 3, Mobility: 3, Core: 2 },
+  'stay fit': { Consistency: 5, Cardio: 4, HIIT: 3, Steps: 3, Mobility: 3, Core: 2, Habits: 1 },
 };
 export function recommend(p: Profile, sessionsDone = 0, list = challenges): Challenge[] {
   const lv = p.level === 'advanced' ? 2 : p.level === 'intermediate' ? 1 : 0;
@@ -418,12 +579,21 @@ export function recommend(p: Profile, sessionsDone = 0, list = challenges): Chal
     if (has('flexibility', 'posture', 'back', 'desk') && ch.goal === 'Mobility') s += 4;
     if (has('lose-weight') && ch.goal === 'Weight loss') s += 3;
     if (has('endurance', 'run') && (ch.goal === 'Steps' || ch.goal === 'HIIT')) s += 2;
+    if (has('endurance', 'run') && ch.goal === 'Cardio') s += 3;
+    if (has('desk') && ch.id === 'desk-14') s += 3;
     if (has('gain') && ch.goal === 'Muscle gain') s += 3;
     if (has('tone') && ch.goal === 'Core') s += 2;
     if (ch.id === 'kickstart-21' && lv === 0 && sessionsDone < 6) s += 4; // the natural first challenge
     if (ch.gear === 'gym' && p.place !== 'gym' && p.place !== 'both') s -= 4;
-    if ((p.body === 'more' || p.body === 'extra') && ch.goal === 'HIIT') s -= 3;
-    if (careful && (ch.goal === 'HIIT' || ch.level === 'Advanced')) s -= 100;
+    // Home kit: a challenge built on dumbbells, a kettlebell or a bar rises when you own it, and sinks when you train
+    // at home without it.
+    if (ch.needs) s += ch.needs.every((g) => p.gear?.includes(g)) ? 2 : p.place !== 'gym' && p.place !== 'both' ? -4 : 0;
+    const older = p.age >= 55;
+    if (ch.who === '55+') s += older ? 8 : -1;
+    if (ch.who === 'after birth') s += postpartumWeek(p) !== null ? 10 : -6;
+    if ((p.body === 'more' || p.body === 'extra') && (ch.goal === 'HIIT' || ch.impact)) s -= 3;
+    if (older && (ch.impact || ch.goal === 'HIIT' || ch.level === 'Advanced')) s -= 4;
+    if (careful && (ch.goal === 'HIIT' || ch.level === 'Advanced' || ch.impact)) s -= 100;
     return s;
   };
   return [...list].sort((a, b) => score(b) - score(a));
@@ -493,5 +663,71 @@ export function selfCheck(byIdMap: Record<string, unknown>) {
   assert(recommend(base, 0)[0].id === 'kickstart-21' || recommend(base, 0)[0].id === 'weightloss-28', 'new beginner');
   assert(recommend({ ...base, goal: 'get stronger', level: 'advanced' }, 50)[0].id === 'strength-28', 'advanced strength');
   const preg = recommend({ ...base, women: { mode: 'pregnant', date: '2027-03-01' } } as Profile, 10);
-  assert(preg.slice(0, 6).every((x) => x.goal !== 'HIIT' && x.level !== 'Advanced'), 'pregnancy keeps to gentle');
+  assert(preg.slice(0, 6).every((x) => x.goal !== 'HIIT' && x.level !== 'Advanced' && !x.impact), 'pregnancy keeps to gentle');
+  assert(preg.slice(0, 6).every((x) => x.who !== 'after birth'), 'after-birth core is not for pregnancy');
+
+  // --- Round 13b catalogue: the whole list is well formed.
+  assert(challenges.length >= 25, `only ${challenges.length} challenges`);
+  assert(new Set(challenges.map((x) => x.id)).size === challenges.length, 'challenge ids are unique');
+  // Session days count by title, so two sessions may never share a name.
+  const names = [...circuits, ...Object.values(quickById)].map((q) => q.name);
+  assert(new Set(names).size === names.length && new Set(circuits.map((q) => q.id)).size === circuits.length, 'session names and ids are unique');
+  for (const lv of LEVELS) assert(challenges.filter((x) => x.level === lv).length >= 4, `${lv}: too few challenges`);
+  for (const g of GOALS) assert(!!GOAL_COLOR[g] && challenges.some((x) => x.goal === g), `goal ${g} has a colour and a challenge`);
+  const KIT = ['dumbbell', 'kettlebells', 'pull-up bar'];
+  for (const ch of challenges) {
+    assert(LEVELS.includes(ch.level) && GOALS.includes(ch.goal), `${ch.id} level and goal`);
+    assert(!!ch.name && !!ch.tagline && !!ch.why && !!ch.effort && !!ch.badge, `${ch.id} words`);
+    assert(Number.isInteger(ch.free) && ch.free >= 0 && ch.free <= Math.ceil(ch.days / 7), `${ch.id} free misses`);
+    assert(!ch.needs || ch.needs.every((g) => KIT.includes(g)), `${ch.id} kit`);
+    // Every day is defined: a list of tasks (empty = rest), each a known kind with sane numbers.
+    let off = 0, inRow = 0, maxRun = 0;
+    for (let i = 0; i < ch.days; i++) {
+      const d = ch.day(i);
+      assert(!!d && Array.isArray(d.tasks), `${ch.id} day ${i} has no task list`);
+      for (const t of d.tasks) {
+        assert(['workout', 'session', 'cardio', 'steps', 'protein', 'water'].includes(t.kind), `${ch.id} day ${i} task kind`);
+        if (t.kind === 'session') assert(names.includes(t.q.name), `${ch.id} day ${i} session ${t.q.id} is not a known session`);
+        if (t.kind === 'session' && t.q.gear?.length) assert(t.q.gear.every((g) => ch.needs?.includes(g) || ch.gear === 'gym'), `${ch.id} day ${i} kit not listed in needs`);
+        if (t.kind === 'steps') assert(t.n >= 1000 && t.n <= 20000, `${ch.id} steps`);
+        if (t.kind === 'cardio') assert(t.min >= 10 && t.min <= 90, `${ch.id} cardio minutes`);
+      }
+      if (!d.tasks.length || d.rest) { off++; inRow = 0; } else maxRun = Math.max(maxRun, ++inRow);
+    }
+    // At least three task days in every full week; training challenges keep a rest day every week (habit, walking
+    // and mobility ones can go daily).
+    for (let w = 0; w + 7 <= ch.days; w += 7) assert(Array.from({ length: 7 }, (_, k) => ch.day(w + k)).filter((d) => d.tasks.length).length >= 3, `${ch.id} week ${w / 7 + 1} is too empty`);
+    const daily = ['Steps', 'Habits', 'Consistency', 'Mobility'].includes(ch.goal);
+    assert(daily || (maxRun <= 6 && off >= Math.floor(ch.days / 7)), `${ch.id}: ${maxRun} training days in a row, ${off} rest days`);
+  }
+  // Progressions grow week by week, never in a big jump.
+  const vol = (q: Quick, id: string) => q.slots.filter((s) => s.id === id).reduce((a, s) => a + s.sets * parseReps(s.reps), 0);
+  const grows = (ids: string[], ex: string, max: number) => ids.every((id, w) => !w || (vol(C[id], ex) > vol(C[ids[w - 1]], ex) && vol(C[id], ex) <= vol(C[ids[w - 1]], ex) * max));
+  const weeksOf = (p: string) => [1, 2, 3, 4].map((w) => `${p}${w}`);
+  assert(grows(weeksOf('ch-squat-'), 'Bodyweight_Squat', 1.7), 'squats grow');
+  assert(grows(weeksOf('ch-plank-'), 'Plank', 1.6), 'plank holds grow');
+  assert(grows(weeksOf('ch-run-'), 'Jogging_Treadmill', 1.6), 'jog time grows');
+  assert(grows(weeksOf('ch-burpee-').slice(1), 'wg_burpee', 1.7), 'burpees grow');
+  assert(grows(['ch-pull-1', 'ch-pull-2', 'ch-pull-3'], 'wg_dead-hang', 1.6), 'hangs grow');
+  // Gentle ones stay gentle: no planks, crunches or jumps after birth, no jumping at 55+.
+  const nameOf = (id: string) => (byIdMap[id] as { name?: string } | undefined)?.name ?? id;
+  for (const id of ['ch-pp-1', 'ch-pp-2', 'ch-balance-1', 'ch-balance-2', 'ch-desk-move'])
+    for (const sl of C[id].slots) assert(!/plank|crunch|sit-?up|jump|hop|burpee|jack|v-?up|leg raise|run|sprint/i.test(nameOf(sl.id)) || id === 'ch-desk-move' && sl.id === 'Desk_Seated_Leg_Raise', `${id}: ${sl.id} is not gentle`);
+  // Days tick from real data: a plank day by its session, a Soft 30 day only when the workout, water and protein are all in.
+  const pk = challengeById['plank-30'];
+  const pkp = progress(pk, { id: pk.id, start: '2026-11-01', done: [] }, { ...empty, sessions: [{ startedAt: at('2026-11-01'), title: 'Planks · week 1' }] }, '2026-11-02');
+  assert(pkp.days[0].state === 'done' && pkp.days[5].rest && pkp.days[7].tasks[0].task.kind === 'session', 'plank days');
+  const sf = challengeById['soft-30'], sd = '2026-11-01';
+  const sctx: Ctx = { ...empty, sessions: [{ startedAt: at(sd), title: 'Any' }], water: { [sd]: 10 }, meals: [{ day: sd, protein: 130 }] };
+  assert(progress(sf, { id: sf.id, start: sd, done: [] }, sctx, sd).days[0].state === 'done', 'soft day done');
+  assert(progress(sf, { id: sf.id, start: sd, done: [] }, { ...sctx, water: {} }, sd).days[0].state === 'today', 'soft day needs water too');
+  // Picked for you: after birth gets the gentle core, 55+ gets steady and strong, no bar at home sinks the pull-up one.
+  const pp = recommend({ ...base, goal: 'stay fit', women: { mode: 'postpartum', date: '2026-09-01' } } as Profile, 10);
+  assert(pp.slice(0, 3).some((x) => x.id === 'postnatal-core-28') && pp.slice(0, 6).every((x) => !x.impact && x.goal !== 'HIIT' && x.level !== 'Advanced'), 'after birth');
+  const old = recommend({ ...base, age: 64, goal: 'stay fit' }, 10);
+  assert(old[0].id === 'balance-28' && old.slice(0, 5).every((x) => !x.impact && x.level !== 'Advanced'), '55+ gets steady and strong');
+  assert(recommend(base, 10).slice(0, 5).every((x) => x.who !== 'after birth'), 'after-birth core stays out of other top picks');
+  const home = { ...base, goal: 'get stronger', level: 'intermediate', place: 'home', gear: [] } as unknown as Profile;
+  assert(recommend(home, 20)[0].id !== 'pullup-28' && recommend({ ...home, gear: ['pull-up bar'] }, 20)[0].id === 'pullup-28', 'pull-up needs a bar at home');
+  assert(recommend({ ...base, goal: 'stay fit', concerns: ['run'] } as Profile, 10)[0].id === 'walk-run-28', 'new runner gets walk to run');
 }

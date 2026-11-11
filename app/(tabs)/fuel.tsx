@@ -14,7 +14,7 @@ import { askPermission } from '../../src/notify';
 import { Sheet } from '../../src/sheet';
 import { answered, setKey } from '../../src/glance';
 import { useStore, type Meal, type MealSlot, type Profile } from '../../src/store';
-import { SupplementTicks, useMySupplements } from '../../src/supps';
+import { clock, SupplementTicks, useMySupplements } from '../../src/supps';
 import { c, dom, f, r, tint } from '../../src/theme';
 import { Button, Card, Chip, Fold, IconBox, Ring, Row, Screen, T, TabTitle, Tap } from '../../src/ui';
 import { autoGoalMl, drink, ml, SIZES, sizeName, useWater } from '../../src/water';
@@ -137,8 +137,8 @@ export default function Fuel() {
                     </View>
                     {!gentle && items.length > 0 && (
                       <View style={{ alignItems: 'flex-end' }}>
-                        <T v="small" color={c.text}>{k} kcal</T>
-                        <T v="small" color={dom.protein}>{p} g</T>
+                        <T v="small" color={c.text}>{Math.round(k).toLocaleString('en-US')} kcal</T>
+                        <T v="small" color={dom.protein}>{Math.round(p)} g</T>
                       </View>
                     )}
                   </Tap>
@@ -151,7 +151,7 @@ export default function Fuel() {
                   <Animated.View key={m.id} entering={still ? undefined : FadeIn.duration(200).easing(EASE)}>
                     <Tap onPress={() => { setAsk(null); setEdit(m); }} scale={0.99} feedback="none" style={s.item} accessibilityLabel={`${m.name}. Change or remove`}>
                       <T v="body" numberOfLines={1} style={{ flex: 1 }}>{m.name}</T>
-                      {!gentle && <T v="small" numberOfLines={1}>{`${m.kcal} kcal · ${m.protein} g`}</T>}
+                      {!gentle && <T v="small" numberOfLines={1}>{`${Math.round(m.kcal).toLocaleString('en-US')} kcal · ${Math.round(m.protein)} g`}</T>}
                       <Ionicons name="chevron-forward" size={14} color={c.dim} />
                     </Tap>
                   </Animated.View>
@@ -161,7 +161,7 @@ export default function Fuel() {
           })}
         </Card>
       </Animated.View>
-      {list.length > 0 && <Hint id="fuel-edit" text="Tap a food to change the amount or remove it." style={{ marginTop: 8 }} />}
+      {list.length > 0 && <Hint id="fuel-edit" text="Tap a food to fix its numbers, move it or remove it." style={{ marginTop: 8 }} />}
 
       {/* Protein: what's left today and the foods that close the gap fastest for this diet. */}
       <Animated.View entering={enter(4)}>
@@ -381,7 +381,7 @@ function WaterCard({ day, onSettings }: { day: string; onSettings: () => void })
         <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(200)} style={s.toast}>
           <Ionicons name="checkmark-circle" size={18} color={c.ok} />
           <T v="small" color={c.text} style={{ flex: 1 }}>{`Added ${ml(w.glass)}`}</T>
-          <Tap onPress={takeBack} feedback="none" style={s.undo} accessibilityLabel="Undo"><T v="small" color={c.accent} style={{ fontFamily: f.bold }}>Undo</T></Tap>
+          <Tap onPress={takeBack} feedback="none" style={s.undo} accessibilityLabel="Undo"><T v="small" color={c.accent} style={{ fontFamily: f.semi }}>Undo</T></Tap>
         </Animated.View>
       )}
     </View>
@@ -442,7 +442,7 @@ function WaterSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
         <Row>
           <View style={{ flex: 1, gap: 2 }}>
             <T v="h3">Remind me to drink</T>
-            <T v="small">{`Every ${hydration.every} min, ${hydration.from}:00–${hydration.to}:00 · stops at your goal`}</T>
+            <T v="small">{`Every ${hydration.every} min, ${clock(hydration.from, 0)}–${clock(hydration.to, 0)} · stops at your goal`}</T>
           </View>
           <Switch value={hydration.on} onValueChange={remind} accessibilityLabel="Remind me to drink"
             trackColor={{ true: c.accent, false: c.line }} ios_backgroundColor={c.line} thumbColor="#FFFFFF" />

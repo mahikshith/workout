@@ -25,7 +25,7 @@ type Icon = keyof typeof Ionicons.glyphMap;
 const ANDROID = Platform.OS === 'android';
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const hm = (min: number) => `${Math.floor(min / 60)}h ${String(Math.round(min % 60)).padStart(2, '0')}m`;
+const hm = (min: number) => { const t = Math.round(min), h = Math.floor(t / 60), m = t % 60; return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`; }; // never "0h 10m" or "7h 60m"
 const dayName = (key: string) => {
   const d = new Date(`${key}T12:00:00`);
   const diff = Math.round((new Date(`${dayKey()}T12:00:00`).getTime() - d.getTime()) / 86400000);
@@ -70,9 +70,12 @@ export default function Tracker() {
   };
 
   // Live: who is streaming right now.
+  // A device's own name can be empty, generic or just "Live" (some watches broadcast as "Live"/"HR"): then say what
+  // it is, so the card never reads "Live from Live".
+  const named = (n: string | undefined, fallback: string) => (n && n.trim().length > 2 && !/^(live|hr|heart ?rate( sensor)?)$/i.test(n.trim()) ? n.trim() : fallback);
   const liveFrom = bpm === null ? null
-    : ring.status === 'connected' && ring.live ? (link.ring?.name ?? 'Your ring')
-      : ble.status === 'connected' ? (link.strap?.name ?? 'your strap') : 'your device';
+    : ring.status === 'connected' && ring.live ? named(link.ring?.name, 'your ring')
+      : ble.status === 'connected' ? named(link.strap?.name, 'your strap') : 'your device';
 
   const rest = useMemo(() => {
     const xs = Object.values(daily).map((d) => d.restingHr).filter((x): x is number => !!x).slice(-28);
@@ -114,11 +117,13 @@ export default function Tracker() {
       { key: 'hrv', icon: 'pulse', color: dom.heart, label: 'HRV', value: hrv.v !== undefined ? String(Math.round(hrv.v)) : undefined, unit: 'ms', sub: hrv.sub },
       { key: 'spo2', icon: 'water', color: dom.water, label: 'SpO2', value: spo2.v !== undefined ? String(Math.round(spo2.v)) : undefined, unit: '%', sub: spo2.sub },
       { key: 'resp', icon: 'leaf-outline', color: dom.sleep, label: 'Breathing', value: resp.v !== undefined ? resp.v.toFixed(1) : undefined, unit: '/min', sub: resp.sub },
-      { key: 'temp', icon: 'thermometer-outline', color: dom.kcal, label: 'Skin temp', value: temp.v !== undefined ? `${temp.v > 0 ? '+' : ''}${temp.v.toFixed(1)}` : undefined, unit: '°C', sub: temp.v !== undefined ? temp.sub ?? 'Against your usual' : `We can't read it from Health Connect yet` },
       { key: 'sleep', icon: 'moon', color: dom.sleep, label: 'Sleep', value: sleep ? hm(sleep.minutes) : undefined, sub: sleep ? (sleep.stages ? `${hm(sleep.stages.deep)} deep` : 'No stages') : why('sleep') },
     ];
     const vo2 = pick('vo2max', 30);
     const w = pick('weightKg', 7);
+    // Skin temperature only when we have it: Health Connect can't hand it to us yet, and an always-empty tile read
+    // like an error. Connect › What Gym Buddy gets still lists it as "We can't read it yet".
+    if (temp.v !== undefined) out.push({ key: 'temp', icon: 'thermometer-outline', color: dom.kcal, label: 'Skin temp', value: `${temp.v > 0 ? '+' : ''}${temp.v.toFixed(1)}`, unit: '°C', sub: temp.sub ?? 'Against your usual' });
     if (vo2.v !== undefined) out.push({ key: 'vo2', icon: 'speedometer-outline', color: dom.train, label: 'VO2 max', value: vo2.v.toFixed(1), sub: vo2.sub });
     if (w.v !== undefined) out.push({ key: 'w', icon: 'scale-outline', color: dom.weight, label: 'Weight', value: w.v.toFixed(1), unit: 'kg', sub: w.sub });
     return out;

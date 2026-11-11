@@ -9,7 +9,7 @@ import Animated, { ZoomIn } from 'react-native-reanimated';
 import { dayKey, targets } from '../calc';
 import { cardioFor } from '../data/cardio';
 import {
-  challengeById, GOAL_COLOR, MILESTONES, milestoneKey, newMilestone, progress, recommend, taskIcon, taskSub, taskTitle, taskDomain,
+  challengeById, GOAL_COLOR, type GoalTag, MILESTONES, milestoneKey, newMilestone, progress, recommend, taskIcon, taskSub, taskTitle, taskDomain,
   type Challenge, type Ctx, type DayInfo, type Progress, type Task, type TaskState,
 } from '../data/challenges';
 import { asDay, type Quick } from '../data/quick';
@@ -58,7 +58,16 @@ export function useRecommended() {
   return useMemo(() => recommend(profile, n), [profile, n]);
 }
 
-export const goalColor = (ch: Challenge) => dom[GOAL_COLOR[ch.goal]];
+// Goal colours, with Cardio on the steps green so its chip and pills don't read as HIIT (both are heart work in
+// GOAL_COLOR, and there are more goals than domain colours).
+export const goalTint = (g: GoalTag) => (g === 'Cardio' ? dom.steps : dom[GOAL_COLOR[g]]);
+export const goalColor = (ch: Challenge) => goalTint(ch.goal);
+// Small facts worth knowing before joining: the kit it needs and who it is made for.
+const KIT: Record<string, string> = { dumbbell: 'Dumbbells', kettlebells: 'Kettlebell', 'pull-up bar': 'Pull-up bar' };
+export const extraPills = (ch: Challenge): { icon: Icon; text: string }[] => [
+  ...(ch.needs ?? []).map((g) => ({ icon: 'barbell-outline' as Icon, text: KIT[g] ?? g.charAt(0).toUpperCase() + g.slice(1) })),
+  ...(ch.who ? [{ icon: 'people-outline' as Icon, text: ch.who === '55+' ? 'Made for 55+' : 'Made for after birth' }] : []),
+];
 export const openChallenge = (id: string) => router.push({ pathname: '/challenge/[id]', params: { id } });
 
 // What a task's button does. Workouts open ready (clock stopped) exactly like Start on Today; an open workout is
@@ -294,10 +303,10 @@ export function DaySheet({ ch, day, onClose }: { ch: Challenge; day: DayInfo | n
 }
 
 // Small pill used on hero cards: level, days, effort.
-export const Pill = ({ icon, text, color = c.soft, bg = c.card2 }: { icon?: Icon; text: string; color?: string; bg?: string }): ReactNode => (
-  <Row gap={4} style={{ height: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: bg }}>
+export const Pill = ({ icon, text, color = c.soft, bg = c.card2, shrink }: { icon?: Icon; text: string; color?: string; bg?: string; shrink?: boolean }): ReactNode => (
+  <Row gap={4} style={[{ height: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: bg }, shrink && { flexShrink: 1, minWidth: 0 }]}>
     {icon && <Ionicons name={icon} size={13} color={color} />}
-    <T v="small" color={color} style={{ fontSize: 13 }} numberOfLines={1}>{text}</T>
+    <T v="small" color={color} style={[{ fontSize: 13 }, shrink && { flexShrink: 1 }]} numberOfLines={1}>{text}</T>
   </Row>
 );
 

@@ -19,7 +19,8 @@ export function LineChart({ values, goal, height = 120, color = c.accent, fmt = 
   const lo0 = Math.min(...all), hi0 = Math.max(...all);
   const pad = Math.max((hi0 - lo0) * 0.15, 1);
   const lo = lo0 - pad, hi = hi0 + pad;
-  const y = (v: number) => height - ((v - lo) / (hi - lo)) * height;
+  // 22 px of headroom so the last value's label sits above the line, never on it.
+  const y = (v: number) => height - ((v - lo) / (hi - lo)) * (height - 22);
   const inset = 8;
   const x = (i: number) => (values.length < 2 ? w / 2 : inset + (i / (values.length - 1)) * (w - 2 * inset));
   const last = values.length - 1;
@@ -56,7 +57,7 @@ export function LineChart({ values, goal, height = 120, color = c.accent, fmt = 
 // Vertical bars with a value and a label under each; the last bar is highlighted. An optional goal draws a dashed line.
 // `now` marks the current bar (highlighted). Bars after it are the days or weeks still to come: drawn as faint
 // empty slots so the current one sits in the middle of the chart instead of at the far right edge.
-export function Bars({ items, height = 110, color = c.accent, goal, now }: { items: { label: string; value: number }[]; height?: number; color?: string; goal?: number; now?: number }) {
+export function Bars({ items, height = 110, color = c.accent, goal, now, fmt }: { items: { label: string; value: number }[]; height?: number; color?: string; goal?: number; now?: number; fmt?: (v: number) => string }) {
   const [w, setW] = useState(0);
   const n = items.length;
   const max = Math.max(1, goal ?? 0, ...items.map((it) => it.value));
@@ -77,7 +78,8 @@ export function Bars({ items, height = 110, color = c.accent, goal, now }: { ite
           </Svg>
           {items.map((it, i) => (
             <View key={i} style={{ position: 'absolute', left: i * slot, width: slot, top: height + 6, alignItems: 'center' }}>
-              <T v="small" color={i === last ? color : i > last ? 'transparent' : c.text}>{it.value}</T>
+              {/* Narrow bars (14 days on a phone): only today's value, so numbers never run into each other. */}
+              <T v="small" numberOfLines={1} color={i === last ? color : i > last || slot < 32 ? 'transparent' : c.text}>{fmt ? fmt(it.value) : it.value}</T>
               <T v="label" color={i === last ? color : i > last ? c.dim : undefined} style={{ marginTop: 2 }}>{it.label}</T>
             </View>
           ))}

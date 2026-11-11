@@ -16,6 +16,7 @@ export type EngineInput = {
 };
 
 const DAY = 86400000;
+const mlText = (units: number) => `${(Math.round((units * 250) / 50) * 50).toLocaleString('en-US')} ml`;
 const hash = (s: string) => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7) >>> 0;
 const pick = <T,>(xs: T[], seed: string) => xs[hash(seed) % xs.length];
 
@@ -278,7 +279,8 @@ export function insights(i: EngineInput, now = Date.now()): Insight[] {
 
   const water = i.water[today] ?? 0;
   if (new Date(now).getHours() >= 15 && water < 0.4 * t.water)
-    out.push({ id: 'water-low', icon: 'water', title: 'Sip some water', body: `You're at ${water} of ${t.water} glasses today. A glass now keeps the afternoon slump away.` });
+    // In ml (State.water is in 250 ml units, see src/water.ts; not imported here to keep the store out of the engine).
+    out.push({ id: 'water-low', icon: 'water', title: 'Sip some water', body: `You're at ${mlText(water)} of ${mlText(t.water)} today. A glass now keeps the afternoon slump away.` });
 
   const life = {
     desk: { title: 'Sitting most of the day?', body: 'Stand up and move for two minutes every hour. A desk reset or a few Kegels fit between meetings.' },

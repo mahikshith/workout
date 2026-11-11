@@ -319,9 +319,12 @@ export const GADGETBRIDGE = {
   source: 'https://gadgetbridge.org/basics/integrations/health-connect/',
 };
 
-// Friendly names for Health Connect data origins (package names), for "Steps from Google Health found".
+// Friendly names for Health Connect data origins (package names), for "Steps from Fitbit found". Naming rule: the
+// Fitbit app ships as "Google Health" now, but people know their watch as a Fitbit. The brand page says it once
+// ("The Fitbit app is now called Google Health") and names the app where you must find it (Get / Open Google Health);
+// everywhere a number's source is named (Tracker, Watch & health, Calendar) it is plain "Fitbit".
 const ORIGINS: Record<string, string> = {
-  'com.fitbit.FitbitMobile': 'Google Health',
+  'com.fitbit.FitbitMobile': 'Fitbit',
   'com.google.android.apps.fitness': 'Google Fit',
   'com.sec.android.app.shealth': 'Samsung Health',
   'com.garmin.android.apps.connectmobile': 'Garmin Connect',

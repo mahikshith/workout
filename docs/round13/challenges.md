@@ -111,3 +111,112 @@ start was a weights plan or a quick session; nothing gave a 2–4 week goal with
   out of scope for this round's lengths (14/21/28/30).
 - Done cells are green (not the goal colour) so HIIT's red never reads as "missed". Today's card action is tonal
   because Today's one filled button is the workout's Start.
+
+## More challenges (round 13b)
+
+Owner's ask: *"Perform research and add more challenges… It's up to the user to take it or break the challenge."*
+So: many more to choose from, each still one clear task a day, with rest days and free misses so breaking one day
+never breaks the challenge. **15 new, 27 in all** (12 Beginner, 11 Intermediate, 4 Advanced). Everything lives in
+`src/data/challenges.ts`; the screens pick the new ones up with no UI change.
+
+### Research (what's popular, and what we took from it)
+- **"30-day" challenges** (squat, plank, push-up, abs, burpee) are the most copied format in app stores and
+  communities. The good ones grow a little at a time and build in rest: the common plank sheets go from 20 s to minutes
+  with rest days on about days 6, 13, 19, 26, and say to split the hold if form breaks
+  ([UBC HR plank sheet](https://hr.ubc.ca/health/files/30-Day-Plank-Challenge.pdf),
+  [Healthline](https://www.healthline.com/health/exercise-fitness/plank-challenge),
+  [Garmin](https://www.garmin.com/en-US/blog/fitness/planking-challenge/)). Leap Fitness' *30 Day Fitness Challenge*
+  rests every 4–5 days and reviewers complain of a hard jump around day 10–15 (research.md §5) → we grow **by week**,
+  not by day, and cap each week's step at roughly +60 %.
+- **Couch to 5K** (NHS): 3 run-walks a week with a rest day between; week 1 is 5 min walk, 8 × (1 min jog, 90 s walk),
+  5 min walk ([NHS plan](https://www.nhs.uk/better-health/get-active/get-running-with-couch-to-5k/couch-to-5k-running-plan)).
+- **Nike Training Club programs**: 2–8 weeks, about 3 workouts a week, staged difficulty (research.md §5) → Dumbbell,
+  Kettlebell, Pull-up and Calisthenics are 3–4 sessions a week, A/B or week-by-week.
+- **Fitbit / Samsung Health / Apple Fitness**: step goals, monthly challenges with milestone stars, rest that doesn't
+  break the streak (research.md §5) → kept our make-up days, excused days and ¼ ½ ¾ stars for every new challenge.
+- **WHO / CDC activity guidelines**: 150 min of moderate cardio a week, strength 2+ days, and for older adults balance
+  work too ([WHO](https://www.who.int/initiatives/behealthy/physical-activity),
+  [CDC older adults](https://www.cdc.gov/physical-activity-basics/guidelines/older-adults.html)) → Zone 2 28 adds up to
+  about 150 min a week; Steady and strong 28 mixes strength, balance and walks.
+- **Stair "exercise snacks"** (McMaster, 2019): three short climbs a day improved fitness in sedentary adults
+  ([McMaster news](https://news.mcmaster.ca/exercise-snacks-make-fitness-easier-researchers-find-short-bouts-of-stairclimbing-throughout-the-day-can-boost-health/))
+  → not added as its own challenge: the app can't see flights climbed, so every day would be a hand tick. Desk 14
+  uses the same "small dose, often" idea.
+- **Dead hang / first pull-up**: grip gains are well supported, shoulder "cures" aren't; add about 5 s a week, and get
+  advice first with a recent shoulder injury ([Fitness Volt review](https://fitnessvolt.com/hanging-for-2-minutes/),
+  [Bullbar 30-day pull-up](https://bullbarfit.com/blogs/updates/the-30-day-pull-up-challenge-that-actually-holds-up-build-the-joints-then-build-the-reps))
+  → hangs grow 20 → 45 s over four weeks, rest days between for tendons.
+- **After birth**: breathing and pelvic floor first, no crunches or spinal flexion early, clearance at the postnatal
+  check (about 6 weeks, longer after a C-section), see a pelvic health physio for leaking or doming
+  ([NASM](https://blog.nasm.org/progressive-exercises-for-post-pregnancy),
+  [Nourish Move Love](https://www.nourishmovelove.com/postpartum-core-exercises/)) → Gentle core after birth.
+- **75 Hard vs 75 Soft**: 75 Hard is two 45-minute workouts a day (one outside), 4 L of water, a strict diet, no
+  alcohol, a daily photo, and **any slip resets you to day 1**. That reset rule, the all-or-nothing diet and the
+  volume are the opposite of what keeps beginners going and can feed an unhealthy relationship with food, so we
+  **don't offer 75 Hard**. 75 Soft keeps one workout a day with an active-recovery day, a water goal and "eat well", and
+  forgives a missed day ([Garage Gym Reviews](https://www.garagegymreviews.com/what-is-the-75-soft-challenge),
+  [Grazia](https://graziadaily.co.uk/life/health-fitness/what-is-75-soft-challenge-rules)) → **Soft 30**: same idea in
+  30 days, nothing resets.
+- **Not added, on purpose**: *no-sugar / clean-eating* (the app can't check it, and restriction challenges are a poor
+  fit for our gentle-eating mode; Soft 30 asks for protein and water instead), *sleep* (no sleep task kind yet; a good
+  next one, since the tracker already has sleep), *stairs* (see above), *75 Hard* (see above).
+
+### The 15 new challenges
+| Challenge | Level · goal | Days | What a day asks | Why it's in |
+|---|---|---|---|---|
+| **Squat 30** | Beginner · Strength | 30 | Squats · week 1–4 (36 → 100 squats, wall sit 20 → 45 s, bridges); rest every 4th day | The classic 30-day squat challenge, joint-friendly (no jumps) |
+| **Plank 30** | Beginner · Core | 30 | Planks · week 1–4 (3 × 20 → 60 s, side planks, bird dogs); a rest day each week | Most popular core challenge; holds grow by week |
+| **Walk to run 28** | Beginner · Cardio | 28 | Run-walk · week 1–4 (8 × 60 s jog → 4 × 3 min), 3 a week | Couch-to-5K's first month |
+| **Steady and strong 28** | Beginner · Mobility · 55+ | 28 | Chair squats, wall push-ups, calf raises, step-ups, bird dogs (level 2 from day 15) ×3, 20 min cardio ×2 | WHO/CDC older-adult mix: strength, balance, walking |
+| **Desk 14** | Beginner · Mobility | 14 | Desk reset / Desk mover on alternate workdays, weekends off | Office "exercise snacks" |
+| **Gentle core after birth** | Beginner · Core · after birth | 28 | Breathing, pelvic floor, pelvic tilts, bridges, clams; then bridge marches, bird dogs, slow dead bugs; 5 days a week | Postnatal-safe core; 4 free misses (newborns) |
+| **Glutes 28** | Intermediate · Muscle gain | 28 | Glutes level 1 (weeks 1–2), level 2 (weeks 3–4), 4 a week | Hugely popular "booty" challenge, bodyweight |
+| **Burpee 30** | Intermediate · HIIT | 30 | Burpees · week 1–4 (24 half → 50 full), 2 on 1 off | Classic burpee challenge, with a half-burpee start |
+| **Dumbbell 28** | Intermediate · Muscle gain | 28 | Dumbbell A / B alternating, 3 a week | One pair of dumbbells at home |
+| **Kettlebell 21** | Intermediate · Weight loss | 21 | Kettlebell sessions ×3 a week, 8,000 steps ×2 | Swings for conditioning, walking for the burn |
+| **First pull-up 28** | Intermediate · Strength | 28 | Pull-up · week 1–4 (hangs 20 → 45 s, negatives, first pull-ups), 3 a week | Dead-hang and pull-up challenges, tendon-friendly |
+| **Zone 2 28** | Intermediate · Cardio | 28 | 30 → 45 min easy cardio, 4 a week | About 150 min a week at talking pace |
+| **Soft 30** | Intermediate · Habits | 30 | Workout (6 days) or 7,000 steps (day 7), plus water and protein every day | 75 Soft, without the reset |
+| **Calisthenics 28** | Advanced · Muscle gain | 28 | Push and legs / Pull and core, 4 a week | Advanced bodyweight (archer, pistol, L-sit, dragon flag) |
+| **Hybrid 28** | Advanced · Cardio | 28 | 3 plan workouts, Burn HIIT, 40 and 60 min easy cardio | Hybrid training: strength and engine together |
+
+Every new challenge: rest days that count as done, 2–4 free misses, make-up days, excused days and milestone stars
+(all from the existing `progress()`), and a finisher badge. "Up next" after a finish follows goal and level, e.g. Walk
+to run → Zone 2 → Hybrid, Squat 30 → Push-up 30 → Advanced strength.
+
+### Data model and safety (additive)
+- New goal tag **Cardio** (in `GoalTag`, `GOALS`, `GOAL_COLOR` → `heart`, same as HIIT). The goal chips on
+  `/challenges` are built from `GOALS`, so the chip appears with no UI change (checked in the screenshots).
+- New optional fields on `Challenge`: `needs` (home kit: `dumbbell`, `kettlebells`, `pull-up bar`), `impact`
+  (running or jumping) and `who` (`'55+'` or `'after birth'`).
+- `recommend()`: Cardio joins *lose fat* and *stay fit*; run/endurance concerns lift Cardio; desk concern lifts Desk 14;
+  kit you own lifts a challenge (+2), missing kit at home sinks it (−4); `who: '55+'` is picked first at 55+;
+  `who: 'after birth'` is picked first after birth and sinks for everyone else; impact challenges sink for heavier
+  bodies and at 55+, and drop out of the top picks in pregnancy and after birth (like HIIT and Advanced already did).
+- Sessions use only existing exercise ids and start through the same `start(asDay(q), place)`, so the engine still swaps
+  what's locked or unsafe for this person (jumps for heavier bodies, planks and crunches up to 12 weeks after birth,
+  knee/back concerns, missing kit at home).
+
+### Self-checks added (`selfCheck` in challenges.ts, run by scripts/selfcheck.mjs)
+At least 25 challenges, unique ids, unique session names (days tick by title); each level has 4+ and each goal has a
+colour and a challenge; per challenge: valid level/goal, all words present, free misses ≤ one per week, kit is known,
+**every day has a task list** with known task kinds and sane numbers, every session is a known one and its kit is
+listed in `needs`, 3+ task days in every full week, and training challenges keep a rest day each week (≤ 6 in a row).
+Progressions grow every week by no more than 60–70 % (squats, plank holds, jog time, burpees, hangs). The after-birth,
+55+ and desk sessions contain no planks, crunches or jumps. Auto-tick: a plank day ticks from its session; a Soft 30 day
+needs workout, water and protein. Picks: after birth → Gentle core in the top 3 and no impact/HIIT/Advanced in the top
+6; 64-year-old → Steady and strong first; home without a bar → no pull-up first, with a bar → it's first; a new runner
+→ Walk to run.
+
+### Screenshots (`/tmp/claude-0/shots/challenges2/`, 390 px)
+`cat-older-light.png`, `cat-older-dark.png` (55+ → Steady and strong picked), `cat-postnatal-light.png` (after birth →
+Gentle core picked), `cat-cardio-light.png`, `cat-cardio-dark.png` (new Cardio chip), `cat-beg-light.png`,
+`cat-int-light.png`, `cat-int-dark.png`, `cat-adv-light.png`, `cat-adv-dark.png`, `det-postnatal-light.png`,
+`det-postnatal-dark.png`, `det-walkrun-light.png`, `det-soft-dark.png`. Seeds: `older.json`, `postnatal.json`;
+helper `shot.cjs` adds `--first "text"` (exact, first match) so a chip is clicked rather than a row pill.
+
+### Left open (UI owned elsewhere)
+- The detail hero shows a *Gym* pill only for `gear: 'gym'`; a pill for `needs` (Dumbbells / Kettlebell / Pull-up bar)
+  and a small "55+" / "After birth" tag would help people choose. The kit is named in each tagline/why for now.
+- Cardio and HIIT chips share the heart colour.
+- On a catalogue row, a long goal pill (e.g. "Weight loss" next to "Intermediate · 21 days") wraps to a second line.

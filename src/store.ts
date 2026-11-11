@@ -5,7 +5,7 @@ import { alternatives, available, byId, type Place } from './data/exercises';
 import type { Diet } from './data/foods';
 import { perWeek, planById, type Day } from './data/plans';
 import { phasedDay, planWeek } from './data/program';
-import { dayKey, lastSets, parseReps } from './calc';
+import { dayKey, isTimed, lastSets, parseReps } from './calc';
 import { gate } from './engine';
 import { dose } from './data/muscles';
 import { order } from './data/order';
@@ -49,7 +49,8 @@ export type NudgePrefs = { missed: boolean; streak: boolean; recap: boolean; qui
 export type MediaPref = 'animated' | 'drawing' | 'photo' | 'video';
 
 export type SetLog = { reps: number; weight: number; done: boolean };
-export type Item = { exId: string; target: string; rest: number; sets: SetLog[]; swappedFrom?: string };
+// up: kg added to last time's weight because every set last time reached the target ("Go heavier", round 13).
+export type Item = { exId: string; target: string; rest: number; sets: SetLog[]; swappedFrom?: string; up?: number };
 // A workout opens ready (running false) so it can be looked through; begin() starts the clock. pausedAt is set while paused; pausedMs adds up finished
 // pauses. idx is the exercise on screen, and restUntil/restTotal the rest timer, kept here (not in the screen) so the
 // mini bar can show them while the workout is minimised. restFrom is the exercise whose set started the rest (the screen
@@ -177,13 +178,28 @@ export function starterKg(exId: string, p?: Profile): number {
   return Math.max(step, Math.round(kg / step) * step);
 }
 
-function seedSets(exId: string, target: string, sets: number, history: Session[], profile?: Profile): SetLog[] {
+function seedSets(exId: string, target: string, sets: number, history: Session[], profile?: Profile, heavier = false): SetLog[] {
   const prev = lastSets(history, exId);
   const kg = starterKg(exId, profile);
+  const up = heavier ? goHeavier(exId, target, prev, profile) : 0;
   return Array.from({ length: sets }, (_, k) => {
     const p = prev?.[Math.min(k, prev.length - 1)];
-    return { reps: p?.reps ?? parseReps(target), weight: p?.weight ?? kg, done: false };
+    return { reps: p?.reps ?? parseReps(target), weight: p ? p.weight + (p.weight > 0 ? up : 0) : kg, done: false };
   });
+}
+
+// Progressive overload, the simple way (Fitbod, JEFIT): if every set last time reached the target reps with a weight,
+// start one small step heavier. Never for bodyweight moves, timed holds, under-18s, pregnancy or after birth, and the
+// caller skips it in deload weeks. Returns the kg added (0 = same as last time).
+export function goHeavier(exId: string, target: string, prev: SetLog[] | null, p?: Profile): number {
+  const e = byId[exId];
+  if (!e || !prev?.length || NO_LOAD.includes(e.category) || !(e.equipment in BASE)) return 0;
+  if (p && (p.age < 18 || (p.women && p.women.mode !== 'none' && p.women.mode !== 'cycle'))) return 0;
+  if (isTimed(target) || /min/i.test(target)) return 0; // timed holds and cardio
+  // A range ("8-12") counts as reached at its top.
+  const want = Math.max(...(target.match(/\d+/g) ?? ['0']).map(Number));
+  if (!want || prev.some((x) => x.weight <= 0 || x.reps < want)) return 0;
+  return e.equipment === 'dumbbell' || e.equipment === 'kettlebells' || e.equipment === 'medicine ball' ? 2 : 2.5;
 }
 
 // A day's exercises, ready to log. Exercises the place can't support, or that are locked for this person (level or
@@ -195,6 +211,8 @@ function itemsFor(st: Pick<State, 'sessions' | 'profile' | 'planStart' | 'planId
   const plan = planId ? planById[planId] : undefined;
   if (plan && dayIndex !== undefined && plan.days[dayIndex] === day)
     day = phasedDay(plan, dayIndex, planWeek(plan, planId === st.planId ? planStart : undefined, sessions));
+  // Go heavier is off in a plan's Deload week (the 4th of each block).
+  const deload = !!plan && dayIndex !== undefined && planWeek(plan, planId === st.planId ? planStart : undefined, sessions) % 4 === 3;
   return order(day.slots).map((sl) => {
     let ex = byId[sl.id];
     let swappedFrom: string | undefined;
@@ -203,7 +221,8 @@ function itemsFor(st: Pick<State, 'sessions' | 'profile' | 'planStart' | 'planId
       const alt = alternatives(ex, place, gear, 12).find(ok);
       if (alt) { swappedFrom = ex.id; ex = alt; }
     }
-    return { exId: ex.id, target: sl.reps, rest: sl.rest, sets: seedSets(ex.id, sl.reps, sl.sets, sessions, profile), swappedFrom };
+    const up = deload ? 0 : goHeavier(ex.id, sl.reps, lastSets(sessions, ex.id), profile);
+    return { exId: ex.id, target: sl.reps, rest: sl.rest, sets: seedSets(ex.id, sl.reps, sl.sets, sessions, profile, !deload), swappedFrom, up: up || undefined };
   });
 }
 const STALE_MS = 3 * 3600000;

@@ -46,7 +46,18 @@ async function channels() {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync('nudges', { name: 'Workout nudges', importance: Notifications.AndroidImportance.HIGH });
   await Notifications.setNotificationChannelAsync('water', { name: 'Water, breaks and tips', importance: Notifications.AndroidImportance.DEFAULT });
+  await restChannel();
 }
+// The rest timer gets its own channel ("Rest timer": high importance, one short buzz), so people can tune it apart
+// from reminders. Created once per launch, before the first rest alert.
+let restReady: Promise<unknown> | null = null;
+const restChannel = () => {
+  if (Platform.OS !== 'android') return Promise.resolve();
+  restReady ??= Notifications.setNotificationChannelAsync('rest', {
+    name: 'Rest timer', description: 'When your rest between sets is over', importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 250],
+  }).catch(() => { restReady = null; });
+  return restReady;
+};
 
 export const hasPermission = async () => !web && (await Notifications.getPermissionsAsync()).granted;
 
@@ -283,13 +294,15 @@ export function useNudgeSync() {
   }, []);
 }
 
-// Rest timer alert for when the phone is locked or the app is in the background.
-export async function restAlert(seconds: number | null) {
+// Rest timer alert for when the phone is locked or the app is in the background. `next` names what's up, e.g.
+// "Set 3 · Bench press 60 kg × 8" or "Up next: Squat" (optional; without it the line stays generic).
+export async function restAlert(seconds: number | null, next?: string) {
   if (web) return;
   if (restId) { Notifications.cancelScheduledNotificationAsync(restId); restId = null; }
   if (!seconds || !(await Notifications.getPermissionsAsync()).granted) return;
+  await restChannel();
   restId = await Notifications.scheduleNotificationAsync({
-    content: { title: 'Rest over', body: 'Next set. Let’s go.' },
-    trigger: { type: K.TIME_INTERVAL, seconds: Math.max(1, Math.round(seconds)), channelId: 'nudges' },
+    content: { title: 'Rest over', body: next?.trim() ? next.trim() : 'Next set. Let’s go.' },
+    trigger: { type: K.TIME_INTERVAL, seconds: Math.max(1, Math.round(seconds)), channelId: 'rest' },
   });
 }

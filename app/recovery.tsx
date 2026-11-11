@@ -16,8 +16,8 @@ import { Button, Ring, T } from '../src/ui';
 
 const FACTOR_ICON: Record<Factor['key'], keyof typeof Ionicons.glyphMap> = { hrv: 'pulse', rhr: 'heart', sleep: 'moon', regular: 'time-outline' };
 const WD = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const hm = (min: number) => `${Math.floor(min / 60)}h ${String(Math.round(min % 60)).padStart(2, '0')}m`;
-const clock = (iso: string) => { const d = new Date(iso); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const hm = (min: number) => { const t = Math.round(min), h = Math.floor(t / 60), m = t % 60; return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`; }; // never "0h 10m" or "7h 60m"
+const clock = (iso?: string) => { const d = new Date(iso ?? NaN); return Number.isFinite(d.getTime()) ? `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}` : ''; };
 
 export default function Recovery() {
   const ins = useSafeAreaInsets();
@@ -91,9 +91,9 @@ export default function Recovery() {
           <Animated.View entering={enter(2)} style={s.card}>
             <View style={s.row}>
               <T v="h3" style={{ flex: 1 }}>Last night</T>
-              <T v="small">{clock(rd.sleep.start)} – {clock(rd.sleep.end)}</T>
+              {!!clock(rd.sleep.start) && !!clock(rd.sleep.end) && <T v="small">{clock(rd.sleep.start)} – {clock(rd.sleep.end)}</T>}
             </View>
-            <T v="num">{hm(rd.sleep.minutes)}</T>
+            {Number.isFinite(rd.sleep.minutes) && <T v="num">{hm(rd.sleep.minutes)}</T>}
             {st ? (
               <>
                 <View style={s.stageBar}>
@@ -118,13 +118,14 @@ export default function Recovery() {
             <T v="h3" style={{ flex: 1 }}>Effort</T>
             <T v="small">{effort.load.trend === 'up' ? 'Higher than usual this week' : effort.load.trend === 'down' ? 'Lighter than usual this week' : effort.load.trend === 'steady' ? 'Usual week' : 'Last 7 days'}</T>
           </View>
-          <Bars items={effort.load.week.map((t, k) => ({ label: WD[new Date(`${dayBefore(today, 6 - k)}T12:00:00`).getDay()], value: effortScore(t) }))} height={90} color={c.pink} />
+          {effort.load.week.some((t) => t > 0) && <Bars items={effort.load.week.map((t, k) => ({ label: WD[new Date(`${dayBefore(today, 6 - k)}T12:00:00`).getDay()], value: effortScore(t) }))} height={90} color={c.pink} />}
           {effort.last ? (
             <View style={{ gap: 8 }}>
               <View style={s.row}>
-                <Ionicons name="barbell-outline" size={18} color={c.muted} />
+                <Ionicons name={/run|walk|bik|cycl|swim|hik/i.test(effort.last.title) ? 'walk-outline' : 'barbell-outline'} size={18} color={c.muted} />
                 <T v="body" numberOfLines={1} style={{ flex: 1 }}>{effort.last.title}</T>
-                <T v="body" color={c.text}>{effort.last.score}</T>
+                <T v="small">Effort</T>
+                <T v="body" color={c.text}>{effort.last.score}<T v="small"> / 100</T></T>
               </View>
               <T v="small">
                 {effort.last.minutes} min · {effort.last.avgHr ? `avg ${Math.round(effort.last.avgHr)} bpm` : 'no heart rate, estimated'}
@@ -138,7 +139,7 @@ export default function Recovery() {
                 </>
               )}
             </View>
-          ) : <T v="small">Log a workout to see its effort</T>}
+          ) : <T v="small">Finish a workout and its effort shows here, from 0 (easy) to 100 (all out)</T>}
         </Animated.View>
 
         {/* Trend */}

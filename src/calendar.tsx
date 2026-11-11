@@ -18,6 +18,7 @@ import { byId } from './data/exercises';
 import { planById, type Plan } from './data/plans';
 import { sessionMinutes } from './glance';
 import { originName } from './health/guides';
+import { ml, toMl } from './water';
 import { plannedOn } from './notify';
 import { Sheet } from './sheet';
 import { useStore, type Excuse, type Reminder, type Session } from './store';
@@ -121,7 +122,7 @@ export function monthSummary(days: (DayInfo | null)[]) {
 }
 
 export const kcalShort = (v: number) => (v >= 10000 ? `${Math.round(v / 1000)}k` : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
-const hm = (min: number) => `${Math.floor(min / 60)}h ${Math.round(min % 60)}m`;
+const hm = (min: number) => { const t = Math.round(min), h = Math.floor(t / 60), m = t % 60; return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`; }; // never "0h 10m" or "7h 60m"
 const ago = (iso?: string) => {
   if (!iso) return undefined;
   const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
@@ -184,11 +185,11 @@ function DayCell({ d, today, onPress, showKcal }: { d: DayInfo; today: boolean; 
     ours && { backgroundColor: dom.train },
     d.kind === 'watch' && { backgroundColor: tint(c.blue, 1.5), borderWidth: 1, borderColor: c.blue + '66' },
     d.kind === 'rest' && { backgroundColor: tint(dom.sleep, 1.5) },
-    d.kind === 'excused' && { backgroundColor: c.card2 },
+    d.kind === 'excused' && { backgroundColor: d.excuse === 'rest' ? tint(dom.sleep, 1.5) : c.card2 }, // a day you marked as rest wears the rest colour
     d.kind === 'missed' && { borderWidth: 1.5, borderStyle: 'dashed' as const, borderColor: c.danger + '80' },
     d.kind === 'planned' && { borderWidth: 1.5, borderColor: dom.train + '99' },
   ];
-  const ink = ours ? c.accentInk : d.kind === 'missed' || d.kind === 'excused' || (d.kind === 'blank' && d.key < dayKey()) ? c.muted : d.kind === 'blank' ? c.dim : c.text;
+  const ink = ours ? c.accentInk : d.kind === 'missed' || (d.kind === 'excused' && d.excuse !== 'rest') || (d.kind === 'blank' && d.key < dayKey()) ? c.muted : d.kind === 'blank' ? c.dim : c.text;
   const watch = d.kind === 'watch' || d.kind === 'both';
   const bar = showKcal && d.kcal ? Math.min(1, d.kcal / 800) : 0;
   const label = `${new Date(d.key + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}: ${KIND_WORD[d.kind]}${d.kcal && showKcal ? `, ${d.kcal} kcal burned` : ''}`;
@@ -263,7 +264,6 @@ function DayBody({ k }: { k: string }) {
   const planId = useStore((s) => s.planId);
   const meals = useStore((s) => s.meals);
   const water = useStore((s) => s.water);
-  const glassMl = useStore((s) => s.waterPrefs?.glassMl ?? 250);
   const profile = useStore((s) => s.profile);
   const workouts = useTracker((t) => t.workouts);
   const merged = useTracker((t) => t.merged);
@@ -290,7 +290,7 @@ function DayBody({ k }: { k: string }) {
 
   const title = k === today ? 'Today' : date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
   const status = ours.length || watch.length ? null : why ? EXCUSE[why].label : k > today ? (planned ? 'Planned workout day' : 'Nothing planned')
-    : k === today ? (planned ? 'Workout planned today' : 'Nothing logged yet') : planned ? 'Planned, not done' : 'Rest day';
+    : k === today ? (planned ? 'Workout planned today' : 'Nothing logged yet') : planned ? 'Planned, no workout logged' : 'Rest day';
 
   const remove = (id: string) => {
     if (confirm !== id) { setConfirm(id); haptic('light'); return; }
@@ -299,7 +299,7 @@ function DayBody({ k }: { k: string }) {
   const hrOf = (id: string) => {
     const h = sessionHr[id], w = mergedFor(merged, id);
     const avg = h?.avg ?? w?.avgHr, max = h?.max ?? w?.maxHr;
-    return avg && max ? `${Math.round(avg)} avg · ${Math.round(max)} max bpm` : avg ? `${Math.round(avg)} bpm avg` : null;
+    return avg && max ? `${Math.round(avg)} avg · ${Math.round(max)} max bpm` : avg ? `avg ${Math.round(avg)} bpm` : null;
   };
 
   const stats: { icon: Icon; color: string; value: string; label: string }[] = [];
@@ -329,7 +329,7 @@ function DayBody({ k }: { k: string }) {
           </Row>
           {cal.parts.length > 0 && (
             <View style={{ gap: 4 }}>
-              <T v="small" color={c.soft}>{cal.from === 'day' ? 'Already counted in that total:' : 'From:'}</T>
+              <T v="small" color={c.soft}>{cal.from === 'day' ? 'Already counted in that total' : 'Made up of'}</T>
               {cal.parts.map((w) => (
                 <Row key={w.id} gap={8}>
                   <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1 }}>{`${w.title ?? w.type} · ${sourceName(w)}`}</T>
@@ -400,7 +400,7 @@ function DayBody({ k }: { k: string }) {
                 <T v="h3" numberOfLines={1}>{w.title ?? w.type}</T>
                 <T v="small" numberOfLines={2}>
                   {[sourceName(w), `${Math.max(1, Math.round(w.durationS / 60))} min`, w.kcal && !gentle ? `${Math.round(w.kcal)} kcal` : null,
-                    w.distanceM ? `${(w.distanceM / 1000).toFixed(1)} km` : null, w.avgHr ? `${Math.round(w.avgHr)} bpm avg` : null].filter(Boolean).join(' · ')}
+                    w.distanceM ? `${(w.distanceM / 1000).toFixed(1)} km` : null, w.avgHr ? `avg ${Math.round(w.avgHr)} bpm` : null].filter(Boolean).join(' · ')}
                 </T>
               </View>
             </Row>
@@ -430,7 +430,7 @@ function DayBody({ k }: { k: string }) {
             {dayMeals.length > 0 && !gentle && <MiniStat icon="restaurant" color={dom.kcal} value={eaten.toLocaleString()} label="kcal eaten" />}
             {dayMeals.length > 0 && !gentle && <MiniStat icon="egg" color={dom.protein} value={`${Math.round(protein)} g`} label="protein" />}
             {dayMeals.length > 0 && gentle && <MiniStat icon="restaurant" color={dom.kcal} value={String(dayMeals.length)} label={dayMeals.length === 1 ? 'meal' : 'meals'} />}
-            {glasses > 0 && <MiniStat icon="water" color={dom.water} value={`${((glasses * glassMl) / 1000).toFixed(1)} L`} label="water" />}
+            {glasses > 0 && <MiniStat icon="water" color={dom.water} value={ml(toMl(glasses))} label="water" />}
           </Row>
         </View>
       )}

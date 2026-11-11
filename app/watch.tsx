@@ -197,7 +197,7 @@ export default function Watch() {
             </>
           ) : (
             <>
-              <T v="small">Your watch pairs with its own app (Google Health, WHOOP, Samsung Health…). That app shares to Health Connect, and we read it from there</T>
+              <T v="small">Your watch pairs with its own app (Fitbit's Google Health app, WHOOP, Samsung Health…). That app shares to Health Connect, and we read it from there</T>
               <Button title="Connect your watch" icon="watch-outline" onPress={() => openFlow()} />
             </>
           )}
