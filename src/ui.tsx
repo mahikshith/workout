@@ -11,9 +11,11 @@ import { useScrollToTop } from '@react-navigation/native';
 import { router, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
-import { artFrames, frames, MEDIA, origin, type Exercise } from './data/exercises';
+import { frames, MEDIA, origin, type Exercise } from './data/exercises';
 import { poseFor } from './data/poses';
 import { Figure } from './figure';
+import { G as ArtG, Path as ArtPath } from 'react-native-svg';
+import { ART, type Art } from './data/art';
 import videos from './data/videos.json';
 import { useStore, type MediaPref } from './store';
 import { useLook } from './look';
@@ -329,7 +331,7 @@ const VIDEOS: Record<string, { url: string; author: string }> = videos;
 const KINDS: { k: MediaPref; label: string }[] = [{ k: 'animated', label: 'Animated' }, { k: 'drawing', label: 'Drawing' }, { k: 'photo', label: 'Photo' }, { k: 'video', label: 'Video' }];
 // A borrowed animation of a different movement is never offered; those exercises show their photo or drawing.
 export const mediaKinds = (ex: Exercise) =>
-  KINDS.filter(({ k }) => (k === 'animated' ? !ex.noImages && !poseFor(ex).pose.weak : k === 'drawing' ? !!ex.art : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
+  KINDS.filter(({ k }) => (k === 'animated' ? !ex.noImages && !poseFor(ex).pose.weak : k === 'drawing' ? !!ex.art && ex.art in ART : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
 const CREDIT = { drawing: 'Drawing: workout-guide by Bryl Lim, CC BY-SA 4.0, based on Everkinetic', photo: 'Photo: free-exercise-db, public domain' };
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 const NAME: Record<MediaPref, string> = { animated: 'Animation', drawing: 'Drawing', photo: 'Photo', video: 'Video' };
@@ -367,7 +369,7 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
   useBackOnline(failed.length > 0, () => { setFailed([]); setTries((t) => t + 1); });
   useEffect(() => { if (!prev) return; const t = setTimeout(() => setPrev(null), 250); return () => clearTimeout(t); }, [prev]);
   useEffect(() => {
-    if (pref === 'animated') return;
+    if (pref === 'animated' || pref === 'drawing') return; // both are inside the app
     setOnline(true);
     const t = setTimeout(() => setOnline(false), 3500);
     return () => clearTimeout(t);
@@ -396,7 +398,7 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
                 setPref(k);
               }}
               style={[md.opt, k === kind && { backgroundColor: c.accent }]}>
-              {k !== 'animated' && <Ionicons name={failed.includes(k) ? 'cloud-offline-outline' : 'cloud-outline'} size={12} color={k === kind ? c.accentInk : c.muted} />}
+              {k !== 'animated' && k !== 'drawing' && <Ionicons name={failed.includes(k) ? 'cloud-offline-outline' : 'cloud-outline'} size={12} color={k === kind ? c.accentInk : c.muted} />}
               <T v="small" color={k === kind ? c.accentInk : failed.includes(k) ? c.muted : c.text}>{label}</T>
             </Pressable>
           ))}
@@ -422,10 +424,11 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
                 )}
               </View>
             ) : k === 'video' ? <Clip id={ex.id} onFail={() => fail('video')} />
-              : <Loop uris={k === 'drawing' ? artFrames(ex.art!) : frames(ex.id)} solid={k === 'photo'} onFail={() => fail(k)} />}
+              : k === 'drawing' ? <Drawing slug={ex.art!} />
+              : <Loop uris={frames(ex.id)} solid onFail={() => fail(k)} />}
           </Animated.View>
         ))}
-        {online && kind && kind !== 'animated' && (
+        {online && kind && kind !== 'animated' && kind !== 'drawing' && (
           <Animated.View entering={FadeIn.duration(200)} style={md.hint}>
             <Ionicons name="cloud-outline" size={14} color={c.text} />
             <T v="small" color={c.text}>Needs internet once · then saved on your phone</T>
@@ -497,6 +500,51 @@ function Frame({ uri, slot, p, solid, onLoad, onError }: { uri: string; slot: nu
   );
 }
 
+// Line drawings (workout-guide, CC BY-SA 4.0) are inside the app: src/data/art, built by scripts/art.mjs. Each frame is
+// one filled outline traced from a bitmap, so it has no stroke width to set. It is filled in the text colour (white on
+// the dark theme, near-black on the light one) and stroked in the pane colour by the frame's knock-out width `k`, which
+// trims heavy outlines down so every drawing has the same line weight. Small thumbnails skip the trim and get a hairline
+// of the text colour instead, so the lines stay readable at 40 px.
+function ArtSvg({ art, i, size, small }: { art: Art; i: number; size: number | `${number}%`; small?: boolean }) {
+  const [x, y, side] = art.b;
+  const px = typeof size === 'number' ? size : 216;
+  const edge = small ? { stroke: c.text, strokeWidth: Math.max(0, (0.9 * side) / px - 3) } : { stroke: c.card2, strokeWidth: art.k[i] };
+  return (
+    // viewBox origin 0,0 and a translate, as in figure.tsx (react-native-svg misplaces a non-zero origin on phones)
+    <Svg width={size} height={size} viewBox={`0 0 ${side} ${side}`} preserveAspectRatio="xMidYMid meet">
+      <ArtG transform={`translate(${-x} ${-y})`}>
+        <ArtPath d={art.d[i]} fill={c.text} fillRule="evenodd" strokeLinejoin="round" {...edge} />
+      </ArtG>
+    </Svg>
+  );
+}
+// The three poses played 1→2→3→2→1 like the photos: each held 700 ms, 450 ms crossfades, every frame on its own opaque
+// pane so the outlines never stack up mid-blend.
+function Drawing({ slug }: { slug: string }) {
+  const art = ART[slug]();
+  const p = useSharedValue(0);
+  useEffect(() => {
+    cancelAnimation(p); p.value = 0;
+    const fade = (v: number) => withTiming(v, { duration: 450, easing: Easing.inOut(Easing.quad) });
+    const hold = (v: number) => withTiming(v, { duration: 700 });
+    p.value = withRepeat(withSequence(hold(0), ...[1, 2, 1, 0].flatMap((v) => [fade(v), hold(v)]).slice(0, -1)), -1);
+    return () => cancelAnimation(p);
+  }, [slug]);
+  return (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2 }]}>
+      {art.d.map((_, i) => <ArtFrame key={i} art={art} i={i} p={p} />)}
+    </View>
+  );
+}
+function ArtFrame({ art, i, p }: { art: Art; i: number; p: SharedValue<number> }) {
+  const a = useAnimatedStyle(() => ({ opacity: i === 0 ? 1 : Math.min(1, Math.max(0, p.value - i + 1)) }));
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2, padding: 12 }, a]} pointerEvents="none">
+      <ArtSvg art={art} i={i} size="100%" />
+    </Animated.View>
+  );
+}
+
 // wger videos, transcoded to small muted H.264 by .github/workflows/media.yml and mirrored to our Pages site;
 // falls back to the release download, then to the next media kind.
 function Clip({ id, onFail }: { id: string; onFail: () => void }) {
@@ -534,14 +582,14 @@ export function Thumb({ ex, size = 56 }: { ex: Exercise; size?: number }) {
         <Ionicons name="pulse" size={size * 0.45} color={dom.sleep} />
       </View>
     );
-  if (bad || (!ex.art && ex.noPhoto))
+  if ((bad && !(ex.art && ex.art in ART)) || (!(ex.art && ex.art in ART) && ex.noPhoto))
     return (
       <View style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name="barbell-outline" size={size * 0.45} color={c.muted} />
       </View>
     );
-  return ex.art
-    ? <Pic uri={artFrames(ex.art)[0]} onError={() => setBad(true)} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.card2 }} contentFit="contain" cachePolicy="disk" transition={150} />
+  return ex.art && ex.art in ART
+    ? <View style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' }}><ArtSvg art={ART[ex.art]()} i={0} size={size - 6} small /></View>
     : <Pic uri={frames(ex.id)[0]} onError={() => setBad(true)} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.media }} contentFit="cover" cachePolicy="disk" transition={150} />;
 }
 
