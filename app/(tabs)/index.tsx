@@ -20,6 +20,9 @@ import { latest, sleepScore, useTracker } from '../../src/tracker';
 import { levelColor, useReadiness } from '../../src/health/useReadiness';
 import { ChallengeCard } from '../../src/challenges/Card';
 import { TrackerCard } from '../../src/health/TrackerCard';
+import { TodayBurn } from '../../src/health/TodayBurn';
+import { Ambient } from '../../src/glass';
+import { Pulse } from '../../src/motion';
 import { Hint } from '../../src/hint';
 import { QuickLogSheet } from '../../src/quicklog';
 import { useWater } from '../../src/water';
@@ -182,7 +185,8 @@ export default function Today() {
 
   return (
     <>
-    <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: c.bg }} showsVerticalScrollIndicator={false}
+    <Ambient />
+    <ScrollView ref={scroll} style={{ flex: 1 }} showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingTop: ins.top + 16, paddingHorizontal: 16, paddingBottom: ins.bottom + 120 + mini, gap: 24 }}>
       {/* 1. Header: date and streak, the title, + Log (the Quick log sheet), profile. */}
       <Enter i={0}>
@@ -193,7 +197,7 @@ export default function Today() {
               <T v="small" numberOfLines={1} style={{ flexShrink: 1 }}>{dateLabel}</T>
               {streak > 0 && (
                 <>
-                  <Ionicons name="flame" size={14} color={dom.streak} />
+                  <Pulse value={streak}><Ionicons name="flame" size={14} color={dom.streak} /></Pulse>
                   <CountUp value={streak} suffix={STREAK_SUFFIX} style={[s.streak, { color: dom.streak }]} />
                 </>
               )}
@@ -319,6 +323,7 @@ export default function Today() {
       {/* 5. Your challenge (or one picked for you), and today's numbers from the watch. Each hides itself when empty. */}
       <View style={{ gap: 12 }}>
         <ChallengeCard />
+        <TodayBurn />
         {!(showSteps && !watchOn) && <TrackerCard />}
         {/* Get started: new people only, one row until opened; ticks itself, hides when done or closed. */}
         {showSteps && <GetStarted steps={firstSteps} open={openSteps} onToggle={() => setOpenSteps((v) => !v)} onClose={() => dismiss('get-started')} />}

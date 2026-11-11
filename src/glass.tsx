@@ -95,7 +95,7 @@ export function TabBarSurface({ children, height = 64, style, floating = false }
 export function Ambient({ colors, strength = 1, style }: { colors?: [string, string?, string?]; strength?: number; style?: StyleProp<ViewStyle> }) {
   const { width, height } = useWindowDimensions();
   const [a, b, d] = colors ?? [c.accent, dom.train, dom.sleep];
-  const k = (c.scheme === 'light' ? 0.22 : 0.26) * strength;
+  const k = (c.scheme === 'light' ? 0.22 : 0.15) * strength;
   const H = Math.min(height, 900);
   const id = 'amb' + useId().replace(/[^a-z0-9]/gi, ''); // several screens are mounted at once: gradient ids must not clash on the web
   return (

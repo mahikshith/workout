@@ -379,7 +379,7 @@ function DayBody({ k }: { k: string }) {
                           {en?.perExercise[j] && (
                             <T v="small" numberOfLines={1} style={s.num}>
                               {[!gentle && en.perExercise[j].kcal > 0 ? `${en.source === 'watch' ? '' : 'about '}${en.perExercise[j].kcal} kcal` : null,
-                                en.perExercise[j].avgHr ? `${en.perExercise[j].avgHr} avg · ${en.perExercise[j].maxHr} max bpm` : null].filter(Boolean).join(' · ')}
+                                en.perExercise[j].avgHr ? `avg ${en.perExercise[j].avgHr} bpm` : null].filter(Boolean).join(' · ')}
                             </T>
                           )}
                         </View>

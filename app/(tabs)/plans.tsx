@@ -7,6 +7,7 @@ import { explain, ranked } from '../../src/coach';
 import { CATEGORIES, perWeek, planById, plans, type Plan } from '../../src/data/plans';
 import { Segmented, useMiniBarSpace, useScrollTopRef, useToday } from '../../src/kit';
 import { because, openPlan, PLAN_COLOR, PLAN_ICON, PlanCard, planFits, planMeta, type Where } from '../../src/plansui';
+import { Ambient } from '../../src/glass';
 import { useStore } from '../../src/store';
 import { c, r, tint } from '../../src/theme';
 import { Avatar, IconBox, ListRow, Row, Section, T, Tap } from '../../src/ui';
@@ -31,6 +32,7 @@ export default function Plans() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Ambient />
       <View style={{ paddingTop: ins.top + 12, paddingHorizontal: 12, gap: 14, paddingBottom: 12 }}>
         <Row gap={10}>
           <T v="display" numberOfLines={1} style={{ flex: 1 }}>Plans</T>

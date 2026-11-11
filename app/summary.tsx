@@ -76,18 +76,16 @@ function Burn({ s, i, gentle }: { s: Session; i: number; gentle: boolean }) {
     );
   }
   const hrText = en.avgHr ? (en.maxHr ? `avg ${en.avgHr} bpm · max ${en.maxHr}` : `avg ${en.avgHr} bpm`) : null;
+  const title = showKcal ? `Burned ${en.source === 'watch' ? '' : 'about '}${en.kcal} kcal` : hrText;
   const from = showKcal ? SOURCE_LINE[en.source] : hr?.origin === STRAP_ORIGIN ? 'Heart rate from your strap' : 'Heart rate from your watch';
-  const sub = [from, showKcal && en.source === 'watch' && waiting ? 'heart rate follows when your watch syncs' : null,
-    hr?.rest ? `rests ${hr.rest.avg} avg` : null].filter(Boolean).join(' · ');
+  const sub = [showKcal ? hrText : null, from, showKcal && en.source === 'watch' && waiting ? 'heart rate follows when your watch syncs' : null].filter(Boolean).join(' · ');
   const rows = s.items.map((it, k) => ({ it, e: en.perExercise[k], peaks: hr?.sets?.length === s.items.length ? hr.sets[k] : undefined })).filter((x) => x.e);
   return (
     <Animated.View entering={FadeInDown.delay(120 + i * 60).duration(400).easing(EASE)} style={[s2.hr, { marginTop: 12, flexDirection: 'column', alignItems: 'stretch' }]}>
       <Row gap={12}>
         <IconBox icon={showKcal ? 'flame' : 'heart'} color={showKcal ? dom.kcal : c.pink} size={32} />
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-          <T v="h3" numberOfLines={2} style={{ fontVariant: ['tabular-nums'] }}>
-            {[showKcal ? `Burned ${en.source === 'watch' ? '' : 'about '}${en.kcal} kcal` : null, hrText].filter(Boolean).join(' · ')}
-          </T>
+          <T v="h3" numberOfLines={1} style={{ fontVariant: ['tabular-nums'] }}>{title}</T>
           <T v="small" numberOfLines={2}>{sub}</T>
         </View>
       </Row>
@@ -118,8 +116,9 @@ function Burn({ s, i, gentle }: { s: Session; i: number; gentle: boolean }) {
               )}
             </View>
           ))}
-          {hr?.sets?.some((r0) => r0.some(Boolean)) && <T v="small" color={c.dim}>The chips are each set's peak heart rate.</T>}
-          {hr?.sparse && <T v="small" color={c.dim}>Your watch saved too few readings to show each set.</T>}
+          {hr?.sets?.some((r0) => r0.some(Boolean)) && <T v="small" color={c.dim}>{'The chips are each set\'s peak heart rate'}</T>}
+          {hr?.rest && <T v="small" color={c.dim}>Between sets your heart rate averaged {hr.rest.avg} bpm</T>}
+          {hr?.sparse && <T v="small" color={c.dim}>Your watch saved too few readings to show each set</T>}
         </View>
       )}
       {!linked && (

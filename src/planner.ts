@@ -94,6 +94,26 @@ const GOAL_CATEGORY: Partial<Record<Goal, Plan['category'][]>> = {
   'build muscle': ['Muscle'], 'get stronger': ['Strength'], 'lose fat': ['Fat loss', 'Cardio'],
   'gain weight': ['Muscle'], endurance: ['Cardio'], athletic: ['Functional'], mobility: ['Recovery'],
 };
+// What each plan is, in a few words: the one reason no other plan shares, so two cards never read the same.
+const SIGNATURE: Record<string, string> = {
+  'full-body-gym': 'Whole body every session', 'ppl-gym': 'Push, pull and legs days', 'upper-lower-gym': 'Upper and lower days in turn',
+  'bro-split': 'One muscle group a day', 'arnold-split': 'Chest with back, lots of sets', phul: 'Heavy days and lighter days',
+  'strength-5x5': 'Three big lifts a session', 'lean-gain': 'Big lifts with extra sets for size', 'fat-loss-gym': 'Circuits plus steady cardio',
+  'cardio-aerobic': 'Walks, bike, rower and easy runs', functional: 'Swings, carries and rowing', 'glutes-legs-gym': 'Glutes and legs come first',
+  'home-beginner': 'A gentle start at home', 'home-bodyweight': 'Just your body weight', 'home-dumbbell': 'Dumbbells and a band cover everything',
+  'fat-burn-home': 'Fast circuits in a small space', 'move-better': 'Stretch flows and posture work', 'sport-ready': 'Quick feet, jumps and a strong core',
+  'home-stamina': 'Steady marching, no jumping', 'pregnancy-safe': 'Safe for your pregnancy', 'after-birth': 'Short sessions around feeds',
+  'pelvic-floor': 'Ten quiet minutes for your pelvic floor', mobility: 'One easy stretch flow', 'desk-reset': 'Done in your chair',
+  'chest-day': 'An extra day for your chest', 'back-day': 'An extra day for your back', 'shoulder-day': 'An extra day for your shoulders',
+  'arm-day': 'An extra day for your arms', 'leg-day': 'An extra day for your legs', 'glute-day': 'An extra day for your glutes', 'core-day': 'Twenty minutes for your middle',
+};
+// A plan refitted into another split (full body turned upper/lower) is described by what it became.
+export const signature = (plan: Plan): string | undefined => {
+  const base = planById[plan.base ?? plan.id] ?? plan;
+  if (plan.base && plan.name !== base.name) return plan.tagline.replace(/\.$/, '');
+  return SIGNATURE[base.id];
+};
+
 // Goals that need the body to keep (or add) weight: long cardio weeks work against them.
 const GROWING: Goal[] = ['build muscle', 'get stronger', 'gain weight'];
 
@@ -110,11 +130,13 @@ function factors(p: Profile, plan: Plan, hist?: PlanHistory): Factor[] {
   // A plan as written, or one made mostly of its own days, is the curated choice; a week built only from other plans'
   // days borrows this plan's goal and level, so it ranks below a real plan with the same days.
   f.push(!plan.base ? [8] : plan.own ? [6 * plan.own] : [-15]);
+  const sig = signature(plan);
+  if (sig) f.push([0, sig, 90]);
   if (plan.recovery) f.push([0, `${plan.recovery === 1 ? 'One' : 'Two'} light recovery day${plan.recovery > 1 ? 's' : ''}`, 80]);
 
   // Level.
   if (beginner) {
-    if (base.level === 'beginner') f.push([15, plan.easy ? 'Lower volume for your first weeks' : 'Made for beginners', 100]);
+    if (base.level === 'beginner') f.push(plan.easy ? [15, 'Lower volume for your first weeks', 100] : [15, 'Made for beginners', 20]);
     else f.push([-5, 'Lower volume for your first weeks', 100]);
   } else if (base.level === 'intermediate') f.push([12, 'Matches your experience', 10]);
   else f.push([p.level === 'advanced' ? -15 : -10]);

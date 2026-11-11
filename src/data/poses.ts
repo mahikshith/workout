@@ -791,7 +791,7 @@ const legs = (a: Angles, hip: Pair, knee: In, ankle: In): Angles => ({ ...a, hip
 function seated(p: Pose, where: 'bench' | 'floor'): Pose {
   const o = { ...p, ground: where, fix: undefined, pad: p.pad } as Pose;
   if (p.view === 'front') {
-    const f = (a: Angles) => (where === 'bench' ? legs(a, [Math.max(a.hip[0], 14), Math.max(a.hip[1], 14)], 0, 0) : legs(a, [58, 58], 0, 0));
+    const f = (a: Angles) => (where === 'bench' ? legs(a, [Math.max(a.hip[0], 20), Math.max(a.hip[1], 20)], 0, 0) : legs(a, [58, 58], 0, 0));
     return { ...o, sit: where === 'bench', start: f(p.start), end: f(p.end) };
   }
   const f = (a: Angles) => (where === 'bench' ? legs(a, pr(90 + a.spine), 90, 0) : legs(a, [84 + a.spine, 96 + a.spine], 6, -10));
@@ -1277,7 +1277,7 @@ export function scenery(pose: Pose, b: Pts): SceneItem[] {
     line('slope', 'slope', rot([x - 60, 0.4]), rot([x + 60, 0.4]), 0.6);
   }
   if (pose.ground === 'bench') {
-    const P = b.pelvis, y = P[1] + (R.pelvis ?? 7) + 2.6, t = pose.start.spine, hw = pose.view === 'front' ? 15 : 12;
+    const P = b.pelvis, y = P[1] + (R.pelvis ?? 7) + 2.6, t = pose.start.spine, hw = pose.sit ? 22 : pose.view === 'front' ? 15 : 12;
     if (pose.machine !== 'bike') line('leg', 'post', [P[0], y], [P[0], 0]);
     capsule('seat', 'kit', [P[0] - hw, y], [P[0] + hw, y], 2.6);
     // a back pad (or a chest pad when leaning forward onto it) along the torso, unless the pose sits free
@@ -1509,7 +1509,7 @@ const WANT_NAME: [RegExp, Posture, RegExp?][] = [
   [/leverage (incline|decline) chest/, 'seat'],
   [/incline/, 'recline', /treadmill|walk|push|hill|reverse|rear|face.?down|lateral|depth/],
   [/decline/, 'supine', /push/],
-  [/seated|sitting|\bchair\b|preacher|pec deck|leg extension|recumbent|bicycling|\bbike\b|butterfly|concentration|russian twist|plate twist|lat pull-?down|\w+ pull-?downs?$|machine (shoulder|military|bench|chest|bicep|triceps|lateral|row)|leverage (\w+ )?(chest|shoulder|incline|decline|high|iso)|dip machine|calf press|rowing, stationary/, 'seat', /air bike|straight|kneel|band|smith|shrug|box jump|chair dip/],
+  [/seated|sitting|\bchair\b|preacher|pec deck|leg extension|recumbent|bicycling|\bbike\b|butterfly|concentration|russian twist|plate twist|lat pull-?down|\w+ pull-?downs?$|machine (shoulder|military|bench|chest|bicep|triceps|lateral|row)|leverage (\w+ )?(chest|shoulder|incline|decline|high|iso)|dip machine|calf press|rowing, stationary|reverse machine fl/, 'seat', /air bike|straight|kneel|band|smith|shrug|box jump|chair dip/],
   [/lying.*face.?down|face.?down|prone|superman|lying leg curl|lying cambered|hyperextension|back extension/, 'prone', /reverse hyper|incline/],
   [/lying|supine|floor press|skull|crunch|sit-?up|glute bridge|hip thrust|bench press|dead bug|flutter|pullover|ball leg curl|hamstring curl|walkout/, 'supine', /standing|cable crunch|rope crunch|kneel|hanging|seated|machine|side|rear|lateral|leverage|vertical|captain|suspended|bosu|\brow|ab crunch/],
   [/bent.over|romanian|stiff.leg|good morning|deadlift|kickback/, 'bent', /seated|lying|kneel|glute kickback|leg kickback|one-legged|bench|donkey/],
@@ -1518,18 +1518,19 @@ const WANT_NAME: [RegExp, Posture, RegExp?][] = [
 const WANT_STEP: [RegExp, Posture][] = [
   [/\b(sit|seated|sitting|seat yourself|take a seat)\b/, 'seat'],
   [/\bhang(ing)? from\b/, 'hang'],
-  [/face down|on your stomach|\bprone\b|lie on your (stomach|chest|front)|chest (and stomach )?(down|pressing)/, 'prone'],
-  [/lie (down )?(on (the|a|an) (floor|mat|bench|ground|exercise mat|flat bench)|flat|on your back|back|face up|supine)|lying (down )?on your back|lay (down )?(flat|on your back|on (the|a) (floor|bench))|on your back|lie down|lay down/, 'supine'],
+  [/face ?down|on your stomach|\bprone\b|lie on your (stomach|chest|front)|chest (and stomach )?(down|pressing)/, 'prone'],
+  [/lie (down )?(on (the|a|an) (floor|mat|bench|ground|exercise mat|flat bench)|flat|on your back|back|face up|supine)|lying (down )?on your back|lay (down )?(flat|on your back|on (the|a) (floor|bench))|on your back|lie down|lay down|\blie\b(?! (down )?(face ?down|on your (stomach|chest|front|side|left|right)))/, 'supine'],
   [/push-?up position|plank position/, 'plank'],
   [/all fours|hands and knees/, 'allfours'],
   [/\bkneel/, 'kneel'],
   [/on your (left |right )?side\b/, 'side'],
-  [/\b(stand|standing)\b/, 'stand'],
+  [/\b(stand|standing)\b(?! up on)/, 'stand'],
 ];
 // Read wrongly by the rules above (or named misleadingly): what the instructions really say.
 const WANT_ID: Record<string, Posture | null> = {
   Wind_Sprints: 'hang', // hanging knee sprints, despite the name
-  Spider_Crawl: 'allfours', Shoulder_Circles: 'stand', // "or in your lap if you're seated"
+  Spider_Crawl: 'allfours', Glute_Ham_Raise: 'kneel', 'Quadriceps-SMR': 'plank', // face down, but on the knee pad / on the forearms
+  Shoulder_Circles: 'stand', // "or in your lap if you're seated"
   Low_Cable_Triceps_Extension: 'supine', // lies on the bench of the seated row machine
   'Lower_Back-SMR': 'supine', London_Bridges: 'supine', Barbell_Ab_Rollout: 'plank', Weighted_Ball_Hyperextension: 'prone',
   Hamstring_Stretch: 'supine', Chain_Handle_Extension: 'supine', 'One-Arm_Incline_Lateral_Raise': 'side', 'Lying_One-Arm_Lateral_Raise': 'prone', 'Anti-Gravity_Press': 'lean', Reverse_Flyes: 'lean', Reverse_Flyes_With_External_Rotation: 'lean',

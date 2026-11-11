@@ -49,7 +49,7 @@ const HOLD = /plank|hold|wall sit|isometric|dead hang|active hang|l-sit|hollow b
 const UNI = /single|one.?arm|one.?leg|alternat|lunge|split|step-?up|step-?down|pistol|side plank|side bridge|bird.?dog|dead bug|kickback|donkey|hydrant|clam|curtsy|cossack|skater|airplane|copenhagen|archer|\/side/i;
 const SUPPORTED = /seated|machine|smith|leg press|supported|lying leg curl|assisted|wall |chair|incline push|pulldown|pushdown|preacher|pec deck|butterfly|hack squat|recumbent/i;
 const OWN = /push-?up|pull-?up|chin-?up|\bdips?\b|plank|burpee|handstand|muscle.?up|inverted row|pistol|l-sit|crawl|crab walk|hollow|dragon|sprawl|squat thrust|mountain climber|shrimp|skater squat|v-up|hanging/i;
-const EASED = /wall|knee push|kneeling push|incline push|assisted|negative|band.assisted|bench dip|chair dip|doorway|towel row/i;
+const EASED = /wall|knee push|kneeling push|incline push|assisted|negative|band.assisted|doorway|towel row/i;
 // Calisthenics and gym moves the dataset marks as easy but that are not.
 const HARD2 = /pistol|shrimp|dragon flag|handstand|muscle.?up|l-sit|one.?arm (chin|pull|push)|wall walk|archer|typewriter|kipping|planche|front lever|rope climb|side to side chin|gironda|london bridge|clap|commando|towel pull/i;
 const HARD1 = /weighted|sissy|v-up|hindu|skater squat|copenhagen|cossack|feet.elevated|decline push|burpee|plyo|pull-?up|chin-?up|\bdips?\b|hanging|toes to bar|ab roller|rollout|jack.?knife|hollow rock|deficit|single.?leg (squat|deadlift)|nordic|glute.ham|good morning|hip airplane|depth jump|box jump|sprawl/i;
@@ -57,6 +57,10 @@ const ODD = /chain|with bands|- with bands|board press|reverse band|pin press|an
 const RISKY = /behind (the )?(neck|head)|guillotine|neck press|upright row|kipping|good morning|jefferson|sissy|straight.?leg deadlift|stiff.?leg|bradford/i;
 
 // Every exercise the app's own plans, quick sessions and cardio ladder use.
+// The dataset files a few moves under a muscle they only help with. The engine reads the main muscle through here.
+const MAIN_FIX: Record<string, string> = { Flutter_Kicks: 'abdominals' };
+export const mainMuscle = (e: Exercise): string => MAIN_FIX[e.id] ?? e.primary[0];
+
 const STAPLES = new Set<string>([
   ...plans.flatMap((p) => p.days.flatMap((d) => d.slots.map((s) => s.id))),
   ...Object.values(EXTRA).flatMap((d) => d.slots.map((s) => s.id)),
@@ -79,7 +83,7 @@ function patternOf(e: Exercise, kind: Kind): Pattern {
   if (kind === 'power') return 'power';
   if (kind === 'mobility') return 'stretch';
   if (kind === 'special') return 'other';
-  const m = e.primary[0];
+  const m = mainMuscle(e);
   const n = e.name;
   if (/farmer|carry|suitcase/i.test(n)) return 'carry';
   if (m === 'abdominals') return 'core';
@@ -101,7 +105,7 @@ function patternOf(e: Exercise, kind: Kind): Pattern {
 function build(e: Exercise): Traits {
   const kind = kindOf(e);
   const pattern = patternOf(e, kind);
-  const m = e.primary[0];
+  const m = mainMuscle(e);
   const n = e.name;
   const region = m === 'abdominals' || m === 'lower back' ? 'core' : LOWER.includes(m) ? 'lower' : UPPER_PUSH.includes(m) || UPPER_PULL.includes(m) || m === 'neck' ? 'upper' : 'none';
   const lv = e.level === 'expert' ? 2 : e.level === 'intermediate' ? 1 : 0;

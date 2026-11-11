@@ -31,7 +31,7 @@ const DARK = {
   // Glass (src/glass.tsx): floating layers only. `glassFill` is the surface when there is no real blur behind it
   // (Android): nearly opaque, so text under it never shows through sharp. `glassThin` sits over a real blur.
   glassFill: 'rgba(24,24,28,0.94)',
-  glassThin: 'rgba(24,24,28,0.60)',
+  glassThin: 'rgba(24,24,28,0.72)',
   glassLine: 'rgba(255,255,255,0.11)', // hairline round glass
   glassHi: 'rgba(255,255,255,0.09)', // top of the soft highlight gradient (fades to clear)
   shade: 'rgba(0,0,0,0.55)', // shadow colour under floating layers
@@ -57,7 +57,7 @@ const LIGHT: Neutrals = {
   accentInk: '#FFFFFF',
   media: '#F4F4F2',
   glassFill: 'rgba(255,255,255,0.94)',
-  glassThin: 'rgba(255,255,255,0.64)',
+  glassThin: 'rgba(255,255,255,0.72)',
   glassLine: 'rgba(20,24,32,0.09)',
   glassHi: 'rgba(255,255,255,0.80)',
   shade: 'rgba(24,32,52,0.16)',

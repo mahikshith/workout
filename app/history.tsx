@@ -128,7 +128,7 @@ export default function History() {
                 <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1, fontVariant: ['tabular-nums'] }}>
                   {sum.kcalPerWeek !== undefined ? `About ${sum.kcalPerWeek.toLocaleString()} kcal a week` : `${sum.kcal!.toLocaleString()} kcal so far`}
                 </T>
-                {sum.kcalEst && <T v="small" color={c.dim}>part estimated</T>}
+                {sum.kcalEst && <T v="small" color={c.dim}>{days.every((d) => !d || d.kcal === undefined || d.est) ? 'estimated' : 'part estimated'}</T>}
               </Row>
             )}
 

@@ -42,8 +42,8 @@ export function WatchGives() {
   }, [sessions, data, profile]);
 
   const items: { key: keyof typeof got; icon: Icon; color: string; label: string; to: string }[] = [
-    ...(gentle ? [] : [{ key: 'kcal' as const, icon: 'flame' as Icon, color: dom.kcal, label: 'Calories', to: 'each workout, calendar' }]),
-    { key: 'hr', icon: 'heart', color: dom.heart, label: 'Heart rate', to: 'each workout and set' },
+    ...(gentle ? [] : [{ key: 'kcal' as const, icon: 'flame' as Icon, color: dom.kcal, label: 'Calories', to: 'workouts, calendar' }]),
+    { key: 'hr', icon: 'heart', color: dom.heart, label: 'Heart rate', to: 'workouts and sets' },
     { key: 'steps', icon: 'footsteps', color: dom.steps, label: 'Steps', to: 'your day' },
     { key: 'sleep', icon: 'moon', color: dom.sleep, label: 'Sleep', to: 'recovery' },
   ];

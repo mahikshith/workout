@@ -3,7 +3,8 @@ import { useFonts } from 'expo-font';
 import { router, Stack, usePathname, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Appearance } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useHealthSync } from '../src/health';
@@ -22,6 +23,9 @@ function RestDayHost() {
   useEffect(() => registerRestDay(() => { if (!isRestDay()) return false; setOpen(true); return true; }), []);
   return <RestDaySheet open={open} onClose={() => setOpen(false)} />;
 }
+
+// Detail pages rise and fade.
+const DETAIL = { animation: 'fade_from_bottom' } as const;
 
 export default function Root() {
   const [fonts] = useFonts({ Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold });
@@ -54,23 +58,42 @@ export default function Root() {
     return () => sub.remove();
   }, []);
 
+  // The navigator's own theme carries our page colour, so the frame between two screens (and behind a screen that is
+  // still fading in) is never white or black by default.
+  const nav = useMemo(() => {
+    const base = c.scheme === 'dark' ? DarkTheme : DefaultTheme;
+    return { ...base, colors: { ...base.colors, background: c.bg, card: c.bg, text: c.text, border: c.line, primary: c.accent } };
+  }, [v]);
+
   if (!ready) return null;
   return (
     <GestureHandlerRootView key={v} style={{ flex: 1, backgroundColor: c.bg }}>
       <StatusBar style={c.scheme === 'dark' ? 'light' : 'dark'} />
-      {/* Pushed screens are places: slide in from the right, swipe back from the edge (iOS; Android uses Back and its
-          predictive back gesture). The workout slides up and swipes down to minimise (it keeps running in the mini
-          bar). Setup and Summary fade; Summary is the end of a workout: no swipe back. */}
-      <Stack screenOptions={{
-        headerShown: false, contentStyle: { backgroundColor: c.bg }, animation: 'slide_from_right', animationDuration: 300,
-        gestureEnabled: true, fullScreenGestureEnabled: true, animationMatchesGesture: true,
-      }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
-        <Stack.Screen name="session" options={{ animation: 'slide_from_bottom', gestureEnabled: true, gestureDirection: 'vertical', fullScreenGestureEnabled: false }} />
-        <Stack.Screen name="summary" options={{ animation: 'fade', gestureEnabled: false }} />
-        <Stack.Screen name="+not-found" options={{ animation: 'fade' }} />
-      </Stack>
+      {/* Transitions (docs/round14/fluid.md, section 4). react-native-screens 4.16 on Android:
+          - places (You, Library, History, settings...) slide in from the right while the screen under them shifts
+            back a little ('ios_from_right'; the plain 'slide_from_right' leaves the old screen standing still);
+          - detail pages opened from a card (exercise, plan, challenge, chart) rise 8 % and fade in ('fade_from_bottom'),
+            so they read as "more about this" rather than a new place;
+          - the workout slides up from the bottom and swipes down to minimise (it keeps running in the mini bar);
+          - setup and Summary fade; Summary is the end of a workout: no swipe back.
+          iOS (parked) falls back to its default push for the first two. Every screen paints c.bg before its content. */}
+      <ThemeProvider value={nav}>
+        <Stack screenOptions={{
+          headerShown: false, contentStyle: { backgroundColor: c.bg }, animation: 'ios_from_right', animationDuration: 300,
+          gestureEnabled: true, fullScreenGestureEnabled: true, animationMatchesGesture: true,
+          statusBarStyle: c.scheme === 'dark' ? 'light' : 'dark', statusBarAnimation: 'fade',
+        }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
+          <Stack.Screen name="session" options={{ animation: 'slide_from_bottom', gestureEnabled: true, gestureDirection: 'vertical', fullScreenGestureEnabled: false }} />
+          <Stack.Screen name="summary" options={{ animation: 'fade', gestureEnabled: false }} />
+          <Stack.Screen name="exercise/[id]" options={DETAIL} />
+          <Stack.Screen name="plan/[id]" options={DETAIL} />
+          <Stack.Screen name="challenge/[id]" options={DETAIL} />
+          <Stack.Screen name="chart/[kind]" options={DETAIL} />
+          <Stack.Screen name="+not-found" options={{ animation: 'fade' }} />
+        </Stack>
+      </ThemeProvider>
       {/* One workout mini bar for the whole app, above every screen except the workout, its summary and setup. */}
       <DockedMiniBar />
       <RestDayHost />

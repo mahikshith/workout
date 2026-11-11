@@ -384,7 +384,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'home-bodyweight', name: 'Home, No Equipment', tagline: 'Just you and the floor. Twenty-five minutes.',
-    place: 'home', level: 'beginner', tags: ['stay fit', 'lose fat', 'build muscle', 'tone up'], color: '', category: 'Home',
+    place: 'home', level: 'intermediate', tags: ['stay fit', 'lose fat', 'build muscle', 'tone up'], color: '', category: 'Home',
     about: 'Squats, push-ups, lunges and bridges work your whole body with your own weight. You build strength and fitness without leaving the house.',
     who: 'Anyone training at home with no equipment who has done a few weeks of exercise.',
     why: 'Three days with rest between gives your muscles time to recover and still builds a steady habit.',
@@ -402,7 +402,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'home-dumbbell', name: 'Home Dumbbells & Bands', tagline: 'Real strength work with a pair of dumbbells.',
-    place: 'home', level: 'beginner', tags: ['build muscle', 'get stronger', 'stay fit', 'tone up', 'gain weight'], color: '', category: 'Home',
+    place: 'home', level: 'intermediate', tags: ['build muscle', 'get stronger', 'stay fit', 'tone up', 'gain weight'], color: '', category: 'Home',
     about: 'Dumbbells and a band cover every main movement, so you can build real muscle at home. Upper and lower days keep sessions short and focused.',
     who: 'Home trainers with a pair of dumbbells and a resistance band.',
     why: 'Four days trains upper and lower body twice a week each, with rest days to recover.',

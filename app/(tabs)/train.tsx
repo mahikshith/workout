@@ -11,8 +11,10 @@ import { perWeek, planById, plans, type Category, type Plan } from '../../src/da
 import { DoorCard, openWorkout, Segmented, useMiniBarSpace, useToday } from '../../src/kit';
 import { asDay } from '../../src/data/quick';
 import { quickPicks, type QuickPick } from '../../src/restday';
+import { Ambient } from '../../src/glass';
 import { useStore, type Profile } from '../../src/store';
-import { c, dom, equip, f, r } from '../../src/theme';
+import { c, dom, equip, f, r, tint } from '../../src/theme';
+import { Sheet } from '../../src/sheet';
 import { Avatar, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb } from '../../src/ui';
 import { Enter, MuscleGrid, plural } from '../library';
 
@@ -62,6 +64,7 @@ export default function Train() {
   const sessions = useStore((s) => s.sessions);
   const today = useToday();
   const [q, setQ] = useState('');
+  const [placeOpen, setPlaceOpen] = useState(false); // the place chip: a quick swap between gym, home, both and office
   // Tapping the Train tab again scrolls back to the top (only one of the two lists is mounted at a time).
   const browseRef = useRef<ScrollView>(null);
   const searchRef = useRef<FlatList<Exercise>>(null);
@@ -98,12 +101,13 @@ export default function Train() {
   const bottom = ins.bottom + 120 + mini; // clears the tab bar, plus the workout mini bar while it shows
 
   const header = (
-    <View style={{ paddingTop: ins.top + 12, paddingHorizontal: 12, gap: 14, paddingBottom: 12, backgroundColor: c.bg }}>
+    <View style={{ paddingTop: ins.top + 12, paddingHorizontal: 12, gap: 14, paddingBottom: 12 }}>
       <Row gap={10}>
         <T v="display" numberOfLines={1} style={{ flex: 1 }}>Workouts</T>
-        <Tap onPress={() => router.push('/you')} style={s.place} scale={0.95}>
+        <Tap onPress={() => setPlaceOpen(true)} style={s.place} scale={0.95} accessibilityLabel={`Training at: ${placeLabel}. Change`}>
           <Ionicons name={profile.place === 'office' ? 'briefcase-outline' : profile.place === 'home' ? 'home-outline' : 'barbell-outline'} size={14} color={c.muted} />
           <T v="small" color={c.text}>{placeLabel}</T>
+          <Ionicons name="chevron-down" size={14} color={c.muted} />
         </Tap>
         <Avatar />
       </Row>
@@ -156,6 +160,7 @@ export default function Train() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Ambient />
       {header}
       <ScrollView ref={browseRef} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: bottom }}>
@@ -195,7 +200,6 @@ export default function Train() {
 
         <Enter i={2}>
           <Section title="By muscle" action="All exercises" onAction={() => router.push('/library')} style={{ marginTop: 24 }}>
-            <Segmented options={WHERE} value={where} onChange={setWhere} style={{ marginBottom: 12 }} />
             <MuscleGrid where={where} onOpen={openMuscle} />
           </Section>
         </Enter>
@@ -205,9 +209,43 @@ export default function Train() {
           <DoorCard icon="map" color={dom.streak} title="Plans and challenges" meta="Your plan, every plan, 27 challenges" onPress={() => router.navigate('/plans')} compact />
         </Enter>
       </ScrollView>
+      {/* Where you train: one tap swaps it everywhere (today's workout, the muscle lists, plans that fit). */}
+      <Sheet open={placeOpen} onClose={() => setPlaceOpen(false)}>
+        <View style={{ gap: 10 }}>
+          <View style={{ gap: 2 }}>
+            <T v="h2">Where are you training?</T>
+            <T v="small">Workouts and exercise lists follow this.</T>
+          </View>
+          {PLACES.map((x) => {
+            const on = profile.place === x.k;
+            return (
+              <Tap key={x.k} onPress={() => { useStore.getState().setProfile({ ...profile, place: x.k }); setPlaceOpen(false); }}
+                style={[s.placeRow, on && { borderColor: c.accent, backgroundColor: tint(c.accent, 1) }]} scale={0.98}
+                accessibilityState={{ selected: on }}>
+                <IconBox icon={x.icon} color={c.accent} size={40} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <T v="h3">{x.label}</T>
+                  <T v="small" numberOfLines={1}>{x.sub}</T>
+                </View>
+                {on && <Ionicons name="checkmark-circle" size={22} color={c.accent} />}
+              </Tap>
+            );
+          })}
+          <Tap onPress={() => { setPlaceOpen(false); router.push({ pathname: '/profile', params: { s: 'place' } }); }} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center' }} feedback="none">
+            <T v="small" color={c.accent}>Edit home equipment</T>
+          </Tap>
+        </View>
+      </Sheet>
     </View>
   );
 }
+
+const PLACES: { k: Profile['place']; label: string; icon: Icon; sub: string }[] = [
+  { k: 'gym', label: 'Gym', icon: 'barbell', sub: 'Machines and free weights' },
+  { k: 'home', label: 'Home', icon: 'home', sub: 'Bodyweight and the gear you have' },
+  { k: 'both', label: 'Gym and home', icon: 'swap-horizontal', sub: 'Some days each' },
+  { k: 'office', label: 'Office', icon: 'briefcase', sub: 'Short sessions at work, no equipment' },
+];
 
 const Gap = () => <View style={{ height: 8 }} />;
 
@@ -221,10 +259,11 @@ function Hit({ e }: { e: Exercise }) {
 const s = StyleSheet.create({
   clear: { width: 44, height: 44, marginRight: -12, alignItems: 'center', justifyContent: 'center' },
   browse: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, alignSelf: 'flex-start' },
-  place: { height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: c.card2, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  place: { height: 44, paddingLeft: 14, paddingRight: 10, borderRadius: 22, backgroundColor: c.card2, flexDirection: 'row', alignItems: 'center', gap: 6 },
   search: { height: 48, borderRadius: 14, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: c.line },
   input: { flex: 1, color: c.text, fontFamily: f.medium, fontSize: 16, height: 48, outlineWidth: 0 },
   plan: { gap: 12, padding: 16, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   start: { height: 44, paddingHorizontal: 18, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  placeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.md, borderWidth: 1, borderColor: c.line },
   quick: { width: 150, gap: 6, padding: 12, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
 });
