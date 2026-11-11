@@ -1347,3 +1347,33 @@ export function selfCheck(byId: Record<string, Ex & { noImages?: boolean }> = {}
   if (bad.length) throw new Error('poses: ' + bad.join('; '));
   return Object.keys(POSES).length;
 }
+
+// ---- posture audit ----
+// What the body is doing at one end of the rep, read off the solved joints: this is what the owner sees. The audit
+// (selfCheck) compares it with the posture the exercise's own name and first instructions ask for, so a seated move can
+// never again borrow a standing figure (or the reverse).
+export type Posture = 'stand' | 'bent' | 'seat' | 'recline' | 'lean' | 'kneel' | 'allfours' | 'plank' | 'supine' | 'prone' | 'side' | 'hang' | 'inverted';
+export function postureOf(pose: Pose, p: 0 | 1): Posture {
+  const o = solve(pose, base(pose), p), a = p ? pose.end : pose.start, s = a.spine;
+  if (pose.ground === 'hang') return 'hang';
+  const up = (k: Key) => -(o[k][1] + (R[k] ?? 0)); // clearance above the floor
+  if (pose.view === 'front') {
+    if (Math.abs(s) >= 60) return pose.ground === 'mat' || s < 0 ? (pose.ground === 'mat' ? 'supine' : 'side') : 'side';
+    if (pose.ground === 'bench') return 'seat';
+    return up('pelvis') < 12 ? 'seat' : 'stand';
+  }
+  if (Math.abs(s) > 150) return 'inverted';
+  if (pose.ground === 'bench') return s <= -60 ? 'supine' : s >= 60 ? 'prone' : s <= -25 ? 'recline' : s >= 35 ? 'lean' : 'seat';
+  if (s <= -60) return 'supine';
+  const kneeDown = Math.min(up('kn0'), up('kn1')) < 4 || pose.fix === 'kn0' || pose.fix === 'kn1';
+  const handDown = Math.min(up('wr0'), up('wr1'), up('el0'), up('el1')) < 6 || pose.pin === 'hands' || pose.fix === 'wr0' || pose.fix === 'el0';
+  if (s >= 55) {
+    if (kneeDown) return handDown ? 'allfours' : 'kneel';
+    if (up('pelvis') < 8 && up('neck') < 12) return 'prone';
+    if (handDown && !pose.wall) return 'plank';
+    return 'bent';
+  }
+  if (up('pelvis') < 12) return 'seat';
+  if (kneeDown) return 'kneel';
+  return s >= 40 ? 'bent' : 'stand';
+}

@@ -1,13 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import Animated, {
-  FadeIn, FadeInLeft, FadeInRight, FadeOutLeft, FadeOutRight, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming,
-} from 'react-native-reanimated';
+import { BackHandler, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { planFor } from '../src/coach';
-import { GOALS, Pill, Tiles, type Opt } from '../src/context';
+import { GOALS, LEVELS, Pill, type Opt } from '../src/context';
 import { HOME_GEAR, title } from '../src/data/exercises';
 import { perWeek, planById } from '../src/data/plans';
 import { EASE, goBack, Segmented, toToday } from '../src/kit';
@@ -15,16 +13,12 @@ import { SafetyNote } from '../src/safety';
 import { setSetupFinish } from '../src/setupflow';
 import { hasPermission, reschedule } from '../src/notify';
 import { useStore, type Goal, type Profile } from '../src/store';
-import { c, dom, f, r, tint } from '../src/theme';
+import { c, f, r, tint } from '../src/theme';
 import { Button, IconBox, Row, T, Tap } from '../src/ui';
 
-type Step = 'welcome' | 'goal' | 'place' | 'days' | 'plan' | 'name' | 'about';
-// First launch: a welcome, four quick questions, then your name (optional). 'about' (body and diet) is an optional
-// extra reached from the name step. Redo skips the welcome. Editing a profile keeps its own short list.
-const FIRST: Step[] = ['welcome', 'goal', 'place', 'days', 'plan', 'name', 'about'];
-const FRESH: Step[] = ['goal', 'place', 'days', 'plan', 'name', 'about'];
-const EDIT: Step[] = ['goal', 'place', 'days', 'about'];
-const COUNTED: Step[] = ['goal', 'place', 'days', 'plan', 'name']; // "Step n of 5" on a fresh setup
+// The page's blocks, top to bottom. ?step= scrolls to one (the old step names still work).
+type Sec = 'goal' | 'level' | 'place' | 'days' | 'about' | 'name';
+const SECTIONS: Sec[] = ['goal', 'level', 'place', 'days', 'about', 'name'];
 
 const PLACES: Opt<Profile['place']>[] = [
   ['gym', 'Gym', 'barbell', 'Machines and free weights'],
@@ -32,19 +26,66 @@ const PLACES: Opt<Profile['place']>[] = [
   ['both', 'Both', 'swap-horizontal', 'Some days each'],
   ['office', 'Office', 'briefcase', 'Short sessions at work'],
 ];
-const DAYS: Opt<string>[] = [
-  ['2', '2 days', 'leaf', 'Easy start'], ['3', '3 days', 'star', 'Most popular'], ['4', '4 days', 'trending-up', 'Steady progress'],
-  ['5', '5 days', 'flame', 'Serious'], ['6', '6 days', 'trophy', 'All in'],
-];
+const DAYS: [number, string][] = [[2, 'An easy start'], [3, 'Most popular'], [4, 'Steady progress'], [5, 'Serious'], [6, 'All in']];
 const DIETS: [Profile['diet'], string][] = [['vegetarian', 'Veg'], ['vegan', 'Vegan'], ['eggetarian', 'Egg'], ['pescatarian', 'Fish'], ['non-veg', 'Non-veg']];
 const GENDERS: { k: Profile['gender']; label: string }[] = [{ k: 'female', label: 'Female' }, { k: 'male', label: 'Male' }, { k: 'other', label: 'Other' }];
+const SAFETY = 'General fitness ideas, not medical advice. You train at your own risk.';
 
 const num = (t: string | null) => parseFloat((t ?? '').replace(',', '.'));
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
-// A boxed number you tap and type, with small -/+ beside it. Typed values outside min-max are clamped on blur.
-function NumField({ label, value, onChange, min, max, step, unit, decimal }: {
-  label: string; value: number; onChange: (n: number) => void; min: number; max: number; step: number; unit: string; decimal?: boolean;
+// The accent fill of a picked option: it fades and grows in behind the content (transform and opacity only).
+function Fill({ on, still, radius }: { on: boolean; still: boolean; radius: number }) {
+  const v = useSharedValue(on ? 1 : 0);
+  useEffect(() => { v.value = still ? (on ? 1 : 0) : withTiming(on ? 1 : 0, { duration: on ? 240 : 160, easing: EASE }); }, [on, still]);
+  const a = useAnimatedStyle(() => ({ opacity: v.value, transform: [{ scale: 0.9 + 0.1 * v.value }] }));
+  return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, backgroundColor: c.accent }, a]} />;
+}
+
+// One answer box: icon, label and a short line. Two per row (goal, place), or one per row (level: `wide`, which has
+// room for a tick as well). The box never changes size when picked.
+function Choice({ icon, label, sub, on, onPress, still, wide }: {
+  icon: keyof typeof Ionicons.glyphMap; label: string; sub?: string; on: boolean; onPress: () => void; still: boolean; wide?: boolean;
+}) {
+  return (
+    <Tap onPress={onPress} scale={0.97} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={sub ? `${label}. ${sub}` : label}
+      style={[s.choice, wide && { minHeight: 64, paddingVertical: 10 }, { borderColor: on ? c.accent : c.line }]}>
+      <Fill on={on} still={still} radius={r.md - 1} />
+      <View style={[s.choiceIcon, { backgroundColor: on ? 'transparent' : tint(c.accent, 1.2) }]}>
+        <Ionicons name={icon} size={20} color={on ? c.accentInk : c.accent} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={2} style={{ fontFamily: f.semi, fontSize: 15, lineHeight: 20, color: on ? c.accentInk : c.text }}>{label}</Text>
+        {sub ? <Text numberOfLines={2} style={{ fontFamily: f.medium, fontSize: 12.5, lineHeight: 16, marginTop: 1, color: on ? c.accentInk : c.muted }}>{sub}</Text> : null}
+      </View>
+      {on && wide && (
+        <Animated.View entering={still ? undefined : ZoomIn.duration(220)}>
+          <Ionicons name="checkmark-circle" size={20} color={c.accentInk} />
+        </Animated.View>
+      )}
+    </Tap>
+  );
+}
+
+// Answer boxes in rows of `cols`; boxes in a row share a height, and an odd last box keeps its column width.
+function Grid<K extends string>({ opts, cols, on, onPick, still }: { opts: Opt<K>[]; cols: 1 | 2; on: (k: K) => boolean; onPick: (k: K) => void; still: boolean }) {
+  const rows: Opt<K>[][] = [];
+  for (let i = 0; i < opts.length; i += cols) rows.push(opts.slice(i, i + cols));
+  return (
+    <View style={{ gap: 10 }} accessibilityRole="radiogroup">
+      {rows.map((row) => (
+        <View key={row[0][0]} style={{ flexDirection: 'row', gap: 10 }}>
+          {row.map(([k, label, icon, sub]) => <Choice key={k} icon={icon} label={label} sub={sub} on={on(k)} onPress={() => onPick(k)} still={still} wide={cols === 1} />)}
+          {row.length < cols && <View style={{ flex: 1 }} />}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// A boxed number with -/+ inside the box; tap the number to type. Typed values outside min-max are clamped on blur.
+function NumField({ label, value, onChange, min, max, step, unit, decimal, onFocus }: {
+  label: string; value: number; onChange: (n: number) => void; min: number; max: number; step: number; unit: string; decimal?: boolean; onFocus?: () => void;
 }) {
   const ref = useRef<TextInput>(null);
   const [txt, setTxt] = useState<string | null>(null); // what is being typed; null when not editing
@@ -52,23 +93,27 @@ function NumField({ label, value, onChange, min, max, step, unit, decimal }: {
   const commit = () => { const n = num(txt); if (Number.isFinite(n)) set(n); setTxt(null); };
   const nudge = (d: number) => { const n = num(txt); set((Number.isFinite(n) ? n : value) + d); setTxt(null); };
   return (
-    <Row gap={8}>
-      <T v="body" style={{ width: 64 }}>{label}</T>
-      <Tap onPress={() => nudge(-step)} style={s.nudge}><Ionicons name="remove" size={18} color={c.text} /></Tap>
-      <Pressable onPress={() => ref.current?.focus()} style={[s.field, { borderColor: txt !== null ? c.accent : c.line }]}>
-        <TextInput ref={ref} value={txt ?? fmt(value)} onFocus={() => setTxt(fmt(value))} onChangeText={setTxt} onBlur={commit} onSubmitEditing={commit}
-          keyboardType={decimal ? 'decimal-pad' : 'number-pad'} selectTextOnFocus maxLength={5} returnKeyType="done" style={s.fieldText} />
-        <Text style={s.unit}>{unit}</Text>
-      </Pressable>
-      <Tap onPress={() => nudge(step)} style={s.nudge}><Ionicons name="add" size={18} color={c.text} /></Tap>
-    </Row>
+    <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+      <T v="small" color={c.soft}>{label}</T>
+      <View style={[s.field, { borderColor: txt !== null ? c.accent : c.line }]}>
+        <Tap onPress={() => nudge(-step)} style={s.nudge} scale={0.9} accessibilityLabel={`Lower ${label.toLowerCase()}`}><Ionicons name="remove" size={20} color={c.text} /></Tap>
+        <Pressable onPress={() => ref.current?.focus()} style={s.fieldMid} accessible={false}>
+          <TextInput ref={ref} value={txt ?? fmt(value)} onFocus={() => { setTxt(fmt(value)); onFocus?.(); }} onChangeText={setTxt} onBlur={commit} onSubmitEditing={commit}
+            keyboardType={decimal ? 'decimal-pad' : 'number-pad'} selectTextOnFocus maxLength={5} returnKeyType="done" accessibilityLabel={`${label}, ${unit}`}
+            style={[s.fieldText, { width: (txt ?? fmt(value)).length * 12 + 6 }]} />
+          <Text style={s.unit}>{unit}</Text>
+        </Pressable>
+        <Tap onPress={() => nudge(step)} style={s.nudge} scale={0.9} accessibilityLabel={`Raise ${label.toLowerCase()}`}><Ionicons name="add" size={20} color={c.text} /></Tap>
+      </View>
+    </View>
   );
 }
 
-// First launch: a welcome (what the app does, Get started or skip), then one question per screen: goal, where you
-// train, days a week, the suggested plan ("Use this plan"), and a light, optional name step that lands on Today.
-// Body and diet are an optional extra after the name. No notification prompt here: it comes with the first reminder. An existing profile opens the same steps to
-// edit them (?step= jumps to one); ?redo=1 answers again and picks a fresh plan.
+// Setup is one scrolling page: goal, level, where you train (with home equipment), days a week, about you (sex, age,
+// height, weight, diet) and an optional name. Nothing is required: Skip sits top right, and the pinned button saves
+// whatever is answered (the rest keep the defaults) and lands on Home, where the recommendation and every plan are.
+// The same page edits an existing profile (?step= scrolls to a block) and answers again (?redo=1, picks a fresh plan).
+// No notification prompt here: it comes with the first reminder.
 export default function Onboarding() {
   const ins = useSafeAreaInsets();
   const still = useReducedMotion();
@@ -79,51 +124,55 @@ export default function Onboarding() {
   const redo = params.redo === '1';
   const fresh = !existing || redo; // finishing picks a plan
   const firstRun = !existing && !redo;
-  const steps = firstRun ? FIRST : fresh ? FRESH : EDIT;
 
   const [p, setP] = useState<Profile>(() => existing ?? { ...current, reminder: { hour: 18, minute: 0, on: true } });
-  const [idx, setIdx] = useState(() => Math.max(0, steps.indexOf(params.step as Step)));
-  const [dir, setDir] = useState(1);
   // On first launch nothing is pre-selected: an answer only lights up once you pick it (the guest defaults are not
-  // your answers).
-  const [touched, setTouched] = useState<Step[]>([]);
-  const mine = (st: Step) => !firstRun || touched.includes(st);
-  const before = useRef<Profile | null>(null); // answers before the optional About step, for its Skip
-  const busy = useRef(false);
-  const step = steps[idx];
-  const up = (patch: Partial<Profile>) => setP((x) => ({ ...x, ...patch }));
-
-  // The direction is set one frame before the step changes, so the leaving step exits the right way too.
-  const move = (d: number, then: () => void) => { setDir(d); requestAnimationFrame(then); };
-  const go = (to: number) => {
-    if (to < 0 || to >= steps.length) return;
-    if (steps[to] === 'about' && steps[idx] !== 'about') before.current = p;
-    move(to > idx ? 1 : -1, () => setIdx(to));
+  // your answers). The count at the top reads from the same list.
+  const [touched, setTouched] = useState<Sec[]>([]);
+  const mine = (k: Sec) => !firstRun || touched.includes(k);
+  const up = (k: Sec, patch: Partial<Profile>) => {
+    setP((x) => ({ ...x, ...patch }));
+    setTouched((t) => (t.includes(k) ? t : [...t, k]));
   };
-  const back = () => (idx > 0 ? go(idx - 1) : firstRun ? skip() : goBack());
-  // A tap on an answer moves on by itself, after the pick has had a moment to show.
-  const pickThen = (patch: Partial<Profile>) => {
-    up(patch);
-    setTouched((t) => (t.includes(step) ? t : [...t, step]));
-    if (busy.current) return;
-    busy.current = true;
-    setTimeout(() => { busy.current = false; move(1, () => setIdx((i) => Math.min(i + 1, steps.length - 1))); }, still ? 60 : 200);
+  const answered = SECTIONS.filter((k) => (k === 'name' ? !!p.name.trim() : touched.includes(k))).length;
+
+  // Where each block sits in the scroll, for ?step= and for bringing a focused field above the keyboard.
+  const scroll = useRef<ScrollView>(null);
+  const ys = useRef<Partial<Record<Sec, number>>>({});
+  const target = (SECTIONS as string[]).includes(params.step ?? '') ? (params.step as Sec) : null;
+  const jumped = useRef(false);
+  const placed = (k: Sec, y: number) => {
+    ys.current[k] = y;
+    if (target === k && !jumped.current) { jumped.current = true; scroll.current?.scrollTo({ y: Math.max(0, y - 8), animated: false }); }
+  };
+  const reveal = (k: Sec, extra = 0) => {
+    if (Platform.OS === 'web') return;
+    setTimeout(() => scroll.current?.scrollTo({ y: Math.max(0, (ys.current[k] ?? 0) + extra - 8), animated: !still }), 120);
   };
 
+  // The pinned bar steps aside while the keyboard is up, so the field being typed in has the room.
+  const [typing, setTyping] = useState(false);
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { if (idx > 0) { go(idx - 1); return true; } return false; });
-    return () => sub.remove();
-  }, [idx]);
+    const a = Keyboard.addListener('keyboardDidShow', () => setTyping(true));
+    const b = Keyboard.addListener('keyboardDidHide', () => setTyping(false));
+    return () => { a.remove(); b.remove(); };
+  }, []);
 
-  // The plan engine's pick for these answers, with its reasons (top two show on the plan step and its welcome page).
+  // Android back: a first launch has nowhere to go back to (the system closes the app); otherwise leave unsaved.
+  useEffect(() => {
+    if (Platform.OS !== 'android' || firstRun) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { goBack(); return true; });
+    return () => sub.remove();
+  }, [firstRun]);
+
+  // The plan engine's pick for the answers so far, shown as one quiet row at the end of the page.
   const pick = useMemo(() => planFor({ ...p, name: p.name.trim() }), [p]);
-  const plan = pick.planId;
-  const planInfo = planById[plan];
+  const planInfo = planById[pick.planId];
   const why = pick.reasons.slice(0, 2);
 
-  // Saves the answers. A first setup ends on Today; "See the full plan" ends on the plan's welcome page instead.
-  async function finish(from: Profile = p, view = false) {
+  // Saves the answers. A fresh setup ends on Home (recommendation on top, all plans below); an edit goes back.
+  async function finish(from: Profile = p) {
+    Keyboard.dismiss();
     const final = { ...from, name: from.name.trim(), goalWeightKg: existing ? from.goalWeightKg : from.weightKg };
     const chosen = planFor(final).planId;
     setProfile(final, fresh ? chosen : undefined);
@@ -133,202 +182,151 @@ export default function Onboarding() {
       st.setHydration({ ...st.hydration, on: true });
       st.setMotivation({ ...st.motivation, on: true });
       if (['desk', 'student', 'driving'].includes(final.lifestyle ?? '')) st.setBreaks({ ...st.breaks, on: true });
-      // Without a name the tabs would open setup again; mark it done so Today offers to personalise instead.
+      // Without a name the tabs would open setup again; mark it done so Home offers to personalise instead.
       st.skipSetup(!final.name);
     }
-    // No permission prompt here (round 13): the phone asks the first time you set a reminder (Today's Get started
-    // card and You › Reminders lead there). If permission was already given, keep the schedule in step.
+    // No permission prompt here (round 13): the phone asks the first time you set a reminder. If permission was
+    // already given, keep the schedule in step.
     if (await hasPermission()) reschedule(useStore.getState().profile, useStore.getState().sessions);
-    if (fresh && view) router.replace({ pathname: '/plan/[id]', params: { id: chosen, welcome: '1' } });
-    else if (fresh) toToday();
+    if (fresh) toToday();
     else goBack();
   }
   function skip() { useStore.getState().skipSetup(true); if (router.canGoBack()) router.back(); else router.replace('/'); }
-
-  // Top right: Skip on the optional steps (keeps the plan), Skip setup on the questions of a first launch, Save when
-  // editing.
-  const right = step === 'about' && fresh ? { label: 'Skip', on: () => finish(before.current ?? p) }
-    : step === 'name' ? { label: 'Skip', on: () => finish({ ...p, name: '' }) }
-    : firstRun && step !== 'welcome' ? { label: 'Skip', on: skip }
-    : !fresh && step !== 'about' ? { label: 'Save', on: () => finish() } : null;
-  // "Step n of 5": the welcome and the optional About step are not counted.
-  const counted = fresh ? COUNTED : EDIT;
-  const n = counted.indexOf(step);
-  const at = n >= 0 ? n + 1 : counted.length;
-  const progress = Math.min(1, at / counted.length);
-  const stepLabel = (name: string) => (n >= 0 ? `Step ${at} of ${counted.length} · ${name}` : name);
-  const showBack = idx > 0 || !firstRun;
-
-  let body: ReactNode = null;
-  let cta: { title: string; on: () => void } | null = null;
-  let link: { title: string; on: () => void } | null = null;
-  let note = false; // the quiet safety line under the commit button (plan step)
-  if (step === 'welcome') {
-    body = (
-      <View style={{ gap: 16, paddingTop: 40 }}>
-        <IconBox icon="barbell" color={c.accent} size={72} />
-        <T v="display">Your gym buddy</T>
-        <T v="body" color={c.soft}>Tells you what to do today, logs it in a few taps, and shows your progress.</T>
-        <View style={{ gap: 14, marginTop: 12 }}>
-          {([['list', dom.train, 'A plan made for your goal'], ['flash', dom.streak, 'Log sets, food and water fast'], ['trending-up', dom.steps, 'See your streak and strength grow']] as const).map(([icon, color, line]) => (
-            <Row key={line} gap={12}>
-              <View style={[s.bullet, { backgroundColor: tint(color, 1.2) }]}><Ionicons name={icon} size={18} color={color} /></View>
-              <T v="body" style={{ flex: 1 }}>{line}</T>
-            </Row>
-          ))}
-        </View>
-        <T v="small" style={{ marginTop: 8 }}>5 quick steps, about a minute.</T>
-      </View>
-    );
-    cta = { title: 'Get started', on: () => go(idx + 1) };
-    link = { title: "I've used gym apps before · skip", on: skip };
-  } else if (step === 'goal') {
-    body = (
-      <Q label={stepLabel('Your goal')} title="What do you want most?">
-        <Tiles<Goal> opts={GOALS} on={(k) => mine('goal') && p.goal === k} onPick={(goal) => pickThen({ goal })} />
-      </Q>
-    );
-  } else if (step === 'place') {
-    const gear = p.place === 'home' || p.place === 'both';
-    body = (
-      <Q label={stepLabel('Where you train')} title="Where will you work out?">
-        <Tiles<Profile['place']> opts={PLACES} on={(k) => mine('place') && p.place === k}
-          onPick={(place) => (place === 'home' || place === 'both' ? (up({ place }), setTouched((t) => [...t, 'place'])) : pickThen({ place }))} />
-        {gear && mine('place') && (
-          <Animated.View entering={still ? undefined : FadeIn.duration(260)} style={{ gap: 10, marginTop: 12 }}>
-            <T v="h3">What do you have at home?</T>
-            <View style={s.wrap}>
-              {HOME_GEAR.map((g) => {
-                const on = p.gear.includes(g);
-                return <Pill key={g} label={title(g)} on={on} onPress={() => up({ gear: on ? p.gear.filter((x) => x !== g) : [...p.gear, g] })} />;
-              })}
-            </View>
-            <T v="small">None is fine. Bodyweight works.</T>
-          </Animated.View>
-        )}
-      </Q>
-    );
-    if (gear && mine('place')) cta = { title: 'Next', on: () => go(idx + 1) };
-  } else if (step === 'days') {
-    body = (
-      <Q label={stepLabel('Days a week')} title="How many days can you train?">
-        <Tiles<string> opts={DAYS} on={(k) => mine('days') && String(p.daysPerWeek) === k} onPick={(d) => pickThen({ daysPerWeek: Number(d) })} />
-      </Q>
-    );
-  } else if (step === 'plan') {
-    const n = planInfo ? perWeek(planInfo) : p.daysPerWeek;
-    body = (
-      <Q label={stepLabel('Your plan')} title={planInfo?.name ?? 'Your plan'}>
-        {planInfo && (
-          <View style={s.card}>
-            <T v="body" color={c.muted}>{planInfo.tagline}</T>
-            <T v="small" color={c.accent}>{n} days a week · {title(planInfo.level)} · {planInfo.place === 'any' ? 'Anywhere' : title(planInfo.place)}</T>
-            <View style={{ gap: 8, marginTop: 4 }}>
-              {planInfo.days.slice(0, 6).map((d, i) => (
-                <Row key={d.name + i} gap={10}>
-                  <View style={[s.dot, { backgroundColor: c.accent + '22' }]}><T v="small" color={c.accent}>{i + 1}</T></View>
-                  <T v="body" numberOfLines={1} style={{ flex: 1 }}>{d.name}</T>
-                  <T v="small" numberOfLines={1} style={{ flexShrink: 1 }}>{d.slots.length} moves</T>
-                </Row>
-              ))}
-            </View>
-            <Tap onPress={() => { const snap = p; setSetupFinish(() => { finish(snap); }); router.push({ pathname: '/plan/[id]', params: { id: plan, welcome: '1', preview: '1', why: why.join('\n') } }); }} style={s.see} scale={0.97}>
-              <T v="h3" color={c.accent}>See the full plan</T>
-              <Ionicons name="chevron-forward" size={16} color={c.accent} />
-            </Tap>
-          </View>
-        )}
-        {why.map((line) => (
-          <Row key={line} gap={8}>
-            <Ionicons name="checkmark-circle" size={18} color={c.accent} />
-            <T v="body" style={{ flex: 1 }}>{line}</T>
-          </Row>
-        ))}
-        <T v="small">Change it any time in Train.</T>
-      </Q>
-    );
-    cta = { title: 'Use this plan', on: () => go(idx + 1) };
-    note = true;
-  } else if (step === 'name') {
-    const first = p.name.trim().split(' ')[0];
-    body = (
-      <Q label={stepLabel('Last one')} title="What should we call you?" sub="Optional. Just for a friendlier hello.">
-        <TextInput value={p.name} onChangeText={(name) => up({ name })} placeholder="Your first name" placeholderTextColor={c.dim}
-          style={[s.input, { borderColor: c.accent }]} returnKeyType="done" maxLength={24} autoCapitalize="words" autoFocus={Platform.OS !== 'web'}
-          onSubmitEditing={() => finish()} />
-      </Q>
-    );
-    cta = { title: first ? `Let's go, ${first}` : "Let's go", on: () => finish() };
-    link = { title: 'Add age and weight for food targets', on: () => go(idx + 1) };
-  } else {
-    body = (
-      <Q label="About you · optional" title={fresh ? 'A bit about you' : 'About you'} sub="Sharpens your plan and food targets.">
-        <TextInput value={p.name} onChangeText={(name) => up({ name })} placeholder="Your name" placeholderTextColor={c.dim}
-          style={[s.input, { borderColor: c.accent }]} returnKeyType="done" maxLength={24} autoCapitalize="words" />
-        <Segmented options={GENDERS} value={p.gender} onChange={(gender) => up({ gender })} />
-        <View style={{ gap: 10, marginTop: 4 }}>
-          <NumField label="Age" value={p.age} onChange={(age) => up({ age })} min={13} max={100} step={1} unit="y" />
-          <NumField label="Height" value={p.heightCm} onChange={(heightCm) => up({ heightCm })} min={120} max={230} step={1} unit="cm" />
-          <NumField label="Weight" value={p.weightKg} onChange={(weightKg) => up({ weightKg })} min={30} max={250} step={0.5} unit="kg" decimal />
-        </View>
-        <T v="h3" style={{ marginTop: 8 }}>How do you eat?</T>
-        <View style={s.wrap}>
-          {DIETS.map(([v, label]) => <Pill key={v} label={label} on={p.diet === v} onPress={() => up({ diet: v })} />)}
-        </View>
-      </Q>
-    );
-    cta = { title: fresh ? "Let's go" : 'Save', on: () => finish() };
+  // The full plan page as a preview: nothing is saved until its "Use this plan", which finishes setup from here.
+  function preview() {
+    const snap = p;
+    setSetupFinish(() => { finish(snap); });
+    router.push({ pathname: '/plan/[id]', params: { id: pick.planId, welcome: '1', preview: '1', why: why.join('\n') } });
   }
 
-  const enter = still ? undefined : (dir > 0 ? FadeInRight : FadeInLeft).duration(350).easing(EASE);
-  const exit = still ? undefined : (dir > 0 ? FadeOutLeft : FadeOutRight).duration(320).easing(EASE);
+  const gearOpen = (p.place === 'home' || p.place === 'both') && mine('place');
+  const dayNote = mine('days') ? DAYS.find(([d]) => d === p.daysPerWeek)?.[1] : null;
+  const head = firstRun ? { t: 'Set up your Gym Buddy', sub: 'A minute of answers and the plan fits you. Skip anything, change it all later.' }
+    : redo ? { t: 'Answer again', sub: 'Change what is different now. You get a fresh plan pick at the end.' }
+    : { t: 'Your answers', sub: 'Change anything and save. Your current plan stays as it is.' };
+  let i = 0; // stagger of the blocks rising in
+  const rise = () => (still ? undefined : FadeInDown.delay(60 * i++).duration(380).easing(EASE));
+  const block = (k: Sec, t: string, sub: string | null, children: ReactNode) => (
+    <Animated.View key={k} entering={rise()} onLayout={(e) => placed(k, e.nativeEvent.layout.y)} style={s.block}>
+      <View style={{ gap: 2 }}>
+        <T v="h2" accessibilityRole="header">{t}</T>
+        {sub ? <T v="small">{sub}</T> : null}
+      </View>
+      {children}
+    </Animated.View>
+  );
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bg, paddingTop: ins.top + 6 }}>
-      {step !== 'welcome' && <View style={s.top}>
-        {showBack ? (
-          <Tap onPress={back} style={s.round} scale={0.9} feedback="none"><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
+      <View style={s.top}>
+        {firstRun ? <IconBox icon="barbell" color={c.accent} size={40} /> : (
+          <Tap onPress={goBack} style={s.round} scale={0.9} feedback="none" accessibilityLabel="Back"><Ionicons name="chevron-back" size={22} color={c.text} /></Tap>
+        )}
+        {firstRun ? (
+          <View style={{ flex: 1, gap: 6 }}>
+            <Progress value={answered / SECTIONS.length} still={still} />
+            <T v="small" style={{ fontSize: 13, lineHeight: 16 }}>{answered ? `${answered} of ${SECTIONS.length} answered` : 'Nothing is required'}</T>
+          </View>
+        ) : <View style={{ flex: 1 }} />}
+        {firstRun ? (
+          <Tap onPress={skip} style={s.textBtn} scale={0.95} accessibilityLabel="Skip setup"><T v="h3" color={c.muted}>Skip</T></Tap>
+        ) : !fresh ? (
+          <Tap onPress={() => finish()} style={s.textBtn} scale={0.95}><T v="h3" color={c.accent}>Save</T></Tap>
         ) : <View style={{ width: 44 }} />}
-        <Progress value={progress} still={still} />
-        {right ? (
-          <Tap onPress={right.on} style={s.textBtn} scale={0.95}><T v="h3" color={right.label === 'Save' ? c.accent : c.muted}>{right.label}</T></Tap>
-        ) : <View style={{ width: 44 }} />}
-      </View>}
-
-      <View style={{ flex: 1, overflow: 'hidden' }}>
-        <Animated.View key={step} entering={enter} exiting={exit} style={StyleSheet.absoluteFill}>
-          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {body}
-          </ScrollView>
-        </Animated.View>
       </View>
 
-      {(cta || link) && (
-        <View style={[s.bar, { paddingBottom: ins.bottom + 12 }]}>
-          {cta && <Button title={cta.title} onPress={cta.on} />}
-          {note && <SafetyNote center />}
-          {link && (
-            <Tap onPress={link.on} style={s.link} scale={0.97}><T v="body" color={c.muted}>{link.title}</T></Tap>
+      <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={s.page} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}>
+        <Animated.View entering={rise()} style={{ gap: 6 }}>
+          <T v="display" accessibilityRole="header">{head.t}</T>
+          <T v="body" color={c.soft}>{head.sub}</T>
+        </Animated.View>
+
+        {block('goal', 'What do you want most?', 'Pick the one that matters now.',
+          <Grid<Goal> opts={GOALS} cols={2} on={(k) => mine('goal') && p.goal === k} onPick={(goal) => up('goal', { goal })} still={still} />)}
+
+        {block('level', 'How much have you trained?', 'Sets how hard the first weeks are.',
+          <Grid<Profile['level']> opts={LEVELS} cols={1} on={(k) => mine('level') && p.level === k} onPick={(level) => up('level', { level })} still={still} />)}
+
+        {block('place', 'Where will you work out?', null, <>
+          <Grid<Profile['place']> opts={PLACES} cols={2} on={(k) => mine('place') && p.place === k} onPick={(place) => up('place', { place })} still={still} />
+          {gearOpen && (
+            <Animated.View entering={still ? undefined : FadeIn.duration(260)} style={s.inset}>
+              <T v="h3">What do you have at home?</T>
+              <View style={s.wrap}>
+                {HOME_GEAR.map((g) => {
+                  const on = p.gear.includes(g);
+                  return <Pill key={g} label={title(g)} on={on} onPress={() => up('place', { gear: on ? p.gear.filter((x) => x !== g) : [...p.gear, g] })} />;
+                })}
+              </View>
+              <T v="small">None is fine. Bodyweight works.</T>
+            </Animated.View>
           )}
+        </>)}
+
+        {block('days', 'How many days a week?', dayNote ? `${p.daysPerWeek} days · ${dayNote}` : 'Pick what you can keep up, not the most.',
+          <View style={s.days} accessibilityRole="radiogroup">
+            {DAYS.map(([d]) => {
+              const on = mine('days') && p.daysPerWeek === d;
+              return (
+                <Tap key={d} onPress={() => up('days', { daysPerWeek: d })} scale={0.94} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${d} days a week`} style={[s.day, { borderColor: on ? c.accent : c.line }]}>
+                  <Fill on={on} still={still} radius={r.md - 1} />
+                  <Text style={{ fontFamily: f.bold, fontSize: 20, color: on ? c.accentInk : c.text }}>{d}</Text>
+                </Tap>
+              );
+            })}
+          </View>)}
+
+        {block('about', 'About you', 'Height and weight size your plan and food targets.', <>
+          <Segmented options={GENDERS} value={p.gender} onChange={(gender) => up('about', { gender })} />
+          <Row gap={10} style={{ alignItems: 'flex-start' }}>
+            <NumField label="Height" value={p.heightCm} onChange={(heightCm) => up('about', { heightCm })} min={120} max={230} step={1} unit="cm" onFocus={() => reveal('about', 60)} />
+            <NumField label="Weight" value={p.weightKg} onChange={(weightKg) => up('about', { weightKg })} min={30} max={250} step={0.5} unit="kg" decimal onFocus={() => reveal('about', 60)} />
+          </Row>
+          <Row gap={10} style={{ alignItems: 'flex-end' }}>
+            <NumField label="Age" value={p.age} onChange={(age) => up('about', { age })} min={13} max={100} step={1} unit="y" onFocus={() => reveal('about', 140)} />
+            <View style={s.aside}><T v="small" style={{ fontSize: 13, lineHeight: 17 }}>Tap a number to type it.</T></View>
+          </Row>
+          <View style={{ gap: 10, marginTop: 4 }}>
+            <T v="h3">How do you eat?</T>
+            <View style={s.wrap}>
+              {DIETS.map(([v, label]) => <Pill key={v} label={label} on={p.diet === v} onPress={() => up('about', { diet: v })} />)}
+            </View>
+          </View>
+        </>)}
+
+        {block('name', 'What should we call you?', 'Optional. Just for a friendlier hello.',
+          <TextInput value={p.name} onChangeText={(name) => setP((x) => ({ ...x, name }))} placeholder="Your first name" placeholderTextColor={c.dim}
+            style={s.input} returnKeyType="done" maxLength={24} autoCapitalize="words" autoCorrect={false} accessibilityLabel="Your first name"
+            onFocus={() => reveal('name')} />)}
+
+        {fresh && planInfo && (
+          <Animated.View entering={rise()}>
+            <Tap onPress={preview} scale={0.98} style={s.match} accessibilityLabel={`Best match so far: ${planInfo.name}. Preview the plan`}>
+              <IconBox icon="sparkles" color={c.accent} size={40} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>Best match so far · tap to preview</T>
+                <T v="h3" numberOfLines={2}>{planInfo.name}</T>
+                <T v="small" numberOfLines={2}>{perWeek(planInfo)} days a week · {title(planInfo.level)} · {planInfo.place === 'any' ? 'Anywhere' : title(planInfo.place)}</T>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={c.muted} />
+            </Tap>
+          </Animated.View>
+        )}
+      </ScrollView>
+
+      {!typing && (
+        <View style={[s.bar, { paddingBottom: ins.bottom + (fresh ? 4 : 12) }]}>
+          <Button title={fresh ? 'Show my plan' : 'Save changes'} icon={fresh ? 'arrow-forward' : 'checkmark'} onPress={() => finish()} />
+          {fresh && <SafetyNote text={SAFETY} center />}
         </View>
       )}
     </KeyboardAvoidingView>
   );
 }
 
-// One question: a small label, the question, an optional line, then the answers.
-const Q = ({ label, title: t, sub, children }: { label: string; title: string; sub?: string; children: ReactNode }) => (
-  <View style={{ gap: 12 }}>
-    <View style={{ gap: 6, marginBottom: 8 }}>
-      <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>{label}</T>
-      <T v="h1">{t}</T>
-      {sub ? <T v="small">{sub}</T> : null}
-    </View>
-    {children}
-  </View>
-);
-
-// Thin bar across the top; the fill slides (transform only) as you move through the steps.
+// Thin bar at the top; the fill slides (transform only) as answers come in.
 function Progress({ value, still }: { value: number; still: boolean }) {
   const [w, setW] = useState(0);
   const x = useSharedValue(0);
@@ -338,27 +336,35 @@ function Progress({ value, still }: { value: number; still: boolean }) {
   }, [value, w]);
   const fill = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
-    <View style={s.track} onLayout={(e) => { const nw = e.nativeEvent.layout.width; x.value = -(1 - value) * nw; setW(nw); }}>
+    <View style={s.track} onLayout={(e) => { const nw = e.nativeEvent.layout.width; x.value = -(1 - value) * nw; setW(nw); }}
+      accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(value * 100) }}>
       {w > 0 && <Animated.View style={[{ width: w, height: 6, borderRadius: 3, backgroundColor: c.accent }, fill]} />}
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  top: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingBottom: 8 },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 8 },
   round: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
-  textBtn: { minWidth: 44, height: 44, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
-  track: { flex: 1, height: 6, borderRadius: 3, backgroundColor: c.card2, overflow: 'hidden' },
-  input: { fontFamily: f.semi, fontSize: 26, color: c.text, borderBottomWidth: 2, paddingVertical: 6, marginBottom: 4, outlineWidth: 0 },
+  textBtn: { minWidth: 44, height: 44, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
+  track: { height: 6, borderRadius: 3, backgroundColor: c.card2, overflow: 'hidden' },
+  page: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 28, gap: 32, width: '100%', maxWidth: 560, alignSelf: 'center' },
+  block: { gap: 14 },
+  choice: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 12, minHeight: 76,
+    borderRadius: r.md, borderWidth: 1, backgroundColor: c.card },
+  choiceIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  inset: { gap: 10, padding: 14, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  card: { gap: 8, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
-  dot: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  field: { flex: 1, height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: r.md, borderWidth: 1.5, backgroundColor: c.card },
-  fieldText: { width: 80, fontFamily: f.semi, fontSize: 22, color: c.text, textAlign: 'right', padding: 0 },
-  unit: { fontFamily: f.semi, fontSize: 15, color: c.muted, marginLeft: 6, width: 30 },
-  nudge: { width: 44, height: 44, borderRadius: r.sm, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' },
-  bar: { gap: 4, paddingHorizontal: 16, paddingTop: 12, backgroundColor: c.bg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-  link: { height: 44, alignItems: 'center', justifyContent: 'center' },
-  bullet: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  see: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, marginTop: 4 },
+  days: { flexDirection: 'row', gap: 8 },
+  day: { flex: 1, height: 56, borderRadius: r.md, borderWidth: 1, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' },
+  field: { height: 56, flexDirection: 'row', alignItems: 'center', borderRadius: r.md, borderWidth: 1, backgroundColor: c.card },
+  fieldMid: { flex: 1, minWidth: 0, height: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  fieldText: { fontFamily: f.semi, fontSize: 20, color: c.text, textAlign: 'right', padding: 0, outlineWidth: 0 },
+  unit: { fontFamily: f.medium, fontSize: 14, color: c.muted, marginLeft: 3 },
+  nudge: { width: 44, height: 54, alignItems: 'center', justifyContent: 'center' },
+  aside: { flex: 1, minWidth: 0, minHeight: 56, justifyContent: 'center', paddingLeft: 4 },
+  input: { height: 56, paddingHorizontal: 16, borderRadius: r.md, borderWidth: 1, borderColor: c.line, backgroundColor: c.card, fontFamily: f.semi, fontSize: 18,
+    color: c.text, outlineWidth: 0 },
+  match: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  bar: { paddingHorizontal: 16, paddingTop: 12, backgroundColor: c.bg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
 });

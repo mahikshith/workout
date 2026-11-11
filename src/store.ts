@@ -11,7 +11,8 @@ import { dose } from './data/muscles';
 import { order } from './data/order';
 import type { AccentId } from './theme';
 
-export type Goal = 'lose fat' | 'build muscle' | 'get stronger' | 'stay fit';
+// The stored strings never change. Round 14 added the last five; older saves only hold the first four, so no migration.
+export type Goal = 'lose fat' | 'build muscle' | 'get stronger' | 'stay fit' | 'tone up' | 'gain weight' | 'endurance' | 'mobility' | 'athletic';
 export type Profile = {
   name: string;
   gender: 'male' | 'female' | 'other';

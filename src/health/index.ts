@@ -2,12 +2,13 @@
 import { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
 import { dayKey } from '../calc';
-import { useStore } from '../store';
-import { useTracker } from '../tracker';
+import { useStore, type Session } from '../store';
+import { STRAP_ORIGIN, useTracker } from '../tracker';
 import { closeRrWindow, openRrWindow, reconnectSaved } from './ble';
 import { reconnectRing } from './colmiDevice';
-import { deleteSessionRecord, linkWorkouts, readSessionHr, sync, writeSession } from './healthConnect';
-import { finishedTimes, trackDone } from './parse';
+import { deleteSessionRecord, linkWorkouts, readSessionHr, readSessionKcal, sync, writeSession } from './healthConnect';
+import { subscribeLive } from './live';
+import { finishedTimes, splitHr, trackDone, type HrSample } from './parse';
 
 export * from './ble';
 export * from './healthConnect';
@@ -19,7 +20,7 @@ const HR_WINDOW_MS = 24 * 3600000; // watches (Garmin, Fitbit) can sync hours la
 const HR_RETRY_MS = 5 * 60000; // and at most every 5 minutes, only when the app comes to the front
 
 const hrTried = new Map<string, number>();
-// Re-reads per-set heart rate for workouts that ended in the last 24 hours. `now` skips the wait for one session.
+// Re-reads per-set heart rate and the watch's calories for workouts that ended in the last 24 hours. `now` skips the wait for one session.
 function refreshHr(now?: string) {
   if (!useTracker.getState().hc.connected) return;
   const t = Date.now();
@@ -28,14 +29,37 @@ function refreshHr(now?: string) {
     if (s.id !== now && t - (hrTried.get(s.id) ?? 0) < HR_RETRY_MS) continue;
     hrTried.set(s.id, t);
     readSessionHr(s).catch(() => {});
+    readSessionKcal(s).catch(() => {});
   }
+}
+
+// Heart rate from a strap, ring or watch broadcast while a workout runs: one reading every 5 seconds, kept in memory
+// and turned into the workout's heart rate (per set too) when it finishes. Health Connect's own reading replaces it
+// later if the watch shares one. Lost if the app is closed mid-workout.
+const STRAP_STEP_MS = 5000;
+let strapLog: { id: string; xs: HrSample[] } | null = null;
+function logStrap(bpm: number, at: number) {
+  const a = useStore.getState().active;
+  if (!a || !a.running || a.pausedAt) return;
+  if (strapLog?.id !== a.id) strapLog = { id: a.id, xs: [] };
+  const last = strapLog.xs[strapLog.xs.length - 1];
+  if (!last || at - last.t >= STRAP_STEP_MS) strapLog.xs.push({ t: at, bpm });
+}
+function saveStrapHr(s: Session, times?: number[][]) {
+  const log = strapLog;
+  strapLog = null;
+  if (!log || log.id !== s.id || !s.endedAt || log.xs.length < 12) return; // under a minute of readings says nothing
+  const start = Math.min(s.startedAt, log.xs[0].t);
+  const split = splitHr(log.xs, start, s.endedAt, times);
+  if (!split) return;
+  useTracker.getState().putSessionHr(s.id, { avg: split.avg, max: split.max, sets: split.sets, rest: split.rest, sparse: split.sparse || undefined, origin: STRAP_ORIGIN, readAt: new Date().toISOString() });
 }
 
 const sameTimes = (a?: number[][], b?: number[][]) => !!a && !!b && a.length === b.length && a.every((r, i) => r.length === b[i].length && r.every((x, j) => x === b[i][j]));
 
 // Background glue: syncs Health Connect on launch and on return to the app, writes each finished gym workout back
 // (and again after an edit), deletes our record when a workout is deleted, reads per-set heart rate after a workout,
-// reconnects the saved strap, and turns the strap's beat-to-beat intervals during a workout into an HRV reading.
+// records a strap's heart rate during a workout, reconnects the saved strap, and turns the strap's beat-to-beat intervals during a workout into an HRV reading.
 // Sets carry no timestamp, so this also records when each set is ticked (tracker setTimes), on every platform.
 export function useHealthSync() {
   useEffect(() => {
@@ -83,7 +107,9 @@ export function useHealthSync() {
         const was = prev.active?.id === s.id ? prev.active : undefined;
         if (!old && was && s.endedAt) {
           const times = tr.setTimes[s.id];
-          if (times) tr.setSetTimes(s.id, finishedTimes(was.items, times));
+          const saved = times ? finishedTimes(was.items, times) : undefined;
+          if (saved) tr.setSetTimes(s.id, saved);
+          saveStrapHr(s, saved);
           if (ANDROID) {
             writeSession(s).catch(() => {});
             refreshHr(s.id);
@@ -103,7 +129,8 @@ export function useHealthSync() {
       linkWorkouts();
     });
     // New imported workouts (sync or a file) that duplicate one of our sessions are merged into it.
+    const unsubLive = subscribeLive((x) => { if (x && x.contact !== false && x.bpm > 0) logStrap(x.bpm, x.at); });
     const unsubTracker = useTracker.subscribe((st, prev) => { if (st.workouts !== prev.workouts) linkWorkouts(); });
-    return () => { if (boot) clearTimeout(boot); app?.remove(); unsub(); unsubTracker(); };
+    return () => { if (boot) clearTimeout(boot); app?.remove(); unsub(); unsubLive(); unsubTracker(); };
   }, []);
 }

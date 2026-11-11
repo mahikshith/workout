@@ -128,7 +128,7 @@ export default function PlanDetail() {
           {welcome && (
             <Row gap={8} style={{ marginTop: 12 }}>
               <Ionicons name="sparkles" size={16} color={c.accent} />
-              <T v="small" numberOfLines={1} style={{ flex: 1 }}>Picked for you · switch anytime in Train</T>
+              <T v="small" numberOfLines={1} style={{ flex: 1 }}>Picked for you · switch anytime in Plans</T>
             </Row>
           )}
           <Row gap={12} style={{ marginTop: 20 }}>
@@ -218,7 +218,7 @@ export default function PlanDetail() {
           </Section>
         </Enter>
 
-        {welcome && <T v="small" color={c.dim} style={{ textAlign: 'center', marginTop: 24 }}>You can change your plan any time in Train</T>}
+        {welcome && <T v="small" color={c.dim} style={{ textAlign: 'center', marginTop: 24 }}>You can change your plan any time in Plans</T>}
       </Screen>
       {/* Welcome: the commit button stays on screen, so setup never needs a scroll to finish. */}
       {welcome && (

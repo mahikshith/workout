@@ -19,6 +19,11 @@ export const GOALS: Opt<Goal>[] = [
   ['build muscle', 'Build muscle', 'body', 'Bigger, firmer muscles'],
   ['get stronger', 'Lift heavier', 'barbell', 'Get stronger, lift more'],
   ['stay fit', 'Stay healthy', 'heart', 'Feel fit and move well'],
+  ['tone up', 'Tone up', 'sparkles', 'Firmer, leaner look'],
+  ['gain weight', 'Gain weight', 'trending-up', 'Healthy size and strength'],
+  ['endurance', 'Build stamina', 'pulse', 'Cardio and endurance'],
+  ['mobility', 'Move better', 'accessibility', 'Flexibility and posture'],
+  ['athletic', 'Sport fitness', 'flash', 'Speed, power, agility'],
 ];
 export const LEVELS: Opt<Profile['level']>[] = [
   ['beginner', 'Just starting', 'leaf', 'Less than 6 months'],

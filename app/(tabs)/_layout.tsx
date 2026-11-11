@@ -10,13 +10,15 @@ import { useStore } from '../../src/store';
 import { Tap } from '../../src/ui';
 import { c, f, tint } from '../../src/theme';
 
-// Four labelled tabs with the Start button in the middle (docs/REDESIGN.md, section 2). Profile, settings and
-// Watch & health open from the avatar at the top of every tab.
+// Round 14: Home · Progress · (Workouts) · Fuel · Plans. The raised centre button opens the exercise library and
+// today's workout; Plans (your plan, every plan, challenges) sits at the right end beside Fuel. While a workout runs
+// the centre shows its clock and takes you back to it. Profile, settings and Watch & health open from the avatar.
 const TABS: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  index: { label: 'Today', icon: 'home' }, // a house, not a calendar: the calendar is its own place (Progress)
-  train: { label: 'Train', icon: 'barbell' },
+  index: { label: 'Home', icon: 'home' },
   progress: { label: 'Progress', icon: 'stats-chart' },
+  train: { label: 'Workouts', icon: 'barbell' },
   fuel: { label: 'Fuel', icon: 'nutrition' },
+  plans: { label: 'Plans', icon: 'map' },
 };
 export { TAB_BAR_HEIGHT };
 
@@ -38,7 +40,7 @@ function Bar({ state, navigation }: BottomTabBarProps) {
 
   const item = (i: number) => {
     const route = state.routes[i];
-    const t = TABS[route.name];
+    const t = route && TABS[route.name];
     if (!t) return null;
     const on = state.index === i;
     const press = () => {
@@ -58,29 +60,38 @@ function Bar({ state, navigation }: BottomTabBarProps) {
     );
   };
 
+  const by = (name: string) => item(state.routes.findIndex((x) => x.name === name));
+  const ci = state.routes.findIndex((x) => x.name === 'train');
+  const centreOn = state.index === ci;
+  const centrePress = () => {
+    if (running) return today.start(); // back to the running workout
+    const e = navigation.emit({ type: 'tabPress', target: state.routes[ci].key, canPreventDefault: true });
+    if (!centreOn && !e.defaultPrevented) navigation.navigate('train');
+  };
+
   return (
     <>
       {/* The workout mini bar is rendered once at the root (app/_layout.tsx), 8 px above this bar. */}
       <View style={[s.bar, { paddingBottom: bottom, height: TAB_BAR_HEIGHT + bottom }]} accessibilityRole="tablist">
-        {item(0)}
-        {item(1)}
-        {/* The centre button: a raised circle holding only the icon (or the running clock), with its label underneath on
-            the same baseline as the other tab labels. Icon and label are centred on the same axis. */}
-        <Tap onPress={today.start} style={s.item} scale={0.92} feedback="none"
-          accessibilityLabel={running ? `Resume workout, ${fmtTime(elapsed)}` : 'Start workout'}>
+        {by('index')}
+        {by('progress')}
+        {/* The centre button: a raised circle (barbell, or the running clock), label underneath on the same baseline as
+            the other tab labels. */}
+        <Tap onPress={centrePress} style={s.item} scale={0.92} feedback="none" accessibilityRole="tab" accessibilityState={{ selected: centreOn }}
+          accessibilityLabel={running ? `Resume workout, ${fmtTime(elapsed)}` : 'Workouts'}>
           <View style={s.slot}>
             <View style={[s.centre, { backgroundColor: c.accent, shadowOpacity: c.scheme === 'light' ? 0.18 : 0.5 }]}>
               {running ? (
                 <Text style={[s.centreTime, { color: c.accentInk }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{fmtTime(elapsed)}</Text>
               ) : (
-                <Ionicons name="play" size={24} color={c.accentInk} />
+                <Ionicons name="barbell" size={24} color={c.accentInk} />
               )}
             </View>
           </View>
-          <Text style={[s.label, { color: c.accent }]} numberOfLines={1}>{running ? 'Resume' : 'Start'}</Text>
+          <Text style={[s.label, { color: c.accent }]} numberOfLines={1}>{running ? 'Resume' : 'Workouts'}</Text>
         </Tap>
-        {item(2)}
-        {item(3)}
+        {by('fuel')}
+        {by('plans')}
       </View>
     </>
   );
@@ -102,9 +113,10 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="train" />
       <Tabs.Screen name="progress" />
+      <Tabs.Screen name="train" />
       <Tabs.Screen name="fuel" />
+      <Tabs.Screen name="plans" />
     </Tabs>
   );
 }

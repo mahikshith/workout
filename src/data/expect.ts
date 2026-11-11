@@ -11,11 +11,17 @@ export function goalWeeks(p: Profile) {
 
 export function timeline(p: Profile) {
   const gentle = p.gentle || p.concerns?.includes('food');
-  const muscle = p.goal === 'build muscle' || p.goal === 'get stronger';
+  const muscle = p.goal === 'build muscle' || p.goal === 'get stronger' || p.goal === 'gain weight';
+  const week6: Partial<Record<Profile['goal'], string>> = {
+    endurance: 'You last longer before you are out of breath, and the same pace feels easier.',
+    mobility: 'You bend and reach further, and stiff mornings ease off.',
+    athletic: 'You feel quicker on your feet and jumps land softer.',
+    'tone up': 'Clothes sit better and muscles feel firmer to the touch.',
+  };
   return [
     { when: 'Week 1-2', what: 'You learn the moves, sleep better and feel more energy. Some soreness is normal.' },
     { when: 'Week 3-4', what: 'Strength climbs fast as your nerves and muscles learn to work together. Workouts feel easier.' },
-    { when: 'Week 6-8', what: muscle ? 'Clothes fit differently and the mirror starts to agree.' : gentle ? 'Stairs feel easier and your mood is steadier.' : 'Clothes fit looser. Friends may notice before you do.' },
+    { when: 'Week 6-8', what: week6[p.goal] ?? (muscle ? 'Clothes fit differently and the mirror starts to agree.' : gentle ? 'Stairs feel easier and your mood is steadier.' : 'Clothes fit looser. Friends may notice before you do.') },
     { when: 'Week 12', what: 'A clear difference you can see and feel, if you kept showing up most weeks.' },
   ];
 }

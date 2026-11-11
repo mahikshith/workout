@@ -28,6 +28,13 @@ const DARK = {
   dangerBg: '#2A1210',
   accentInk: '#0A0A0A', // text and icons on an accent (or any domain colour) fill
   media: '#F4F4F2', // behind exercise photos (the photos have white backgrounds)
+  // Glass (src/glass.tsx): floating layers only. `glassFill` is the surface when there is no real blur behind it
+  // (Android): nearly opaque, so text under it never shows through sharp. `glassThin` sits over a real blur.
+  glassFill: 'rgba(24,24,28,0.90)',
+  glassThin: 'rgba(24,24,28,0.60)',
+  glassLine: 'rgba(255,255,255,0.11)', // hairline round glass
+  glassHi: 'rgba(255,255,255,0.09)', // top of the soft highlight gradient (fades to clear)
+  shade: 'rgba(0,0,0,0.55)', // shadow colour under floating layers
 };
 type Neutrals = typeof DARK;
 const LIGHT: Neutrals = {
@@ -49,6 +56,11 @@ const LIGHT: Neutrals = {
   dangerBg: '#FCE8E6',
   accentInk: '#FFFFFF',
   media: '#F4F4F2',
+  glassFill: 'rgba(255,255,255,0.90)',
+  glassThin: 'rgba(255,255,255,0.64)',
+  glassLine: 'rgba(20,24,32,0.09)',
+  glassHi: 'rgba(255,255,255,0.80)',
+  shade: 'rgba(24,32,52,0.16)',
 };
 
 // One colour per domain, used the same way everywhere: icons, rings, chart lines, soft tinted cards and hero
@@ -139,8 +151,17 @@ export const f = {
   bold: 'Outfit_700Bold',
 };
 
-// Corner radii: 16 for cards everywhere (bigger reads as toy-like), smaller for things inside cards.
-export const r = { sm: 10, md: 14, lg: 16, xl: 20 };
+// Corner radii: one for cards everywhere, smaller for things inside cards.
+// Round 14: cards 20 and sheets 26 (Google Health / Material 3 use large, soft corners); inner pieces unchanged.
+export const r = { sm: 10, md: 14, lg: 20, xl: 26 };
+
+// Soft depth, as CSS box shadows (React Native 0.81 draws `boxShadow` on Android 9+ and the web). Level 1 cards,
+// 2 floating bars, 3 sheets. Light mode casts a cool grey shadow; on near-black a shadow cannot be seen, so dark
+// levels are there only to separate a floating layer from bright content under it. src/glass.tsx `shadow()` picks one.
+export const SHADOWS = {
+  light: ['none', '0 1px 2px rgba(24,32,52,0.05), 0 6px 16px rgba(24,32,52,0.06)', '0 2px 4px rgba(24,32,52,0.06), 0 10px 28px rgba(24,32,52,0.14)', '0 -2px 6px rgba(24,32,52,0.05), 0 -12px 36px rgba(24,32,52,0.16)'],
+  dark: ['none', '0 1px 2px rgba(0,0,0,0.30)', '0 8px 24px rgba(0,0,0,0.55)', '0 -10px 32px rgba(0,0,0,0.60)'],
+} as const;
 
 // Spacing scale. Sections are 32 apart, cards inside a section 12, things inside a card 12; nothing else.
 export const sp = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, section: 32 };

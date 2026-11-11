@@ -60,8 +60,8 @@ export function cardioFor(p: Profile, sessions: Session[]) {
     || !!p.concerns?.some((x) => x === 'knee' || x === 'back' || x === 'injury');
   const places = p.place === 'gym' ? ['gym', 'any'] : p.place === 'both' ? ['gym', 'home', 'any'] : ['home', 'any'];
   const fits = (s: CardioSession) => places.includes(s.at) && (!careful || s.impact === 'low') && (!s.gear || s.gear.every((g) => p.gear.includes(g) || p.place !== 'home'));
-  const runner = !!p.concerns?.some((x) => x === 'run' || x === 'endurance');
-  const leaner = p.goal === 'lose fat' || !!p.concerns?.includes('lose-weight');
+  const runner = p.goal === 'endurance' || p.goal === 'athletic' || !!p.concerns?.some((x) => x === 'run' || x === 'endurance');
+  const leaner = p.goal === 'lose fat' || p.goal === 'tone up' || !!p.concerns?.includes('lose-weight');
   const score = (s: CardioSession) =>
     (s.stage === stage ? 30 : s.stage === stage - 1 ? 12 : 0) + (runner && /run|sprint|tempo/.test(s.id) ? 10 : 0) + (leaner && s.minutes >= 20 ? 6 : 0) + (s.impact === 'low' ? 1 : 0);
   const picks = CARDIO.filter((s) => s.stage <= stage && fits(s)).sort((a, b) => score(b) - score(a)).slice(0, 4);

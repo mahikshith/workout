@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, type Href } from 'expo-router';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeOut, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,16 +23,20 @@ import { TrackerCard } from '../../src/health/TrackerCard';
 import { Hint } from '../../src/hint';
 import { QuickLogSheet } from '../../src/quicklog';
 import { useWater } from '../../src/water';
-import { Avatar, Button, Chip, Ring, Row, T, Tap } from '../../src/ui';
+import { Avatar, Button, Chip, Ring, Row, Section, T, Tap } from '../../src/ui';
+import { explain, ranked } from '../../src/coach';
+import { planById } from '../../src/data/plans';
+import { because, PlanCard } from '../../src/plansui';
 
-// Today (docs/round13/PLAN.md, "The new map"): header with + Log, the Get started checklist for new people, one hero
-// card, three rings, the challenge and tracker panes, the week strip (opens the calendar), one coach line.
+// Home (docs/round14/PLAN.md): one calm column. Header with + Log; the recommended workout with two short reasons;
+// today's three rings in one card; plans for you in a sideways row (all of them one tap away on the Plans tab); your
+// challenge; then the quieter things: Get started folded to one row, the tracker, the week, one coach line.
 // Anything that needs a decision (setup, reminders, health context) collapses into one line at the very bottom.
 
 type Icon = keyof typeof Ionicons.glyphMap;
 const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const STEP_GOAL = 8000;
-const LABEL = { plan: 'Up next', light: 'Lighter today', rest: 'Rest day', gentle: 'Gentle today' } as const;
+const LABEL = { plan: 'Recommended for you', light: 'Lighter today', rest: 'Rest day', gentle: 'Gentle today' } as const;
 const EXCUSES: { id: Excuse; label: string; icon: Icon }[] = [
   { id: 'sick', label: 'Sick', icon: 'medkit-outline' }, { id: 'travel', label: 'Travelling', icon: 'airplane-outline' }, { id: 'rest', label: 'Rest', icon: 'bed-outline' },
 ];
@@ -69,6 +73,9 @@ export default function Today() {
   const [food, setFood] = useState(false); // the food ring opens the food sheet right here
   const [change, setChange] = useState(false); // Change next to Start: another day, a quick session or a focus
   const [log, setLog] = useState(false); // + Log: the Quick log sheet
+  const [askExcuse, setAskExcuse] = useState(false); // the excuse chips unfold from one quiet line
+  const [openSteps, setOpenSteps] = useState(false); // Get started is one row until tapped
+  const planId = useStore((s) => s.planId);
 
   const [notifOff, setNotifOff] = useState(false);
   useEffect(() => { if (Platform.OS !== 'web') hasPermission().then((ok) => setNotifOff(!ok)); }, []);
@@ -88,6 +95,15 @@ export default function Today() {
   const place = profile.place === 'office' && !active ? 'Office' : wh === 'home' ? 'Home' : 'Gym';
   const muscles = [...new Set(day.slots.map((sl) => byId[sl.id]?.primary[0]).filter(Boolean))].slice(0, 3).map(title);
   const button = active?.running ? 'Resume' : rest ? 'Train anyway' : 'Start';
+  // Why this workout: the engine's top reasons for the plan it comes from (two short lines at most).
+  const why = useMemo(() => (today.planId ? explain(profile, today.planId).slice(0, 2) : []), [profile, today.planId]);
+  // Plans for you: the one you are on first, then the engine's best fits.
+  const curBase = planById[planId]?.base ?? planId;
+  const forYou = useMemo(() => {
+    const list = ranked(profile);
+    const cur = planById[curBase];
+    return [...(cur ? [cur] : []), ...list.filter((x) => x.id !== curBase)].slice(0, 7);
+  }, [profile, curBase]);
 
   // "Not today?" excuse chips: on a planned day with no workout yet once the evening is near (or the day's last
   // reminder has passed), or the day after a missed planned day. An excused day pauses the missed-workout nudge.
@@ -191,7 +207,7 @@ export default function Today() {
           </Tap>
           <Avatar />
         </Row>
-        {!showSteps && <Hint id="today-log" text="Tap Log to add food, water, weight or how you feel." style={{ marginTop: 12 }} />}
+        {<Hint id="today-log" text="Tap Log to add food, water, weight or how you feel." style={{ marginTop: 12 }} />}
       </Enter>
 
       {/* 2. Hero: today's workout. Only the button acts. */}
@@ -209,6 +225,16 @@ export default function Today() {
             </Row>
           )}
           {!active && kind !== 'plan' && <T v="small" color={c.soft} numberOfLines={1}>{restLine(reason)}</T>}
+          {!active && kind === 'plan' && why.length > 0 && (
+            <View style={{ gap: 4 }}>
+              {why.map((line) => (
+                <Row key={line} gap={6}>
+                  <Ionicons name="checkmark-circle" size={15} color={dom.train} />
+                  <T v="small" color={c.soft} numberOfLines={1} style={{ flex: 1 }}>{line}</T>
+                </Row>
+              ))}
+            </View>
+          )}
           {/* One primary button; Change (before a workout is open) picks something else to start instead. */}
           <Row gap={10} style={{ marginTop: 4 }}>
             <Button title={button} icon="play" onPress={start} style={{ flex: 1, paddingHorizontal: 16 }} />
@@ -219,26 +245,27 @@ export default function Today() {
             )}
           </Row>
         </View>
-        {showExcuse && (
-          <Row gap={8} style={{ flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
-            <T v="small" color={c.muted}>{excused ? 'Excused today' : 'Not today?'}</T>
-            {EXCUSES.filter((x) => !excused || x.id === excused).map((x) => (
-              <Chip key={x.id} label={x.label} icon={x.icon} on={excused === x.id} onPress={() => excuse(excused === x.id ? null : x.id)} />
-            ))}
-          </Row>
+        {/* "Can't train today?" stays one quiet line until tapped (or once a day is excused). */}
+        {showExcuse && !excused && !askExcuse && (
+          <Tap onPress={() => setAskExcuse(true)} style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 4 }} scale={0.98} feedback="none">
+            <T v="small" color={c.muted}>Can’t train today?</T>
+          </Tap>
+        )}
+        {showExcuse && (!!excused || askExcuse) && (
+          <Animated.View entering={FadeInDown.duration(200).easing(EASE)}>
+            <Row gap={8} style={{ flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
+              {excused ? <T v="small" color={c.muted}>Excused today</T> : null}
+              {EXCUSES.filter((x) => !excused || x.id === excused).map((x) => (
+                <Chip key={x.id} label={x.label} icon={x.icon} on={excused === x.id} onPress={() => excuse(excused === x.id ? null : x.id)} />
+              ))}
+            </Row>
+          </Animated.View>
         )}
       </Enter>
 
-      {/* Get started: new people only, ticks itself, hides when done or closed. */}
-      {showSteps && (
-        <Enter i={2}>
-          <GetStarted steps={firstSteps} onClose={() => dismiss('get-started')} />
-        </Enter>
-      )}
-
       {/* 3. Three rings, each opens its own place. */}
       <Enter i={2}>
-        <Row gap={12}>
+        <Row gap={0} style={s.rings}>
           <Dial i={0} progress={week / goal} color={dom.train} label="Training" onPress={() => router.navigate('/progress')}>
             <CountUp value={week} suffix={`/${goal}`} style={s.ringNum} />
           </Dial>
@@ -277,13 +304,28 @@ export default function Today() {
         </Row>
       </Enter>
 
-      {/* Challenge and tracker panes (each hides itself when it has nothing to show). */}
-      <ChallengeCard />
-      {/* While Get started still lists "Connect a watch", the tracker pane would ask a second time. */}
-      {!(showSteps && !watchOn) && <TrackerCard />}
-
-      {/* 4. This week: a dot per day, filled when you trained, a ring around today. The whole strip opens the calendar. */}
+      {/* 4. Plans for you: yours first, then the best fits; every plan is on the Plans tab. */}
       <Enter i={3}>
+        <Section title="Plans for you" action="All plans" onAction={() => router.navigate('/plans')} first>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 16 }}>
+            {forYou.map((p) => (
+              <PlanCard key={p.id} plan={p} tag={p.id === curBase ? 'Your plan' : undefined}
+                why={explain(profile, p.id).find((x) => !/days/.test(x)) ?? because(profile, p)} />
+            ))}
+          </ScrollView>
+        </Section>
+      </Enter>
+
+      {/* 5. Your challenge (or one picked for you), and today's numbers from the watch. Each hides itself when empty. */}
+      <View style={{ gap: 12 }}>
+        <ChallengeCard />
+        {!(showSteps && !watchOn) && <TrackerCard />}
+        {/* Get started: new people only, one row until opened; ticks itself, hides when done or closed. */}
+        {showSteps && <GetStarted steps={firstSteps} open={openSteps} onToggle={() => setOpenSteps((v) => !v)} onClose={() => dismiss('get-started')} />}
+      </View>
+
+      {/* 6. This week: a dot per day, filled when you trained, a ring around today. The whole strip opens the calendar. */}
+      <Enter i={4}>
         <Tap onPress={() => router.push('/history')} scale={0.98} style={s.week} accessibilityLabel={`This week, ${week} of ${goal} workouts. Open calendar`}>
         <Row gap={8} style={{ marginBottom: 10 }}>
           <T v="h3" style={{ flex: 1 }}>This week</T>
@@ -307,8 +349,8 @@ export default function Today() {
         </Tap>
       </Enter>
 
-      {/* 5. One coach line. */}
-      <Enter i={4}>
+      {/* 7. One coach line. */}
+      <Enter i={5}>
         <Row gap={12} style={{ alignItems: 'flex-start' }}>
           <Ionicons name="star-outline" size={20} color={c.accent} style={{ marginTop: 1 }} />
           <T v="body" color={c.soft} style={{ flex: 1, fontSize: 15, lineHeight: 21 }}>{quote}</T>
@@ -343,35 +385,41 @@ export default function Today() {
 type Note = { id: string; icon: Icon; color: string; text: string; action?: string; onAction?: () => void };
 type Step = { id: string; icon: Icon; color: string; text: string; done: boolean; go: () => void };
 
-// The Get started card: a short progress line, then one row per first step. Done rows stay (ticked) so you see
-// how far you've come; the close button hides the card for good.
-function GetStarted({ steps, onClose }: { steps: Step[]; onClose: () => void }) {
+// The Get started card: one row (progress and the next step) until tapped, then one row per first step. Done rows
+// stay (ticked) so you see how far you've come; the close button hides the card for good.
+function GetStarted({ steps, open, onToggle, onClose }: { steps: Step[]; open: boolean; onToggle: () => void; onClose: () => void }) {
   const done = steps.filter((x) => x.done).length;
+  const next = steps.find((x) => !x.done);
   return (
     <View style={s.steps}>
-      <Row gap={8} style={{ paddingLeft: 16 }}>
-        <View style={{ flex: 1, minWidth: 0, paddingTop: 14 }}>
-          <T v="h3">Get started</T>
-          <T v="small">{done} of {steps.length} done</T>
+      <Tap onPress={onToggle} scale={0.99} feedback="none" style={s.stepsHead} accessibilityLabel={`Get started, ${done} of ${steps.length} done`} accessibilityState={{ expanded: open }}>
+        <Ring size={36} stroke={4} progress={done / steps.length} color={c.accent} track={c.line}>
+          <T v="small" style={{ fontSize: 12, lineHeight: 15, fontFamily: f.semi }} color={c.text}>{`${done}/${steps.length}`}</T>
+        </Ring>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <T v="h3" numberOfLines={1}>Get started</T>
+          <T v="small" numberOfLines={1}>{open || !next ? `${done} of ${steps.length} done` : `Next: ${next.text.toLowerCase()}`}</T>
         </View>
-        <Tap onPress={onClose} style={s.noteClose} scale={0.9} feedback="none" accessibilityLabel="Hide Get started">
-          <Ionicons name="close" size={18} color={c.muted} />
-        </Tap>
-      </Row>
-      <View style={s.track}>
-        <View style={{ width: `${(done / steps.length) * 100}%`, height: 4, borderRadius: 2, backgroundColor: c.accent }} />
-      </View>
-      {steps.map((x, i) => (
-        <Tap key={x.id} onPress={x.go} scale={0.99} style={[s.stepRow, i > 0 && s.rule]}
-          accessibilityRole="button" accessibilityState={{ checked: x.done }} accessibilityLabel={x.done ? `${x.text}, done` : x.text}>
-          <View style={[s.check, x.done ? { backgroundColor: c.accent, borderColor: c.accent } : { borderColor: c.dim }]}>
-            {x.done && <Ionicons name="checkmark" size={16} color={c.accentInk} />}
-          </View>
-          <T v="body" numberOfLines={1} color={x.done ? c.muted : c.text}
-            style={[{ flex: 1 }, x.done && { textDecorationLine: 'line-through' }]}>{x.text}</T>
-          {!x.done && <Ionicons name="chevron-forward" size={16} color={c.dim} />}
-        </Tap>
-      ))}
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
+      </Tap>
+      {open && (
+        <Animated.View entering={FadeInDown.duration(220).easing(EASE)}>
+          {steps.map((x) => (
+            <Tap key={x.id} onPress={x.go} scale={0.99} style={[s.stepRow, s.rule]}
+              accessibilityRole="button" accessibilityState={{ checked: x.done }} accessibilityLabel={x.done ? `${x.text}, done` : x.text}>
+              <View style={[s.check, x.done ? { backgroundColor: c.accent, borderColor: c.accent } : { borderColor: c.dim }]}>
+                {x.done && <Ionicons name="checkmark" size={16} color={c.accentInk} />}
+              </View>
+              <T v="body" numberOfLines={1} color={x.done ? c.muted : c.text}
+                style={[{ flex: 1 }, x.done && { textDecorationLine: 'line-through' }]}>{x.text}</T>
+              {!x.done && <Ionicons name="chevron-forward" size={16} color={c.dim} />}
+            </Tap>
+          ))}
+          <Tap onPress={onClose} style={[s.stepRow, s.rule, { justifyContent: 'center' }]} scale={0.99} feedback="none" accessibilityLabel="Hide Get started">
+            <T v="small">Hide this list</T>
+          </Tap>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -385,7 +433,7 @@ function Dial({ i, progress, color, label, onPress, children }: {
   useEffect(() => { if (go) return; const t = setTimeout(() => setGo(true), 120 + i * 80); return () => clearTimeout(t); }, []);
   const p = Math.min(1, Math.max(0, progress || 0));
   return (
-    <Tap onPress={onPress} style={s.ringCard} scale={0.96}>
+    <Tap onPress={onPress} style={s.ringCard} scale={0.96} accessibilityLabel={label}>
       <View style={{ width: 72, height: 72, alignItems: 'center', justifyContent: 'center' }}>
         <RingFill progress={go ? p : 0} color={color} />
         {children}
@@ -413,7 +461,9 @@ const s = StyleSheet.create({
   change: { height: 56, paddingHorizontal: 20, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2 },
   hero: { gap: 12, padding: 20, borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, overflow: 'hidden' },
   chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: c.card2 },
-  ringCard: { flex: 1, minWidth: 0, alignItems: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 8, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  rings: { paddingVertical: 6, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  ringCard: { flex: 1, minWidth: 0, alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 8 },
+  stepsHead: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingHorizontal: 14 },
   ringNum: { fontFamily: f.semi, fontSize: 18, lineHeight: 22 },
   dayRing: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   dot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1.5, borderColor: c.line },

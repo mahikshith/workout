@@ -247,7 +247,7 @@ export function insights(i: EngineInput, now = Date.now()): Insight[] {
   }
 
   // Muscle goals and lots of cardio pull in opposite directions.
-  if (p.goal === 'build muscle' || p.goal === 'get stronger') {
+  if (p.goal === 'build muscle' || p.goal === 'get stronger' || p.goal === 'gain weight') {
     const cardioMin = sessions.filter((s) => now - s.startedAt < 7 * DAY).reduce((m, s) => {
       const share = s.items.filter((it) => ['cardio', 'plyometrics'].includes(byId[it.exId]?.category ?? '')).length / Math.max(1, s.items.length);
       return m + share * Math.max(0, ((s.endedAt ?? s.startedAt) - s.startedAt) / 60000);
