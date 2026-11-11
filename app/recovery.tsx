@@ -13,6 +13,7 @@ import { DoorCard, EASE, Header, useMiniBarSpace } from '../src/kit';
 import { c, r } from '../src/theme';
 import { dayKey } from '../src/calc';
 import { Button, Ring, T } from '../src/ui';
+import { Ambient } from '../src/glass';
 
 const FACTOR_ICON: Record<Factor['key'], keyof typeof Ionicons.glyphMap> = { hrv: 'pulse', rhr: 'heart', sleep: 'moon', regular: 'time-outline' };
 const WD = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -36,6 +37,7 @@ export default function Recovery() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Ambient />
       <Header title="Recovery" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: ins.bottom + 40 + mini, gap: 12 }} showsVerticalScrollIndicator={false}>
         {/* Readiness */}

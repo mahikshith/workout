@@ -16,6 +16,7 @@ import { SafetyNote } from '../../src/safety';
 import { c, f, r } from '../../src/theme';
 import { Button, Card, Fold, haptic, IconBox, Row, Screen, Section, T, Tap, Thumb, Tile } from '../../src/ui';
 import { Enter, useOpenSession } from '../library';
+import { Ambient } from '../../src/glass';
 
 type Icon = keyof typeof Ionicons.glyphMap;
 const STEPS: Icon[] = ['school-outline', 'trending-up-outline', 'shirt-outline', 'trophy-outline'];
@@ -101,6 +102,7 @@ export default function PlanDetail() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Ambient />
       <Header title={welcome ? 'Your plan' : plan.name} onBack={leave} />
       <Screen top={4}>
         {/* Summary: what the plan is, in three numbers. */}

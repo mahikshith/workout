@@ -417,7 +417,7 @@ const PUSHDOWN = side(St(10, 10, 8, 15, 115), St(10, 10, 8, 15, 5), { prop: 'ban
 const OH_EXT = side(St(0, 0, 3, 170, 145), St(0, 0, 3, 170, 10), { prop: 'dumbbell', one: true, guide: { joint: 'el0', axis: ['sh0', 'el0'] } });
 const CRUNCH = side(LYING(50, 100, 22, 30, 140), A(-66, 74, 100, 22, 30, 140, { curve: 22, neck: 15 }), { ground: 'floor' });
 const LEG_RAISE = side(LYING(8, 0), LYING(90, 0), { ground: 'floor' });
-const PLANK = side(A(76, 0, 0, 14, 76, 90), A(75, 3, 0, 14, 75, 90), { ground: 'floor', fix: 'toe0', pace: 'hold', guide: { axis: ['an0', 'sh0'] } });
+const PLANK = side(A(83, 0, 0, 8, 83, 90), A(82, 2, 0, 8, 82, 90), { ground: 'floor', fix: 'toe0', pace: 'hold', guide: { axis: ['an0', 'sh0'] } });
 const DIPS = side(A(15, 10, 70, 20, 15, 0), A(25, 10, 70, 20, -50, 95), { ground: 'hang', prop: 'bar', con: 'back', guide: { joint: 'el0' } });
 const SHRUG = side(St(0, 0, 3, 0, 0), St(0, 0, 3, 0, 0, { shrug: 5 }), { prop: 'barbell' });
 const LUNGES = lunge(3, 0, { prop: 'dumbbell' });
@@ -806,7 +806,7 @@ function adapt(e: Ex, p: Pose): Pose {
   if (!w || p.weak || (w !== 'seat' && w !== 'kneel') || !legsStill(p)) return p;
   const a = postureOf(p, 0), b = postureOf(p, 1);
   if (POSTURE_OK[w].includes(a) || POSTURE_OK[w].includes(b) || (a !== 'stand' && a !== 'bent')) return p;
-  if (w === 'seat') return seated(p, /\bfloor\b|\bmat\b/.test((e.steps?.[0] ?? '').toLowerCase()) ? 'floor' : 'bench');
+  if (w === 'seat') return seated(p, /(sit|seated)( \w+){0,3} on (the|an?) (floor|mat|exercise mat)/.test((e.steps?.[0] ?? '').toLowerCase()) ? 'floor' : 'bench');
   return p.view === 'side' ? kneeling(p, /half/i.test(e.name)) : p;
 }
 // A rough stand-in from a different movement (often only the same muscle). The app hides these and shows the photo.
@@ -1453,6 +1453,13 @@ export function selfCheck(byId: Record<string, Ex & { noImages?: boolean }> = {}
       if (p < 0 || p > 1 || g < 0.29 || g > 1 || wrap > 0.05) { bad.push(`${id}: tempo jumps at ${i / 400}`); break; }
       last = p;
     }
+  }
+  // posture: no shown figure (weak ones are hidden behind the photo) may sit, stand, kneel, hang or lie against what
+  // the exercise's name and opening instructions ask for
+  for (const e of Object.values(byId)) {
+    if (e.noImages || poseFor(e).pose.weak) continue;
+    const m = postureMismatch(e);
+    if (m) bad.push('posture ' + m);
   }
   if (bad.length) throw new Error('poses: ' + bad.join('; '));
   return Object.keys(POSES).length;

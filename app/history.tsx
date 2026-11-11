@@ -122,11 +122,11 @@ export default function History() {
             </View>
 
             {/* Calories burned: the month's total and a weekly average. */}
-            {showKcal && (
-              <Row gap={8} style={{ marginTop: 10 }}>
+            {showKcal && (sum.kcalPerWeek !== undefined || sum.kcalEst) && (
+              <Row gap={8} style={{ marginTop: 10, paddingHorizontal: 4 }}>
                 <Ionicons name="flame" size={16} color={dom.kcal} />
                 <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1, fontVariant: ['tabular-nums'] }}>
-                  {sum.kcal!.toLocaleString()} kcal burned{sum.kcalPerWeek ? ` · about ${sum.kcalPerWeek.toLocaleString()} a week` : ''}
+                  {sum.kcalPerWeek !== undefined ? `About ${sum.kcalPerWeek.toLocaleString()} kcal a week` : `${sum.kcal!.toLocaleString()} kcal so far`}
                 </T>
                 {sum.kcalEst && <T v="small" color={c.dim}>part estimated</T>}
               </Row>

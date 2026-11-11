@@ -8,6 +8,7 @@ import { fmtTime } from '../../src/calc';
 import { TAB_BAR_HEIGHT, useElapsed, useToday } from '../../src/kit';
 import { useStore } from '../../src/store';
 import { Tap } from '../../src/ui';
+import { shadow, TabBarSurface } from '../../src/glass';
 import { c, f, tint } from '../../src/theme';
 
 // Round 14: Home · Progress · (Workouts) · Fuel · Plans. The raised centre button opens the exercise library and
@@ -31,12 +32,10 @@ const fadeRise: BottomTabNavigationOptions['sceneStyleInterpolator'] = ({ curren
 });
 
 function Bar({ state, navigation }: BottomTabBarProps) {
-  const ins = useSafeAreaInsets();
   const today = useToday();
   const elapsed = useElapsed();
   // Only a started workout shows Resume and its clock; a ready one (opened, clock not started) keeps Start.
   const running = !!today.active && today.active.running !== false;
-  const bottom = Math.max(ins.bottom, 8);
 
   const item = (i: number) => {
     const route = state.routes[i];
@@ -72,7 +71,7 @@ function Bar({ state, navigation }: BottomTabBarProps) {
   return (
     <>
       {/* The workout mini bar is rendered once at the root (app/_layout.tsx), 8 px above this bar. */}
-      <View style={[s.bar, { paddingBottom: bottom, height: TAB_BAR_HEIGHT + bottom }]} accessibilityRole="tablist">
+      <TabBarSurface height={TAB_BAR_HEIGHT}>
         {by('index')}
         {by('progress')}
         {/* The centre button: a raised circle (barbell, or the running clock), label underneath on the same baseline as
@@ -80,7 +79,7 @@ function Bar({ state, navigation }: BottomTabBarProps) {
         <Tap onPress={centrePress} style={s.item} scale={0.92} feedback="none" accessibilityRole="tab" accessibilityState={{ selected: centreOn }}
           accessibilityLabel={running ? `Resume workout, ${fmtTime(elapsed)}` : 'Workouts'}>
           <View style={s.slot}>
-            <View style={[s.centre, { backgroundColor: c.accent, shadowOpacity: c.scheme === 'light' ? 0.18 : 0.5 }]}>
+            <View style={[s.centre, shadow(2), { backgroundColor: c.accent }]}>
               {running ? (
                 <Text style={[s.centreTime, { color: c.accentInk }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{fmtTime(elapsed)}</Text>
               ) : (
@@ -92,7 +91,7 @@ function Bar({ state, navigation }: BottomTabBarProps) {
         </Tap>
         {by('fuel')}
         {by('plans')}
-      </View>
+      </TabBarSurface>
     </>
   );
 }
@@ -135,7 +134,6 @@ const s = StyleSheet.create({
   slot: { width: 64, height: 28, alignItems: 'center', justifyContent: 'flex-end' },
   centre: {
     position: 'absolute', bottom: 0, width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 4, borderColor: c.bar, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 10,
   },
   centreTime: { fontFamily: f.bold, fontSize: 13, fontVariant: ['tabular-nums'], maxWidth: 42, textAlign: 'center' },
 });

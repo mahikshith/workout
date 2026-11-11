@@ -13,6 +13,7 @@ import { TimePicker } from '../src/timepicker';
 import { useStore, type SupplementReminder } from '../src/store';
 import { c, f, r, tint } from '../src/theme';
 import { Button, Card, IconBox, Row, T, Tap } from '../src/ui';
+import { Ambient } from '../src/glass';
 
 const WEEK = [1, 2, 3, 4, 5, 6, 0]; // Monday first; the store counts 0 = Sunday
 const LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -52,6 +53,7 @@ export default function Supplements() {
   return (
     <>
       <View style={{ flex: 1, backgroundColor: c.bg }}>
+        <Ambient />
         <Header title="Supplements" />
         <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: ins.bottom + 40 + mini }} showsVerticalScrollIndicator={false}>
           <T v="small" style={{ marginTop: 4 }}>Tick what you take each day. Set a reminder for anything you take daily.</T>

@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   challengeById, challenges, cheer, LEVELS, recommend, summary, taskIcon, taskTitle, taskDomain, type Challenge, type DayInfo, type Task,
 } from '../../src/data/challenges';
+import { Ambient, GlassBar } from '../../src/glass';
 import { Empty, Header, toToday, useMiniBarSpace } from '../../src/kit';
 import { Sheet } from '../../src/sheet';
 import {
@@ -57,6 +58,7 @@ export default function ChallengeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Ambient colors={[c.accent, dom.streak, dom.train]} />
       <Header title={ch.name} actionIcon={prog ? 'ellipsis-horizontal' : undefined} onAction={prog ? () => setMenu('menu') : undefined} />
       <Screen top={4} bottom={prog ? 0 : 130}>
         {/* Hero: where you stand, the finish, or what this is. */}
@@ -175,10 +177,10 @@ export default function ChallengeScreen() {
 
       {/* Join: one button in thumb reach. */}
       {!prog && (
-        <View style={[s.bar, { paddingBottom: ins.bottom + 12 + mini }]}>
+        <GlassBar edge="bottom" inset={false} style={{ paddingTop: 12, paddingHorizontal: 16, paddingBottom: ins.bottom + 12 + mini }}>
           <Button title={win ? 'Go again · starts today' : 'Join · starts today'} icon="flag" onPress={join} />
           <SafetyNote text="Leave any time. General fitness ideas, not medical advice." center />
-        </View>
+        </GlassBar>
       )}
 
       {sheet}

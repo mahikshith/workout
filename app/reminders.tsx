@@ -13,6 +13,7 @@ import { clock as hm, useMySupplements } from '../src/supps';
 import { c } from '../src/theme';
 import { Button, Card, Chip, IconBox, Row, T, Tap } from '../src/ui';
 import { ml, useWater } from '../src/water';
+import { Ambient } from '../src/glass';
 
 const WEEK = [1, 2, 3, 4, 5, 6, 0]; // Monday first; the store counts 0 = Sunday
 const SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -83,6 +84,7 @@ export default function Reminders() {
   return (
     <>
       <View style={{ flex: 1, backgroundColor: c.bg }}>
+        <Ambient />
         <Header title="Reminders" />
         <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: ins.bottom + 40 + mini }} showsVerticalScrollIndicator={false}>
         <T v="small" style={{ marginTop: 4 }}>Set on this phone, so they work offline. Changes save at once.</T>

@@ -39,6 +39,7 @@ export default function ExerciseDetail() {
   const toSession = useOpenSession();
   const ins = useSafeAreaInsets();
   const mini = useMiniBarSpace();
+  const space = useHeaderSpace();
   const ex = byId[id];
   const profile = useStore((s) => s.profile);
   const sessions = useStore((s) => s.sessions);

@@ -9,7 +9,8 @@ import { GOALS, optLabel } from '../src/context';
 import { setsCsv } from '../src/importApps';
 import { title } from '../src/data/exercises';
 import { planById } from '../src/data/plans';
-import { EASE, Header, Segmented, toToday, useMiniBarSpace } from '../src/kit';
+import { Ambient } from '../src/glass';
+import { EASE, Header, Segmented, toToday, useHeaderSpace, useMiniBarSpace } from '../src/kit';
 import { setPrefs, useLook } from '../src/look';
 import { Sheet } from '../src/sheet';
 import { answered } from '../src/glance';
@@ -38,6 +39,7 @@ let reopenLook = false;
 export default function You() {
   const ins = useSafeAreaInsets();
   const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
+  const space = useHeaderSpace(); // the glass header floats; content starts under it
   const still = useReducedMotion();
   const params = useLocalSearchParams<{ sheet?: string }>();
   const profile = useStore((s) => s.profile);
@@ -169,8 +171,9 @@ export default function You() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Header title="You" />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 40 + mini, gap: 16 }} showsVerticalScrollIndicator={false}>
+      <Ambient />
+      <Header title="You" glass />
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: space + 8, paddingBottom: ins.bottom + 40 + mini, gap: 16 }} showsVerticalScrollIndicator={false}>
         <Animated.View entering={enter(0)}>
           <Tap onPress={() => router.push({ pathname: '/profile', params: { s: 'about' } })} scale={0.98} style={[s.card, { borderColor: tint(c.accent, 1.6) }]}>
             <LinearGradient colors={[tint(c.accent, 1.5), tint(dom.train, 0.5), c.card]} locations={[0, 0.6, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
