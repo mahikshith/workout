@@ -10,6 +10,7 @@ import { ColmiCard } from '../src/health/ColmiCard';
 import { ConnectWatch } from '../src/health/ConnectWatch';
 import { DataPath, hcPath, syncedAgo, useWatchLink } from '../src/health/DataPath';
 import type { Alt } from '../src/health/guides';
+import { WatchGives } from '../src/health/WatchGives';
 import { LEVEL_WORD } from '../src/health/readiness';
 import { levelColor, useReadiness } from '../src/health/useReadiness';
 import { appsLine, commitApps, importFiles, pickFiles, summaryLine } from '../src/health/importFile';
@@ -202,6 +203,9 @@ export default function Watch() {
             </>
           )}
         </Animated.View>
+
+        {/* Which numbers come in, and that workouts logged here get them attached */}
+        <Animated.View entering={enter(1)}><WatchGives /></Animated.View>
 
         {/* The Tracker: every number your watch shares, live heart rate, watch workouts */}
         <Animated.View entering={enter(1)}>

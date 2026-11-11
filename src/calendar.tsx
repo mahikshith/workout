@@ -7,6 +7,8 @@
 // - watch workouts merged into one of our sessions (`merged`): shown on that session, never as a second workout
 // - the watch's day totals (`daily`: steps, active and total kcal, sleep). A day's active kcal already includes the
 //   watch's workouts, so workout calories are never added on top of it.
+// - calories for our own workouts (src/health/energy.ts): the watch's count for that time, else worked out from heart
+//   rate, else an estimate. Without a watch day total, the day shows its workouts added up.
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState, type ComponentProps } from 'react';
@@ -17,7 +19,9 @@ import { dayKey, doneSets, volume } from './calc';
 import { byId } from './data/exercises';
 import { planById, type Plan } from './data/plans';
 import { sessionMinutes } from './glance';
+import { SOURCE_LABEL, type EnergySource, type SessionEnergy } from './health/energy';
 import { originName } from './health/guides';
+import { burnOn, energyFor, useEnergyData } from './health/useEnergy';
 import { ml, toMl } from './water';
 import { plannedOn } from './notify';
 import { Sheet } from './sheet';
@@ -39,7 +43,8 @@ export type DayInfo = {
   daily?: DailyMetrics;
   excuse?: Excuse;
   planned: boolean;
-  kcal?: number; // calories burned that day, counted once (see burned)
+  kcal?: number; // calories burned that day, counted once (src/health/energy.ts dayBurn)
+  est?: boolean; // that number leans on an estimate (no watch total that day)
 };
 
 // Friendly names for where a number came from. The Fitbit app now ships as Google Health, but people know their watch
@@ -61,20 +66,10 @@ export function plannedDay(d: Date, reminders: Reminder[], plan?: Plan) {
   return plan?.week?.length === 7 ? plan.week[(d.getDay() + 6) % 7] !== null : false;
 }
 
-// Calories burned on one day, each number counted once. The watch's active total wins (it already holds its workouts);
-// without it, the watch workouts' own calories add up. Our logged workouts carry no calorie estimate: we don't guess.
-export function burned(daily: DailyMetrics | undefined, watch: ImportedWorkout[], merged: ImportedWorkout[]) {
-  const parts = [...watch, ...merged].filter((w) => w.kcal);
-  const fromWorkouts = parts.reduce((a, w) => a + (w.kcal ?? 0), 0);
-  const active = daily?.activeKcal;
-  if (active !== undefined && active >= fromWorkouts) return { kcal: Math.round(active), from: 'day' as const, parts };
-  if (fromWorkouts > 0) return { kcal: Math.round(fromWorkouts), from: 'workouts' as const, parts };
-  return { kcal: undefined, from: 'none' as const, parts };
-}
-
 export type MonthCtx = {
   sessions: Session[]; workouts: Record<string, ImportedWorkout>; merged: Record<string, ImportedWorkout>;
   daily: Record<string, DailyMetrics>; excuses: Record<string, Excuse>; reminders: Reminder[]; planId: string; planStart?: number;
+  energy?: (s: Session) => SessionEnergy; // calories for one of our workouts; defaults to the stores' current numbers
 };
 
 // Every day of a month, Monday-first, with null padding at the start.
@@ -96,7 +91,7 @@ export function monthDays(month: Date, x: MonthCtx, today = dayKey()): (DayInfo 
     const key = dayKey(d);
     const sessions = byDay[key] ?? [], watch = watchDay[key] ?? [], excuse = x.excuses[key];
     const planned = plannedDay(d, x.reminders, plan);
-    const mergedHere = sessions.map((s) => mergedFor(x.merged, s.id)).filter((w): w is ImportedWorkout => !!w);
+    const cal = burnOn(x.daily[key], watch, sessions, x.energy);
     let kind: DayKind;
     if (sessions.length && watch.length) kind = 'both';
     else if (sessions.length) kind = 'ours';
@@ -105,7 +100,7 @@ export function monthDays(month: Date, x: MonthCtx, today = dayKey()): (DayInfo 
     else if (key >= today) kind = planned ? 'planned' : 'blank'; // today isn't over yet
     else if (key < floor) kind = 'blank';
     else kind = planned ? 'missed' : 'rest';
-    out.push({ key, kind, sessions, watch, daily: x.daily[key], excuse, planned, kcal: burned(x.daily[key], watch, mergedHere).kcal });
+    out.push({ key, kind, sessions, watch, daily: x.daily[key], excuse, planned, kcal: cal.kcal, est: cal.estimated || undefined });
   }
   return out;
 }
@@ -113,11 +108,18 @@ export function monthDays(month: Date, x: MonthCtx, today = dayKey()): (DayInfo 
 export function monthSummary(days: (DayInfo | null)[]) {
   const ds = days.filter((d): d is DayInfo => !!d);
   const kcalDays = ds.filter((d) => d.kcal !== undefined);
+  const total = kcalDays.reduce((a, d) => a + (d.kcal ?? 0), 0);
+  // A weekly average needs at least a week between the first day with calories and the last day that has happened.
+  const today = dayKey();
+  const first = ds.findIndex((d) => d.kcal !== undefined), last = ds.filter((d) => d.key <= today).length - 1;
+  const span = first >= 0 ? last - first + 1 : 0;
   return {
+    kcalPerWeek: span >= 7 ? Math.round((total / span) * 7) : undefined,
+    kcalEst: kcalDays.some((d) => d.est),
     workouts: ds.reduce((a, d) => a + d.sessions.length, 0),
     active: ds.filter((d) => d.kind === 'ours' || d.kind === 'watch' || d.kind === 'both').length,
     rest: ds.filter((d) => d.kind === 'rest' || d.excuse === 'rest').length,
-    kcal: kcalDays.length ? kcalDays.reduce((a, d) => a + (d.kcal ?? 0), 0) : undefined,
+    kcal: kcalDays.length ? total : undefined,
   };
 }
 
@@ -191,7 +193,7 @@ function DayCell({ d, today, onPress, showKcal }: { d: DayInfo; today: boolean; 
   ];
   const ink = ours ? c.accentInk : d.kind === 'missed' || (d.kind === 'excused' && d.excuse !== 'rest') || (d.kind === 'blank' && d.key < dayKey()) ? c.muted : d.kind === 'blank' ? c.dim : c.text;
   const watch = d.kind === 'watch' || d.kind === 'both';
-  const bar = showKcal && d.kcal ? Math.min(1, d.kcal / 800) : 0;
+  const kcal = showKcal && d.kcal ? kcalShort(d.kcal) : null;
   const label = `${new Date(d.key + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}: ${KIND_WORD[d.kind]}${d.kcal && showKcal ? `, ${d.kcal} kcal burned` : ''}`;
   const body = (
     <>
@@ -202,7 +204,8 @@ function DayCell({ d, today, onPress, showKcal }: { d: DayInfo; today: boolean; 
           {d.kind === 'excused' && d.excuse && <Ionicons name={EXCUSE[d.excuse].icon} size={13} color={c.soft} style={s.corner} />}
         </View>
       </View>
-      <View style={s.barTrack}>{bar > 0 && <View style={[s.bar, { width: `${Math.round(25 + 75 * bar)}%`, backgroundColor: dom.kcal }]} />}</View>
+      {/* Calories burned that day, under the date. Lighter when it is an estimate. */}
+      <T v="small" numberOfLines={1} color={d.est ? c.muted : c.text} style={s.kcal}>{kcal ?? ' '}</T>
     </>
   );
   if (!onPress) return <View style={s.cell} accessible accessibilityLabel={label}>{body}</View>;
@@ -223,13 +226,13 @@ export function Legend({ showKcal }: { showKcal: boolean }) {
     { label: 'Excused', sw: { backgroundColor: c.card2 }, icon: 'medkit-outline' },
     { label: 'Missed', sw: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.danger + '80' } },
     { label: 'Planned', sw: { borderWidth: 1.5, borderColor: dom.train + '99' } },
-    ...(showKcal ? [{ label: 'Calories burned', sw: {}, bar: true }] : []),
+    ...(showKcal ? [{ label: 'kcal burned that day', sw: {}, bar: true }] : []),
   ];
   return (
     <View style={s.legend}>
       {items.map((x) => (
         <Row key={x.label} gap={6} style={s.legendItem}>
-          {x.bar ? <View style={[s.legendBar, { backgroundColor: dom.kcal }]} /> : (
+          {x.bar ? <Row gap={3}><Ionicons name="flame" size={12} color={dom.kcal} /><T v="small" color={c.text} style={s.kcal}>320</T></Row> : (
             <View style={[s.swatch, x.sw]}>
               {x.dot && <View style={[s.swatchDot, { backgroundColor: c.blue }]} />}
               {x.icon && <Ionicons name={x.icon} size={10} color={c.muted} />}
@@ -268,7 +271,7 @@ function DayBody({ k }: { k: string }) {
   const workouts = useTracker((t) => t.workouts);
   const merged = useTracker((t) => t.merged);
   const daily = useTracker((t) => t.daily);
-  const sessionHr = useTracker((t) => t.sessionHr);
+  const data = useEnergyData();
   const still = useReducedMotion();
   const [confirm, setConfirm] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -278,11 +281,11 @@ function DayBody({ k }: { k: string }) {
   const today = dayKey();
   const ours = sessions.filter((x) => dayKey(x.startedAt) === k);
   const watch = Object.values(workouts).filter((w) => dayKey(Date.parse(w.start)) === k).sort((a, b) => a.start.localeCompare(b.start));
-  const mergedHere = ours.map((x) => mergedFor(merged, x.id)).filter((w): w is ImportedWorkout => !!w);
   const dm = daily[k];
   const why = excuses[k];
   const planned = plannedDay(date, reminders, planById[planId]);
-  const cal = burned(dm, watch, mergedHere);
+  const cal = burnOn(dm, watch, ours, (x) => energyFor(x, data, profile));
+  const partName = (id: string) => ours.find((x) => x.id === id)?.title ?? (() => { const w = watch.find((x) => x.id === id); return w ? `${w.title ?? w.type} · ${sourceName(w)}` : 'Workout'; })();
   const dayMeals = meals.filter((m) => m.day === k);
   const eaten = dayMeals.reduce((a, m) => a + m.kcal, 0), protein = dayMeals.reduce((a, m) => a + m.protein, 0);
   const glasses = water[k] ?? 0;
@@ -296,12 +299,6 @@ function DayBody({ k }: { k: string }) {
     if (confirm !== id) { setConfirm(id); haptic('light'); return; }
     deleteSession(id); setConfirm(null); haptic('medium');
   };
-  const hrOf = (id: string) => {
-    const h = sessionHr[id], w = mergedFor(merged, id);
-    const avg = h?.avg ?? w?.avgHr, max = h?.max ?? w?.maxHr;
-    return avg && max ? `${Math.round(avg)} avg · ${Math.round(max)} max bpm` : avg ? `avg ${Math.round(avg)} bpm` : null;
-  };
-
   const stats: { icon: Icon; color: string; value: string; label: string }[] = [];
   if (dm?.steps !== undefined) stats.push({ icon: 'footsteps', color: dom.steps, value: dm.steps.toLocaleString(), label: 'steps' });
   if (dm?.sleep) stats.push({ icon: 'moon', color: dom.sleep, value: hm(dm.sleep.minutes), label: 'sleep' });
@@ -323,7 +320,8 @@ function DayBody({ k }: { k: string }) {
             <View style={{ flex: 1 }}>
               <T v="num">{cal.kcal.toLocaleString()} <T v="small">kcal burned</T></T>
               <T v="small" numberOfLines={2}>
-                {cal.from === 'day' ? `Active calories from ${origins.length ? origins.join(' and ') : 'your watch'}` : 'Added up from your watch workouts'}
+                {cal.from === 'day' ? `Active calories from ${origins.length ? origins.join(' and ') : 'your watch'}`
+                  : cal.estimated ? `Your workout${cal.parts.length === 1 ? '' : 's'} added up · includes an estimate` : `Your workout${cal.parts.length === 1 ? '' : 's'} added up, measured by your watch`}
               </T>
             </View>
           </Row>
@@ -332,12 +330,13 @@ function DayBody({ k }: { k: string }) {
               <T v="small" color={c.soft}>{cal.from === 'day' ? 'Already counted in that total' : 'Made up of'}</T>
               {cal.parts.map((w) => (
                 <Row key={w.id} gap={8}>
-                  <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1 }}>{`${w.title ?? w.type} · ${sourceName(w)}`}</T>
-                  <T v="small" color={c.text} style={s.num}>{Math.round(w.kcal ?? 0)} kcal</T>
+                  <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1 }}>{partName(w.id)}</T>
+                  <T v="small" color={c.text} style={s.num}>{w.source === 'estimate' || w.source === 'heart rate' ? 'about ' : ''}{w.kcal} kcal</T>
                 </Row>
               ))}
             </View>
           )}
+          {cal.from === 'workouts' && dm?.activeKcal !== undefined && <T v="small">Your watch counted {Math.round(dm.activeKcal).toLocaleString()} active kcal this day, less than the workout, so it was likely off your wrist.</T>}
           {dm?.totalKcal !== undefined && <T v="small">With resting calories: {Math.round(dm.totalKcal).toLocaleString()} kcal</T>}
         </View>
       )}
@@ -346,7 +345,8 @@ function DayBody({ k }: { k: string }) {
         <View style={{ gap: 8 }}>
           <T v="label">Your workouts</T>
           {ours.map((ss) => {
-            const w = mergedFor(merged, ss.id), hr = hrOf(ss.id), isOpen = open === ss.id;
+            const w = mergedFor(merged, ss.id), en = cal.energies[ss.id], isOpen = open === ss.id;
+            const hr = en?.avgHr && en.maxHr ? `${en.avgHr} avg · ${en.maxHr} max bpm` : en?.avgHr ? `avg ${en.avgHr} bpm` : null;
             return (
               <View key={ss.id} style={s.item}>
                 <Row gap={12}>
@@ -356,11 +356,17 @@ function DayBody({ k }: { k: string }) {
                     <T v="small" numberOfLines={1}>{sessionMinutes(ss)} min · {doneSets(ss)} sets · {Math.round(volume(ss)).toLocaleString()} kg</T>
                   </View>
                 </Row>
-                {hr && <Row gap={8}><Ionicons name="heart" size={14} color={dom.heart} /><T v="small">{hr}</T></Row>}
+                {en && ((!gentle && en.kcal > 0) || hr) && (
+                  <Row gap={12} style={{ flexWrap: 'wrap', rowGap: 6 }}>
+                    {!gentle && en.kcal > 0 && <Row gap={6}><Ionicons name="flame" size={14} color={dom.kcal} /><T v="small" color={c.text} style={s.num}>{en.source === 'watch' ? '' : 'about '}{en.kcal} kcal</T></Row>}
+                    {hr && <Row gap={6}><Ionicons name="heart" size={14} color={dom.heart} /><T v="small" color={c.text} style={s.num}>{hr}</T></Row>}
+                    {!gentle && en.kcal > 0 && <SourceBadge source={en.source} />}
+                  </Row>
+                )}
                 {w && (
                   <Row gap={8}>
                     <Ionicons name="watch-outline" size={14} color={c.blue} />
-                    <T v="small" numberOfLines={1} style={{ flex: 1 }}>{`Matched with ${sourceName(w)}${w.kcal && !gentle ? ` · ${Math.round(w.kcal)} kcal` : ''}`}</T>
+                    <T v="small" numberOfLines={1} style={{ flex: 1 }}>{`Matched with ${sourceName(w)}`}</T>
                   </Row>
                 )}
                 {isOpen && (
@@ -368,8 +374,16 @@ function DayBody({ k }: { k: string }) {
                     {ss.items.map((it, j) => (
                       <Row key={`${it.exId}-${j}`} gap={12}>
                         {byId[it.exId] ? <Thumb ex={byId[it.exId]} size={36} /> : <IconBox icon="barbell" size={36} />}
-                        <T v="body" style={{ flex: 1 }} numberOfLines={1}>{byId[it.exId]?.name ?? it.exId}</T>
-                        <T v="small" numberOfLines={1} style={{ maxWidth: '45%' }}>{it.sets.filter((x) => x.done).map((x) => (x.weight ? `${x.weight}×${x.reps}` : x.reps)).join('  ')}</T>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <T v="body" numberOfLines={1}>{byId[it.exId]?.name ?? it.exId}</T>
+                          {en?.perExercise[j] && (
+                            <T v="small" numberOfLines={1} style={s.num}>
+                              {[!gentle && en.perExercise[j].kcal > 0 ? `${en.source === 'watch' ? '' : 'about '}${en.perExercise[j].kcal} kcal` : null,
+                                en.perExercise[j].avgHr ? `${en.perExercise[j].avgHr} avg · ${en.perExercise[j].maxHr} max bpm` : null].filter(Boolean).join(' · ')}
+                            </T>
+                          )}
+                        </View>
+                        <T v="small" numberOfLines={1} style={{ maxWidth: '40%' }}>{it.sets.filter((x) => x.done).map((x) => (x.weight ? `${x.weight}×${x.reps}` : x.reps)).join('  ')}</T>
                       </Row>
                     ))}
                   </Animated.View>
@@ -461,6 +475,17 @@ function DayBody({ k }: { k: string }) {
   );
 }
 
+// Where a workout's calorie number comes from: measured by the watch, worked out from heart rate, or estimated.
+export function SourceBadge({ source }: { source: EnergySource }) {
+  const col = source === 'watch' ? c.blue : source === 'heart rate' ? dom.heart : c.muted;
+  return (
+    <View style={[s.badge, { backgroundColor: source === 'estimate' ? c.card : tint(col, 1.2) }]} accessibilityLabel={`Source: ${SOURCE_LABEL[source]}`}>
+      <Ionicons name={source === 'watch' ? 'watch-outline' : source === 'heart rate' ? 'heart-outline' : 'calculator-outline'} size={12} color={source === 'estimate' ? c.muted : c.text} />
+      <T v="small" color={source === 'estimate' ? c.muted : c.text} style={{ fontSize: 12, lineHeight: 16 }}>{SOURCE_LABEL[source]}</T>
+    </View>
+  );
+}
+
 const MiniStat = ({ icon, color, value, label }: { icon: Icon; color: string; value: string; label: string }) => (
   <View style={s.stat}>
     <Ionicons name={icon} size={16} color={color} />
@@ -472,19 +497,18 @@ const MiniStat = ({ icon, color, value, label }: { icon: Icon; color: string; va
 const s = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
   head: { width: `${100 / 7}%`, textAlign: 'center', paddingVertical: 4 },
-  cell: { width: `${100 / 7}%`, height: 52, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
+  cell: { width: `${100 / 7}%`, height: 62, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
   ring: { width: 44, height: 44, borderRadius: 14, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   box: { width: 38, height: 38, borderRadius: r.sm, alignItems: 'center', justifyContent: 'center' },
   num: { fontVariant: ['tabular-nums'] },
   watchDot: { position: 'absolute', top: -4, right: -4, width: 13, height: 13, borderRadius: 7, borderWidth: 2.5 },
   corner: { position: 'absolute', top: -5, right: -5, backgroundColor: c.card, borderRadius: 8, padding: 1 },
-  barTrack: { width: 30, height: 3, marginTop: 2, alignItems: 'center' },
-  bar: { height: 3, borderRadius: 2 },
+  kcal: { fontSize: 11, lineHeight: 14, fontVariant: ['tabular-nums'], textAlign: 'center' },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 22, paddingHorizontal: 8, borderRadius: 11 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 8, marginTop: 12 },
   legendItem: { minHeight: 20 },
   swatch: { width: 16, height: 16, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
   swatchDot: { position: 'absolute', top: -3, right: -3, width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: c.card },
-  legendBar: { width: 16, height: 4, borderRadius: 2 },
   panel: { borderRadius: r.lg, padding: 14, gap: 10 },
   item: { borderRadius: r.md, padding: 12, gap: 10, backgroundColor: c.card2 },
   btn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: c.card },

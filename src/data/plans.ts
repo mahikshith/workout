@@ -10,7 +10,7 @@ export type Plan = {
   tagline: string;
   place: Place | 'any';
   level: 'beginner' | 'intermediate';
-  tags: string[];
+  tags: string[]; // the goals it serves (Goal values from src/store.ts, best first), plus 'desk' and 'office' for desk plans
   color: string; // kept for older screens; always '' so screens use the accent
   days: Day[];
   category: Category;
@@ -49,7 +49,7 @@ const CAFFEINE = 'Coffee before training can help you push, but skip it after mi
 export const plans: Plan[] = [
   {
     id: 'full-body-gym', name: 'Full Body Foundations', tagline: 'Three days a week. Learn the big lifts.',
-    place: 'gym', level: 'beginner', tags: ['build muscle', 'stay fit', 'get stronger'], color: '', category: 'Muscle',
+    place: 'gym', level: 'beginner', tags: ['build muscle', 'stay fit', 'get stronger', 'tone up', 'gain weight'], color: '', category: 'Muscle',
     about: 'Every session trains your legs, chest, back and shoulders with a few big lifts. Your muscles get used to lifting, your joints get stronger and your technique sets in.',
     who: 'New to the gym, or back after a long break.',
     why: 'Three full-body days give each muscle work three times a week with a rest day in between. That is plenty for a beginner to grow.',
@@ -67,7 +67,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'ppl-gym', name: 'Push Pull Legs', tagline: 'The classic split for steady muscle gain.',
-    place: 'gym', level: 'intermediate', tags: ['build muscle', 'get stronger'], color: '', category: 'Muscle',
+    place: 'gym', level: 'intermediate', tags: ['build muscle', 'get stronger', 'gain weight'], color: '', category: 'Muscle',
     about: 'Pushing muscles, pulling muscles and legs each get their own day, so you can do more work for each group. More work per muscle, done well, means more growth.',
     who: 'Lifters with 6 months or more of steady training who can train most days.',
     why: 'Six days runs the cycle twice, so every muscle is trained twice a week, which works better for growth than once.',
@@ -89,7 +89,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'upper-lower-gym', name: 'Upper / Lower', tagline: 'Four days, balanced strength and size.',
-    place: 'gym', level: 'intermediate', tags: ['build muscle', 'get stronger', 'stay fit'], color: '', category: 'Strength',
+    place: 'gym', level: 'intermediate', tags: ['build muscle', 'get stronger', 'stay fit', 'tone up', 'gain weight', 'athletic'], color: '', category: 'Strength',
     about: 'One heavy and one lighter day for the upper body, and the same for the legs. Heavy days build strength, lighter days add size.',
     who: 'Anyone past the beginner stage who wants strength and muscle together.',
     why: 'Four days trains each half of the body twice a week and leaves three full rest days for recovery.',
@@ -113,7 +113,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'bro-split', name: 'Bro Split', tagline: 'One muscle group a day, five days a week.',
-    place: 'gym', level: 'intermediate', tags: ['build muscle'], color: '', category: 'Muscle',
+    place: 'gym', level: 'intermediate', tags: ['build muscle', 'gain weight'], color: '', category: 'Muscle',
     about: 'Each day hits one or two muscle groups with lots of sets from different angles. The long focus on one area gives a big pump and lots of work for each muscle.',
     who: 'Lifters with a year or more behind them who enjoy long sessions on one body part.',
     why: 'Five days lets each muscle group have its own day and a full week to recover before you hit it again.',
@@ -142,7 +142,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'arnold-split', name: 'Arnold Split', tagline: 'Chest and back, shoulders and arms, legs. Twice a week.',
-    place: 'gym', level: 'intermediate', tags: ['build muscle'], color: '', category: 'Muscle',
+    place: 'gym', level: 'intermediate', tags: ['build muscle', 'gain weight'], color: '', category: 'Muscle',
     about: 'Opposite muscles share a day, so chest rests while back works and the reverse. You train hard and often, which builds size fast if you eat and sleep well.',
     who: 'Experienced lifters with time for six sessions a week and the appetite to match.',
     why: 'Six days runs the three-day cycle twice, so every muscle gets two hard sessions a week.',
@@ -165,7 +165,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'phul', name: 'PHUL', tagline: 'Power and size: two heavy days, two pump days.',
-    place: 'gym', level: 'intermediate', tags: ['get stronger', 'build muscle'], color: '', category: 'Strength',
+    place: 'gym', level: 'intermediate', tags: ['get stronger', 'build muscle', 'gain weight', 'athletic'], color: '', category: 'Strength',
     about: 'Power days use heavy weights for few reps to build strength. Hypertrophy days use moderate weights for more reps to build muscle, so each kind of training helps the other.',
     who: 'Intermediate lifters who want to get stronger and bigger at the same time.',
     why: 'Four days gives two heavy and two lighter sessions, each half of the body twice a week, with rest days to recover from the heavy work.',
@@ -191,7 +191,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'strength-5x5', name: '5x5 Strength', tagline: 'Three lifts a day, five sets of five. Add weight every week.',
-    place: 'gym', level: 'beginner', tags: ['get stronger'], color: '', category: 'Strength',
+    place: 'gym', level: 'beginner', tags: ['get stronger', 'gain weight', 'athletic'], color: '', category: 'Strength',
     about: 'Heavy sets of five on the squat, bench, row, press and deadlift teach your nerves and muscles to work together. Strength climbs quickly in the first months.',
     who: 'Beginners and returners who want to get strong with a barbell and like simple numbers.',
     why: 'Three days lets you squat every session and still recover between them, which is how the weights keep going up.',
@@ -209,7 +209,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'lean-gain', name: 'Lean Weight Gain', tagline: 'Gain muscle, not just weight. Three full-body days.',
-    place: 'gym', level: 'beginner', tags: ['build muscle', 'get stronger'], color: '', category: 'Muscle',
+    place: 'gym', level: 'beginner', tags: ['build muscle', 'get stronger', 'gain weight'], color: '', category: 'Muscle',
     about: 'Big lifts plus a small calorie surplus turn extra food into muscle instead of fat. You get bigger and stronger at a steady pace.',
     who: 'Slim people and hard gainers who want to put on healthy weight.',
     why: 'Three days is enough to signal growth while keeping calories and energy for building, not burning.',
@@ -231,7 +231,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'fat-loss-gym', name: 'Fat Loss Circuit', tagline: 'Weights in a circuit plus steady cardio.',
-    place: 'gym', level: 'beginner', tags: ['lose fat', 'stay fit'], color: '', category: 'Fat loss',
+    place: 'gym', level: 'beginner', tags: ['lose fat', 'stay fit', 'tone up', 'endurance'], color: '', category: 'Fat loss',
     about: 'Lifting keeps your muscle while you eat less, and short rests keep your heart rate up. The cardio days add calorie burn without wearing out your legs.',
     who: 'Anyone who wants to lose fat in the gym and keep their shape.',
     why: 'Two circuit days and two cardio days burn plenty while leaving rest days, which stops hunger and tiredness piling up.',
@@ -252,7 +252,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'cardio-aerobic', name: 'Cardio & Aerobic', tagline: 'Walk, ride, row and run by the clock.',
-    place: 'gym', level: 'beginner', tags: ['lose fat', 'stay fit'], color: '', category: 'Cardio',
+    place: 'gym', level: 'beginner', tags: ['lose fat', 'stay fit', 'endurance'], color: '', category: 'Cardio',
     about: 'Easy steady work grows your heart and lung fitness, and short hard intervals raise your top gear. You recover faster and everyday life feels easier.',
     who: 'Anyone who wants a stronger heart, more stamina or to train for a first 5 km.',
     why: 'Four days mixes two easy and two harder sessions. Easy days build the base; rest days stop sore knees and shins.',
@@ -272,7 +272,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'functional', name: 'Functional Conditioning', tagline: 'Kettlebells, burpees, rows and boxes against the clock.',
-    place: 'gym', level: 'intermediate', tags: ['lose fat', 'stay fit', 'get stronger'], color: '', category: 'Functional',
+    place: 'gym', level: 'intermediate', tags: ['lose fat', 'stay fit', 'get stronger', 'athletic', 'endurance', 'tone up'], color: '', category: 'Functional',
     about: 'A short strength part, then a fast workout of the day mixing lifting, jumping and rowing. You get strong, fit and quick at the same time.',
     who: 'People who like variety and intensity and already move well.',
     why: 'Three days because hard mixed sessions need about 48 hours to recover from. Daily intensity leads to injuries.',
@@ -293,7 +293,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'glutes-legs-gym', name: 'Lower Body Sculpt', tagline: 'Glutes and legs three times, upper body twice.',
-    place: 'gym', level: 'beginner', tags: ['build muscle', 'stay fit', 'lose fat'], color: '', category: 'Women',
+    place: 'gym', level: 'beginner', tags: ['build muscle', 'stay fit', 'lose fat', 'tone up'], color: '', category: 'Women',
     about: 'Hip thrusts, hinges and squats build rounder, stronger glutes and legs. Lighter upper days keep your back, shoulders and arms toned.',
     who: 'Women who want shape in the glutes and legs and a strong, balanced body.',
     why: 'Five days lets glutes and legs train three times a week with upper body twice, and two rest days.',
@@ -366,7 +366,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'home-beginner', name: 'Beginner Full Body at Home', tagline: 'Your first workouts. A wall, a door and the floor.',
-    place: 'home', level: 'beginner', tags: ['stay fit', 'lose fat', 'build muscle'], color: '', category: 'Home',
+    place: 'home', level: 'beginner', tags: ['stay fit', 'lose fat', 'build muscle', 'tone up'], color: '', category: 'Home',
     about: 'Easy versions of squats, push-ups and rows wake up every big muscle without soreness that puts you off. Each week you get a little stronger and it feels easier.',
     who: 'Complete beginners, older adults and anyone nervous about starting.',
     why: 'Three short sessions with rest days between lets your body adapt and makes the habit stick.',
@@ -384,7 +384,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'home-bodyweight', name: 'Home, No Equipment', tagline: 'Just you and the floor. Twenty-five minutes.',
-    place: 'home', level: 'beginner', tags: ['stay fit', 'lose fat', 'build muscle'], color: '', category: 'Home',
+    place: 'home', level: 'beginner', tags: ['stay fit', 'lose fat', 'build muscle', 'tone up'], color: '', category: 'Home',
     about: 'Squats, push-ups, lunges and bridges work your whole body with your own weight. You build strength and fitness without leaving the house.',
     who: 'Anyone training at home with no equipment who has done a few weeks of exercise.',
     why: 'Three days with rest between gives your muscles time to recover and still builds a steady habit.',
@@ -402,7 +402,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'home-dumbbell', name: 'Home Dumbbells & Bands', tagline: 'Real strength work with a pair of dumbbells.',
-    place: 'home', level: 'beginner', tags: ['build muscle', 'get stronger', 'stay fit'], color: '', category: 'Home',
+    place: 'home', level: 'beginner', tags: ['build muscle', 'get stronger', 'stay fit', 'tone up', 'gain weight'], color: '', category: 'Home',
     about: 'Dumbbells and a band cover every main movement, so you can build real muscle at home. Upper and lower days keep sessions short and focused.',
     who: 'Home trainers with a pair of dumbbells and a resistance band.',
     why: 'Four days trains upper and lower body twice a week each, with rest days to recover.',
@@ -420,7 +420,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'fat-burn-home', name: 'Sweat Circuit', tagline: 'Short rests, high heart rate, anywhere.',
-    place: 'home', level: 'beginner', tags: ['lose fat', 'stay fit'], color: '', category: 'Fat loss',
+    place: 'home', level: 'beginner', tags: ['lose fat', 'stay fit', 'tone up', 'endurance', 'athletic'], color: '', category: 'Fat loss',
     about: 'Fast bodyweight moves with short rests push your heart rate up and burn calories. Core days strengthen your middle and give your legs a break.',
     who: 'People who want to lose fat at home and enjoy a sweaty session.',
     why: 'Three days: two hard circuits and one core day, with rest days so you come back fresh.',
@@ -453,7 +453,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'mobility', name: 'Mobility Reset', tagline: 'Loosen hips, back and shoulders on rest days.',
-    place: 'any', level: 'beginner', tags: ['stay fit'], color: '', category: 'Recovery',
+    place: 'any', level: 'beginner', tags: ['stay fit', 'mobility'], color: '', category: 'Recovery',
     about: 'Slow stretches and movement help stiff hips, back and shoulders move freely again. Better range of motion makes your lifts feel smoother and safer.',
     who: 'Anyone who feels stiff, sits a lot or wants an easy rest-day session.',
     why: 'Three short sessions on rest days are enough to feel looser without getting in the way of training.',
@@ -468,7 +468,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'desk-reset', name: 'Desk Reset', tagline: 'Five minutes at your desk, every workday.',
-    place: 'any', level: 'beginner', tags: ['stay fit', 'desk', 'office'], color: '', category: 'Recovery',
+    place: 'any', level: 'beginner', tags: ['stay fit', 'desk', 'office', 'mobility'], color: '', category: 'Recovery',
     about: 'Gentle neck, back, wrist and hip moves undo the stiffness of sitting, and eye breaks rest your eyes from screens. You finish the day less sore and more awake.',
     who: 'Office workers, students and anyone at a screen for hours.',
     why: 'Every workday, because stiffness from sitting comes back daily. Five minutes is easy to fit in.',
@@ -484,7 +484,7 @@ export const plans: Plan[] = [
   // One muscle: add-on days for one group. Never picked as a main plan (see coach.ts).
   {
     id: 'chest-day', name: 'Chest Day', tagline: 'One session for the chest, twice a week.',
-    place: 'gym', level: 'intermediate', tags: ['build muscle'], color: '', category: 'One muscle',
+    place: 'gym', level: 'intermediate', tags: ['build muscle', 'gain weight'], color: '', category: 'One muscle',
     about: 'Presses from flat and incline angles work the whole chest, then flyes stretch and squeeze it. Push-ups at the end use up what is left.',
     who: 'Lifters who want a bigger, stronger chest, or to bring it up next to their main plan.',
     why: 'Two sessions with two or three rest days between gives the chest work twice a week and time to recover.',
@@ -500,7 +500,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'back-day', name: 'Back Day', tagline: 'Pull-ups, rows and pulldowns for a wide, thick back.',
-    place: 'gym', level: 'intermediate', tags: ['build muscle', 'get stronger'], color: '', category: 'One muscle',
+    place: 'gym', level: 'intermediate', tags: ['build muscle', 'get stronger', 'gain weight'], color: '', category: 'One muscle',
     about: 'Vertical pulls widen your back and rows thicken it. Face pulls finish the job for your rear shoulders and posture.',
     who: 'Lifters who want a stronger back and better posture.',
     why: 'Two sessions with two or three rest days between lets the back grow without sore, tired grip on the next one.',
@@ -515,7 +515,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'shoulder-day', name: 'Shoulder Day', tagline: 'Press, then raises from every side.',
-    place: 'gym', level: 'intermediate', tags: ['build muscle'], color: '', category: 'One muscle',
+    place: 'gym', level: 'intermediate', tags: ['build muscle', 'gain weight'], color: '', category: 'One muscle',
     about: 'A heavy press builds the whole shoulder, then raises hit the front, side and rear on their own. Rounder shoulders make your waist look smaller.',
     who: 'Lifters who want broader shoulders.',
     why: 'Two sessions with two or three rest days between. Shoulders also work in every press, so more would be too much.',
@@ -530,7 +530,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'arm-day', name: 'Arm Day', tagline: 'Biceps and triceps, back and forth.',
-    place: 'gym', level: 'beginner', tags: ['build muscle'], color: '', category: 'One muscle',
+    place: 'gym', level: 'beginner', tags: ['build muscle', 'gain weight', 'tone up'], color: '', category: 'One muscle',
     about: 'Triceps make up most of your upper arm, so they get the heavy press. Curls and extensions take turns, so one side rests while the other works.',
     who: 'Anyone who wants bigger, stronger arms.',
     why: 'Two sessions with two or three rest days between. Arms are small and recover fast, but they also work on chest and back days.',
@@ -545,7 +545,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'leg-day', name: 'Leg Day', tagline: 'Quads, hamstrings and calves in one hard session.',
-    place: 'gym', level: 'intermediate', tags: ['build muscle', 'get stronger'], color: '', category: 'One muscle',
+    place: 'gym', level: 'intermediate', tags: ['build muscle', 'get stronger', 'gain weight'], color: '', category: 'One muscle',
     about: 'Squats and Romanian deadlifts load the biggest muscles you have, then machines finish each one off. Strong legs carry every other lift.',
     who: 'Lifters who want stronger, bigger legs.',
     why: 'Once a week, because a hard leg day takes several days to recover from. Add a second if you still feel fresh after four days.',
@@ -560,7 +560,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'glute-day', name: 'Glute Day', tagline: 'Lunges, bridges and side work. Anywhere.',
-    place: 'any', level: 'beginner', tags: ['build muscle', 'stay fit'], color: '', category: 'One muscle',
+    place: 'any', level: 'beginner', tags: ['build muscle', 'stay fit', 'tone up'], color: '', category: 'One muscle',
     about: 'Lunges and step-ups work the glutes with your legs, then bridges and clamshells work them on their own. Stronger glutes protect your knees and lower back.',
     who: 'Anyone who wants stronger, rounder glutes, at home or in the gym.',
     why: 'Two sessions with two or three rest days between gives the glutes time to recover and grow.',
@@ -575,7 +575,7 @@ export const plans: Plan[] = [
   },
   {
     id: 'core-day', name: 'Core Day', tagline: 'Abs, obliques and lower back. Twenty minutes.',
-    place: 'any', level: 'beginner', tags: ['stay fit', 'lose fat'], color: '', category: 'One muscle',
+    place: 'any', level: 'beginner', tags: ['stay fit', 'lose fat', 'tone up', 'athletic'], color: '', category: 'One muscle',
     about: 'Holds teach your middle to stay still under load, and crunches and twists work the abs and sides. A strong core makes every lift and carry safer.',
     who: 'Anyone who wants a stronger middle or a healthier lower back.',
     why: 'Two sessions with two or three rest days between. Your core also works in most lifts, so more is not needed.',
@@ -586,6 +586,68 @@ export const plans: Plan[] = [
       { name: 'Core Day', focus: 'Hold · Crunch · Twist', slots: [
         x('Plank', 3, '45s', 45), x('Dead_Bug', 3, '10/side', 45), x('Reverse_Crunch', 3, '15', 45),
         x('Russian_Twist', 3, '20', 45), x('wg_bird-dog', 2, '8/side', 45), x('Flutter_Kicks', 2, '30s', 45) ] },
+    ],
+  },
+  // Round 14: plans for the newer goals (move better, sport fitness, stamina at home). Bodyweight only, so they run anywhere.
+  {
+    id: 'move-better', name: 'Move Better', tagline: 'Looser hips, a freer back and steadier balance.',
+    place: 'any', level: 'beginner', tags: ['mobility'], color: '', category: 'Recovery',
+    about: 'Two stretch flows open up your hips, legs, spine and shoulders, and one control day teaches your core, glutes and upper back to hold good posture. Slow, easy and never to the point of pain.',
+    who: 'Anyone who feels stiff, sits a lot, or wants to move and stand more easily.',
+    why: 'Flexibility comes from little and often. Three short sessions a week, each on a different area, is enough to feel a change in a month.',
+    benefits: ['Less stiffness from sitting', 'Better posture and balance', 'About 15 minutes, no equipment'],
+    tips: [WATER, SLEEP, 'Breathe out slowly as you ease into each stretch. Mild tension is right; pain is too far.', 'Stretch after a short walk or a warm shower, when muscles are warm.'],
+    week: [0, null, 1, null, 2, null, null], weeks: 6,
+    days: [
+      { name: 'Hips & Legs', focus: 'Hips · Hamstrings · Calves', slots: [
+        x('Gentle_Hip_Circles', 2, '30s', 15), x('Kneeling_Hip_Flexor', 2, '30s/side', 15), x('wg_hamstring-stretch', 2, '30s/side', 15),
+        x('Ankle_On_The_Knee', 2, '30s/side', 15), x('wg_butterfly-stretch', 2, '30s', 15), x('Calf_Stretch_Hands_Against_Wall', 2, '30s', 15) ] },
+      { name: 'Spine & Shoulders', focus: 'Back · Chest · Shoulders · Neck', slots: [
+        x('Cat_Stretch', 2, '30s', 15), x('Childs_Pose', 2, '30s', 15), x('wg_torso-twist-stretch', 2, '30s', 15),
+        x('wg_doorway-chest-stretch', 2, '30s', 15), x('wg_cross-body-shoulder-stretch', 2, '30s/side', 15), x('Side_Neck_Stretch', 2, '20s/side', 15) ] },
+      { name: 'Control & Balance', focus: 'Core · Glutes · Posture', slots: [
+        x('wg_bird-dog', 2, '8/side', 45), x('Dead_Bug', 2, '8/side', 45), x('Butt_Lift_Bridge', 2, '12', 45),
+        x('wg_prone-y-raise', 2, '10', 45), x('Bodyweight_Squat', 2, '10', 60), x('wg_calf-raise', 2, '12', 45) ] },
+    ],
+  },
+  {
+    id: 'sport-ready', name: 'Sport Ready', tagline: 'Speed, spring and a strong middle. No equipment.',
+    place: 'any', level: 'beginner', tags: ['athletic'], color: '', category: 'Functional',
+    about: 'One day builds spring in your legs, one builds pushing, pulling and a core that holds firm, and one trains quick feet and changes of direction. Together they make you faster and harder to tire in any sport.',
+    who: 'People who play a sport, or want to feel quick and agile, and have no joint pain.',
+    why: 'Three sessions with a day between them. Fast, springy work needs fresh legs to be useful.',
+    benefits: ['Quicker feet and better balance', 'Stronger legs and core', 'Anywhere, about 30 minutes'],
+    tips: [PROTEIN, CARBS, SLEEP, 'Land softly and quietly from every jump. If landings get loud, rest longer.'],
+    week: [0, null, 1, null, 2, null, null], weeks: 8,
+    days: [
+      { name: 'Legs & Spring', focus: 'Squat · Jump · Side to side', slots: [
+        x('Bodyweight_Squat', 3, '15', 60), x('wg_lateral-lunge', 3, '8/side', 60), x('Single_Leg_Glute_Bridge', 3, '10/side', 45),
+        x('wg_calf-raise', 3, '15', 45), x('Freehand_Jump_Squat', 3, '8', 75), x('wg_skater-hop', 3, '20s', 60) ] },
+      { name: 'Push, Pull & Core', focus: 'Push · Row · Brace', slots: [
+        x('Pushups', 3, '8-12', 60), x('wg_doorway-row', 3, '12', 60), x('wg_pike-push-up', 3, '8', 60),
+        x('wg_plank-shoulder-tap', 3, '20s', 45), x('wg_hollow-body-hold', 3, '20s', 45), x('wg_bear-crawl', 3, '30s', 45) ] },
+      { name: 'Speed & Agility', focus: 'Quick feet · Direction changes', slots: [
+        x('wg_high-knees', 4, '20s', 40), x('wg_lateral-shuffle', 4, '30s', 40), x('wg_fast-feet', 4, '20s', 40),
+        x('Mountain_Climbers', 4, '30s', 45), x('Plank', 3, '40s', 45) ] },
+    ],
+  },
+  {
+    id: 'home-stamina', name: 'Home Stamina', tagline: 'Build your heart and lungs in your living room.',
+    place: 'home', level: 'beginner', tags: ['endurance'], color: '', category: 'Cardio',
+    about: 'Steady marching builds the base your heart and lungs work from, and one day of short, quicker bursts teaches them to recover fast. Nothing here jumps, so it is kind to knees and to the neighbours.',
+    who: 'Anyone who wants more stamina without a gym, a treadmill or jumping.',
+    why: 'Two steady days and one quicker day. Most stamina comes from easy, regular work; the quick day adds the rest.',
+    benefits: ['Less out of breath on stairs', 'No jumping, easy on joints', 'No equipment needed'],
+    tips: [WATER, SLEEP, 'Steady days should feel easy: you can talk in full sentences the whole time.', 'A real walk outside counts just the same. Swap any marching day for one.'],
+    week: [0, null, 1, null, 2, null, null], weeks: 8,
+    days: [
+      { name: 'Steady March', focus: 'Easy, talking pace', slots: [
+        x('March_In_Place', 4, '3 min', 30), x('Bodyweight_Squat', 2, '12', 60), x('wg_calf-raise', 2, '15', 45), x('Calf_Stretch_Hands_Against_Wall', 1, '30s', 15) ] },
+      { name: 'Quick Bursts', focus: '30 seconds on, 30 off', slots: [
+        x('March_In_Place', 1, '3 min', 30), x('wg_lateral-shuffle', 5, '30s', 30), x('wg_bear-crawl', 4, '20s', 40),
+        x('wg_plank-shoulder-tap', 3, '20s', 40), x('wg_hamstring-stretch', 1, '30s/side', 15) ] },
+      { name: 'Long March', focus: 'A little longer each week', slots: [
+        x('March_In_Place', 2, '8 min', 60), x('wg_wall-sit', 2, '20s', 45), x('Butt_Lift_Bridge', 2, '15', 45), x('Kneeling_Hip_Flexor', 1, '30s/side', 15) ] },
     ],
   },
 ];

@@ -14,11 +14,12 @@ import { byId } from '../src/data/exercises';
 import { planById } from '../src/data/plans';
 import { FoodSheet } from '../src/foodsheet';
 import { sessionMinutes } from '../src/glance';
-import { sessionKcal } from '../src/journey';
+import { SOURCE_LINE } from '../src/health/energy';
+import { useSessionEnergy } from '../src/health/useEnergy';
 import { CountUp, EASE, EASE_POP, Empty, Header, toToday } from '../src/kit';
 import { useStore, type MealSlot, type Session } from '../src/store';
 import { c, dom, f, r } from '../src/theme';
-import { mergedFor, useTracker } from '../src/tracker';
+import { STRAP_ORIGIN, useTracker } from '../src/tracker';
 import { drink, ml, useWater } from '../src/water';
 import { Button, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb } from '../src/ui';
 
@@ -53,15 +54,20 @@ function CountTile({ icon, color = c.accent, value, suffix, label, i }: { icon: 
   );
 }
 
-// Heart rate for this workout: one line (avg · max) and, when the watch saved often enough, each set's peak as a small
-// chip. Comes from Health Connect after the workout (src/health), or from the watch's own copy of it once merged.
-function HeartRate({ s, i }: { s: Session; i: number }) {
+// What the workout burned and the heart rate, with where the numbers come from: the watch's own count for this time,
+// else worked out from heart rate, else an estimate from the sets and body weight (src/health/energy.ts). "By exercise"
+// opens the split, with each set's peak heart rate when the watch saved often enough. No-numbers mode hides calories.
+function Burn({ s, i, gentle }: { s: Session; i: number; gentle: boolean }) {
+  const en = useSessionEnergy(s);
   const hr = useTracker((t) => t.sessionHr[s.id]);
-  const watch = useTracker((t) => mergedFor(t.merged, s.id));
-  const waiting = useTracker((t) => t.hc.connected && t.hc.granted.includes('HeartRate'));
-  const avg = hr?.avg ?? watch?.avgHr, max = hr?.max ?? watch?.maxHr;
-  if (!avg || !max) {
-    if (!waiting || !s.endedAt || Date.now() - s.endedAt > 86400000) return null;
+  const hc = useTracker((t) => t.hc);
+  const linked = useTracker((t) => t.hc.connected || !!t.strap || !!t.ring);
+  const [open, setOpen] = useState(false);
+  if (!en) return null;
+  const showKcal = !gentle && en.kcal > 0;
+  const waiting = hc.connected && hc.granted.includes('HeartRate') && !en.avgHr && !!s.endedAt && Date.now() - s.endedAt < 86400000;
+  if (!showKcal && !en.avgHr) {
+    if (!waiting) return null;
     return (
       <Animated.View entering={FadeInDown.delay(340).duration(400).easing(EASE)} style={[s2.hr, { marginTop: 12 }]}>
         <IconBox icon="heart-outline" color={c.pink} size={32} />
@@ -69,32 +75,59 @@ function HeartRate({ s, i }: { s: Session; i: number }) {
       </Animated.View>
     );
   }
-  const rows = (hr?.sets ?? []).map((sets, k) => ({ it: s.items[k], sets })).filter((x) => x.it && x.sets.some(Boolean));
+  const hrText = en.avgHr ? (en.maxHr ? `avg ${en.avgHr} bpm · max ${en.maxHr}` : `avg ${en.avgHr} bpm`) : null;
+  const from = showKcal ? SOURCE_LINE[en.source] : hr?.origin === STRAP_ORIGIN ? 'Heart rate from your strap' : 'Heart rate from your watch';
+  const sub = [from, showKcal && en.source === 'watch' && waiting ? 'heart rate follows when your watch syncs' : null,
+    hr?.rest ? `rests ${hr.rest.avg} avg` : null].filter(Boolean).join(' · ');
+  const rows = s.items.map((it, k) => ({ it, e: en.perExercise[k], peaks: hr?.sets?.length === s.items.length ? hr.sets[k] : undefined })).filter((x) => x.e);
   return (
     <Animated.View entering={FadeInDown.delay(120 + i * 60).duration(400).easing(EASE)} style={[s2.hr, { marginTop: 12, flexDirection: 'column', alignItems: 'stretch' }]}>
       <Row gap={12}>
-        <IconBox icon="heart" color={c.pink} size={32} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <T v="h3" style={{ fontVariant: ['tabular-nums'] }}>{Math.round(avg)} avg · {Math.round(max)} max</T>
-          <T v="small" numberOfLines={1}>{hr?.rest ? `Heart rate · rests ${hr.rest.avg} avg` : hr?.sparse ? 'Heart rate · too few readings for sets' : !hr && watch ? 'Heart rate from your watch' : 'Heart rate'}</T>
+        <IconBox icon={showKcal ? 'flame' : 'heart'} color={showKcal ? dom.kcal : c.pink} size={32} />
+        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+          <T v="h3" numberOfLines={2} style={{ fontVariant: ['tabular-nums'] }}>
+            {[showKcal ? `Burned ${en.source === 'watch' ? '' : 'about '}${en.kcal} kcal` : null, hrText].filter(Boolean).join(' · ')}
+          </T>
+          <T v="small" numberOfLines={2}>{sub}</T>
         </View>
       </Row>
       {rows.length > 0 && (
-        <View style={{ gap: 8, marginTop: 12 }}>
-          <T v="label">Peak per set</T>
-          {rows.map(({ it, sets }, k) => (
+        <Tap onPress={() => { setOpen(!open); haptic('light'); }} style={s2.more} feedback="none" accessibilityLabel={open ? 'Hide the split by exercise' : 'Show the split by exercise'}>
+          <T v="small" color={c.text} style={{ flex: 1 }}>By exercise</T>
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={c.muted} />
+        </Tap>
+      )}
+      {open && (
+        <View style={{ gap: 12, marginTop: 4 }}>
+          {rows.map(({ it, e, peaks }, k) => (
             <View key={`${it.exId}-${k}`} style={{ gap: 6 }}>
-              <T v="small" numberOfLines={1}>{byId[it.exId]?.name ?? it.exId}</T>
-              <View style={s2.chips}>
-                {sets.map((x, j) => (
-                  <View key={j} style={s2.chip}>
-                    <T v="small" color={x ? c.text : c.dim} style={{ fontFamily: f.semi, fontVariant: ['tabular-nums'] }}>{x ? x.max : '–'}</T>
-                  </View>
-                ))}
-              </View>
+              <Row gap={8}>
+                <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1 }}>{byId[it.exId]?.name ?? it.exId}</T>
+                <T v="small" numberOfLines={1} style={{ fontVariant: ['tabular-nums'] }}>
+                  {[showKcal ? `${e.kcal} kcal` : null, e.avgHr ? `${e.avgHr} avg bpm` : null, `${Math.max(1, Math.round(e.minutes))} min`].filter(Boolean).join(' · ')}
+                </T>
+              </Row>
+              {peaks?.some(Boolean) && (
+                <View style={s2.chips}>
+                  {peaks.map((x, j) => (
+                    <View key={j} style={s2.chip} accessibilityLabel={x ? `Set ${j + 1} peak ${x.max} bpm` : `Set ${j + 1}, no reading`}>
+                      <T v="small" color={x ? c.text : c.dim} style={{ fontFamily: f.semi, fontVariant: ['tabular-nums'] }}>{x ? x.max : '–'}</T>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           ))}
+          {hr?.sets?.some((r0) => r0.some(Boolean)) && <T v="small" color={c.dim}>The chips are each set's peak heart rate.</T>}
+          {hr?.sparse && <T v="small" color={c.dim}>Your watch saved too few readings to show each set.</T>}
         </View>
+      )}
+      {!linked && (
+        <Tap onPress={() => router.push('/watch')} style={s2.more} feedback="none" accessibilityLabel="Connect a watch for measured calories and heart rate">
+          <Ionicons name="watch-outline" size={16} color={c.muted} />
+          <T v="small" style={{ flex: 1 }}>Connect a watch for measured calories and heart rate</T>
+          <Ionicons name="chevron-forward" size={16} color={c.dim} />
+        </Tap>
       )}
     </Animated.View>
   );
@@ -149,8 +182,6 @@ export default function Summary() {
   const gentle = profile.gentle || profile.concerns?.includes('food');
   const mins = sessionMinutes(s); // the same rounding as Progress and History
   const run = streak(sessions);
-  const kcal = gentle ? 0 : sessionKcal(s, profile.weightKg);
-  const watchKcal = gentle ? undefined : mergedFor(useTracker.getState().merged, s.id)?.kcal; // measured beats estimated
   const levelUp = lv.lvl > lvBefore.lvl;
   const kg = Math.round(volume(s));
   const reps = s.items.reduce((n, it) => n + (isTimed(it.target) ? 0 : it.sets.reduce((a, x) => a + (x.done ? x.reps : 0), 0)), 0);
@@ -180,7 +211,7 @@ export default function Summary() {
         <Animated.View entering={FadeInDown.delay(60).duration(400).easing(EASE)}>
           <T v="display" style={{ textAlign: 'center', marginTop: 20 }}>Workout done</T>
           <T v="body" color={c.muted} numberOfLines={1} style={{ textAlign: 'center', marginTop: 2 }}>
-            {s.title}{watchKcal ? ` · ${Math.round(watchKcal)} kcal` : kcal ? ` · about ${kcal} kcal` : ''}
+            {s.title}
           </T>
         </Animated.View>
 
@@ -194,7 +225,7 @@ export default function Summary() {
             : <CountTile i={2} icon="list" value={s.items.length} label="Exercises" />}
           <CountTile i={3} icon="flame" color={c.warm} value={run} label="Day streak" />
         </Row>
-        <HeartRate s={s} i={4} />
+        <Burn s={s} i={4} gentle={!!gentle} />
 
         {chLine && ch && (
           <Animated.View entering={FadeInDown.delay(340).duration(400).easing(EASE)} style={[s2.hr, { marginTop: 12 }]}>
@@ -276,6 +307,7 @@ const s2 = StyleSheet.create({
   badge: { alignSelf: 'center', width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
   tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: 1, borderColor: c.line },
   hr: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: 1, borderColor: c.line },
+  more: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, marginTop: 8, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { minWidth: 40, height: 28, paddingHorizontal: 8, borderRadius: 8, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   action: { flex: 1, height: 52, borderRadius: r.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },

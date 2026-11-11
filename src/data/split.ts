@@ -33,6 +33,11 @@ export const SHAPES: Record<string, Shape> = {
   'cardio-aerobic': { kind: 'cond', roles: { easy: [0, 2], hard: [1, 3] } },
   functional: { kind: 'cond', roles: { hard: [0, 1, 2] } },
   'glutes-legs-gym': { kind: 'cycle', roles: { glute: [0], upper: [1], legs: [2] } },
+  // Round 14. Bodyweight plans that run anywhere: stretch flows with one control day, quick-feet days around a
+  // strength day, and steady marching with one day of quicker bursts.
+  'move-better': { kind: 'cond', roles: { easy: [0, 1], hard: [2] } },
+  'sport-ready': { kind: 'cond', roles: { hard: [0, 2], easy: [1] } },
+  'home-stamina': { kind: 'cond', roles: { easy: [0, 2], hard: [1] } },
 };
 export const MAIN = Object.keys(SHAPES);
 
@@ -167,7 +172,7 @@ const count = (n: number) => `${WORD[n]} day${n > 1 ? 's' : ''}`;
 export function fit(base: Plan, n: number, beginner: boolean, byId: Record<string, Plan>): Plan | null {
   const shape = SHAPES[base.id];
   if (!shape || shape.kind === 'fixed' || n < 1 || n > 7) return null;
-  const home = base.place === 'home';
+  const home = base.place !== 'gym'; // plans that run anywhere are bodyweight plans: they borrow from the home pool
   const pool = POOL(home, beginner);
   const roles = template(shape, n, home, beginner);
   const used: Record<string, number> = {};

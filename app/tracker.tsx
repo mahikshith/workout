@@ -17,6 +17,7 @@ import { subscribeLive, useLiveHr } from '../src/health/live';
 import { hrMaxFor, zoneOf } from '../src/health/readiness';
 import { EASE, Header, useMiniBarSpace } from '../src/kit';
 import { useStore } from '../src/store';
+import { WatchGives } from '../src/health/WatchGives';
 import { c, dom, r, tint } from '../src/theme';
 import { useTracker, type DailyMetrics, type ImportedWorkout } from '../src/tracker';
 import { Button, IconBox, T, Tap } from '../src/ui';
@@ -151,6 +152,7 @@ export default function Tracker() {
             </View>
             <Button title="Connect your watch" icon="watch-outline" onPress={() => router.push({ pathname: '/watch', params: { connect: '1' } })} />
           </Animated.View>
+          <Animated.View entering={enter(1)}><WatchGives /></Animated.View>
           <Animated.View entering={enter(1)}>
             <Tap onPress={() => router.push({ pathname: '/watch', params: { do: 'strap' } })} style={[s.card, s.row]} scale={0.98} accessibilityLabel="Pair a heart-rate strap">
               <DataPath nodes={directPath({ device: 'Strap', ok: false })} size="sm" />
@@ -206,6 +208,9 @@ export default function Tracker() {
               : <Button kind="ghost" title="Connect" icon="watch-outline" onPress={() => router.push({ pathname: '/watch', params: { connect: '1' } })} style={{ height: 44, paddingHorizontal: 16 }} />}
           </View>
         </Animated.View>
+
+        {/* What arrives, and that it is attached to the workouts logged here */}
+        <Animated.View entering={enter(2)}><WatchGives /></Animated.View>
 
         {/* Today's numbers */}
         <Animated.View entering={enter(2)} style={{ gap: 10, marginTop: 12 }}>

@@ -3,7 +3,7 @@ import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { memo, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { FlatList, Platform, ScrollView, StyleSheet, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { MuscleMap, RED } from '../src/body';
+import { MuscleMap, MuscleZoom, RED } from '../src/body';
 import { doneNote, doneRecently } from '../src/calc';
 import { available, byId, exercises, title, type Exercise, type Place } from '../src/data/exercises';
 import { focusOf, GROUPS, groupFor, inGroup, office, type Group } from '../src/data/muscles';
@@ -86,7 +86,7 @@ export function MuscleGrid({ where, onOpen }: { where: Where; onOpen: (id: strin
 const Block = memo(function Block({ g, n, onOpen }: { g: Group; n: number; onOpen: (id: string) => void }) {
   return (
     <Tap onPress={() => onOpen(g.id)} style={s.block} scale={0.96}>
-      {g.muscles ? <MuscleMap primary={g.muscles} secondary={NONE} size={56} side={SIDE[g.id] ?? 'front'} still />
+      {g.muscles ? <View style={s.zoom}><MuscleZoom group={g.id} primary={g.muscles} size={84} /></View>
         : <View style={s.circle}><Ionicons name={ICON[g.id] ?? 'fitness'} size={24} color={RED} /></View>}
       <T v="h3" numberOfLines={2} style={{ marginTop: 6, textAlign: 'center', fontSize: 15, lineHeight: 18 }}>{g.label}</T>
       <T v="small" style={{ textAlign: 'center', fontSize: 12 }}>{plural(n, 'move')}</T>
@@ -289,8 +289,9 @@ const s = StyleSheet.create({
   list: { paddingHorizontal: 12, paddingTop: 4, paddingBottom: 120 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
   spacer: { width: '31.5%' },
-  block: { width: '31.5%', minHeight: 118, padding: 8, borderRadius: r.lg, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: LINE },
-  circle: { width: 56, height: 56, borderRadius: 28, backgroundColor: RED + '22', alignItems: 'center', justifyContent: 'center' },
+  zoom: { width: 84, height: 84, borderRadius: 18, overflow: 'hidden', backgroundColor: c.bg },
+  block: { width: '31.5%', minHeight: 150, padding: 8, borderRadius: r.lg, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: LINE },
+  circle: { width: 84, height: 84, borderRadius: 18, backgroundColor: RED + '22', alignItems: 'center', justifyContent: 'center' },
   edge: { borderWidth: 1, borderColor: LINE, borderRadius: r.lg },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: LINE },
   tag: { paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: c.card2, justifyContent: 'center' },

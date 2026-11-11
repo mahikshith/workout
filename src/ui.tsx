@@ -1,12 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEvent } from 'expo';
 import { Image, type ImageProps } from 'expo-image';
-import * as Haptics from 'expo-haptics';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type AccessibilityRole, type AccessibilityState, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
+import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type AccessibilityRole, type AccessibilityState, type StyleProp, type TextProps, type ViewProps, type ViewStyle } from 'react-native';
 import Animated, {
-  cancelAnimation, Easing, FadeIn, FadeInDown, useAnimatedProps, useReducedMotion, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
+  cancelAnimation, Easing, FadeIn, useAnimatedProps, useReducedMotion, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { useScrollToTop } from '@react-navigation/native';
 import { router, useSegments } from 'expo-router';
@@ -19,34 +18,32 @@ import videos from './data/videos.json';
 import { useStore, type MediaPref } from './store';
 import { useLook } from './look';
 import { c, dom, f, r, tint } from './theme';
+import { Ambient, shadow } from './glass';
+import { Collapsible, Enter, haptic, ProgressBar, spring, Tick, usePressStyle } from './motion';
 
-export const haptic = (kind: 'light' | 'medium' | 'success' | 'warning' = 'light') => {
-  if (Platform.OS === 'web' || !useLook.getState().haptics) return; // You › Haptics can switch them off
-  if (kind === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-  else if (kind === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  else Haptics.impactAsync(kind === 'medium' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
-};
+export { haptic }; // lives in motion.tsx now
 
 const APress = Animated.createAnimatedComponent(Pressable);
 
-// Every tappable surface springs down a little and ticks a haptic (no scale with reduced motion).
-// Accessibility props pass through; the role defaults to button.
-export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback = 'light', accessibilityRole = 'button', accessibilityLabel, accessibilityHint, accessibilityState, hitSlop }: {
+// Every tappable surface gives under the finger: down fast, a slight dim, back on a spring (motion.tsx usePressStyle),
+// and ticks a haptic. No scale with reduced motion. Accessibility props pass through; the role defaults to button.
+export function Tap({ onPress, onLongPress, style, children, disabled, scale = 0.97, dim = 0.9, feedback = 'light', accessibilityRole = 'button', accessibilityLabel, accessibilityHint, accessibilityState, hitSlop }: {
   hitSlop?: number; // extends the touch area past a small visual (steppers in tight rows) to reach 44 px
-  onPress?: () => void; style?: StyleProp<ViewStyle>; children: ReactNode; disabled?: boolean; scale?: number; feedback?: 'light' | 'medium' | 'none';
+  onPress?: () => void; onLongPress?: () => void; style?: StyleProp<ViewStyle>; children: ReactNode; disabled?: boolean; scale?: number; dim?: number; feedback?: 'light' | 'medium' | 'none';
   accessibilityRole?: AccessibilityRole; accessibilityLabel?: string; accessibilityHint?: string; accessibilityState?: AccessibilityState;
 }) {
-  const s = useSharedValue(1);
-  const still = useReducedMotion();
-  const a = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
+  // A caller's own opacity (rows that fade themselves) stays the resting opacity; disabled rests at 40 %.
+  const own = style ? StyleSheet.flatten(style)?.opacity : undefined;
+  const press = usePressStyle(scale, dim, (typeof own === 'number' ? own : 1) * (disabled ? 0.4 : 1));
   return (
     <APress
       disabled={disabled}
       hitSlop={hitSlop}
-      onPressIn={() => { if (!still) s.value = withTiming(scale, { duration: 120, easing: Easing.out(Easing.quad) }); }}
-      onPressOut={() => { if (!still) s.value = withTiming(1, { duration: 220, easing: Easing.bezier(0.32, 0.72, 0, 1) }); }}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       onPress={() => { if (feedback !== 'none') haptic(feedback); onPress?.(); }}
-      style={[a, style, disabled && { opacity: 0.4 }]}
+      onLongPress={onLongPress ? () => { haptic('medium'); onLongPress(); } : undefined}
+      style={[style, press.style]}
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
@@ -108,19 +105,23 @@ export function useScrollTopRef<V = ScrollView>() {
 
 // `top` overrides the top padding (screens with their own pinned header pass 0). `bottom` adds room for a fixed
 // bottom bar. Tapping the current tab scrolls a Screen to the top. Bottom padding always includes the mini bar.
-export function Screen({ children, scroll = true, pad = true, onScroll, top, bottom = 0 }: {
-  children: ReactNode; scroll?: boolean; pad?: boolean; onScroll?: (y: number) => void; top?: number; bottom?: number;
+// `ambient` (default on) draws the soft colour glows of glass.tsx behind the content; they stay put while it scrolls.
+export function Screen({ children, scroll = true, pad = true, onScroll, top, bottom = 0, ambient = true }: {
+  children: ReactNode; scroll?: boolean; pad?: boolean; onScroll?: (y: number) => void; top?: number; bottom?: number; ambient?: boolean;
 }) {
   const ins = useSafeAreaInsets();
   const mini = useMiniBarSpace();
   const ref = useScrollTopRef<ScrollView>();
   const style = { paddingTop: top ?? ins.top + 12, paddingHorizontal: pad ? 12 : 0, paddingBottom: ins.bottom + 120 + mini + bottom };
-  if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg }, style]}>{children}</View>;
+  if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg }, style]}>{ambient && <Ambient />}{children}</View>;
   return (
-    <ScrollView ref={ref} style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={style} showsVerticalScrollIndicator={false}
-      onScroll={onScroll ? (e) => onScroll(e.nativeEvent.contentOffset.y) : undefined} scrollEventThrottle={onScroll ? 100 : undefined}>
-      {children}
-    </ScrollView>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      {ambient && <Ambient />}
+      <ScrollView ref={ref} style={{ flex: 1 }} contentContainerStyle={style} showsVerticalScrollIndicator={false}
+        onScroll={onScroll ? (e) => onScroll(e.nativeEvent.contentOffset.y) : undefined} scrollEventThrottle={onScroll ? 100 : undefined}>
+        {children}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -143,7 +144,7 @@ export const TabTitle = ({ title }: { title: string }) => (
 );
 
 export const Rise = ({ i = 0, children, style }: { i?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) => (
-  <Animated.View entering={FadeInDown.delay(i * 50).duration(380)} style={style}>{children}</Animated.View>
+  <Enter i={i} style={style}>{children}</Enter>
 );
 
 export const Card = ({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) => (
@@ -197,9 +198,7 @@ export function Tile({ icon, color = c.accent, value, unit, label, onPress, prog
         {value}{unit ? <Text style={{ fontFamily: f.medium, fontSize: 13, color: c.muted }}> {unit}</Text> : null}
       </Text>
       <T v="small" numberOfLines={1}>{label}</T>
-      <View style={{ height: 4, borderRadius: 2, backgroundColor: progress === undefined ? 'transparent' : c.card2, marginTop: 10, overflow: 'hidden' }}>
-        {progress !== undefined && <View style={{ width: `${Math.max(0, Math.min(1, progress)) * 100}%`, height: 4, borderRadius: 2, backgroundColor: color }} />}
-      </View>
+      {progress === undefined ? <View style={{ height: 4, marginTop: 10 }} /> : <ProgressBar progress={progress} color={color} height={4} style={{ marginTop: 10 }} />}
     </Press>
   );
 }
@@ -234,27 +233,40 @@ export function Banner({ icon, color = c.accent, title, action, onPress }: { ico
 // Show more on demand: a heading line that opens its content. For instructions, explanations, long lists.
 export function Fold({ title, icon, children, open: start = false }: { title: string; icon?: Icon; children: ReactNode; open?: boolean }) {
   const [open, setOpen] = useState(start);
+  const still = useReducedMotion();
+  const turn = useSharedValue(start ? 1 : 0);
+  useEffect(() => { turn.value = still ? (open ? 1 : 0) : withSpring(open ? 1 : 0, spring.snappy); }, [open, still]);
+  const chev = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value * 180}deg` }] }));
   return (
     <View style={st.card}>
-      <Tap onPress={() => setOpen(!open)} scale={0.99} feedback="none" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <Tap onPress={() => setOpen(!open)} scale={0.99} feedback="none" accessibilityState={{ expanded: open }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         {icon && <IconBox icon={icon} size={36} />}
         <T v="h3" style={{ flex: 1 }}>{title}</T>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
+        <Animated.View style={chev}><Ionicons name="chevron-down" size={18} color={c.muted} /></Animated.View>
       </Tap>
-      {open && <Animated.View entering={FadeIn.duration(200)} style={{ marginTop: 14, gap: 12 }}>{children}</Animated.View>}
+      {/* The height springs open and closed (motion.tsx Collapsible); the content mounts on first open. */}
+      <Collapsible open={open} style={{ paddingTop: 14, gap: 12 }}>{children}</Collapsible>
     </View>
   );
 }
 
-export function Button({ title, onPress, kind = 'primary', icon, style, disabled }: {
+// `loading` swaps the icon for a spinner and ignores taps; `success` draws a tick in its place (set it for a moment
+// after a save, then clear it). The label stays, so the button never changes width.
+export function Button({ title, onPress, kind = 'primary', icon, style, disabled, loading, success }: {
   title: string; onPress?: () => void; kind?: 'primary' | 'ghost' | 'danger'; icon?: keyof typeof Ionicons.glyphMap; style?: StyleProp<ViewStyle>; disabled?: boolean;
+  loading?: boolean; success?: boolean;
 }) {
   const bg = kind === 'primary' ? c.accent : kind === 'danger' ? c.dangerBg : c.card2;
   const fg = kind === 'primary' ? c.accentInk : kind === 'danger' ? c.danger : c.text;
+  const busy = loading || success;
   return (
-    <Tap onPress={onPress} disabled={disabled} feedback="medium" style={[st.btn, { backgroundColor: bg }, style]}>
-      {icon && <Ionicons name={icon} size={20} color={fg} />}
-      <Text style={{ fontFamily: f.bold, fontSize: 16, color: fg }}>{title}</Text>
+    <Tap onPress={busy ? undefined : onPress} disabled={disabled} feedback={busy ? 'none' : 'medium'} scale={0.96}
+      accessibilityLabel={title} accessibilityState={{ busy: !!loading }}
+      style={[st.btn, { backgroundColor: bg }, kind === 'primary' && !disabled && shadow(1), style]}>
+      {success ? <Tick on size={20} color={fg} />
+        : loading ? <ActivityIndicator size="small" color={fg} />
+        : icon ? <Ionicons name={icon} size={20} color={fg} /> : null}
+      <Text numberOfLines={1} style={{ fontFamily: f.bold, fontSize: 16, color: fg, flexShrink: 1 }}>{title}</Text>
     </Tap>
   );
 }
@@ -263,8 +275,14 @@ export function Chip({ label, icon, on, onPress, color = c.accent }: {
   label: string; icon?: keyof typeof Ionicons.glyphMap; on?: boolean; onPress?: () => void; color?: string;
 }) {
   const fg = on ? c.accentInk : c.text;
+  // The selected fill fades in over the chip (no colour jump), and the chip settles with a small spring.
+  const still = useReducedMotion();
+  const p = useSharedValue(on ? 1 : 0);
+  useEffect(() => { p.value = still ? (on ? 1 : 0) : withSpring(on ? 1 : 0, spring.snappy); }, [on, still]);
+  const fill = useAnimatedStyle(() => ({ opacity: Math.min(1, Math.max(0, p.value)) }));
   return (
-    <Tap onPress={onPress} style={[st.chip, on && { backgroundColor: color, borderColor: color }]}>
+    <Tap onPress={onPress} scale={0.94} style={st.chip} accessibilityState={onPress ? { selected: !!on } : undefined}>
+      <Animated.View pointerEvents="none" style={[st.chipOn, { backgroundColor: color }, fill]} />
       {icon && <Ionicons name={icon} size={16} color={fg} />}
       <Text style={{ fontFamily: f.semi, fontSize: 14, color: fg }}>{label}</Text>
     </Tap>
@@ -278,15 +296,21 @@ export function Ring({ size = 120, stroke = 10, progress, color = c.accent, trac
   const rad = (size - stroke) / 2;
   const len = 2 * Math.PI * rad;
   const p = useSharedValue(0);
+  const pulse = useSharedValue(1);
+  const was = useRef<number | null>(null); // the last value shown; null before the first one (no pulse on load)
   const still = useReducedMotion();
   useEffect(() => {
     const to = Math.min(1, Math.max(0, progress || 0));
-    p.value = still ? to : withTiming(to, { duration: 700, easing: Easing.bezier(0.23, 1, 0.32, 1) });
+    // Springs to its value (no overshoot past the ends). Closing the ring after it was open pulses it once.
+    p.value = still ? to : withSpring(to, { ...spring.gentle, overshootClamping: to >= 1 || to <= 0 });
+    if (!still && to >= 1 && was.current !== null && was.current < 1) pulse.value = withDelay(260, withSequence(withTiming(1.06, { duration: 160 }), withSpring(1, spring.bouncy)));
+    was.current = to;
   }, [progress, still]);
+  const beat = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
   // At zero the round cap would still paint a dot, so the arc hides until there is something to show.
   const props = useAnimatedProps(() => ({ strokeDashoffset: len * (1 - p.value), strokeOpacity: p.value > 0.002 ? 1 : 0 }));
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <Animated.View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, beat]}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
         <Circle cx={size / 2} cy={size / 2} r={rad} stroke={track} strokeWidth={stroke} fill="none" />
         <ACircle
@@ -295,7 +319,7 @@ export function Ring({ size = 120, stroke = 10, progress, color = c.accent, trac
         />
       </Svg>
       {children}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -627,17 +651,20 @@ export function Stepper({ value, onChange, step = 1, min = 0, suffix, big }: {
   );
 }
 
-export const Row = ({ children, style, gap = 12 }: { children: ReactNode; style?: StyleProp<ViewStyle>; gap?: number }) => (
-  <View style={[{ flexDirection: 'row', alignItems: 'center', gap }, style]}>{children}</View>
+export const Row = ({ children, style, gap = 12, ...p }: { children: ReactNode; style?: StyleProp<ViewStyle>; gap?: number } & Omit<ViewProps, 'style' | 'children'>) => (
+  <View {...p} style={[{ flexDirection: 'row', alignItems: 'center', gap }, style]}>{children}</View>
 );
 
 export const st = StyleSheet.create({
-  card: { backgroundColor: c.card, borderRadius: r.lg, padding: 16, borderWidth: 1, borderColor: c.line },
-  tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: 1, borderColor: c.line },
+  // Cards are solid (text always sits on a known colour) and lift off the page with a soft shadow; the hairline stays
+  // because on near-black a shadow cannot be seen. Rows in long lists carry no shadow (cheap to scroll).
+  card: { backgroundColor: c.card, borderRadius: r.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line, ...shadow(1) },
+  tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line, ...shadow(1) },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   banner: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1 },
   btn: { height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 24 },
-  chip: { paddingHorizontal: 16, height: 40, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
+  chip: { paddingHorizontal: 16, height: 40, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line, overflow: 'hidden' },
+  chipOn: { position: 'absolute', left: -1, right: -1, top: -1, bottom: -1, borderRadius: 20 },
   step: { width: 30, height: 34, borderRadius: 10, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   stepBig: { width: 56, height: 56, borderRadius: 28 },
 });

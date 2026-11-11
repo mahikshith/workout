@@ -90,3 +90,31 @@ function Main({ d, p }: { d: string; p: SharedValue<number> }) {
   const a = useAnimatedProps(() => ({ fillOpacity: 0.35 + 0.65 * p.value }));
   return <APath d={d} fill={RED} stroke="#FFB4AE" strokeOpacity={0.9} strokeWidth={5} strokeLinejoin="round" animatedProps={a} />;
 }
+
+// Close-ups for the muscle grid (round 14): a square window [x, y, size] in the body's coordinate space around each
+// muscle group, on the side that shows it best, with enough of the body around it to see where it sits. Worked out
+// once from the outlines' bounding boxes (1.35x the larger side, at least 300 units).
+const CROPS: Record<string, [number, number, number, 'front' | 'back']> = {
+  chest: [210, 222, 308, 'front'], back: [853, 237, 461, 'back'], shoulders: [135, 121, 457, 'front'], biceps: [118, 203, 492, 'front'],
+  triceps: [834, 209, 499, 'back'], forearms: [47, 271, 644, 'front'], abs: [162, 365, 404, 'front'], glutes: [934, 548, 300, 'back'],
+  quads: [174, 618, 379, 'front'], hamstrings: [904, 694, 358, 'back'], calves: [869, 916, 430, 'back'], hips: [195, 603, 339, 'front'],
+  neck: [215, 110, 300, 'front'],
+};
+export const hasZoom = (group: string) => !!CROPS[group];
+
+// A still close-up of one muscle group: the body is cropped to the group's window, so the muscle fills the tile.
+export function MuscleZoom({ group, primary, size = 88 }: { group: string; primary: string[]; size?: number }) {
+  const crop = CROPS[group];
+  if (!crop) return null;
+  const [x, y, w, side] = crop;
+  const parts = kinds(primary, [], side);
+  const sw = Math.max(3, (w / size) * 1.1); // about 1 px on screen at any zoom
+  return (
+    <Svg width={size} height={size} viewBox={`${x} ${y} ${w} ${w}`}>
+      {parts.map((p, i) => (
+        <Path key={i} d={p.d} fill={p.kind === 2 ? RED : c.card2} stroke={p.kind === 2 ? '#FFB4AE' : c.muted} strokeOpacity={p.kind ? 0.9 : 0.55}
+          strokeWidth={sw} strokeLinejoin="round" />
+      ))}
+    </Svg>
+  );
+}

@@ -52,6 +52,7 @@ export type Pose = {
   guide?: Guide;
   weak?: boolean; // borrowed from a different movement: the app shows the photo instead
   pad?: false; // on a bench: no back or chest pad along the torso (sitting free, e.g. concentration curls)
+  sit?: boolean; // front view, seated facing the camera: the thighs point at the viewer, so they are drawn short
 };
 // Form guide: a faint alignment line through two points, and an angle arc at a joint at the key position (`at`, default the end).
 export type Guide = { joint?: 'hp0' | 'kn0' | 'an0' | 'sh0' | 'el0'; axis?: [Key, Key]; at?: 0 | 1 };
@@ -85,7 +86,7 @@ export function mix(a: Angles, b: Angles, t: number): Angles {
 }
 
 // Joint positions with the pelvis at the origin.
-export function fk(A: Angles, front: boolean): Pts {
+export function fk(A: Angles, front: boolean, sit = false): Pts {
   'worklet';
   const t = A.spine;
   const P: [number, number] = [0, 0];
@@ -100,8 +101,9 @@ export function fk(A: Angles, front: boolean): Pts {
     else { sh = s ? [S[0] + FAR[0], S[1] + FAR[1]] : S; hp = s ? [FAR[0], FAR[1]] : P; }
     const k = front ? sg : 1; // side view flexion turns clockwise; front view mirrors per side
     const th = t + 180 - k * A.hip[s];
-    const kn = at(hp, th, L.thigh);
-    const ts = th + k * A.knee[s];
+    let kn = at(hp, th, L.thigh);
+    if (front && sit) kn = [kn[0], hp[1] + 8]; // seated toward the camera: the knee sits just below the hip, as far out as the thigh opens
+    const ts = front && sit ? t + 180 : th + k * A.knee[s];
     const an = at(kn, ts, L.shin);
     let toe: [number, number], heel: [number, number];
     if (front) { toe = at(an, ts - sg * 60, 6); heel = an; }
@@ -172,7 +174,7 @@ export function fixOf(pose: Pose): Key {
 
 // The start pose resting on the floor. Locked poses keep its fixed point (and pinned hands or feet) every frame.
 export function base(pose: Pose): Pts {
-  const o = fk(pose.start, pose.view === 'front');
+  const o = fk(pose.start, pose.view === 'front', pose.sit);
   rest(o, fixOf(pose));
   if (pose.ground === 'bench') { // a bench holds the pelvis, so drop the floor below anything that swings under it
     let sink = 0;
@@ -200,7 +202,7 @@ export function solve(pose: Pose, b: Pts, p: number, breath = 0, nod = 0): Pts {
   const a = mix(pose.start, pose.end, p);
   a.shrug += 0.5 * breath;
   a.neck += nod;
-  const o = fk(a, pose.view === 'front');
+  const o = fk(a, pose.view === 'front', pose.sit);
   const fix = fixOf(pose);
   if (pose.lock || pose.pin || pose.box || pose.ground === 'bench' || pose.ground === 'hang') {
     shift(o, b[fix][0] - o[fix][0], b[fix][1] - o[fix][1]);
@@ -633,6 +635,37 @@ export const POSES: Record<string, Pose> = {
   f_smr_hamstrings: side(A(-50, 40, 0, 15, -50, 0), A(-55, 35, 0, 15, -75, 0), { ground: 'floor', fix: 'wr0', lock: true, pin: 'hands', under: { at: 'hp0', mid: 'kn0', r: 7.5, fixed: true }, pace: 'cycle', tempo: 1.2 }),
   f_smr_back: side(A(-96, 16, 105, 7, 150, 140), A(-96, 7, 66, 37, 150, 140), { ground: 'floor', fix: 'an0', lock: true, pin: 'feet', under: { at: 'pelvis', mid: 'neck', r: 5, fixed: true }, pace: 'cycle', tempo: 1.2 }),
   f_smr_quads: side(A(78, -5, 0, 20, 78, 90), A(84, -4, 0, 20, 50, 124), { ground: 'floor', fix: 'el0', lock: true, under: { at: 'hp0', mid: 'kn0', r: 6, fixed: true }, pace: 'cycle', tempo: 1.2 }),
+  // ---- round 14: postures that used to borrow a standing (or lying) figure ----
+  // pulldown seen from the side, so it can be done kneeling under a high pulley
+  f_pulldown_side: side(St(-5, 0, 3, 168, 8), St(-10, 0, 3, 45, 135), { prop: 'band', line: [4, -42], guide: { joint: 'el0' } }),
+  f_seated_crunch: side(A(-5, 85, 90, 0, 150, 140), A(40, 130, 90, 0, 150, 140, { curve: 20, neck: 12 }), { ground: 'bench', pad: false, guide: { joint: 'hp0' } }),
+  f_seated_cable_crunch: side(A(-5, 85, 90, 0, 150, 140), A(40, 130, 90, 0, 150, 140, { curve: 20, neck: 12 }), { ground: 'bench', pad: false, prop: 'band', line: [-14, -38], guide: { joint: 'hp0' } }),
+  f_dip_machine: side(A(0, 90, 90, 0, -35, 105), A(0, 90, 90, 0, -5, 5), { ground: 'bench', guide: { joint: 'el0' } }),
+  f_machine_press: side(A(-8, 98, 90, 0, -50, 125), A(-8, 98, 90, 0, 82, 0), { ground: 'bench', guide: { joint: 'el0', axis: ['el0', 'wr0'] } }),
+  f_pad_extension: side(A(10, 90, 90, -10, 60, 130), A(10, 90, 90, -10, 60, 10), { ground: 'bench', guide: { joint: 'el0' } }),
+  f_calf_press: side(A(-50, 70, 10, -10, 20, 30), A(-50, 70, 10, 28, 20, 30), { ground: 'bench', machine: 'sled', guide: { joint: 'an0' } }),
+  f_incline_raise: side(A(-40, 45, 85, 0, -40, 5), A(-40, 45, 85, 0, 60, 5), { ground: 'bench', prop: 'dumbbell', guide: { joint: 'sh0' } }),
+  f_incline_skull: benchP(90, 0, 105, 115, { prop: 'barbell' }, -45),
+  f_seated_kickback: side(A(55, 145, 90, 0, -50, 105), A(55, 145, 90, 0, -50, 0), { ground: 'bench', pad: false, prop: 'dumbbell', guide: { joint: 'el0' } }),
+  f_seated_gm: side(A(0, 90, 90, 0, -15, 155), A(55, 145, 90, 0, -15, 155), { ground: 'bench', pad: false, prop: 'barbell', rack: 'back', con: 'back', guide: { joint: 'hp0', axis: ['pelvis', 'neck'] } }),
+  f_chair_ham: side(A(0, [62, 90], [0, 90], [-20, 0], 5, 10), A(38, [100, 128], [0, 90], [-20, 0], 60, 5, { curve: 8 }), { ground: 'bench', pad: false, pace: 'hold', guide: { joint: 'hp0' } }),
+  f_kneel_squat: side(A(5, 5, 90, 90, -15, 155), A(25, 75, 140, 90, -15, 155), { ground: 'floor', fix: 'kn0', lock: true, prop: 'barbell', rack: 'back', con: 'back', guide: { joint: 'hp0' } }),
+  f_kneel_jump: side(A(5, 5, 90, 90, -15, 155), St(38, 112, 112, -15, 155), { ground: 'floor', prop: 'barbell', rack: 'back', pace: 'cycle', tempo: 0.7, guide: { joint: 'kn0' } }),
+  f_gorilla: hang(A(5, 10, 20, 15, 172, 5), A(5, 100, 100, 15, 40, 140, { curve: 12 }), { guide: { joint: 'hp0' } }),
+  f_prone_row: side(A(90, 0, 0, 20, 90, 0), A(90, 0, 0, 20, -25, 110), { ground: 'bench', prop: 'barbell', guide: { joint: 'el0' } }),
+  f_standing_leg_curl: side(A(5, [0, 5], [5, 5], [-10, -5], 40, 30), A(5, [0, 5], [110, 5], [20, -5], 40, 30), { fix: 'an1', lock: true, guide: { joint: 'kn0' } }),
+  f_hip_flexor_stand: side(A(0, [25, -15], [8, 12], [17, 30], -10, 60), A(-4, [55, -28], [58, 30], [0, 20], -10, 60), { fix: 'an0', pin: 'feet', pace: 'hold', guide: { joint: 'hp0' } }),
+  // on the back, hips up, the heels walk (or slide) away and back
+  f_ham_walkout: side(A(-108, 0, 95, 13, -18, 0, { neck: 18 }), A(-99, 4, 30, -10, -9, 0, { neck: 9 }), { ground: 'floor', fix: 'sh0', guide: { joint: 'kn0' } }),
+  f_fallout: side(A(20, 0, 0, -20, 75, 0), A(58, 0, 0, -45, 165, 0), { fix: 'toe0', guide: { axis: ['an0', 'sh0'] } }),
+  f_renegade: side(A(73, 0, 0, 15, 73, 0), A(73, 0, 0, 15, [-20, 73], [110, 0]), { ground: 'floor', fix: 'toe0', lock: true, prop: 'dumbbell', guide: { joint: 'el0', axis: ['an0', 'sh0'] } }),
+  f_stand_twist: front(A(0, 8, 0, 0, [60, -25], [15, 70]), A(0, 8, 0, 0, [-25, 60], [70, 15]), { prop: 'ball', pace: 'cycle', tempo: 0.8 }),
+  f_low_row_one: side(St(5, 5, 10, [80, 5], [0, 10]), St(5, 5, 10, [-25, 5], [100, 10]), { prop: 'band', line: [45, 22], guide: { joint: 'el0' } }),
+  f_svend: side(St(0, 0, 3, 45, 130), St(0, 0, 3, 88, 5), { guide: { joint: 'el0' } }),
+  f_antigravity: side(A(45, 45, 90, 0, 110, 125), A(45, 45, 90, 0, 172, 5), { ground: 'bench', prop: 'barbell', guide: { joint: 'el0' } }),
+  // kneeling beside a bench, forearms across it, hands off the edge
+  f_wrist_bench: side(A(15, 15, 90, 90, 30, 75), A(15, 15, 90, 90, 30, 75), { ground: 'floor', fix: 'kn0', lock: true, box: 'el0', prop: 'dumbbell', flex: [60, -45], guide: { axis: ['el0', 'wr0'] } }),
+  f_swim: side(A(88, [-6, 6], 0, 60, [178, 20], [5, 10], { neck: -12 }), A(88, [6, -6], 0, 60, [20, 178], [10, 5], { neck: -12 }), { ground: 'floor', pace: 'cycle', tempo: 0.7 }),
   Seated_Head_Harness_Neck_Resistance: side(A(40, 130, 95, 0, 45, 5, { neck: 40 }), A(40, 130, 95, 0, 45, 5, { neck: -25 }), { ground: 'bench', pad: false, guide: { axis: ['neck', 'head'] } }),
   // back
   Bent_Over_Barbell_Row: ROW,
@@ -732,7 +765,7 @@ export const hasPose = (id: string) => id in POSES;
 
 // Every other exercise borrows the closest hand-made pose by movement pattern (name first, then main muscle),
 // with the prop swapped to its equipment. `matched` lets the screen say it shows the movement pattern.
-type Ex = { id: string; name: string; category: string; equipment: string; primary: string[] };
+type Ex = { id: string; name: string; category: string; equipment: string; primary: string[]; steps?: string[] };
 const PROP: Record<string, Pose['prop']> = { barbell: 'barbell', 'e-z curl bar': 'barbell', dumbbell: 'dumbbell', kettlebells: 'kettlebell', 'medicine ball': 'ball' };
 const HELD = ['dumbbell', 'barbell', 'kettlebell', 'ball'];
 const withProp = (p: Pose, eq: string, name: string): Pose => {
@@ -748,6 +781,34 @@ const withProp = (p: Pose, eq: string, name: string): Pose => {
   return eq === 'body only' || eq === 'machine' ? { ...p, prop: 'none', one: false } : { ...p, ...one };
 };
 const P = POSES;
+
+// An upper-body move keeps its arms and trunk when the instructions put the body somewhere else: the legs fold onto a
+// bench, the floor or the knees. Only for poses whose legs and feet do nothing.
+const legsStill = (p: Pose) => !p.pin && !p.lock && !p.box && !p.wall && !p.lift && !p.hop && !p.land && !p.machine && !p.under && !p.incline
+  && [0, 1].every((i) => Math.abs(p.start.hip[i] - p.end.hip[i]) < 12 && Math.abs(p.start.knee[i] - p.end.knee[i]) < 12 && p.start.knee[i] < 40)
+  && Math.abs(p.start.spine) <= 45 && Math.abs(p.end.spine) <= 55;
+const legs = (a: Angles, hip: Pair, knee: In, ankle: In): Angles => ({ ...a, hip, knee: pr(knee), ankle: pr(ankle) });
+function seated(p: Pose, where: 'bench' | 'floor'): Pose {
+  const o = { ...p, ground: where, fix: undefined, pad: p.pad } as Pose;
+  if (p.view === 'front') {
+    const f = (a: Angles) => (where === 'bench' ? legs(a, [Math.max(a.hip[0], 14), Math.max(a.hip[1], 14)], 0, 0) : legs(a, [58, 58], 0, 0));
+    return { ...o, sit: where === 'bench', start: f(p.start), end: f(p.end) };
+  }
+  const f = (a: Angles) => (where === 'bench' ? legs(a, pr(90 + a.spine), 90, 0) : legs(a, [84 + a.spine, 96 + a.spine], 6, -10));
+  return { ...o, start: f(p.start), end: f(p.end) };
+}
+function kneeling(p: Pose, half: boolean): Pose {
+  const f = (a: Angles) => (half ? legs(a, [90 + a.spine, a.spine], 90, [0, 90]) : legs(a, pr(a.spine), 90, 90));
+  return { ...p, ground: 'floor', fix: half ? 'kn1' : 'kn0', start: f(p.start), end: f(p.end) };
+}
+function adapt(e: Ex, p: Pose): Pose {
+  const w = wantPosture(e);
+  if (!w || p.weak || (w !== 'seat' && w !== 'kneel') || !legsStill(p)) return p;
+  const a = postureOf(p, 0), b = postureOf(p, 1);
+  if (POSTURE_OK[w].includes(a) || POSTURE_OK[w].includes(b) || (a !== 'stand' && a !== 'bent')) return p;
+  if (w === 'seat') return seated(p, /\bfloor\b|\bmat\b/.test((e.steps?.[0] ?? '').toLowerCase()) ? 'floor' : 'bench');
+  return p.view === 'side' ? kneeling(p, /half/i.test(e.name)) : p;
+}
 // A rough stand-in from a different movement (often only the same muscle). The app hides these and shows the photo.
 const W = (p: Pose): Pose => ({ ...p, weak: true });
 function pattern(e: Ex): Pose {
@@ -762,6 +823,9 @@ function pattern(e: Ex): Pose {
     return W(P.Childs_Pose);
   }
   if (e.category === 'stretching' || has(/stretch/)) {
+    if (e.id === 'Hamstring_Stretch') return P.f_lying_ham; // the dataset's one lies on the back, leg up
+    if (has(/chair leg extended/)) return P.f_chair_ham;
+    if (has(/standing hip flexors/)) return P.f_hip_flexor_stand;
     if (has(/standing.*quad/)) return P.f_quad_stretch;
     if (has(/triceps stretch|overhead triceps/)) return P.f_triceps_stretch;
     if (has(/upward stretch|overhead stretch/)) return P.f_reach_up;
@@ -812,6 +876,52 @@ function pattern(e: Ex): Pose {
     return has(/treadmill/) ? P.Running_Treadmill : { ...P.Running_Treadmill, machine: undefined };
   }
   if (has(/burpee/)) return P.wg_burpee;
+  // round 14 posture fixes: these names used to fall through to a figure standing, lying or sitting the wrong way
+  const want = wantPosture(e);
+  if (has(/kneeling.*(pulley row|pull-?down)/)) return P.f_pulldown_side;
+  if (has(/kneeling cable crunch|^rope crunch/)) return P.Cable_Crunch;
+  if (has(/kneeling jump squat/)) return P.f_kneel_jump;
+  if (has(/kneeling squat/)) return P.f_kneel_squat;
+  if (has(/gorilla chin/)) return P.f_gorilla;
+  if (has(/push-up depth jump|^drop push/)) return has(/incline/) ? P['Incline_Push-Up'] : P.Pushups;
+  if (has(/plank jack|shoulder tap/)) return P.Plank;
+  if (has(/renegade/)) return P.f_renegade;
+  if (has(/wrist curl over a bench/)) return P.f_wrist_bench;
+  if (has(/prone incline curl/)) return P.f_spider_curl;
+  if (has(/incline row|chest.supported row|lying t-bar row/)) return P.f_incline_row;
+  if (has(/lying cambered/)) return P.f_prone_row;
+  if (has(/anti-gravity/)) return P.f_antigravity;
+  if (has(/^reverse flyes/) && eq === 'dumbbell') return W(P.Band_Pull_Apart); // chest on an incline, arms out toward the camera
+  if (has(/ball side bend/)) return W(P.f_side_bend);
+  if (has(/seated box jump/)) return W(P.Front_Box_Jump);
+  if (has(/front incline.*raise/)) return P.f_incline_raise;
+  if (has(/incline (\w+ )*triceps extension/)) return P.f_incline_skull;
+  if (has(/decline (\w+ )*triceps extension/)) return P.Lying_Triceps_Press;
+  if (e.primary[0] === 'triceps' && want === 'supine' && has(/extension|press/) && !has(/bench press/)) return has(/extension/) ? P.Lying_Triceps_Press : P['Close-Grip_Barbell_Bench_Press'];
+  if (has(/seated bent-over.*triceps/)) return P.f_seated_kickback;
+  if (has(/seated good morning/)) return P.f_seated_gm;
+  if (has(/dip machine/)) return P.f_dip_machine;
+  if (has(/chair dip/)) return P.Bench_Dips;
+  if (has(/ab crunch machine/)) return P.f_seated_crunch;
+  if (has(/cable seated crunch|seated cable crunch/)) return P.f_seated_cable_crunch;
+  if (has(/(leverage|machine) (\w+ )*(chest|bench) press/) && !has(/smith/)) return P.f_machine_press;
+  if (has(/machine bicep/)) return P.Preacher_Curl;
+  if (has(/machine triceps extension/)) return P.f_pad_extension;
+  if (has(/^calf press/) && !has(/leg press/)) return P.f_calf_press;
+  if (has(/machine row/)) return P.f_iso_row;
+  if (has(/seated.*(leg pull-in|knee tuck)/)) return P.f_seated_tuck;
+  if (has(/seated.*cable.*rows?/)) return P.Seated_Cable_Rows;
+  if (has(/standing leg curl/)) return P.f_standing_leg_curl;
+  if (has(/suspended fallout/)) return P.f_fallout;
+  if (has(/shotgun row/)) return P.f_low_row_one;
+  if (has(/full twist/)) return P.f_stand_twist;
+  if (has(/svend/)) return P.f_svend;
+  if (has(/^leg lift$/)) return P['One-Legged_Cable_Kickback'];
+  if (has(/london bridges/)) return P.Inverted_Row;
+  if (has(/hamstring walkout|towel hamstring curl/)) return P.f_ham_walkout;
+  if (has(/stability ball hamstring curl/)) return P.f_ball_curl;
+  if (has(/drag with press/)) return P.f_standing_cable_press;
+  if (has(/^swimming/)) return P.f_swim;
   if (has(/skierg/)) return P['Straight-Arm_Pulldown'];
   if (has(/sled push|prowler/)) return P.Prowler_Sprint;
   if (has(/high pulley row/)) return P['Wide-Grip_Lat_Pulldown'];
@@ -842,7 +952,7 @@ function pattern(e: Ex): Pose {
   if (has(/back flyes?.*band/)) return P.Band_Pull_Apart;
   if (has(/rear.delt row/) && eq === 'cable') return P.Face_Pull;
   // Face-down rear-delt raises swing the arms out sideways toward the camera, which no view of the figure shows: photo.
-  if (has(/(lying|incline).*(lateral|rear delt) raise/)) return has(/rear/) ? W(P.Side_Lateral_Raise) : P.f_side_raise;
+  if (has(/(lying|incline).*(lateral|rear delt) raise/)) return has(/rear/) || e.id === 'Lying_One-Arm_Lateral_Raise' ? W(P.Side_Lateral_Raise) : P.f_side_raise; // that one lies chest down
   if (has(/leverage high row/)) return P.f_high_row;
   if (has(/leverage iso row/)) return P.f_iso_row;
   if (has(/lying t-bar row/)) return P.f_chest_row;
@@ -1022,10 +1132,10 @@ function pattern(e: Ex): Pose {
 }
 const matchedCache: Record<string, Pose> = {};
 export function poseFor(e: Ex): { pose: Pose; matched: boolean } {
-  if (P[e.id]) return { pose: P[e.id], matched: false };
+  if (P[e.id]) return { pose: (matchedCache[e.id] ??= adapt(e, P[e.id])), matched: false };
   // Neck moves without their own pose (rollers, harness variants) never borrow the standing head tilt.
   const neck = e.primary[0] === 'neck' && !/stretch|tilt/i.test(e.name);
-  return { pose: (matchedCache[e.id] ??= neck ? W(P.Side_Neck_Stretch) : withProp(pattern(e), e.equipment, e.name)), matched: true };
+  return { pose: (matchedCache[e.id] ??= neck ? W(P.Side_Neck_Stretch) : adapt(e, withProp(pattern(e), e.equipment, e.name))), matched: true };
 }
 
 export function underX(u: NonNullable<Pose['under']>, o: Pts) {
@@ -1358,22 +1468,83 @@ export function postureOf(pose: Pose, p: 0 | 1): Posture {
   if (pose.ground === 'hang') return 'hang';
   const up = (k: Key) => -(o[k][1] + (R[k] ?? 0)); // clearance above the floor
   if (pose.view === 'front') {
-    if (Math.abs(s) >= 60) return pose.ground === 'mat' || s < 0 ? (pose.ground === 'mat' ? 'supine' : 'side') : 'side';
-    if (pose.ground === 'bench') return 'seat';
-    return up('pelvis') < 12 ? 'seat' : 'stand';
+    if (Math.abs(s) >= 60) return pose.ground === 'mat' ? 'supine' : 'side';
+    return pose.ground === 'bench' || pose.sit || up('pelvis') < (pose.ground === 'floor' ? 25 : 12) ? 'seat' : 'stand';
   }
   if (Math.abs(s) > 150) return 'inverted';
   if (pose.ground === 'bench') return s <= -60 ? 'supine' : s >= 60 ? 'prone' : s <= -25 ? 'recline' : s >= 35 ? 'lean' : 'seat';
   if (s <= -60) return 'supine';
-  const kneeDown = Math.min(up('kn0'), up('kn1')) < 4 || pose.fix === 'kn0' || pose.fix === 'kn1';
-  const handDown = Math.min(up('wr0'), up('wr1'), up('el0'), up('el1')) < 6 || pose.pin === 'hands' || pose.fix === 'wr0' || pose.fix === 'el0';
+  const flatShin = (n: 0 | 1) => up(`kn${n}`) < 4 && Math.abs(o[`kn${n}`][1] - o[`an${n}`][1]) < 7;
+  const kneeDown = flatShin(0) || flatShin(1) || pose.fix === 'kn0' || pose.fix === 'kn1';
+  const held = HELD.includes(pose.prop ?? 'none') && !pose.lock; // a bar hanging near the floor is not a hand on the floor
+  const handDown = (!held && Math.min(up('wr0'), up('wr1'), up('el0'), up('el1')) < 12) || pose.pin === 'hands' || pose.fix === 'wr0' || pose.fix === 'el0';
   if (s >= 55) {
+    if (pose.box === 'kn0' || (up('pelvis') < 8 && up('neck') < 14)) return 'prone'; // flat on the floor, or face down over a pad
     if (kneeDown) return handDown ? 'allfours' : 'kneel';
-    if (up('pelvis') < 8 && up('neck') < 12) return 'prone';
-    if (handDown && !pose.wall) return 'plank';
+    if (handDown && !pose.wall) return a.knee[0] > 60 && a.knee[1] > 60 ? 'allfours' : 'plank';
     return 'bent';
   }
-  if (up('pelvis') < 12) return 'seat';
+  if (up('pelvis') < 12 || (s <= -25 && handDown && pose.ground === 'floor') || (pose.ground === 'floor' && !kneeDown && up('pelvis') < 24 && a.hip[0] - s >= 50)) return 'seat';
   if (kneeDown) return 'kneel';
   return s >= 40 ? 'bent' : 'stand';
+}
+
+// The posture an exercise asks for: its name first (explicit words), then the opening instructions.
+const WANT_NAME: [RegExp, Posture, RegExp?][] = [
+  [/hanging|pull-?ups?\b|chin-?ups?\b|\bchins\b|muscle.?up|dead hang|rope climb|parallel bar|^dips? |\bdips? - |ring dips|one handed hang|gorilla chin/, 'hang', /bench dip|pulldown|band|machine|deadlift|shrug|clean|snatch|good morning|stretch|press/],
+  [/handstand/, 'inverted'],
+  [/inverted row/, 'supine'],
+  [/push-?ups?\b|plank|mountain climber|bear crawl|renegade|inchworm|^drop push/, 'plank', /wall|handstand|side|pike|knee|sled/],
+  [/side bridge|side plank|side.lying|clamshell/, 'side', /push/],
+  [/kneeling|on knees|\bknee push/, 'kneel'],
+  [/chair squat|box squat|sit squats/, 'stand'],
+  [/prone incline|incline.*(row|pull)|chest.supported|spider curl|lying t-bar/, 'lean'],
+  [/leverage (incline|decline) chest/, 'seat'],
+  [/incline/, 'recline', /treadmill|walk|push|hill|reverse|rear|face.?down|lateral|depth/],
+  [/decline/, 'supine', /push/],
+  [/seated|sitting|\bchair\b|preacher|pec deck|leg extension|recumbent|bicycling|\bbike\b|butterfly|concentration|russian twist|plate twist|lat pull-?down|\w+ pull-?downs?$|machine (shoulder|military|bench|chest|bicep|triceps|lateral|row)|leverage (\w+ )?(chest|shoulder|incline|decline|high|iso)|dip machine|calf press|rowing, stationary/, 'seat', /air bike|straight|kneel|band|smith|shrug|box jump|chair dip/],
+  [/lying.*face.?down|face.?down|prone|superman|lying leg curl|lying cambered|hyperextension|back extension/, 'prone', /reverse hyper|incline/],
+  [/lying|supine|floor press|skull|crunch|sit-?up|glute bridge|hip thrust|bench press|dead bug|flutter|pullover|ball leg curl|hamstring curl|walkout/, 'supine', /standing|cable crunch|rope crunch|kneel|hanging|seated|machine|side|rear|lateral|leverage|vertical|captain|suspended|bosu|\brow|ab crunch/],
+  [/bent.over|romanian|stiff.leg|good morning|deadlift|kickback/, 'bent', /seated|lying|kneel|glute kickback|leg kickback|one-legged|bench|donkey/],
+  [/standing|squat|lunge|\bwalk|running|jog|sprint|jump|shrug|clean|snatch|jerk|step.?up|calf raise|farmer|carry|swing|\bhops?\b|svend|front leg raise/, 'stand', /seated|lying|machine|leg press|smith|wind sprints|plank|sled/],
+];
+const WANT_STEP: [RegExp, Posture][] = [
+  [/\b(sit|seated|sitting|seat yourself|take a seat)\b/, 'seat'],
+  [/\bhang(ing)? from\b/, 'hang'],
+  [/face down|on your stomach|\bprone\b|lie on your (stomach|chest|front)|chest (and stomach )?(down|pressing)/, 'prone'],
+  [/lie (down )?(on (the|a|an) (floor|mat|bench|ground|exercise mat|flat bench)|flat|on your back|back|face up|supine)|lying (down )?on your back|lay (down )?(flat|on your back|on (the|a) (floor|bench))|on your back|lie down|lay down/, 'supine'],
+  [/push-?up position|plank position/, 'plank'],
+  [/all fours|hands and knees/, 'allfours'],
+  [/\bkneel/, 'kneel'],
+  [/on your (left |right )?side\b/, 'side'],
+  [/\b(stand|standing)\b/, 'stand'],
+];
+// Read wrongly by the rules above (or named misleadingly): what the instructions really say.
+const WANT_ID: Record<string, Posture | null> = {
+  Wind_Sprints: 'hang', // hanging knee sprints, despite the name
+  Spider_Crawl: 'allfours', Shoulder_Circles: 'stand', // "or in your lap if you're seated"
+  Low_Cable_Triceps_Extension: 'supine', // lies on the bench of the seated row machine
+  'Lower_Back-SMR': 'supine', London_Bridges: 'supine', Barbell_Ab_Rollout: 'plank', Weighted_Ball_Hyperextension: 'prone',
+  Hamstring_Stretch: 'supine', Chain_Handle_Extension: 'supine', 'One-Arm_Incline_Lateral_Raise': 'side', 'Lying_One-Arm_Lateral_Raise': 'prone', 'Anti-Gravity_Press': 'lean', Reverse_Flyes: 'lean', Reverse_Flyes_With_External_Rotation: 'lean',
+};
+export function wantPosture(e: Ex): Posture | null {
+  if (e.id in WANT_ID) return WANT_ID[e.id];
+  const n = e.name.toLowerCase();
+  for (const [re, p, not] of WANT_NAME) if (re.test(n) && !(not && not.test(n))) return p;
+  const s = (e.steps ?? []).slice(0, 2).join(' ').toLowerCase();
+  let best: Posture | null = null, at = 1e9;
+  for (const [re, p] of WANT_STEP) { const m = re.exec(s); if (m && m.index < at) { at = m.index; best = p; } }
+  return best;
+}
+// Which shown postures honestly stand for a wanted one (an incline bench is "seated, reclined"; a hinge is standing).
+export const POSTURE_OK: Record<Posture, Posture[]> = {
+  stand: ['stand', 'bent'], bent: ['bent', 'lean', 'stand'], seat: ['seat', 'recline', 'lean'], recline: ['recline', 'supine'], lean: ['lean', 'prone'],
+  kneel: ['kneel', 'allfours'], allfours: ['allfours', 'kneel', 'plank'], plank: ['plank', 'allfours', 'side'], supine: ['supine', 'recline'],
+  prone: ['prone', 'lean'], side: ['side', 'supine'], hang: ['hang'], inverted: ['inverted'],
+};
+export function postureMismatch(e: Ex): string | null {
+  const w = wantPosture(e);
+  if (!w) return null;
+  const { pose } = poseFor(e), a = postureOf(pose, 0), b = postureOf(pose, 1);
+  return POSTURE_OK[w].includes(a) || POSTURE_OK[w].includes(b) ? null : `${e.id}: wants ${w}, shows ${a}>${b}`;
 }

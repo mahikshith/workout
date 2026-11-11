@@ -222,6 +222,10 @@ console.log('ok', '../src/health/colmi.ts');
 }
 
 // History import from Strong, Hevy and FitNotes CSV, and our own "Export sets (CSV)" read back (src/importApps.ts).
+// Calories for logged workouts and the calendar's day total (round 14 wearables): formula sanity, parts add up, no
+// double counting.
+(await import(new URL('../src/health/energy.ts', import.meta.url))).selfCheck();
+console.log('ok', '../src/health/energy.ts');
 (await import(new URL('../src/importApps.ts', import.meta.url))).selfCheck();
 console.log('ok ../src/importApps.ts');
 

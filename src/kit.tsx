@@ -15,6 +15,8 @@ import { byId, type Place } from './data/exercises';
 import { asDay, quickById } from './data/quick';
 import { suggest } from './engine';
 import { useStore, type Item } from './store';
+import { Glass, GlassBar, shadow } from './glass';
+import { AnimatedNumber, spring } from './motion';
 import { c, f, r } from './theme';
 import { CENTRE_RISE, haptic, MINI_BAR_HEIGHT, MINI_GAP, T, TAB_BAR_HEIGHT, Tap, useMiniBarPlace } from './ui';
 
@@ -28,12 +30,17 @@ type Icon = keyof typeof Ionicons.glyphMap;
 export const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
 // The header of every pushed screen: back arrow, title, at most one action on the right.
-export function Header({ title, action, actionIcon, onAction, onBack, close }: {
-  title?: string; action?: string; actionIcon?: Icon; onAction?: () => void; onBack?: () => void; close?: boolean;
+// `glass`: the header floats (absolute) and the page scrolls under it; the screen then pads its content by
+// `useHeaderSpace()`. Without it the header sits in the flow, clear, over the page background.
+export const HEADER_HEIGHT = 58; // 6 + 44 + 8, without the top inset
+export const useHeaderSpace = () => useSafeAreaInsets().top + HEADER_HEIGHT;
+export function Header({ title, action, actionIcon, onAction, onBack, close, glass }: {
+  title?: string; action?: string; actionIcon?: Icon; onAction?: () => void; onBack?: () => void; close?: boolean; glass?: boolean;
 }) {
   const ins = useSafeAreaInsets();
+  const Wrap = glass ? GlassHeader : PlainHeader;
   return (
-    <View style={[k.header, { paddingTop: ins.top + 6 }]}>
+    <Wrap top={ins.top}>
       <Tap onPress={onBack ?? goBack} style={k.round} scale={0.9} feedback="none" accessibilityLabel={close ? 'Close' : 'Back'}>
         <Ionicons name={close ? 'chevron-down' : 'chevron-back'} size={22} color={c.text} />
       </Tap>
@@ -44,9 +51,13 @@ export function Header({ title, action, actionIcon, onAction, onBack, close }: {
           {action ? <Text style={{ fontFamily: f.bold, fontSize: 15, color: c.accentInk }}>{action}</Text> : null}
         </Tap>
       ) : <View style={{ width: 44 }} />}
-    </View>
+    </Wrap>
   );
 }
+const PlainHeader = ({ top, children }: { top: number; children: ReactNode }) => <View style={[k.header, { paddingTop: top + 6 }]}>{children}</View>;
+const GlassHeader = ({ children }: { top: number; children: ReactNode }) => (
+  <GlassBar edge="top" style={{ zIndex: 10 }}><View style={[k.header, { paddingTop: 6 }]}>{children}</View></GlassBar>
+);
 
 // The one segmented control. The highlight slides between options.
 export function Segmented<K extends string>({ options, value, onChange, style }: {
@@ -57,7 +68,7 @@ export function Segmented<K extends string>({ options, value, onChange, style }:
   const x = useSharedValue(0);
   const still = useReducedMotion();
   const cell = options.length ? (w - 8) / options.length : 0;
-  useEffect(() => { x.value = still ? i * cell : withTiming(i * cell, { duration: 260, easing: EASE }); }, [i, cell, still]);
+  useEffect(() => { x.value = still ? i * cell : withSpring(i * cell, spring.snappy); }, [i, cell, still]);
   const pill = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
     <View style={[k.seg, style]} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
@@ -73,25 +84,8 @@ export function Segmented<K extends string>({ options, value, onChange, style }:
 }
 
 // A number that counts up to its value (600 ms) and pops when it changes later. Respects reduced motion.
-export function CountUp({ value, decimals = 0, prefix = '', suffix = '', style }: {
-  value: number; decimals?: number; prefix?: string; suffix?: string; style?: StyleProp<TextStyle>;
-}) {
-  const still = useReducedMotion();
-  const v = useSharedValue(still ? value : 0);
-  const scale = useSharedValue(1);
-  const [shown, setShown] = useState(still ? value : 0);
-  const [first, setFirst] = useState(true);
-  useEffect(() => {
-    if (still) { setShown(value); return; }
-    v.value = withTiming(value, { duration: 600, easing: Easing.out(Easing.cubic) });
-    if (!first) scale.value = withSequence(withTiming(1.15, { duration: 120 }), withSpring(1, { damping: 12, stiffness: 220 }));
-    setFirst(false);
-  }, [value]);
-  useAnimatedReaction(() => v.value, (n) => runOnJS(setShown)(n));
-  const pop = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const txt = `${prefix}${shown.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}${suffix}`;
-  return <Animated.Text style={[{ fontFamily: f.display, fontSize: 28, color: c.text }, style, pop]}>{txt}</Animated.Text>;
-}
+// It is motion.tsx's AnimatedNumber under its old name.
+export const CountUp = AnimatedNumber;
 
 // Opens the running workout. navigate() reuses an existing /session screen instead of pushing a second one, and a
 // short lock swallows the second tap of a double tap.
@@ -198,6 +192,7 @@ export const nextOpen = (items: Item[], from: number) => {
 // which ends the rest (and, when that exercise is all logged, brings on the next one, as the workout does).
 export function MiniBar({ bottom }: { bottom: number }) {
   const a = useStore((s) => s.active);
+  const still = useReducedMotion();
   const elapsed = useElapsed();
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
@@ -257,7 +252,9 @@ export function MiniBar({ bottom }: { bottom: number }) {
   };
   const resting = rest > 0;
   return (
-    <Animated.View entering={FadeInDown.duration(320).easing(EASE)} exiting={FadeOutDown.duration(200)} style={[k.mini, { bottom, borderColor: c.accent + '55' }]}>
+    <Animated.View entering={still ? undefined : FadeInDown.springify().stiffness(spring.sheet.stiffness).damping(spring.sheet.damping)} exiting={still ? undefined : FadeOutDown.duration(200)} style={[k.miniAt, { bottom }]}>
+      {/* Glass, washed with the accent: a floating layer over whatever screen is under it. */}
+      <Glass tint="accent" radius={r.lg} level={2} style={k.mini}>
       <Tap onPress={openWorkout} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 14 }} scale={0.98}
         accessibilityLabel={`Open workout, ${ex?.name ?? a.title}, ${done} of ${total} sets`}>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -277,6 +274,7 @@ export function MiniBar({ bottom }: { bottom: number }) {
           <Ionicons name={left ? 'checkmark' : 'chevron-up'} size={22} color={c.accentInk} />
         </Tap>
       )}
+      </Glass>
     </Animated.View>
   );
 }
@@ -310,21 +308,18 @@ export function DoorCard({ icon, color = c.accent, title, meta, onPress, right, 
 }
 
 const k = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingBottom: 8, backgroundColor: c.bg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingBottom: 8 },
   round: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   action: { height: 40, paddingHorizontal: 16, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
   seg: { flexDirection: 'row', height: 40, borderRadius: 12, backgroundColor: c.card2, padding: 4 },
   segPill: { position: 'absolute', top: 4, left: 4, bottom: 4, borderRadius: 9 },
   segItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  mini: {
-    position: 'absolute', left: 12, right: 12, height: MINI_BAR_HEIGHT, borderRadius: r.lg, flexDirection: 'row', alignItems: 'center', paddingRight: 5, // 5 = (56 - 2 border - 44) / 2: equal gap round the ✓
-    backgroundColor: c.raised, borderWidth: 1,
-    shadowColor: '#000', shadowOpacity: c.scheme === 'light' ? 0.16 : 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10,
-  },
+  miniAt: { position: 'absolute', left: 12, right: 12 },
+  mini: { height: MINI_BAR_HEIGHT, flexDirection: 'row', alignItems: 'center', paddingRight: 6 }, // 6 = (56 - 44) / 2: equal gap round the ✓
   miniTick: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   miniNext: { height: 44, paddingLeft: 14, paddingRight: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 2 },
-  empty: { alignItems: 'center', gap: 10, paddingVertical: 24, paddingHorizontal: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  empty: { alignItems: 'center', gap: 10, paddingVertical: 24, paddingHorizontal: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line, ...shadow(1) },
   emptyBtn: { height: 44, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
-  door: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
+  door: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line, ...shadow(1) },
   doorIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });

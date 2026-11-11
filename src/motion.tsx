@@ -141,7 +141,7 @@ export function Collapsible({ open, children, style, lazy = true }: { open: bool
     if (open && !seen) setSeen(true);
     p.value = still ? (open ? 1 : 0) : withSpring(open ? 1 : 0, { ...spring.gentle, overshootClamping: true });
   }, [open, still]);
-  const box = useAnimatedStyle(() => (ready.value ? { height: h.value * p.value, opacity: Math.min(1, p.value * 1.4) } : { height: p.value ? undefined : 0, opacity: p.value }));
+  const box = useAnimatedStyle(() => (ready.value ? { height: h.value * p.value, opacity: Math.min(1, p.value * 1.4) } : { height: p.value >= 1 ? undefined : 0, opacity: p.value }));
   return (
     <Animated.View style={[{ overflow: 'hidden' }, box]} pointerEvents={open ? 'auto' : 'none'}
       accessibilityElementsHidden={!open} importantForAccessibility={open ? 'auto' : 'no-hide-descendants'}>
