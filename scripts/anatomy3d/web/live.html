@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>3D view</title>
+<style>
+  :root { --bg: #f3f4f1; --ink: #1a1c1a; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); font: 600 13px system-ui, -apple-system, Roboto, sans-serif; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #gl { touch-action: none; cursor: grab; } #ov { pointer-events: none; }
+  #hint { position: absolute; top: 10px; left: 0; right: 0; text-align: center; color: var(--ink); opacity: .7; transition: opacity .6s; pointer-events: none; }
+  #bar { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; gap: 6px; justify-content: center; pointer-events: none; }
+  button { pointer-events: auto; font: inherit; color: var(--ink); background: color-mix(in srgb, var(--bg) 82%, var(--ink)); border: 0; border-radius: 16px; min-height: 32px; padding: 0 12px; }
+  button.on { background: var(--ink); color: var(--bg); }
+</style></head><body>
+<canvas id="gl"></canvas><canvas id="ov"></canvas>
+<div id="hint">Drag to turn · Pinch to zoom</div>
+<div id="bar"><button id="play">Pause</button><button id="slow" aria-pressed="false">Slow</button><button id="reset">Reset view</button></div>
+<script>(function () { var q = new URLSearchParams(location.hash.slice(1) || location.search.slice(1)), s = document.documentElement.style; if (/^[0-9a-f]{6}$/i.test(q.get('bg') || '')) s.setProperty('--bg', '#' + q.get('bg')); if (/^[0-9a-f]{6}$/i.test(q.get('ink') || '')) s.setProperty('--ink', '#' + q.get('ink')); })();</script>
+<script>window.A3D = /*DATA*/;</script>
+<script>/*CODE*/</script>
+</body></html>

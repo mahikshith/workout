@@ -18,6 +18,7 @@ import { G as ArtG, Path as ArtPath } from 'react-native-svg';
 import { ART, type Art } from './data/art';
 import videos from './data/videos.json';
 import { useStore, type MediaPref } from './store';
+import { Live3D, LIVE_MOVES } from './live3d';
 import { useLook } from './look';
 import { c, dom, f, r, tint } from './theme';
 import { Ambient, shadow } from './glass';
@@ -371,7 +372,9 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
   const [prev, setPrev] = useState<MediaPref | null>(null); // stays under the new pick while it fades in
   const [online, setOnline] = useState(false); // "Needs internet" hint, shown for a moment on photo, drawing or video
   const [tries, setTries] = useState(0); // bumps to reload pictures once the internet is back
-  useEffect(() => setFailed([]), [ex.id]);
+  const [live, setLive] = useState<'off' | 'on' | 'failed'>('off'); // the 3D view the user can turn; the clip is under it
+  useEffect(() => { setFailed([]); setLive('off'); }, [ex.id]);
+  useEffect(() => { if (pref !== '3d') setLive((l) => (l === 'on' ? 'off' : l)); }, [pref]);
   useBackOnline(failed.length > 0, () => { setFailed([]); setTries((t) => t + 1); });
   useEffect(() => { if (!prev) return; const t = setTimeout(() => setPrev(null), 250); return () => clearTimeout(t); }, [prev]);
   useEffect(() => {
@@ -431,7 +434,17 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
               </View>
             ) : k === '3d' ? (
               <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2 }]}>
-                <Image source={ANATOMY[ex.id]} contentFit="contain" autoplay={!paused} style={{ flex: 1, margin: 6 }} accessibilityLabel={`${ex.name}, 3D muscle view`} />
+                {/* The clip is the guided tour. "Explore in 3D" opens the live figure on top; if the phone can't draw it, the clip stays. */}
+                <Image source={ANATOMY[ex.id]} contentFit="contain" autoplay={!paused && live !== 'on'} style={{ flex: 1, margin: 6 }} accessibilityLabel={`${ex.name}, 3D muscle view`} />
+                {live === 'on' && !paused && <Live3D move={LIVE_MOVES[ex.id]} onFail={() => setLive('failed')} />}
+                {ex.id in LIVE_MOVES && live !== 'failed' && (
+                  <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={live === 'on' ? 'Back to the guided clip' : 'Explore in 3D: turn and zoom the figure'}
+                    onPress={() => { haptic(); setLive(live === 'on' ? 'off' : 'on'); }} style={[md.live, { backgroundColor: live === 'on' ? c.card : c.accent }]}>
+                    <Ionicons name={live === 'on' ? 'close' : 'cube-outline'} size={14} color={live === 'on' ? c.text : c.accentInk} />
+                    <T v="small" color={live === 'on' ? c.text : c.accentInk}>{live === 'on' ? 'Guided clip' : 'Explore in 3D'}</T>
+                  </Pressable>
+                )}
+                {live === 'failed' && <View style={md.note}><T v="small" color={c.text}>The 3D view you can turn didn’t start on this phone, so here’s the guided clip.</T></View>}
               </View>
             ) : k === 'video' ? <Clip id={ex.id} onFail={() => fail('video')} />
               : k === 'drawing' ? <Drawing slug={ex.art!} />
@@ -580,6 +593,7 @@ function ClipView({ uri, onError }: { uri: string; onError: () => void }) {
 const md = StyleSheet.create({
   switch: { flexDirection: 'row', gap: 4, padding: 4, marginBottom: 10, borderRadius: 14, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   opt: { flex: 1, height: 34, borderRadius: 10, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center' },
+  live: { position: 'absolute', top: 8, right: 8, height: 32, paddingHorizontal: 10, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 5 },
   hint: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: 'rgba(10,10,11,0.75)' },
   note: { position: 'absolute', left: 10, bottom: 10, right: 10, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: 'rgba(10,10,11,0.72)' },
 });

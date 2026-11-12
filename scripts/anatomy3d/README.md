@@ -27,8 +27,17 @@ has no licence conditions.
     node clip.cjs squat out/sq web_own3 600           # 204 frames: three reps, 2 s down, hold, 2 s up, 1 s rest
 
 The frames are scaled to 360 px and saved as a looping WebP at 12.5 frames a second (about 1.7 MB each).
-A new exercise is a new entry in `EX`: the joint rotations at the start and end of the rep, the muscle groups to
+A new exercise is a new entry in `web/moves.js`: the joint rotations at the start and end of the rep, the muscle groups to
 highlight, the camera angles and the two angles to label.
+
+## The live view
+
+`node pack.cjs web_own3 ../../assets/anatomy/live.html` (needs `npm i three@0.170.0 esbuild`) packs `web/live.js`,
+three.js and the figure into one page of about 7.5 MB. The app shows it in a web view when the user taps
+"Explore in 3D" (`src/live3d.tsx`): drag to turn, pinch to zoom, Slow, Pause, Reset view. The phone's graphics chip
+bends the figure, so it costs almost no processor time. It uses the same moves and angle labels as the clips
+(`web/moves.js`). If the page cannot start (no WebGL, an error, or nothing drawn within 20 s) the app stays on the clip,
+and a phone that draws it slowly gets a coarser picture.
 
 ## reference/
 
@@ -39,6 +48,4 @@ in `reference.md`. Those numbers were used to check our proportions. The mesh it
 ## Known limits
 
 Fingers do not wrap around handles, the shoulder blade does not move, and joints are simple two-segment blends, so the
-hip and knee are plain at the deepest part of a squat. Clips are large for what they are; the planned next step is to
-draw the figure live in the app, which makes slow motion, pause and free rotation possible and needs one model for all
-exercises.
+hip and knee are plain at the deepest part of a squat. The live view has only been tried in a desktop browser so far, not on a phone.
