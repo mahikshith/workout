@@ -69,9 +69,13 @@ const elapsedOf = (a: Session | null) =>
 function Clock({ paused }: { paused: boolean }) {
   const elapsed = useElapsed();
   return (
-    <T style={{ fontFamily: f.bold, fontSize: 18, fontVariant: ['tabular-nums'] }} color={paused ? c.muted : c.text}>
-      {paused ? `Paused · ${fmtTime(elapsed)}` : fmtTime(elapsed)}
-    </T>
+    <View style={{ alignItems: 'center' }}>
+      <T style={{ fontFamily: f.bold, fontSize: 18, lineHeight: 22, fontVariant: ['tabular-nums'] }} color={paused ? c.muted : c.text}>
+        {paused ? `Paused · ${fmtTime(elapsed)}` : fmtTime(elapsed)}
+      </T>
+      {/* Says what the clock counts: the whole workout, so it keeps running from one exercise to the next. */}
+      <T style={{ fontSize: 10, lineHeight: 12, fontFamily: f.semi, letterSpacing: 0.4 }} color={c.muted}>WHOLE WORKOUT</T>
+    </View>
   );
 }
 
@@ -406,7 +410,8 @@ export default function SessionScreen() {
               {ready && idx === 0 && advice && <T v="small" color={c.warm}>{advice}</T>}
             </View>
             <Tap onPress={() => setSheet('info')} style={s.info} accessibilityLabel="How to do it">
-              <Ionicons name="information" size={20} color={c.text} />
+              <Ionicons name="book-outline" size={15} color={c.accent} />
+              <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>How to do it</T>
             </Tap>
           </Row>
 
@@ -1012,10 +1017,10 @@ function SetTimer({ value, target, done, locked, onChange, onStart, onFinish }: 
 const s = StyleSheet.create({
   icon: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   plates: { position: 'absolute', right: 0, top: -14, width: 64, height: 44, alignItems: 'center', justifyContent: 'center' },
-  info: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' },
+  info: { height: 40, paddingHorizontal: 12, borderRadius: 20, flexDirection: 'row', gap: 6, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' },
   centre: { position: 'absolute', left: 64, right: 64, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   off: { opacity: 0.35 },
-  live: { position: 'absolute', left: -14, top: '50%', marginTop: -4, width: 8, height: 8, borderRadius: 4, backgroundColor: c.danger },
+  live: { position: 'absolute', left: -14, top: 7, width: 8, height: 8, borderRadius: 4, backgroundColor: c.danger },
   seg: { height: 4, borderRadius: 2, backgroundColor: c.card2, overflow: 'hidden' },
   pill: { flex: 1, height: 48, borderRadius: 24, backgroundColor: c.card2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   smallPill: { height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 4 },
