@@ -27,12 +27,18 @@ const PIV = { pelvis: 'pel', lumbar: 'lum', chest: 'chest', neck: 'neck', head: 
 const PARENT = { lumbar: 'pelvis', chest: 'lumbar', neck: 'chest', head: 'neck', Lupper: 'chest', Lfore: 'Lupper', Lhand: 'Lfore', Rupper: 'chest', Rfore: 'Rupper', Rhand: 'Rfore', Lthigh: 'pelvis', Lshank: 'Lthigh', Lfoot: 'Lshank', Rthigh: 'pelvis', Rshank: 'Rthigh', Rfoot: 'Rshank' };
 const ORDER = ['pelvis', 'lumbar', 'chest', 'neck', 'head', 'Lupper', 'Lfore', 'Lhand', 'Rupper', 'Rfore', 'Rhand', 'Lthigh', 'Lshank', 'Lfoot', 'Rthigh', 'Rshank', 'Rfoot'];
 
+// fingers (added by pack.cjs): two joints per hand, closing about the hand's own curl axis
+for (const S of ['L', 'R']) if (SEG.includes(S + 'fing1')) { PIV[S + 'fing1'] = S + 'mcp'; PIV[S + 'fing2'] = S + 'pip'; PARENT[S + 'fing1'] = S + 'hand'; PARENT[S + 'fing2'] = S + 'fing1'; ORDER.push(S + 'fing1', S + 'fing2'); }
+const curlAxis = (S) => new THREE.Vector3(...meta.curl[S]);
+// pose.curl = { L, R } from 0 (flat hand) to 1 (closed around a handle); a relaxed hand is a little bent
+const fingers = (pose, s) => { const S = s[0], c = pose.curl?.[S] ?? 0.22; return new THREE.Matrix4().makeRotationAxis(curlAxis(S), (s.endsWith('1') ? 82 : 88) * c * Math.PI / 180); };
+
 let segOut = {};
 // Two ways to say what to show: #ex=squat picks a hand-made move; #j=<JSON> (or #d=<base64 JSON>) carries an exercise's own movement
 // data from the app ({ pose, primary, secondary }), which drive.js turns into a 3D pose.
 const EX = makeMoves(() => segOut), name = EX[QS.get('ex')] ? QS.get('ex') : 'squat';
 const spec = QS.get('j') ? JSON.parse(QS.get('j')) : QS.get('d') ? JSON.parse(decodeURIComponent(escape(atob(QS.get('d').replace(/-/g, '+').replace(/_/g, '/'))))) : window.SPEC;
-let ex = spec ? makeDriven(spec, J, () => segOut) : EX[name];
+let ex = spec ? makeDriven(spec, J, () => segOut, meta) : EX[name];
 
 // ---- the figure. The phone's graphics chip bends it: every point follows two body segments (sk = which two, how much).
 const C = (h) => new THREE.Color(h);
@@ -93,12 +99,17 @@ function solve(pose) {
   const R = {}, p = {};
   for (const s of ORDER) {
     const par = PARENT[s];
-    R[s] = pose.abs?.[s] ? pose.abs[s].clone() : mul(par ? R[par] : I, pose.loc?.[s] || I);
+    R[s] = pose.abs?.[s] ? pose.abs[s].clone() : mul(par ? R[par] : I, pose.loc?.[s] || (s.includes('fing') ? fingers(pose, s) : I));
     p[s] = par ? v3(J[PIV[s]]).sub(v3(J[PIV[par]])).applyMatrix4(R[par]).add(p[par]) : v3(J.pel);
   }
   const off = new THREE.Vector3();
   if (pose.plant !== false) off.copy(v3(J.Lank)).add(v3(J.Rank)).sub(p.Lfoot).sub(p.Rfoot).multiplyScalar(0.5);
   if (pose.shift) off.add(pose.shift);
+  // hands that hold a fixed bar stay on it: the body moves, the bar does not
+  if (pose.hang && meta.palm) {
+    const g = new THREE.Vector3(); for (const s of ['R', 'L']) g.add(new THREE.Vector3(...meta.palm[s]).applyMatrix4(R[s + 'hand']).add(p[s + 'hand'])); g.multiplyScalar(0.5).add(off);
+    if (!ex.hangAt) ex.hangAt = g.clone(); off.add(ex.hangAt).sub(g);
+  }
   SEG.forEach((s, i) => { p[s].add(off); const t = v3(J[PIV[s]]).applyMatrix4(R[s]).negate().add(p[s]); bones[i].copy(R[s]).setPosition(t); });
   segOut = { R, p };
 }
@@ -116,7 +127,7 @@ function measure() {
     }
   }
   if (n) focus.multiplyScalar(1 / n); else box.getCenter(focus);
-  box.getCenter(centre); radius = box.getSize(new THREE.Vector3()).length() / 2;
+  box.getCenter(centre); { const sz = box.getSize(new THREE.Vector3()); radius = Math.max(sz.length() / 2, sz.z / 1.5); } // a tall narrow move must still fit top to bottom
   // make some room for the equipment too, but keep the body large: a barbell may run a little off the picture
   if (ex.props) {
     solve(ex.pose(0)); const pb = new THREE.Box3().setFromObject(ex.props(ex.pose(0)));
@@ -176,7 +187,8 @@ let PER = ex.per || 5.44, clock = 0, last = 0, lastT = -1, frames = 0, since = 0
 const still = !!QS.get('bare'); let dirty = 3;
 window.hold = (p, az, el, zoom) => { dirty = 3; playing = false; ex.phase = () => p; if (az != null) Object.assign(view, { az, el, zoom }); goal = null; lastT = -1; };
 // show another exercise without loading the page again
-window.show = (sp) => { props.traverse((o) => o.geometry?.dispose()); props.clear(); ex = makeDriven(sp, J, () => segOut); mark(); measure(); Object.assign(HOME, { az: ex.shots[0].az, el: Math.atan(ex.shots[0].el) * 180 / Math.PI }); Object.assign(view, HOME); PER = ex.per || 5.44; clock = 0; lastT = -1; goal = null; };
+window.show = (sp) => { props.traverse((o) => o.geometry?.dispose()); props.clear(); ex = makeDriven(sp, J, () => segOut, meta); mark(); measure(); Object.assign(HOME, { az: ex.shots[0].az, el: Math.atan(ex.shots[0].el) * 180 / Math.PI }); Object.assign(view, HOME); PER = ex.per || 5.44; clock = 0; lastT = -1; goal = null; };
+window.look = (j, r) => { centre.copy(segOut.p[j]); radius = r; dirty = 3; };
 window.joints = () => Object.fromEntries(Object.entries(segOut.p).map(([k, q]) => [k, [Math.round(q.x), Math.round(q.y), Math.round(q.z)]]));
 function frame(now) {
   requestAnimationFrame(frame);

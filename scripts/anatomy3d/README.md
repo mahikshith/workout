@@ -46,7 +46,7 @@ The live view can show any exercise the app's 2D animation can show. `web/drive.
 bone points: side views turn about the left-right axis, front views about the front-back axis, mat views lie on the
 back. It adds the equipment the pose names (dumbbells, barbell, kettlebell, ball, plate, band or cable, pull-up and dip
 bars, bench with back pad, box, wall, treadmill, leg-press plate, bike). The app passes `{ pose, primary, secondary }`
-in the address (`#j=`).
+in the address (`#j=`), plus `name`, which only decides whether a kettlebell move uses one bell or two.
 
 The app offers this 3D view where the movement data can be trusted (`has3d` in `src/ui.tsx`): not borrowed from another
 movement, posture agreeing with the name and steps, and not listed in `src/data/no3d.ts`. To check the movements:
@@ -54,8 +54,26 @@ movement, posture agreeing with the name and steps, and not listed in `src/data/
     node --experimental-strip-types --no-warnings scripts/anatomy3d/dump.mjs all.json   # from the repo root
     node scripts/anatomy3d/sheet.cjs all.json assets/anatomy/live.html sheets          # start and end picture of each distinct movement
 
-On 2026-11-12 all 446 distinct movements were looked at this way. 888 exercises pass; 135 borrow a movement and keep
-their photo or drawing; 6 are listed in `no3d.ts`.
+### Hands and weights
+
+`pack.cjs` adds two finger joints per hand, so a hand that holds something closes around it. `drive.js` decides the
+grip once per exercise from the two ends of the move: curls are held palm up, a weight hanging at the side palm in,
+everything else overhand, and the hand turns about its own long axis until the fingers wrap the way the handle runs.
+Weights sit at the middle of the closed hand. A kettlebell hangs under the hand, or rests against the outside of the
+wrist when the forearm is upright; a two-handed kettlebell move brings both hands to one handle. Hands on a fixed bar
+stay on it while the body moves. A bar carried on the back leans with the shoulders.
+
+### Movements only the 3D figure can show
+
+Some movements leave the flat figure's drawing plane. Five optional fields on a pose (`src/data/poses.ts`) are read
+only here: `twist` (the upper body turns about the spine), `tilt` (a front-view movement done bent over, or lying or
+leaning chest down on a bench or the floor), `clasp` (both hands meet), `splay` (the near thigh opens to the side) and
+`swing` (the forearm turns about the upper arm). Such a pose is marked `d3`: the 3D view shows it, while the flat
+animation keeps treating it as borrowed and stays hidden. An arm that reaches across the body is swung in front of
+the chest.
+
+On 2026-11-12 all 516 distinct movements were looked at on sheets, and the 97 newly written ones one by one. 979
+exercises pass; 38 still borrow a movement and keep their photo or drawing; 6 are listed in `no3d.ts`.
 
 ## reference/
 
@@ -65,5 +83,5 @@ in `reference.md`. Those numbers were used to check our proportions. The mesh it
 
 ## Known limits
 
-Fingers do not wrap around handles, the shoulder blade does not move, and joints are simple two-segment blends, so the
+The fingers close as one block (no separate fingers or thumb), the shoulder blade does not move, and joints are simple two-segment blends, so the
 hip and knee are plain at the deepest part of a squat. The live view has only been tried in a desktop browser so far, not on a phone.

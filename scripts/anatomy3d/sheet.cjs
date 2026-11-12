@@ -19,7 +19,7 @@ fs.writeFileSync(path.join(out, 'index.json'), JSON.stringify(list.map(({ pose, 
       const it = list[next++]; if (!it) break;
       const f = (k) => path.join(out, 'shots', it.n + k + '.jpg'); if (fs.existsSync(f('b'))) continue;
       try {
-        await p.evaluate((sp) => { window.show(sp); window.hold(0); }, { pose: it.pose, primary: it.primary, secondary: it.secondary });
+        await p.evaluate((sp) => { window.show(sp); window.hold(0); }, { name: it.names[0], pose: it.pose, primary: it.primary, secondary: it.secondary });
         await p.waitForTimeout(300); await p.screenshot({ path: f('a'), type: 'jpeg', quality: 75 });
         await p.evaluate(() => window.hold(1));
         await p.waitForTimeout(300); await p.screenshot({ path: f('b'), type: 'jpeg', quality: 75 });

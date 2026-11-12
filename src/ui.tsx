@@ -341,7 +341,7 @@ const KINDS: { k: MediaPref; label: string }[] = [{ k: '3d', label: '3D' }, { k:
 // not borrowed from another movement, posture agreeing with the name and steps, and not on the list of movements that
 // looked wrong when every one was checked on picture sheets (src/data/no3d.ts).
 const live3dOk: Record<string, boolean> = {};
-export const has3d = (ex: Exercise) => (live3dOk[ex.id] ??= !ex.noImages && !poseFor(ex).pose.weak && !postureMismatch(ex) && !NO_3D.has(ex.id));
+export const has3d = (ex: Exercise) => (live3dOk[ex.id] ??= !ex.noImages && (poseFor(ex).pose.d3 || (!poseFor(ex).pose.weak && !postureMismatch(ex))) && !NO_3D.has(ex.id));
 let live3dBroken = false; // set once the live view fails to start on this device; the old views come back for this run
 // A borrowed animation of a different movement is never offered; those exercises show their photo or drawing.
 // Where an exercise has its 3D view, that replaces the animation, photo and video; the drawing stays. If the live view
@@ -387,7 +387,7 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
   const [tries, setTries] = useState(0); // bumps to reload pictures once the internet is back
   const [live, setLive] = useState<'off' | 'on' | 'failed'>('off'); // the 3D view the user can turn; the clip is under it
   const [no3d, setNo3d] = useState(live3dBroken);
-  const spec = useMemo(() => ({ pose: poseFor(ex).pose, primary: ex.primary, secondary: ex.secondary }), [ex.id]);
+  const spec = useMemo(() => ({ name: ex.name, pose: poseFor(ex).pose, primary: ex.primary, secondary: ex.secondary }), [ex.id]);
   useEffect(() => { setFailed([]); setLive('off'); }, [ex.id]);
   useEffect(() => { if (pref !== '3d') setLive((l) => (l === 'on' ? 'off' : l)); }, [pref]);
   useBackOnline(failed.length > 0, () => { setFailed([]); setTries((t) => t + 1); });

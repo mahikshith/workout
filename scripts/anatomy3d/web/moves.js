@@ -50,7 +50,7 @@ const EX = {
       const s = ease(t), phi = lerp(-14, 66, s), back = Rx(-7);
       const arm = (sg) => mul(Rz(-sg * phi), Ry(-sg * 72), Rx(-4));
       return { abs: { pelvis: back, lumbar: back, chest: Rx(-7), neck: Rx(-2), head: I, Lthigh: mul(Rx(-86), Ry(-12)), Rthigh: mul(Rx(-86), Ry(12)), Lshank: Rx(4), Rshank: Rx(4), Lfoot: I, Rfoot: I, Lupper: arm(1), Rupper: arm(-1) },
-        loc: { Lfore: Rx(-22), Rfore: Rx(-22), Lhand: Rx(-10), Rhand: Rx(-10) }, phi };
+        loc: { Lfore: Rx(-22), Rfore: Rx(-22), Lhand: Rx(-10), Rhand: Rx(-10) }, curl: { L: 0.9, R: 0.9 }, phi };
     },
     props: (pose) => {
       const { p, R } = seg(), g = new THREE.Group(), pel = p.pelvis, ch = p.chest;
