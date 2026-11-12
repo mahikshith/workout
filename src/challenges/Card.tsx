@@ -27,7 +27,7 @@ export function ChallengeCard() {
           <T v="h3" numberOfLines={1}>{`Try a ${top.days}-day challenge`}</T>
           <T v="small" numberOfLines={1}>{`${top.name} · picked for you`}</T>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={c.dim} />
+        <Ionicons name="chevron-forward" size={18} color={c.muted} />
       </Tap>
     );
   }
@@ -74,7 +74,7 @@ export function ChallengeCard() {
         ) : day?.done && !prog.over ? (
           <Ionicons name="checkmark-circle" size={28} color={c.ok} />
         ) : (
-          <Ionicons name="chevron-forward" size={18} color={c.dim} />
+          <Ionicons name="chevron-forward" size={18} color={c.muted} />
         )}
       </Tap>
       {sheet}

@@ -48,6 +48,9 @@ export type ImportedWorkout = {
 // `sets` has the same shape as the session's items and sets; it and `rest` are left out when the source is sparse.
 export type HrStat = { avg: number; max: number };
 export type SessionHr = HrStat & { sets?: (HrStat | null)[][]; rest?: HrStat; sparse?: boolean; origin?: string; readAt: string };
+// Calories the watch counted during one of our own workouts (Health Connect, summed over the workout's time window).
+// Either number can be missing: not every watch app shares both. No numbers at all means "read, nothing there".
+export type SessionKcal = { activeKcal?: number; totalKcal?: number; origin?: string[]; readAt: string };
 
 // Today's heart rate from Health Connect, for the Tracker screen: average bpm per `stepMin` bucket from midnight (null
 // where the watch wrote nothing), and minutes per heart-rate zone 0-5 (src/health/readiness.ts zoneOf).
@@ -69,6 +72,7 @@ type TrackerState = {
   // src/health/index.ts because sets carry no timestamp. hcWritten: the clientRecordVersion of our Health Connect record.
   setTimes: Record<string, number[][]>;
   sessionHr: Record<string, SessionHr>;
+  sessionKcal: Record<string, SessionKcal>;
   hcWritten: Record<string, number>;
   // Watch workouts merged into one of our sessions (linkedSessionId set), by workout id. They live here instead of
   // `workouts`, so every list of imported workouts leaves them out without knowing about merging.
@@ -84,17 +88,20 @@ type TrackerState = {
   disconnectHc: (removeWritten?: boolean) => void;
   setSetTimes: (id: string, times: number[][]) => void;
   putSessionHr: (id: string, hr: SessionHr) => void;
+  putSessionKcal: (id: string, kcal: SessionKcal) => void;
   markWritten: (id: string, version: number) => void;
   merge: (workoutId: string, sessionId: string, patch?: Partial<ImportedWorkout>) => void;
   forgetSession: (id: string) => void;
 };
 
+export const STRAP_ORIGIN = 'strap'; // SessionHr.origin for heart rate we recorded ourselves over Bluetooth
 const KEEP_SESSIONS = 60; // set times and HR kept for this many recent sessions
-const trim = <T,>(m: Record<string, T>, keep: string) => {
+const KEEP_KCAL = 500; // the calories are two numbers a workout, and the calendar shows them for old months too
+const trim = <T,>(m: Record<string, T>, keep: string, max = KEEP_SESSIONS) => {
   const keys = Object.keys(m);
-  if (keys.length <= KEEP_SESSIONS) return m;
+  if (keys.length <= max) return m;
   const out = { ...m };
-  for (const k of keys.slice(0, keys.length - KEEP_SESSIONS)) if (k !== keep) delete out[k];
+  for (const k of keys.slice(0, keys.length - max)) if (k !== keep) delete out[k];
   return out;
 };
 
@@ -111,6 +118,7 @@ export const useTracker = create<TrackerState>()(
       ring: null,
       setTimes: {},
       sessionHr: {},
+      sessionKcal: {},
       hcWritten: {},
       merged: {},
       hrDay: null,
@@ -146,12 +154,15 @@ export const useTracker = create<TrackerState>()(
           daily: {},
           workouts: Object.fromEntries(Object.entries(s.workouts).filter(([, w]) => w.source !== 'health_connect')),
           merged: Object.fromEntries(Object.entries(s.merged).filter(([, w]) => w.source !== 'health_connect')),
-          sessionHr: {},
+          // Heart rate recorded by a strap during a workout is ours, not Health Connect's: it stays.
+          sessionHr: Object.fromEntries(Object.entries(s.sessionHr).filter(([, h]) => h.origin === STRAP_ORIGIN)),
+          sessionKcal: {},
           hrDay: null,
           hcWritten: removeWritten ? {} : s.hcWritten,
         })),
       setSetTimes: (id, times) => set((s) => ({ setTimes: trim({ ...s.setTimes, [id]: times }, id) })),
       putSessionHr: (id, hr) => set((s) => ({ sessionHr: trim({ ...s.sessionHr, [id]: hr }, id) })),
+      putSessionKcal: (id, kcal) => set((s) => ({ sessionKcal: trim({ ...(s.sessionKcal ?? {}), [id]: kcal }, id, KEEP_KCAL) })),
       markWritten: (id, v) => set((s) => ({ hcWritten: { ...s.hcWritten, [id]: v } })),
       merge: (workoutId, sessionId, patch) =>
         set((s) => {
@@ -167,10 +178,11 @@ export const useTracker = create<TrackerState>()(
           const { [id]: _a, ...setTimes } = s.setTimes;
           const { [id]: _b, ...sessionHr } = s.sessionHr;
           const { [id]: _c, ...hcWritten } = s.hcWritten;
+          const { [id]: _d, ...sessionKcal } = s.sessionKcal ?? {};
           const merged = { ...s.merged };
           const workouts = { ...s.workouts };
           for (const [k, w] of Object.entries(s.merged)) if (w.linkedSessionId === id) { delete merged[k]; workouts[k] = { ...w, linkedSessionId: undefined }; }
-          return { setTimes, sessionHr, hcWritten, merged, workouts };
+          return { setTimes, sessionHr, sessionKcal, hcWritten, merged, workouts };
         }),
     }),
     { name: 'gym-buddy-tracker', version: 1, storage: createJSONStorage(() => AsyncStorage) },

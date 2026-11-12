@@ -9,7 +9,8 @@ import { GOALS, optLabel } from '../src/context';
 import { setsCsv } from '../src/importApps';
 import { title } from '../src/data/exercises';
 import { planById } from '../src/data/plans';
-import { EASE, Header, Segmented, toToday, useMiniBarSpace } from '../src/kit';
+import { Ambient } from '../src/glass';
+import { EASE, Header, Segmented, toToday, useHeaderSpace, useMiniBarSpace } from '../src/kit';
 import { setPrefs, useLook } from '../src/look';
 import { Sheet } from '../src/sheet';
 import { answered } from '../src/glance';
@@ -38,6 +39,7 @@ let reopenLook = false;
 export default function You() {
   const ins = useSafeAreaInsets();
   const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
+  const space = useHeaderSpace(); // the glass header floats; content starts under it
   const still = useReducedMotion();
   const params = useLocalSearchParams<{ sheet?: string }>();
   const profile = useStore((s) => s.profile);
@@ -60,6 +62,7 @@ export default function You() {
   const mode = useLook((s) => s.mode);
   const accent = useLook((s) => s.accent);
   const haptics = useLook((s) => s.haptics);
+  const blur = useLook((s) => s.blur);
   const [sheet, setSheet] = useState<'look' | 'data' | 'demo' | null>(() => {
     const again = reopenLook || params.sheet === 'look';
     reopenLook = false;
@@ -127,6 +130,8 @@ export default function You() {
     { icon: 'play-circle', color: dom.water, t: 'Exercise demos', v: DEMOS.find((d) => d.k === mediaPref)?.label, go: () => setSheet('demo') },
     // Haptics are phone-only (the web has none).
     ...(web ? [] : [{ icon: 'pulse' as Icon, color: dom.sleep, t: 'Haptics', toggle: { on: haptics, set: (on: boolean) => { setPrefs({ haptics: on }); } } }]),
+    // Android only: real blur behind the bars costs frames on older phones, so it is a choice.
+    ...(Platform.OS === 'android' ? [{ icon: 'water' as Icon, color: dom.water, t: 'Real glass blur', toggle: { on: blur, set: (on: boolean) => { setPrefs({ blur: on }); } } }] : []),
   ];
   const mealReminders = reminders.filter((x) => x.kind === 'meal' && x.on).length;
   // Your watch: connecting Fitbit, WHOOP and the rest is the main way data gets in, so it comes first.
@@ -169,8 +174,9 @@ export default function You() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Header title="You" />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: ins.bottom + 40 + mini, gap: 16 }} showsVerticalScrollIndicator={false}>
+      <Ambient />
+      <Header title="You" glass />
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: space + 8, paddingBottom: ins.bottom + 40 + mini, gap: 16 }} showsVerticalScrollIndicator={false}>
         <Animated.View entering={enter(0)}>
           <Tap onPress={() => router.push({ pathname: '/profile', params: { s: 'about' } })} scale={0.98} style={[s.card, { borderColor: tint(c.accent, 1.6) }]}>
             <LinearGradient colors={[tint(c.accent, 1.5), tint(dom.train, 0.5), c.card]} locations={[0, 0.6, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />

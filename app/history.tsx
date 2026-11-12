@@ -6,9 +6,11 @@ import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { appList, DaySheet, kcalShort, Legend, MonthGrid, monthDays, monthSummary, syncedAgo } from '../src/calendar';
+import { appList, DaySheet, kcalShort, Legend, MonthGrid, monthDays, monthSummary, SourceBadge, syncedAgo } from '../src/calendar';
 import { Bars } from '../src/charts';
 import { PHONE_ORIGINS } from '../src/health/guides';
+import { energyFor, useEnergyData } from '../src/health/useEnergy';
+import { sessionMinutes } from '../src/glance';
 import { bestStreak, dayKey, streak, targets } from '../src/calc';
 import { EASE, Header, useMiniBarSpace } from '../src/kit';
 import { useStore } from '../src/store';
@@ -38,8 +40,12 @@ export default function History() {
   const [day, setDay] = useState<string | null>(null);
   const gentle = !!(profile?.gentle || profile?.concerns?.includes('food'));
 
-  const days = useMemo(() => monthDays(month, { sessions, workouts, merged, daily, excuses, reminders, planId, planStart }),
-    [month, sessions, workouts, merged, daily, excuses, reminders, planId, planStart]);
+  const data = useEnergyData();
+  const days = useMemo(() => monthDays(month, { sessions, workouts, merged, daily, excuses, reminders, planId, planStart, energy: (x) => energyFor(x, data, profile) }),
+    [month, sessions, workouts, merged, daily, excuses, reminders, planId, planStart, data, profile]);
+  // The last workouts with what they burned and the heart rate, newest first.
+  const recentOurs = useMemo(() => sessions.filter((x) => x.endedAt).sort((a, b) => b.startedAt - a.startedAt).slice(0, 5).map((x) => ({ s: x, e: energyFor(x, data, profile) })),
+    [sessions, data, profile]);
   const sum = monthSummary(days);
   const showKcal = !gentle && sum.kcal !== undefined;
   const shift = (n: number) => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + n, 1));
@@ -115,11 +121,22 @@ export default function History() {
               ))}
             </View>
 
+            {/* Calories burned: the month's total and a weekly average. */}
+            {showKcal && (sum.kcalPerWeek !== undefined || sum.kcalEst) && (
+              <Row gap={8} style={{ marginTop: 10, paddingHorizontal: 4 }}>
+                <Ionicons name="flame" size={16} color={dom.kcal} />
+                <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1, fontVariant: ['tabular-nums'] }}>
+                  {sum.kcalPerWeek !== undefined ? `About ${sum.kcalPerWeek.toLocaleString()} kcal a week` : `${sum.kcal!.toLocaleString()} kcal so far`}
+                </T>
+                {sum.kcalEst && <T v="small" color={c.dim}>{days.every((d) => !d || d.kcal === undefined || d.est) ? 'estimated' : 'part estimated'}</T>}
+              </Row>
+            )}
+
             <Animated.View key={month.toISOString()} entering={still ? undefined : FadeIn.duration(220)}>
               <MonthGrid days={days} onPick={setDay} onSwipe={shift} showKcal={showKcal} />
             </Animated.View>
             <Legend showKcal={showKcal} />
-            <T v="small" color={c.dim} style={{ marginTop: 10 }}>Tap a day for details · swipe for other months</T>
+            <T v="small" color={c.dim} style={{ marginTop: 10 }}>{showKcal ? 'The number under a day is the calories burned · tap a day for details' : 'Tap a day for details · swipe for other months'}</T>
           </Card>
         </Animated.View>
 
@@ -133,7 +150,7 @@ export default function History() {
                 <T v="small" numberOfLines={2}>{[apps.length ? apps.join(', ') : hc.connected ? 'Health Connect' : ring?.name ?? strap?.name ?? 'Your watch', lastSync ? `synced ${syncedAgo(lastSync)}` : null].filter(Boolean).join(' · ')}</T>
                 <T v="small" numberOfLines={1} color={c.dim}>{kinds.length ? `Sends ${kinds.join(', ')}` : 'Nothing synced lately'}</T>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={c.dim} />
+              <Ionicons name="chevron-forward" size={18} color={c.muted} />
             </Tap>
           ) : (
             <ListRow icon="watch-outline" color={c.blue} title="Add your watch" sub={gentle ? 'Its runs and walks show here' : 'Its runs and calories show here'}
@@ -141,7 +158,39 @@ export default function History() {
           )}
         </Animated.View>
 
-        <Animated.View entering={enter(3)}>
+        {recentOurs.length > 0 && (
+          <Animated.View entering={enter(3)}>
+            <Section title="Recent workouts">
+              <View style={{ gap: 8 }}>
+                {recentOurs.map(({ s: x, e }) => {
+                  const when = new Date(x.startedAt).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+                  const hr = e.avgHr ? (e.maxHr ? `${e.avgHr} avg · ${e.maxHr} max bpm` : `avg ${e.avgHr} bpm`) : null;
+                  return (
+                    <Tap key={x.id} onPress={() => setDay(dayKey(x.startedAt))} style={s.recent} scale={0.98} accessibilityLabel={`${x.title}, ${when}. Open the day`}>
+                      <Row gap={12}>
+                        <IconBox icon={x.place === 'home' ? 'home' : 'barbell'} color={dom.train} />
+                        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                          <T v="h3" numberOfLines={1}>{x.title}</T>
+                          <T v="small" numberOfLines={1}>{when} · {sessionMinutes(x)} min</T>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={c.muted} />
+                      </Row>
+                      {((!gentle && e.kcal > 0) || hr) && (
+                        <Row gap={12} style={{ flexWrap: 'wrap', rowGap: 6 }}>
+                          {!gentle && e.kcal > 0 && <Row gap={6}><Ionicons name="flame" size={14} color={dom.kcal} /><T v="small" color={c.text} style={{ fontVariant: ['tabular-nums'] }}>{e.source === 'watch' ? '' : 'about '}{e.kcal} kcal</T></Row>}
+                          {hr && <Row gap={6}><Ionicons name="heart" size={14} color={dom.heart} /><T v="small" color={c.text} style={{ fontVariant: ['tabular-nums'] }}>{hr}</T></Row>}
+                          {!gentle && e.kcal > 0 && <SourceBadge source={e.source} />}
+                        </Row>
+                      )}
+                    </Tap>
+                  );
+                })}
+              </View>
+            </Section>
+          </Animated.View>
+        )}
+
+        <Animated.View entering={enter(4)}>
           <Section title="Sessions per week">
             <Card>
               {sessions.length ? <Bars items={perWeek} now={4} color={dom.train} /> : <T v="body" color={c.muted}>No sessions yet</T>}
@@ -164,5 +213,6 @@ const s = StyleSheet.create({
   nav: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   sumRow: { flexDirection: 'row', marginTop: 14, paddingVertical: 10, borderRadius: r.md, backgroundColor: c.card2 },
   sumCell: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 4 },
+  recent: { gap: 10, padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   watch: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
 });

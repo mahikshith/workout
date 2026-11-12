@@ -17,6 +17,7 @@ import { subscribeLive, useLiveHr } from '../src/health/live';
 import { hrMaxFor, zoneOf } from '../src/health/readiness';
 import { EASE, Header, useMiniBarSpace } from '../src/kit';
 import { useStore } from '../src/store';
+import { WatchGives } from '../src/health/WatchGives';
 import { c, dom, r, tint } from '../src/theme';
 import { useTracker, type DailyMetrics, type ImportedWorkout } from '../src/tracker';
 import { Button, IconBox, T, Tap } from '../src/ui';
@@ -151,6 +152,7 @@ export default function Tracker() {
             </View>
             <Button title="Connect your watch" icon="watch-outline" onPress={() => router.push({ pathname: '/watch', params: { connect: '1' } })} />
           </Animated.View>
+          <Animated.View entering={enter(1)}><WatchGives /></Animated.View>
           <Animated.View entering={enter(1)}>
             <Tap onPress={() => router.push({ pathname: '/watch', params: { do: 'strap' } })} style={[s.card, s.row]} scale={0.98} accessibilityLabel="Pair a heart-rate strap">
               <DataPath nodes={directPath({ device: 'Strap', ok: false })} size="sm" />
@@ -158,7 +160,7 @@ export default function Tracker() {
                 <T v="h3">Strap or ring?</T>
                 <T v="small" numberOfLines={3}>Straps and Colmi rings connect over Bluetooth</T>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={c.dim} />
+              <Ionicons name="chevron-forward" size={18} color={c.muted} />
             </Tap>
           </Animated.View>
           {!ANDROID && <WebNote />}
@@ -188,7 +190,7 @@ export default function Tracker() {
                       : 'Pair a strap, or turn on heart-rate broadcast on your watch'}
                 </T>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={c.dim} />
+              <Ionicons name="chevron-forward" size={18} color={c.muted} />
             </Tap>
           )}
         </Animated.View>
@@ -207,6 +209,9 @@ export default function Tracker() {
           </View>
         </Animated.View>
 
+        {/* What arrives, and that it is attached to the workouts logged here */}
+        <Animated.View entering={enter(2)}><WatchGives /></Animated.View>
+
         {/* Today's numbers */}
         <Animated.View entering={enter(2)} style={{ gap: 10, marginTop: 12 }}>
           <T v="h2" style={{ paddingHorizontal: 4 }}>Today</T>
@@ -217,7 +222,7 @@ export default function Tracker() {
                   <Ionicons name={x.icon} size={16} color={x.color} />
                   <T v="small" numberOfLines={1} style={{ flex: 1 }}>{x.label}</T>
                 </View>
-                <T v="num" style={{ fontSize: 24, lineHeight: 30 }} color={x.value ? c.text : c.dim}>
+                <T v="num" style={{ fontSize: 24, lineHeight: 30 }} color={x.value ? c.text : c.muted}>
                   {x.value ?? '—'}{x.value && x.unit ? <T v="small"> {x.unit}</T> : null}
                 </T>
                 <T v="small" numberOfLines={2} style={{ fontSize: 12, lineHeight: 16 }}>{x.sub ?? ' '}</T>

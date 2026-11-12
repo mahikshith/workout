@@ -90,7 +90,7 @@ function Body({ onClose, openFood }: { onClose: () => void; openFood: () => void
       {/* Food: the full food sheet (search, recipes, your own). */}
       <Item icon="restaurant" color={dom.kcal} title="Food"
         sub={todays.length ? (gentle ? `${todays.length} logged today` : `${Math.round(kcal).toLocaleString('en-US')} kcal · ${Math.round(protein)} g protein today`) : 'Nothing logged yet today'}
-        onPress={openFood} right={<Ionicons name="chevron-forward" size={18} color={c.dim} />} />
+        onPress={openFood} right={<Ionicons name="chevron-forward" size={18} color={c.muted} />} />
 
       {/* Water: one tap, right here. */}
       <Item icon="water" color={dom.water} title="Water" sub={`${water.ml.toLocaleString('en-US')} of ${ml(water.goal)}`}
@@ -157,7 +157,7 @@ function Body({ onClose, openFood }: { onClose: () => void; openFood: () => void
         </View>
       ) : (
         <Item icon="medkit" color={dom.steps} title="Supplements" sub="Pick what you take, get a reminder"
-          onPress={() => goTo(onClose, '/supplements' as Href)} right={<Ionicons name="chevron-forward" size={18} color={c.dim} />} />
+          onPress={() => goTo(onClose, '/supplements' as Href)} right={<Ionicons name="chevron-forward" size={18} color={c.muted} />} />
       )}
 
       {/* How you feel: today's plan adapts (drained means a lighter day). */}

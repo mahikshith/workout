@@ -90,7 +90,7 @@ export function RestDaySheet({ open, onClose }: { open: boolean; onClose: () => 
           <Tap onPress={pick} style={s.row} scale={0.98}>
             <View style={[s.icon, { backgroundColor: c.card }]}><Ionicons name="list" size={20} color={c.text} /></View>
             <T v="h3" style={{ flex: 1 }}>Pick exercises</T>
-            <Ionicons name="chevron-forward" size={18} color={c.dim} />
+            <Ionicons name="chevron-forward" size={18} color={c.muted} />
           </Tap>
           <Row style={{ justifyContent: 'center' }}>
             <Tap onPress={onClose} style={s.rest}><T v="h3" color={c.muted}>Rest today</T></Tap>
@@ -146,7 +146,7 @@ export function ChangeList({ place, current, note, onPick }: {
                 <T v="h3" numberOfLines={1}>{d.name}</T>
                 <T v="small" numberOfLines={1}>{d.slots.length} exercises · {d.focus}</T>
               </View>
-              {now ? <T v="small" color={c.accent}>Now</T> : <Ionicons name="chevron-forward" size={18} color={c.dim} />}
+              {now ? <T v="small" color={c.accent}>Now</T> : <Ionicons name="chevron-forward" size={18} color={c.muted} />}
             </Tap>
           );
         })}
@@ -158,7 +158,7 @@ export function ChangeList({ place, current, note, onPick }: {
               <T v="h3" numberOfLines={1}>{q.name}</T>
               <T v="small" numberOfLines={1}>{q.sub}</T>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={c.dim} />
+            <Ionicons name="chevron-forward" size={18} color={c.muted} />
           </Tap>
         ))}
         <T v="small" color={c.label} style={{ marginTop: 8 }}>Different focus</T>

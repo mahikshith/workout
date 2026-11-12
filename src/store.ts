@@ -11,7 +11,8 @@ import { dose } from './data/muscles';
 import { order } from './data/order';
 import type { AccentId } from './theme';
 
-export type Goal = 'lose fat' | 'build muscle' | 'get stronger' | 'stay fit';
+// The stored strings never change. Round 14 added the last five; older saves only hold the first four, so no migration.
+export type Goal = 'lose fat' | 'build muscle' | 'get stronger' | 'stay fit' | 'tone up' | 'gain weight' | 'endurance' | 'mobility' | 'athletic';
 export type Profile = {
   name: string;
   gender: 'male' | 'female' | 'other';
@@ -46,7 +47,7 @@ export type MealSlot = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 export type Reminder = { id: string; kind: 'workout' | 'meal' | 'custom'; hour: number; minute: number; days: number[]; on: boolean; label?: string };
 export type Interval = { on: boolean; every: number; from: number; to: number }; // every N minutes between hours from..to
 export type NudgePrefs = { missed: boolean; streak: boolean; recap: boolean; quietFrom: number; quietTo: number };
-export type MediaPref = 'animated' | 'drawing' | 'photo' | 'video';
+export type MediaPref = '3d' | 'animated' | 'drawing' | 'photo' | 'video';
 
 export type SetLog = { reps: number; weight: number; done: boolean };
 // up: kg added to last time's weight because every set last time reached the target ("Go heavier", round 13).

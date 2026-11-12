@@ -43,3 +43,9 @@ from (closing a sheet first).
 <img src="img/fuel.jpg" width="180" alt="Fuel">
 <img src="img/you.jpg" width="180" alt="You">
 </p>
+
+## Round 14 update (11 Nov 2026)
+
+The map changed: tabs are now **Home · Progress · Workouts · Fuel · Plans**, first-run setup is one scrolling page,
+and workouts carry calories and heart rate from a connected watch. The pages in this guide still describe the round 13
+screens where they have not been re-shot; `docs/round14/README.md` lists what moved and why.

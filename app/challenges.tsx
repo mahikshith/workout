@@ -14,7 +14,8 @@ import { Enter } from './library';
 // Challenges: yours on top (progress ring, today's task, one button), then every challenge, picked-for-you first,
 // filtered by level and goal. Depth: Challenges -> challenge.
 
-export default function Challenges() {
+// The catalogue itself, shared by this screen and the Plans tab (Challenges segment).
+export function ChallengesBody() {
   const { ch: mine, prog } = useRun();
   const recs = useRecommended();
   const past = useStore((s) => s.pastChallenges);
@@ -42,9 +43,7 @@ export default function Challenges() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Header title="Challenges" />
-      <Screen top={4}>
+    <>
         {/* Yours: the running challenge, or the one picked for you. */}
         {mine && prog ? (
           <Enter>
@@ -163,8 +162,16 @@ export default function Challenges() {
             </View>
           </Section>
         </Enter>
-      </Screen>
       {sheet}
+    </>
+  );
+}
+
+export default function Challenges() {
+  return (
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Header title="Challenges" />
+      <Screen top={4}><ChallengesBody /></Screen>
     </View>
   );
 }
@@ -192,7 +199,7 @@ function ChallengeRow({ ch, running, done, forYou, grouped }: { ch: Challenge; r
               : <Pill text={ch.goal} color={col} bg={tint(col, 0.9)} shrink />}
           </Row>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={c.dim} style={{ alignSelf: 'center' }} />
+        <Ionicons name="chevron-forward" size={18} color={c.muted} style={{ alignSelf: 'center' }} />
       </Row>
     </Tap>
   );

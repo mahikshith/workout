@@ -1,52 +1,51 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEvent } from 'expo';
 import { Image, type ImageProps } from 'expo-image';
-import * as Haptics from 'expo-haptics';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type AccessibilityRole, type AccessibilityState, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
+import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type AccessibilityRole, type AccessibilityState, type StyleProp, type TextProps, type ViewProps, type ViewStyle } from 'react-native';
 import Animated, {
-  cancelAnimation, Easing, FadeIn, FadeInDown, useAnimatedProps, useReducedMotion, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
+  cancelAnimation, Easing, FadeIn, useAnimatedProps, useReducedMotion, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { useScrollToTop } from '@react-navigation/native';
 import { router, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
-import { artFrames, frames, MEDIA, origin, type Exercise } from './data/exercises';
+import { frames, MEDIA, origin, type Exercise } from './data/exercises';
 import { poseFor } from './data/poses';
 import { Figure } from './figure';
+import { G as ArtG, Path as ArtPath } from 'react-native-svg';
+import { ART, type Art } from './data/art';
 import videos from './data/videos.json';
 import { useStore, type MediaPref } from './store';
 import { useLook } from './look';
 import { c, dom, f, r, tint } from './theme';
+import { Ambient, shadow } from './glass';
+import { Collapsible, Enter, haptic, ProgressBar, spring, Tick, usePressStyle } from './motion';
 
-export const haptic = (kind: 'light' | 'medium' | 'success' | 'warning' = 'light') => {
-  if (Platform.OS === 'web' || !useLook.getState().haptics) return; // You › Haptics can switch them off
-  if (kind === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-  else if (kind === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  else Haptics.impactAsync(kind === 'medium' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
-};
+export { haptic }; // lives in motion.tsx now
 
 const APress = Animated.createAnimatedComponent(Pressable);
 
-// Every tappable surface springs down a little and ticks a haptic (no scale with reduced motion).
-// Accessibility props pass through; the role defaults to button.
-export function Tap({ onPress, style, children, disabled, scale = 0.97, feedback = 'light', accessibilityRole = 'button', accessibilityLabel, accessibilityHint, accessibilityState, hitSlop }: {
+// Every tappable surface gives under the finger: down fast, a slight dim, back on a spring (motion.tsx usePressStyle),
+// and ticks a haptic. No scale with reduced motion. Accessibility props pass through; the role defaults to button.
+export function Tap({ onPress, onLongPress, style, children, disabled, scale = 0.97, dim = 0.9, feedback = 'light', accessibilityRole = 'button', accessibilityLabel, accessibilityHint, accessibilityState, hitSlop }: {
   hitSlop?: number; // extends the touch area past a small visual (steppers in tight rows) to reach 44 px
-  onPress?: () => void; style?: StyleProp<ViewStyle>; children: ReactNode; disabled?: boolean; scale?: number; feedback?: 'light' | 'medium' | 'none';
+  onPress?: () => void; onLongPress?: () => void; style?: StyleProp<ViewStyle>; children: ReactNode; disabled?: boolean; scale?: number; dim?: number; feedback?: 'light' | 'medium' | 'none';
   accessibilityRole?: AccessibilityRole; accessibilityLabel?: string; accessibilityHint?: string; accessibilityState?: AccessibilityState;
 }) {
-  const s = useSharedValue(1);
-  const still = useReducedMotion();
-  const a = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
+  // A caller's own opacity (rows that fade themselves) stays the resting opacity; disabled rests at 40 %.
+  const own = style ? StyleSheet.flatten(style)?.opacity : undefined;
+  const press = usePressStyle(scale, dim, (typeof own === 'number' ? own : 1) * (disabled ? 0.4 : 1));
   return (
     <APress
       disabled={disabled}
       hitSlop={hitSlop}
-      onPressIn={() => { if (!still) s.value = withTiming(scale, { duration: 120, easing: Easing.out(Easing.quad) }); }}
-      onPressOut={() => { if (!still) s.value = withTiming(1, { duration: 220, easing: Easing.bezier(0.32, 0.72, 0, 1) }); }}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       onPress={() => { if (feedback !== 'none') haptic(feedback); onPress?.(); }}
-      style={[a, style, disabled && { opacity: 0.4 }]}
+      onLongPress={onLongPress ? () => { haptic('medium'); onLongPress(); } : undefined}
+      style={[style, press.style]}
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
@@ -108,19 +107,25 @@ export function useScrollTopRef<V = ScrollView>() {
 
 // `top` overrides the top padding (screens with their own pinned header pass 0). `bottom` adds room for a fixed
 // bottom bar. Tapping the current tab scrolls a Screen to the top. Bottom padding always includes the mini bar.
-export function Screen({ children, scroll = true, pad = true, onScroll, top, bottom = 0 }: {
-  children: ReactNode; scroll?: boolean; pad?: boolean; onScroll?: (y: number) => void; top?: number; bottom?: number;
+// `ambient` draws the soft colour glows of glass.tsx behind the content; they stay put while it scrolls. On by default
+// for full-height screens; a Screen under a header (`top` given) leaves it to the page root, which draws one
+// `<Ambient />` behind header and content together (no seam).
+export function Screen({ children, scroll = true, pad = true, onScroll, top, bottom = 0, ambient = top === undefined, tone }: {
+  children: ReactNode; scroll?: boolean; pad?: boolean; onScroll?: (y: number) => void; top?: number; bottom?: number; ambient?: boolean; tone?: [string, string?, string?]; // tone: this screen's own glow colours
 }) {
   const ins = useSafeAreaInsets();
   const mini = useMiniBarSpace();
   const ref = useScrollTopRef<ScrollView>();
   const style = { paddingTop: top ?? ins.top + 12, paddingHorizontal: pad ? 12 : 0, paddingBottom: ins.bottom + 120 + mini + bottom };
-  if (!scroll) return <View style={[{ flex: 1, backgroundColor: c.bg }, style]}>{children}</View>;
+  if (!scroll) return <View style={[{ flex: 1, backgroundColor: ambient ? c.bg : undefined }, style]}>{ambient && <Ambient colors={tone} strength={tone ? 1.25 : 1} />}{children}</View>;
   return (
-    <ScrollView ref={ref} style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={style} showsVerticalScrollIndicator={false}
-      onScroll={onScroll ? (e) => onScroll(e.nativeEvent.contentOffset.y) : undefined} scrollEventThrottle={onScroll ? 100 : undefined}>
-      {children}
-    </ScrollView>
+    <View style={{ flex: 1, backgroundColor: ambient ? c.bg : undefined }}>
+      {ambient && <Ambient colors={tone} strength={tone ? 1.25 : 1} />}
+      <ScrollView ref={ref} style={{ flex: 1 }} contentContainerStyle={style} showsVerticalScrollIndicator={false}
+        onScroll={onScroll ? (e) => onScroll(e.nativeEvent.contentOffset.y) : undefined} scrollEventThrottle={onScroll ? 100 : undefined}>
+        {children}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -143,7 +148,7 @@ export const TabTitle = ({ title }: { title: string }) => (
 );
 
 export const Rise = ({ i = 0, children, style }: { i?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) => (
-  <Animated.View entering={FadeInDown.delay(i * 50).duration(380)} style={style}>{children}</Animated.View>
+  <Enter i={i} style={style}>{children}</Enter>
 );
 
 export const Card = ({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) => (
@@ -197,9 +202,7 @@ export function Tile({ icon, color = c.accent, value, unit, label, onPress, prog
         {value}{unit ? <Text style={{ fontFamily: f.medium, fontSize: 13, color: c.muted }}> {unit}</Text> : null}
       </Text>
       <T v="small" numberOfLines={1}>{label}</T>
-      <View style={{ height: 4, borderRadius: 2, backgroundColor: progress === undefined ? 'transparent' : c.card2, marginTop: 10, overflow: 'hidden' }}>
-        {progress !== undefined && <View style={{ width: `${Math.max(0, Math.min(1, progress)) * 100}%`, height: 4, borderRadius: 2, backgroundColor: color }} />}
-      </View>
+      {progress === undefined ? <View style={{ height: 4, marginTop: 10 }} /> : <ProgressBar progress={progress} color={color} height={4} style={{ marginTop: 10 }} />}
     </Press>
   );
 }
@@ -215,7 +218,7 @@ export function ListRow({ icon, color, thumb, title, sub, right, onPress, style 
         <T v="h3" numberOfLines={2}>{title}</T>
         {sub ? <T v="small" numberOfLines={2}>{sub}</T> : null}
       </View>
-      {right ?? (onPress ? <Ionicons name="chevron-forward" size={18} color={c.dim} /> : null)}
+      {right ?? (onPress ? <Ionicons name="chevron-forward" size={18} color={c.muted} /> : null)}
     </Press>
   );
 }
@@ -226,7 +229,7 @@ export function Banner({ icon, color = c.accent, title, action, onPress }: { ico
     <Press onPress={onPress} style={[st.banner, { borderColor: color + '55' }]}>
       <Ionicons name={icon} size={18} color={color} />
       <T v="body" color={c.text} numberOfLines={2} style={{ flex: 1 }}>{title}</T>
-      {action ? <T v="small" color={color}>{action}</T> : onPress ? <Ionicons name="chevron-forward" size={16} color={c.dim} /> : null}
+      {action ? <T v="small" color={color}>{action}</T> : onPress ? <Ionicons name="chevron-forward" size={16} color={c.muted} /> : null}
     </Press>
   );
 }
@@ -234,27 +237,40 @@ export function Banner({ icon, color = c.accent, title, action, onPress }: { ico
 // Show more on demand: a heading line that opens its content. For instructions, explanations, long lists.
 export function Fold({ title, icon, children, open: start = false }: { title: string; icon?: Icon; children: ReactNode; open?: boolean }) {
   const [open, setOpen] = useState(start);
+  const still = useReducedMotion();
+  const turn = useSharedValue(start ? 1 : 0);
+  useEffect(() => { turn.value = still ? (open ? 1 : 0) : withSpring(open ? 1 : 0, spring.snappy); }, [open, still]);
+  const chev = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value * 180}deg` }] }));
   return (
     <View style={st.card}>
-      <Tap onPress={() => setOpen(!open)} scale={0.99} feedback="none" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <Tap onPress={() => setOpen(!open)} scale={0.99} feedback="none" accessibilityState={{ expanded: open }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         {icon && <IconBox icon={icon} size={36} />}
         <T v="h3" style={{ flex: 1 }}>{title}</T>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
+        <Animated.View style={chev}><Ionicons name="chevron-down" size={18} color={c.muted} /></Animated.View>
       </Tap>
-      {open && <Animated.View entering={FadeIn.duration(200)} style={{ marginTop: 14, gap: 12 }}>{children}</Animated.View>}
+      {/* The height springs open and closed (motion.tsx Collapsible); the content mounts on first open. */}
+      <Collapsible open={open} style={{ paddingTop: 14, gap: 12 }}>{children}</Collapsible>
     </View>
   );
 }
 
-export function Button({ title, onPress, kind = 'primary', icon, style, disabled }: {
+// `loading` swaps the icon for a spinner and ignores taps; `success` draws a tick in its place (set it for a moment
+// after a save, then clear it). The label stays, so the button never changes width.
+export function Button({ title, onPress, kind = 'primary', icon, style, disabled, loading, success }: {
   title: string; onPress?: () => void; kind?: 'primary' | 'ghost' | 'danger'; icon?: keyof typeof Ionicons.glyphMap; style?: StyleProp<ViewStyle>; disabled?: boolean;
+  loading?: boolean; success?: boolean;
 }) {
   const bg = kind === 'primary' ? c.accent : kind === 'danger' ? c.dangerBg : c.card2;
   const fg = kind === 'primary' ? c.accentInk : kind === 'danger' ? c.danger : c.text;
+  const busy = loading || success;
   return (
-    <Tap onPress={onPress} disabled={disabled} feedback="medium" style={[st.btn, { backgroundColor: bg }, style]}>
-      {icon && <Ionicons name={icon} size={20} color={fg} />}
-      <Text style={{ fontFamily: f.bold, fontSize: 16, color: fg }}>{title}</Text>
+    <Tap onPress={busy ? undefined : onPress} disabled={disabled} feedback={busy ? 'none' : 'medium'} scale={0.96}
+      accessibilityLabel={title} accessibilityState={{ busy: !!loading }}
+      style={[st.btn, { backgroundColor: bg }, kind === 'primary' && !disabled && shadow(1), style]}>
+      {success ? <Tick on size={20} color={fg} />
+        : loading ? <ActivityIndicator size="small" color={fg} />
+        : icon ? <Ionicons name={icon} size={20} color={fg} /> : null}
+      <Text numberOfLines={1} style={{ fontFamily: f.bold, fontSize: 16, color: fg, flexShrink: 1 }}>{title}</Text>
     </Tap>
   );
 }
@@ -263,8 +279,14 @@ export function Chip({ label, icon, on, onPress, color = c.accent }: {
   label: string; icon?: keyof typeof Ionicons.glyphMap; on?: boolean; onPress?: () => void; color?: string;
 }) {
   const fg = on ? c.accentInk : c.text;
+  // The selected fill fades in over the chip (no colour jump), and the chip settles with a small spring.
+  const still = useReducedMotion();
+  const p = useSharedValue(on ? 1 : 0);
+  useEffect(() => { p.value = still ? (on ? 1 : 0) : withSpring(on ? 1 : 0, spring.snappy); }, [on, still]);
+  const fill = useAnimatedStyle(() => ({ opacity: Math.min(1, Math.max(0, p.value)) }));
   return (
-    <Tap onPress={onPress} style={[st.chip, on && { backgroundColor: color, borderColor: color }]}>
+    <Tap onPress={onPress} scale={0.94} style={st.chip} accessibilityState={onPress ? { selected: !!on } : undefined}>
+      <Animated.View pointerEvents="none" style={[st.chipOn, { backgroundColor: color }, fill]} />
       {icon && <Ionicons name={icon} size={16} color={fg} />}
       <Text style={{ fontFamily: f.semi, fontSize: 14, color: fg }}>{label}</Text>
     </Tap>
@@ -278,15 +300,21 @@ export function Ring({ size = 120, stroke = 10, progress, color = c.accent, trac
   const rad = (size - stroke) / 2;
   const len = 2 * Math.PI * rad;
   const p = useSharedValue(0);
+  const pulse = useSharedValue(1);
+  const was = useRef<number | null>(null); // the last value shown; null before the first one (no pulse on load)
   const still = useReducedMotion();
   useEffect(() => {
     const to = Math.min(1, Math.max(0, progress || 0));
-    p.value = still ? to : withTiming(to, { duration: 700, easing: Easing.bezier(0.23, 1, 0.32, 1) });
+    // Springs to its value (no overshoot past the ends). Closing the ring after it was open pulses it once.
+    p.value = still ? to : withSpring(to, { ...spring.gentle, overshootClamping: to >= 1 || to <= 0 });
+    if (!still && to >= 1 && was.current !== null && was.current < 1) pulse.value = withDelay(260, withSequence(withTiming(1.06, { duration: 160 }), withSpring(1, spring.bouncy)));
+    was.current = to;
   }, [progress, still]);
+  const beat = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
   // At zero the round cap would still paint a dot, so the arc hides until there is something to show.
   const props = useAnimatedProps(() => ({ strokeDashoffset: len * (1 - p.value), strokeOpacity: p.value > 0.002 ? 1 : 0 }));
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <Animated.View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, beat]}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
         <Circle cx={size / 2} cy={size / 2} r={rad} stroke={track} strokeWidth={stroke} fill="none" />
         <ACircle
@@ -295,18 +323,24 @@ export function Ring({ size = 120, stroke = 10, progress, color = c.accent, trac
         />
       </Svg>
       {children}
-    </View>
+    </Animated.View>
   );
 }
 
 const VIDEOS: Record<string, { url: string; author: string }> = videos;
-const KINDS: { k: MediaPref; label: string }[] = [{ k: 'animated', label: 'Animated' }, { k: 'drawing', label: 'Drawing' }, { k: 'photo', label: 'Photo' }, { k: 'video', label: 'Video' }];
+// 3D anatomy clips (a trial on two exercises): the muscle and bone model is BodyParts3D, posed and rendered by
+// scripts/anatomy3d. They are bundled, so they play offline. Working muscles are red, helpers are light red.
+const ANATOMY: Record<string, number> = {
+  Bodyweight_Squat: require('../assets/anatomy/Bodyweight_Squat.webp'),
+  Butterfly: require('../assets/anatomy/Butterfly.webp'),
+};
+const KINDS: { k: MediaPref; label: string }[] = [{ k: '3d', label: '3D' }, { k: 'animated', label: 'Animated' }, { k: 'drawing', label: 'Drawing' }, { k: 'photo', label: 'Photo' }, { k: 'video', label: 'Video' }];
 // A borrowed animation of a different movement is never offered; those exercises show their photo or drawing.
 export const mediaKinds = (ex: Exercise) =>
-  KINDS.filter(({ k }) => (k === 'animated' ? !ex.noImages && !poseFor(ex).pose.weak : k === 'drawing' ? !!ex.art : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
-const CREDIT = { drawing: 'Drawing: workout-guide by Bryl Lim, CC BY-SA 4.0, based on Everkinetic', photo: 'Photo: free-exercise-db, public domain' };
+  KINDS.filter(({ k }) => (k === '3d' ? ex.id in ANATOMY : k === 'animated' ? !ex.noImages && !poseFor(ex).pose.weak : k === 'drawing' ? !!ex.art && ex.art in ART : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
+const CREDIT = { '3d': 'Red: working muscles · Light red: helpers · Model: BodyParts3D, © DBCLS, CC BY 4.0', drawing: 'Drawing: workout-guide by Bryl Lim, CC BY-SA 4.0, based on Everkinetic', photo: 'Photo: free-exercise-db, public domain' };
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
-const NAME: Record<MediaPref, string> = { animated: 'Animation', drawing: 'Drawing', photo: 'Photo', video: 'Video' };
+const NAME: Record<MediaPref, string> = { '3d': '3D view', animated: 'Animation', drawing: 'Drawing', photo: 'Photo', video: 'Video' };
 
 // Pictures and videos that failed (usually no internet) wait here. One shared check asks the media host every 5 s, and
 // when the app comes back to the front, whether it answers; any answer means we are online, and every waiting picture
@@ -341,7 +375,7 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
   useBackOnline(failed.length > 0, () => { setFailed([]); setTries((t) => t + 1); });
   useEffect(() => { if (!prev) return; const t = setTimeout(() => setPrev(null), 250); return () => clearTimeout(t); }, [prev]);
   useEffect(() => {
-    if (pref === 'animated') return;
+    if (pref === 'animated' || pref === 'drawing' || pref === '3d') return; // all three are inside the app
     setOnline(true);
     const t = setTimeout(() => setOnline(false), 3500);
     return () => clearTimeout(t);
@@ -370,7 +404,7 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
                 setPref(k);
               }}
               style={[md.opt, k === kind && { backgroundColor: c.accent }]}>
-              {k !== 'animated' && <Ionicons name={failed.includes(k) ? 'cloud-offline-outline' : 'cloud-outline'} size={12} color={k === kind ? c.accentInk : c.muted} />}
+              {k !== 'animated' && k !== 'drawing' && k !== '3d' && <Ionicons name={failed.includes(k) ? 'cloud-offline-outline' : 'cloud-outline'} size={12} color={k === kind ? c.accentInk : c.muted} />}
               <T v="small" color={k === kind ? c.accentInk : failed.includes(k) ? c.muted : c.text}>{label}</T>
             </Pressable>
           ))}
@@ -395,11 +429,16 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
                   </View>
                 )}
               </View>
+            ) : k === '3d' ? (
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2 }]}>
+                <Image source={ANATOMY[ex.id]} contentFit="contain" autoplay={!paused} style={{ flex: 1, margin: 6 }} accessibilityLabel={`${ex.name}, 3D muscle view`} />
+              </View>
             ) : k === 'video' ? <Clip id={ex.id} onFail={() => fail('video')} />
-              : <Loop uris={k === 'drawing' ? artFrames(ex.art!) : frames(ex.id)} solid={k === 'photo'} onFail={() => fail(k)} />}
+              : k === 'drawing' ? <Drawing slug={ex.art!} />
+              : <Loop uris={frames(ex.id)} solid onFail={() => fail(k)} />}
           </Animated.View>
         ))}
-        {online && kind && kind !== 'animated' && (
+        {online && kind && kind !== 'animated' && kind !== 'drawing' && kind !== '3d' && (
           <Animated.View entering={FadeIn.duration(200)} style={md.hint}>
             <Ionicons name="cloud-outline" size={14} color={c.text} />
             <T v="small" color={c.text}>Needs internet once · then saved on your phone</T>
@@ -471,6 +510,54 @@ function Frame({ uri, slot, p, solid, onLoad, onError }: { uri: string; slot: nu
   );
 }
 
+// Line drawings (workout-guide, CC BY-SA 4.0) are inside the app: src/data/art, built by scripts/art.mjs. Each frame is
+// one filled outline traced from a bitmap, so it has no stroke width to set. It is filled in the text colour (white on
+// the dark theme, near-black on the light one) and stroked in the pane colour by the frame's knock-out width `k`, which
+// trims heavy outlines down so every drawing has the same line weight. Small thumbnails skip the trim and get a hairline
+// of the text colour instead, so the lines stay readable at 40 px.
+function ArtSvg({ art, i, size, small }: { art: Art; i: number; size: number | `${number}%`; small?: boolean }) {
+  const [x, y, side] = art.b;
+  const px = typeof size === 'number' ? size : 216;
+  const k = art.k[i]; // > 0: trim a heavy outline with the pane colour; < 0: thicken a faint one with the line colour
+  const edge = small ? { stroke: c.text, strokeWidth: Math.max(0, (0.9 * side) / px - 3) } : { stroke: k < 0 ? c.text : c.card2, strokeWidth: Math.abs(k) };
+  return (
+    // viewBox origin 0,0 and a translate, as in figure.tsx (react-native-svg misplaces a non-zero origin on phones)
+    <Svg width={size} height={size} viewBox={`0 0 ${side} ${side}`} preserveAspectRatio="xMidYMid meet">
+      <ArtG transform={`translate(${-x} ${-y})`}>
+        <ArtPath d={art.d[i]} fill={c.text} fillRule="evenodd" strokeLinejoin="round" {...edge} />
+      </ArtG>
+    </Svg>
+  );
+}
+// The poses played 1→2→3→2→1 like the photos: each held 700 ms, 450 ms crossfades, every frame on its own opaque
+// pane so the outlines never stack up mid-blend.
+function Drawing({ slug }: { slug: string }) {
+  const art = ART[slug]();
+  const p = useSharedValue(0);
+  useEffect(() => {
+    cancelAnimation(p); p.value = 0;
+    const fade = (v: number) => withTiming(v, { duration: 450, easing: Easing.inOut(Easing.quad) });
+    const hold = (v: number) => withTiming(v, { duration: 700 });
+    const n = art.d.length; // usually 3; a frame the source got wrong is left out by scripts/art.mjs
+    if (n < 2) return;
+    p.value = withRepeat(withSequence(hold(0), ...(n > 2 ? [1, 2, 1, 0] : [1, 0]).flatMap((v) => [fade(v), hold(v)]).slice(0, -1)), -1);
+    return () => cancelAnimation(p);
+  }, [slug]);
+  return (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2 }]}>
+      {art.d.map((_, i) => <ArtFrame key={i} art={art} i={i} p={p} />)}
+    </View>
+  );
+}
+function ArtFrame({ art, i, p }: { art: Art; i: number; p: SharedValue<number> }) {
+  const a = useAnimatedStyle(() => ({ opacity: i === 0 ? 1 : Math.min(1, Math.max(0, p.value - i + 1)) }));
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2, padding: 12 }, a]} pointerEvents="none">
+      <ArtSvg art={art} i={i} size="100%" />
+    </Animated.View>
+  );
+}
+
 // wger videos, transcoded to small muted H.264 by .github/workflows/media.yml and mirrored to our Pages site;
 // falls back to the release download, then to the next media kind.
 function Clip({ id, onFail }: { id: string; onFail: () => void }) {
@@ -508,14 +595,14 @@ export function Thumb({ ex, size = 56 }: { ex: Exercise; size?: number }) {
         <Ionicons name="pulse" size={size * 0.45} color={dom.sleep} />
       </View>
     );
-  if (bad || (!ex.art && ex.noPhoto))
+  if ((bad && !(ex.art && ex.art in ART)) || (!(ex.art && ex.art in ART) && ex.noPhoto))
     return (
       <View style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name="barbell-outline" size={size * 0.45} color={c.muted} />
       </View>
     );
-  return ex.art
-    ? <Pic uri={artFrames(ex.art)[0]} onError={() => setBad(true)} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.card2 }} contentFit="contain" cachePolicy="disk" transition={150} />
+  return ex.art && ex.art in ART
+    ? <View style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' }}><ArtSvg art={ART[ex.art]()} i={0} size={size - 6} small /></View>
     : <Pic uri={frames(ex.id)[0]} onError={() => setBad(true)} style={{ width: size, height: size, borderRadius: 14, backgroundColor: c.media }} contentFit="cover" cachePolicy="disk" transition={150} />;
 }
 
@@ -627,17 +714,20 @@ export function Stepper({ value, onChange, step = 1, min = 0, suffix, big }: {
   );
 }
 
-export const Row = ({ children, style, gap = 12 }: { children: ReactNode; style?: StyleProp<ViewStyle>; gap?: number }) => (
-  <View style={[{ flexDirection: 'row', alignItems: 'center', gap }, style]}>{children}</View>
+export const Row = ({ children, style, gap = 12, ...p }: { children: ReactNode; style?: StyleProp<ViewStyle>; gap?: number } & Omit<ViewProps, 'style' | 'children'>) => (
+  <View {...p} style={[{ flexDirection: 'row', alignItems: 'center', gap }, style]}>{children}</View>
 );
 
 export const st = StyleSheet.create({
-  card: { backgroundColor: c.card, borderRadius: r.lg, padding: 16, borderWidth: 1, borderColor: c.line },
-  tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: 1, borderColor: c.line },
+  // Cards are solid (text always sits on a known colour) and lift off the page with a soft shadow; the hairline stays
+  // because on near-black a shadow cannot be seen. Rows in long lists carry no shadow (cheap to scroll).
+  card: { backgroundColor: c.card, borderRadius: r.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line, ...shadow(1) },
+  tile: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: r.lg, padding: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line, ...shadow(1) },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   banner: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: r.md, backgroundColor: c.card, borderWidth: 1 },
   btn: { height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 24 },
-  chip: { paddingHorizontal: 16, height: 40, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line },
+  chip: { paddingHorizontal: 16, height: 40, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: c.card2, borderWidth: 1, borderColor: c.line, overflow: 'hidden' },
+  chipOn: { position: 'absolute', left: -1, right: -1, top: -1, bottom: -1, borderRadius: 20 },
   step: { width: 30, height: 34, borderRadius: 10, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center' },
   stepBig: { width: 56, height: 56, borderRadius: 28 },
 });

@@ -52,7 +52,7 @@ export default function Fuel() {
   const protein = list.reduce((a, m) => a + m.protein, 0);
   const over = kcal > t.kcal;
   const plan = mealPlan(profile, gentle);
-  const light = !gentle && profile.goal === 'lose fat' ? foodsFor(profile.diet).filter((fd) => fd.light) : [];
+  const light = !gentle && (profile.goal === 'lose fat' || profile.goal === 'tone up') ? foodsFor(profile.diet).filter((fd) => fd.light) : [];
   const enter = (i: number) => (still ? undefined : FadeInDown.delay(i * 60).duration(380).easing(EASE));
   const openFood = (a: Ask = {}) => { setEdit(null); setWaterOpen(false); setAsk(a); };
   const findFood = (fd: Food) => openFood({ food: fd.name });
@@ -61,7 +61,7 @@ export default function Fuel() {
   const pickDiet = (diet: Profile['diet']) => { setProfile({ ...useStore.getState().profile, diet }); dismiss(setKey('diet')); };
 
   return (
-    <Screen>
+    <Screen tone={[dom.kcal, dom.water, dom.protein]}>
       <Animated.View entering={enter(0)}><TabTitle title="Fuel" /></Animated.View>
 
       {/* Which day: today, or up to six days back to fill in something forgotten. */}
@@ -474,7 +474,7 @@ const TipFood = ({ fd, sub, right, onPress }: { fd: Food; sub?: string; right?: 
       {sub ? <T v="small" numberOfLines={1}>{sub}</T> : null}
     </View>
     {right ? <T v="h3" color={c.pink}>{right}</T> : null}
-    <Ionicons name="chevron-forward" size={16} color={c.dim} />
+    <Ionicons name="chevron-forward" size={16} color={c.muted} />
   </Tap>
 );
 

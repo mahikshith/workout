@@ -255,6 +255,7 @@ async function doSync(days: number): Promise<boolean> {
   if (workouts.length) t.upsertWorkouts(workouts);
   linkWorkouts();
   if (has('HeartRate')) await safe(() => readHrDay(m));
+  if (has('ActiveCaloriesBurned') || has('TotalCaloriesBurned')) await safe(backfillKcal);
   t.setHc({ connected: granted.some((k) => !k.startsWith('write:')), granted, lastSync: new Date().toISOString() });
   return true;
 }
@@ -365,6 +366,54 @@ export async function readSessionHr(s: Session): Promise<boolean> {
     if (__DEV__) console.warn('health connect hr', e);
     return false;
   }
+}
+
+// Calories the watch counted during one of our finished workouts: Health Connect's own sum of ActiveCaloriesBurned
+// (and TotalCaloriesBurned) between its start and end. Health Connect de-duplicates sources inside an aggregate and
+// gives a record that only partly overlaps the window its share by time. The phone's own step calories are left out:
+// they are not a measurement of a gym workout. Stores a record even when there is nothing, so a later look knows the
+// read happened. Returns true when a calorie number came back. Quiet when the permission is off.
+export async function readSessionKcal(s: Session): Promise<boolean> {
+  if (!s.endedAt || s.endedAt - s.startedAt < 60000 || !useTracker.getState().hc.connected) return false;
+  const m = await ready();
+  if (!m) return false;
+  const granted = await grantedNow(m);
+  const can = (['ActiveCaloriesBurned', 'TotalCaloriesBurned'] as const).filter((t) => granted.includes(t));
+  if (!can.length) return false;
+  const timeRangeFilter = { operator: 'between' as const, startTime: new Date(s.startedAt).toISOString(), endTime: new Date(s.endedAt).toISOString() };
+  const fromWatch = (o?: string[]) => !o?.length || o.some((x) => !PHONE.includes(x));
+  let activeKcal: number | undefined, totalKcal: number | undefined;
+  const origin = new Set<string>();
+  try {
+    if (can.includes('ActiveCaloriesBurned')) {
+      const r = await m.aggregateRecord({ recordType: 'ActiveCaloriesBurned', timeRangeFilter });
+      const v = r.ACTIVE_CALORIES_TOTAL?.inKilocalories;
+      if (v && v > 0 && fromWatch(r.dataOrigins)) { activeKcal = Math.round(v); r.dataOrigins?.forEach((x) => origin.add(x)); }
+    }
+    if (activeKcal === undefined && can.includes('TotalCaloriesBurned')) {
+      const r = await m.aggregateRecord({ recordType: 'TotalCaloriesBurned', timeRangeFilter });
+      const v = r.ENERGY_TOTAL?.inKilocalories;
+      if (v && v > 0 && fromWatch(r.dataOrigins)) { totalKcal = Math.round(v); r.dataOrigins?.forEach((x) => origin.add(x)); }
+    }
+  } catch (e) {
+    if (__DEV__) console.warn('health connect kcal', e);
+    return false;
+  }
+  useTracker.getState().putSessionKcal(s.id, { activeKcal, totalKcal, origin: origin.size ? [...origin].filter((x) => !PHONE.includes(x)) : undefined, readAt: new Date().toISOString() });
+  return activeKcal !== undefined || totalKcal !== undefined;
+}
+
+// On sync: calories for our workouts of the last 30 days that have none yet (a watch can sync hours late, and a
+// workout logged before the watch was connected has never been read). At most 12 a sync, newest first; a workout
+// that was read and had nothing is tried again only while it is under two days old.
+async function backfillKcal() {
+  const t = useTracker.getState();
+  const now = Date.now();
+  const todo = useStore.getState().sessions
+    .filter((s) => s.endedAt && now - s.endedAt < 30 * 86400000)
+    .filter((s) => { const k = t.sessionKcal?.[s.id]; return !k || (k.activeKcal === undefined && k.totalKcal === undefined && now - s.endedAt! < 2 * 86400000); })
+    .sort((a, b) => b.startedAt - a.startedAt).slice(0, 12);
+  for (const s of todo) await readSessionKcal(s);
 }
 
 const CLIENT_PREFIX = 'gymbuddy:';

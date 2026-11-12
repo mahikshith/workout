@@ -255,8 +255,10 @@ export function groupFor(p: Profile, gentle: boolean): Group {
   if (busy(p)) return 'Pregnancy-friendly';
   if (gentle) return 'Quick and easy';
   if (p.goal === 'lose fat') return 'Fat loss';
+  if (p.goal === 'gain weight') return 'Weight gain';
   if (p.goalWeightKg - p.weightKg >= 2 || p.weightKg / (p.heightCm / 100) ** 2 < 18.5) return 'Weight gain';
-  if (p.goal === 'build muscle' || p.goal === 'get stronger') return 'Muscle gain';
+  if (p.goal === 'build muscle' || p.goal === 'get stronger' || p.goal === 'athletic') return 'Muscle gain';
+  if (p.goal === 'tone up') return 'Fat loss'; // lighter, high-protein meals
   return 'Quick and easy';
 }
 

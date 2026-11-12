@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Empty, Header, Segmented, openWorkout, toToday, useMiniBarSpace } from '../../src/kit';
+import { Ambient, GlassBar } from '../../src/glass';
+import { Empty, Header, Segmented, openWorkout, toToday, useHeaderSpace, useMiniBarSpace } from '../../src/kit';
 import { Enter, plural, useOpenSession } from '../library';
 import { mapped, MuscleMap, RED, SOFT } from '../../src/body';
 import { bestBefore, doneNote, doneRecently } from '../../src/calc';
@@ -38,6 +39,7 @@ export default function ExerciseDetail() {
   const toSession = useOpenSession();
   const ins = useSafeAreaInsets();
   const mini = useMiniBarSpace();
+  const space = useHeaderSpace();
   const ex = byId[id];
   const profile = useStore((s) => s.profile);
   const sessions = useStore((s) => s.sessions);
@@ -73,8 +75,10 @@ export default function ExerciseDetail() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Header title={ex.name} />
-      <Screen onScroll={onScroll} top={4} bottom={lock.locked ? 0 : BAR}>
+      {/* Round 14: soft glows behind the page; the header and the action bar are glass and the page scrolls under both. */}
+      <Ambient />
+      <Header title={ex.name} glass />
+      <Screen onScroll={onScroll} top={space + 4} bottom={lock.locked ? 0 : BAR}>
         {start && (
           <Enter>
             <Tap onPress={() => hop(start.id)} scale={0.97} style={[s.origin, { borderColor: c.accent }]}>
@@ -178,7 +182,7 @@ export default function ExerciseDetail() {
 
       {/* The one action. A running workout is never started twice: we go back to it (pop, never push). */}
       {/* A locked move has no action bar: its card is inline above. */}
-      {!lock.locked && <View style={[s.bottom, { paddingBottom: ins.bottom + 12 + mini }]}>
+      {!lock.locked && <GlassBar edge="bottom" inset={false} style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: ins.bottom + 12 + mini }}>
         {active ? (
           <Button title={inWorkout ? 'Back to your workout' : 'Add to your workout'} icon={inWorkout ? 'arrow-forward' : 'add'}
             onPress={() => { if (!inWorkout) addItem(ex.id); toSession(); }} />
@@ -186,7 +190,7 @@ export default function ExerciseDetail() {
           <Button title="Train this now" icon="play"
             onPress={() => { startSingle(ex.id, profile.place === 'home' ? 'home' : 'gym'); openWorkout(); }} />
         )}
-      </View>}
+      </GlassBar>}
 
       <Sheet open={sheet} onClose={() => setSheet(false)}>
         <View style={{ gap: 12 }}>
@@ -234,9 +238,5 @@ const s = StyleSheet.create({
   num: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: RED },
   alt: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.md, backgroundColor: c.card },
-  bottom: {
-    position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 12, paddingTop: 12,
-    backgroundColor: c.glass, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line,
-  },
   lock: { backgroundColor: c.card2, borderRadius: r.lg, padding: 16, marginTop: 12 },
 });

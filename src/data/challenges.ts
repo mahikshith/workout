@@ -567,6 +567,11 @@ const GOAL_FIT: Record<Profile['goal'], Partial<Record<GoalTag, number>>> = {
   'build muscle': { 'Muscle gain': 6, Strength: 4, Consistency: 2, Core: 1 },
   'get stronger': { Strength: 6, 'Muscle gain': 4, Core: 2 },
   'stay fit': { Consistency: 5, Cardio: 4, HIIT: 3, Steps: 3, Mobility: 3, Core: 2, Habits: 1 },
+  'tone up': { Core: 5, 'Weight loss': 4, 'Muscle gain': 3, HIIT: 3, Consistency: 2, Steps: 2 },
+  'gain weight': { 'Muscle gain': 6, Strength: 5, Consistency: 2, Habits: 1 },
+  endurance: { Cardio: 6, Steps: 5, HIIT: 4, Consistency: 2 },
+  mobility: { Mobility: 7, Habits: 3, Core: 3, Consistency: 2, Steps: 1 },
+  athletic: { HIIT: 6, Cardio: 4, Strength: 4, Core: 3, Consistency: 1 },
 };
 export function recommend(p: Profile, sessionsDone = 0, list = challenges): Challenge[] {
   const lv = p.level === 'advanced' ? 2 : p.level === 'intermediate' ? 1 : 0;

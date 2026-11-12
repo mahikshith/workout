@@ -10,6 +10,7 @@ import { ColmiCard } from '../src/health/ColmiCard';
 import { ConnectWatch } from '../src/health/ConnectWatch';
 import { DataPath, hcPath, syncedAgo, useWatchLink } from '../src/health/DataPath';
 import type { Alt } from '../src/health/guides';
+import { WatchGives } from '../src/health/WatchGives';
 import { LEVEL_WORD } from '../src/health/readiness';
 import { levelColor, useReadiness } from '../src/health/useReadiness';
 import { appsLine, commitApps, importFiles, pickFiles, summaryLine } from '../src/health/importFile';
@@ -39,7 +40,7 @@ function Signal({ rssi }: { rssi: number | null }) {
   const n = bars(rssi);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
-      {[0, 1, 2].map((i) => <View key={i} style={{ width: 4, height: 6 + i * 4, borderRadius: 1, backgroundColor: i < n ? c.ok : c.dim }} />)}
+      {[0, 1, 2].map((i) => <View key={i} style={{ width: 4, height: 6 + i * 4, borderRadius: 1, backgroundColor: i < n ? c.ok : c.handle }} />)}
     </View>
   );
 }
@@ -203,6 +204,9 @@ export default function Watch() {
           )}
         </Animated.View>
 
+        {/* Which numbers come in, and that workouts logged here get them attached */}
+        <Animated.View entering={enter(1)}><WatchGives /></Animated.View>
+
         {/* The Tracker: every number your watch shares, live heart rate, watch workouts */}
         <Animated.View entering={enter(1)}>
           <DoorCard icon="pulse" color={dom.heart} title="Tracker" meta={bpm !== null ? `${bpm} bpm live now` : glance || 'Live heart rate, today\'s numbers, workouts'}
@@ -267,7 +271,7 @@ export default function Watch() {
               <T v="h3">Import from a file</T>
               <T v="small" numberOfLines={1}>Garmin, Fitbit, GPX, Strong, Hevy, FitNotes</T>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={c.dim} />
+            <Ionicons name="chevron-forward" size={18} color={c.muted} />
           </Tap>
         </Animated.View>
 

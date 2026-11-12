@@ -222,6 +222,10 @@ console.log('ok', '../src/health/colmi.ts');
 }
 
 // History import from Strong, Hevy and FitNotes CSV, and our own "Export sets (CSV)" read back (src/importApps.ts).
+// Calories for logged workouts and the calendar's day total (round 14 wearables): formula sanity, parts add up, no
+// double counting.
+(await import(new URL('../src/health/energy.ts', import.meta.url))).selfCheck();
+console.log('ok', '../src/health/energy.ts');
 (await import(new URL('../src/importApps.ts', import.meta.url))).selfCheck();
 console.log('ok ../src/importApps.ts');
 
@@ -248,7 +252,7 @@ console.log('ok ../src/importApps.ts');
   }
 
   let cases = 0;
-  for (const goal of ['build muscle', 'get stronger', 'lose fat', 'stay fit'])
+  for (const goal of ['build muscle', 'get stronger', 'lose fat', 'stay fit', 'tone up', 'gain weight', 'endurance', 'mobility', 'athletic'])
     for (const level of ['beginner', 'intermediate', 'advanced'])
       for (const [place, gear] of [['gym', []], ['home', []], ['home', ['dumbbell', 'bands']], ['both', []], ['office', []]])
         for (const days of [2, 3, 4, 5, 6])
@@ -262,7 +266,11 @@ console.log('ok ../src/importApps.ts');
             if (place === 'office') { assert(r.planId === 'desk-reset', `office ${tag}`); continue; }
             assert(perWeek(pl) === days, `exact days ${tag} (${perWeek(pl)})`);
             assert(new RegExp(`your ${days} days`).test(r.reasons[0]), `days reason first ${tag}`);
-            assert(pl.category !== 'One muscle' && pl.category !== 'Recovery', `main plan ${tag}`);
+            // Move Better (stretch flows and posture work) is the one Recovery-category plan the planner may pick, and only for the move-better goal.
+            assert(pl.category !== 'One muscle' && (pl.category !== 'Recovery' || (goal === 'mobility' && pl.base === 'move-better') || pl.id === 'move-better'), `main plan ${tag}`);
+            assert(goal === 'mobility' || (pl.base ?? pl.id) !== 'move-better', `move better only for its goal ${tag}`);
+            if (goal === 'mobility') assert(pl.category !== 'Muscle' && pl.category !== 'Strength', `move better never gets a lifting split ${tag}`);
+            if (goal === 'gain weight') assert(pl.category !== 'Cardio' && pl.category !== 'Fat loss', `gain weight never gets a cardio or fat-loss plan ${tag}`);
             assert(pl.category !== 'Women' || gender === 'female', `women plan ${tag}`);
             assert(place !== 'gym' || pl.place !== 'home', `gym ${tag}`);
             assert(place !== 'home' || pl.place !== 'gym', `home ${tag}`);
@@ -306,3 +314,12 @@ console.log('ok ../src/importApps.ts');
   assert(planFor(prof({ gender: 'female', daysPerWeek: 5, women: { mode: 'postpartum', date: born } })).planId === 'after-birth', 'after birth wins');
   console.log(`ok plan engine (${fitted.length} fitted plans, ${cases} profiles)`);
 }
+
+// Recommendation engine (src/reco/): exercise traits, the person model (BMI bands, level from history, recovery,
+// readiness, adherence), exercise scoring, every plan ranked, today's session and the second opinion on a plan day.
+// The last one runs the scenario matrix: goal × level × place × person × days, fresh and with a week of history.
+for (const m of ['traits', 'model', 'score', 'plans', 'session', 'index']) {
+  const note = (await import(new URL(`../src/reco/${m}.ts`, import.meta.url))).selfCheck();
+  console.log('ok', `../src/reco/${m}.ts`, note ? `(${note})` : '');
+}
+

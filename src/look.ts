@@ -10,13 +10,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SystemUI from 'expo-system-ui';
 import { Appearance, DevSettings, Platform, StyleSheet } from 'react-native';
 import { create } from 'zustand';
+import { GLASS } from './glass';
 import { c, isAccent, isMode, now, setTheme, TOKEN_OF, type AccentId, type Mode, type Scheme } from './theme';
 
 const KEY = 'gym-buddy-look';
 const web = Platform.OS === 'web';
 
-export type Prefs = { mode: Mode; accent: AccentId; haptics: boolean };
-export const DEFAULT_PREFS: Prefs = { mode: 'system', accent: 'lime', haptics: true };
+// blur: real blur behind glass on Android (You › Real glass blur). Off by default: Android's blur redraws the screen
+// every frame and is slow on older phones. Web and iOS always blur.
+export type Prefs = { mode: Mode; accent: AccentId; haptics: boolean; blur: boolean };
+export const DEFAULT_PREFS: Prefs = { mode: 'system', accent: 'lime', haptics: true, blur: false };
+const applyBlur = (p: Prefs) => { GLASS.blur = Platform.OS !== 'android' || p.blur; };
 // v: bumped when the theme was swapped in place, so the root remounts with the new colours.
 export const useLook = create<Prefs & { v: number }>(() => ({ ...DEFAULT_PREFS, v: 0 }));
 
@@ -33,6 +37,7 @@ function parse(own: string | null, legacy: string | null): Prefs {
       if (isMode(o.mode)) p.mode = o.mode;
       if (isAccent(o.accent)) p.accent = o.accent;
       if (typeof o.haptics === 'boolean') p.haptics = o.haptics;
+      if (typeof o.blur === 'boolean') p.blur = o.blur;
       return p;
     }
     const a = legacy ? JSON.parse(legacy)?.state?.profile?.accent : null;
@@ -44,6 +49,7 @@ function parse(own: string | null, legacy: string | null): Prefs {
 function start(p: Prefs) {
   if (!web && p.mode !== 'system') try { Appearance.setColorScheme(p.mode); } catch {}
   setTheme(p.mode, p.accent, p.mode === 'system' ? systemScheme() : null);
+  applyBlur(p);
   useLook.setState({ ...p });
   patchStyleSheet();
   paintRoot();
@@ -79,8 +85,9 @@ export type Applied = 'saved' | 'remount' | 'reload';
 // Changes and saves prefs, then redraws as needed.
 export async function setPrefs(patch: Partial<Prefs>): Promise<Applied> {
   const cur = useLook.getState();
-  const next: Prefs = { mode: cur.mode, accent: cur.accent, haptics: cur.haptics, ...patch };
+  const next: Prefs = { mode: cur.mode, accent: cur.accent, haptics: cur.haptics, blur: cur.blur, ...patch };
   await save(next);
+  if (next.blur !== cur.blur) { applyBlur(next); useLook.setState({ ...next, v: cur.v + 1 }); return 'remount'; } // glass redraws
   const scheme = next.mode === 'system' ? schemeFor('system') : next.mode;
   if (next.mode === cur.mode && next.accent === cur.accent) { useLook.setState({ haptics: next.haptics }); return 'saved'; }
   if (scheme === now.scheme) {

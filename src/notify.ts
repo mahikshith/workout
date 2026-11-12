@@ -181,7 +181,7 @@ export function plan(s: NudgeState, now = Date.now()): Req[] {
   }
 
   // Weekly weigh-in for weight goals (never in no-numbers mode): Monday morning, same time every week.
-  if (!p.gentle && !p.concerns?.includes('food') && (p.goal === 'lose fat' || Math.abs(p.goalWeightKg - p.weightKg) >= 1))
+  if (!p.gentle && !p.concerns?.includes('food') && (p.goal === 'lose fat' || p.goal === 'gain weight' || Math.abs(p.goalWeightKg - p.weightKg) >= 1))
     repeat('Weekly weigh-in', 'Same day, same time, before breakfast. Tap to log it and see your trend.', { type: K.WEEKLY, weekday: 2, hour: 7, minute: 30, channelId: 'nudges' }, '/chart/weight');
 
   // Milestones measured from the first workout: honest encouragement at the points where people usually give up.
@@ -234,7 +234,7 @@ export function plan(s: NudgeState, now = Date.now()): Req[] {
       ? `About ${left} g of protein to go today. Try ${x.name.toLowerCase()} (${x.protein} g) or ${y.name.toLowerCase()} (${y.protein} g).`
       : `Aim for 3 meals and 1 snack, about ${Math.round(t.protein / 20) * 5} g of protein each.`];
     const l = light[f % Math.max(1, light.length)];
-    if (p.goal === 'lose fat' && l) tips.push(`Hungry between meals? Try ${l.name.toLowerCase()}: about ${l.kcal} kcal for ${l.serving}, and filling.`);
+    if ((p.goal === 'lose fat' || p.goal === 'tone up') && l) tips.push(`Hungry between meals? Try ${l.name.toLowerCase()}: about ${l.kcal} kcal for ${l.serving}, and filling.`);
     return tips[f % tips.length];
   };
   const fixed = [...s.reminders, ...(s.supplementReminders ?? [])].filter((r) => r.on).map((r) => r.hour * 60 + r.minute);

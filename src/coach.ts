@@ -1,7 +1,8 @@
-import { postpartumWeek, pregnancyWeek } from './calc';
 import type { Place } from './data/exercises';
-import { planById, plans, type Plan } from './data/plans';
-import { planFor, scorePlan } from './planner';
+import type { Plan } from './data/plans';
+import { planFor } from './planner';
+import { buildPerson } from './reco/model';
+import { rankPlans } from './reco/plans';
 import type { Concern, Profile, Session } from './store';
 
 // One best plan for the profile, from the plan reasoning engine (src/planner.ts): life stage first, then hard
@@ -15,27 +16,14 @@ export function recommend(p: Profile): string {
 const ONE_MUSCLE: Record<string, Concern[]> = { 'glute-day': ['tone'], 'core-day': ['back', 'posture'], 'back-day': ['posture'] };
 const oneMuscleFits = (p: Profile, x: Plan) => (ONE_MUSCLE[x.id] ?? []).some((c) => p.concerns?.includes(c));
 
-// Plans that fit this person, best first. Women plans only for women; pregnancy and after-birth plans only when they apply.
-// The engine's pick (or the plan it was fitted from) leads; main plans follow by the engine's score for the chosen days.
-export const ranked = (p: Profile): Plan[] => {
-  const pick = planFor(p);
-  const lead = [pick.planId, ...pick.alternatives.map((a) => a.planId)].map((id) => planById[id]?.base ?? id);
-  const preg = pregnancyWeek(p) !== null;
-  const pp = postpartumWeek(p);
-  const fresh = pp !== null && pp < 12;
-  const place = p.place === 'both' ? null : p.place;
-  const ok = (x: Plan) =>
-    (x.category !== 'Women' || p.gender === 'female') && (x.category !== 'One muscle' || (!preg && !fresh && oneMuscleFits(p, x))) && (x.id !== 'pregnancy-safe' || preg) && (x.id !== 'after-birth' || fresh) &&
-    (!place || x.place === place || x.place === 'any');
-  const score = (x: Plan) => {
-    const i = lead.indexOf(x.id);
-    if (i >= 0) return 1000 - i;
-    if (x.category === 'One muscle') return 60;
-    if (x.category === 'Recovery') return (preg || fresh) ? (x.id === 'pelvic-floor' ? 80 : 70) : -50;
-    return scorePlan(p, x);
-  };
-  return plans.filter(ok).sort((a, b) => score(b) - score(a));
-};
+// Plans that fit this person, best first: the recommendation engine's ranking (src/reco/plans.ts) over every plan,
+// keeping only the ones that suit (women's plans for women, pregnancy and after-birth plans when they apply, nothing
+// the place cannot support or the safety filters would gut). The engine's pick leads. One-muscle add-on days are
+// listed only when a concern points at them, as before. Screens that want the fit % and reasons use rankPlans().
+export const ranked = (p: Profile): Plan[] =>
+  rankPlans(buildPerson({ profile: p }))
+    .filter((r) => r.suitable && (!r.addOn || oneMuscleFits(p, r.plan)))
+    .map((r) => r.plan);
 
 export const defaultPlace = (p: Profile): Place => (p.place === 'home' ? 'home' : 'gym');
 

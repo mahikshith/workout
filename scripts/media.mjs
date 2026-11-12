@@ -1,5 +1,6 @@
-// Mirrors every exercise photo (free-exercise-db, public domain), line drawing (workout-guide, CC BY-SA 4.0)
-// and video (wger, CC BY-SA 4.0, from our `media` release) into dist/media, so the app loads them from GitHub Pages.
+// Mirrors every exercise photo (free-exercise-db, public domain) and video (wger, CC BY-SA 4.0, from our `media`
+// release) into dist/media, so the app loads them from GitHub Pages. The line drawings (workout-guide, CC BY-SA 4.0) are
+// no longer mirrored: since round 14 they are normalised and bundled into the app by scripts/art.mjs (src/data/art).
 // Runs in the web job after `expo export`. Usage: node scripts/media.mjs [outDir]
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -8,12 +9,10 @@ const out = process.argv[2] ?? 'dist/media';
 const ex = JSON.parse(readFileSync('src/data/exercises.json', 'utf8'));
 const videos = JSON.parse(readFileSync('src/data/videos.json', 'utf8'));
 const IMG = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
-const WG = 'https://cdn.jsdelivr.net/gh/bryllim/workout-guide@aac599224bb9780305239607ef98540b7e0ce389/packages/workout-guide/assets/';
 
 const jobs = [];
 for (const e of ex) {
   if (!(e.noPhoto || e.noImages)) for (const n of [0, 1]) jobs.push([`${IMG}${e.id}/${n}.jpg`, `photo/${e.id}/${n}.jpg`]);
-  if (e.art) for (const n of [1, 2, 3]) jobs.push([`${WG}${e.art}/frame-${n}.svg`, `art/${e.art}/frame-${n}.svg`]);
 }
 for (const [id, v] of Object.entries(videos)) jobs.push([v.url, `video/${id}.mp4`]);
 

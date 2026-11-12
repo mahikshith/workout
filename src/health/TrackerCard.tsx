@@ -48,7 +48,7 @@ export function TrackerCard() {
         <Ionicons name="pulse" size={18} color={dom.heart} />
         <T v="h3" style={{ flex: 1 }}>Tracker</T>
         <T v="small" numberOfLines={1} style={{ flexShrink: 1 }}>{meta}</T>
-        <Ionicons name="chevron-forward" size={18} color={c.dim} />
+        <Ionicons name="chevron-forward" size={18} color={c.muted} />
       </View>
       {bpm !== null ? (
         <View style={[s.row, { gap: 8 }]}>
@@ -64,7 +64,7 @@ export function TrackerCard() {
                 <Ionicons name={x.icon} size={14} color={x.color} />
                 <T v="small" numberOfLines={1}>{x.label}</T>
               </View>
-              <T v="h2" numberOfLines={1} color={x.v ? c.text : c.dim}>{x.v ?? '—'}</T>
+              <T v="h2" numberOfLines={1} color={x.v ? c.text : c.muted}>{x.v ?? '—'}</T>
             </View>
           ))}
         </View>

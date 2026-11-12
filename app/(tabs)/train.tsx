@@ -2,20 +2,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { useScrollToTop } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Platform, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { postpartumWeek, pregnancyWeek } from '../../src/calc';
 import { ranked } from '../../src/coach';
 import { exercises, title, type Exercise } from '../../src/data/exercises';
 import { perWeek, planById, plans, type Category, type Plan } from '../../src/data/plans';
-import { Segmented, useMiniBarSpace, useToday } from '../../src/kit';
+import { DoorCard, openWorkout, Segmented, useMiniBarSpace, useToday } from '../../src/kit';
+import { asDay } from '../../src/data/quick';
+import { quickPicks, type QuickPick } from '../../src/restday';
+import { Ambient } from '../../src/glass';
 import { useStore, type Profile } from '../../src/store';
-import { c, equip, f, r } from '../../src/theme';
-import { Avatar, ListRow, Row, Section, T, Tap, Thumb } from '../../src/ui';
+import { c, dom, equip, f, r, tint } from '../../src/theme';
+import { Sheet } from '../../src/sheet';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Avatar, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb } from '../../src/ui';
 import { Enter, MuscleGrid, plural } from '../library';
-import { ChallengesDoor } from '../../src/challenges/Card';
 
-// Train: your plan, the whole exercise library (search + muscle grid) and every other plan, in one place.
+// Workouts (the centre tab, round 14): today's workout, short sessions and the whole exercise library (search +
+// muscle grid). Plans and challenges live on the Plans tab; search here still finds plans.
 // Depth: Train -> plan / muscle page / exercise -> exercise (alternatives replace, never stack).
 
 type Icon = keyof typeof Ionicons.glyphMap;
@@ -60,8 +65,9 @@ export default function Train() {
   const sessions = useStore((s) => s.sessions);
   const today = useToday();
   const [q, setQ] = useState('');
+  const [placeOpen, setPlaceOpen] = useState(false); // the place chip: a quick swap between gym, home, both and office
   // Tapping the Train tab again scrolls back to the top (only one of the two lists is mounted at a time).
-  const browseRef = useRef<FlatList<Plan>>(null);
+  const browseRef = useRef<ScrollView>(null);
   const searchRef = useRef<FlatList<Exercise>>(null);
   useScrollToTop(browseRef);
   useScrollToTop(searchRef);
@@ -69,21 +75,13 @@ export default function Train() {
   const [where, setWhere] = useState<Where>(home);
   useEffect(() => setWhere(home), [home]); // follow the place set in your profile
 
-  const cur: Plan | undefined = planById[planId];
-  const n = cur ? perWeek(cur) : 0;
-  // This week's training days done for the plan, and which week of the plan you are in (sessions done / days a week).
-  const mine = useMemo(() => sessions.filter((x) => x.planId === planId && x.dayIndex !== undefined), [sessions, planId]);
-  const wk = useMemo(() => {
-    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-    return new Set(mine.filter((x) => x.startedAt >= d.getTime()).map((x) => x.dayIndex)).size;
-  }, [mine]);
-  const weekNo = cur ? Math.min(cur.weeks, Math.floor(mine.length / Math.max(1, n)) + 1) : 1;
-
-  // Other plans: best fit first (the coach's ranking), then the rest; the current plan has its own card.
-  const rank = useMemo(() => new Map(ranked(profile).map((p, i) => [p.id, i])), [profile]);
-  const others = useMemo(() => plans
-    .filter((p) => p.id !== planId && fits(p, where) && (p.category !== 'Women' || profile.gender !== 'male'))
-    .sort((a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999)), [planId, where, profile.gender, rank]);
+  // Short sessions that suit this person's day; a tap opens one ready, exactly like Start.
+  const picks = useMemo(() => quickPicks(profile, sessions), [profile, sessions]);
+  const startQuick = (q: QuickPick) => {
+    haptic('medium');
+    if (!useStore.getState().active) useStore.getState().start(asDay(q.q), q.place);
+    openWorkout();
+  };
 
   // Search: plans and exercises together; results replace everything below the field while typing.
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -104,12 +102,13 @@ export default function Train() {
   const bottom = ins.bottom + 120 + mini; // clears the tab bar, plus the workout mini bar while it shows
 
   const header = (
-    <View style={{ paddingTop: ins.top + 12, paddingHorizontal: 12, gap: 14, paddingBottom: 12, backgroundColor: c.bg }}>
+    <View style={{ paddingTop: ins.top + 12, paddingHorizontal: 12, gap: 14, paddingBottom: 12 }}>
       <Row gap={10}>
-        <T v="display" numberOfLines={1} style={{ flex: 1 }}>Train</T>
-        <Tap onPress={() => router.push('/you')} style={s.place} scale={0.95}>
+        <T v="display" numberOfLines={1} style={{ flex: 1 }}>Workouts</T>
+        <Tap onPress={() => setPlaceOpen(true)} style={s.place} scale={0.95} accessibilityLabel={`Training at: ${placeLabel}. Change`}>
           <Ionicons name={profile.place === 'office' ? 'briefcase-outline' : profile.place === 'home' ? 'home-outline' : 'barbell-outline'} size={14} color={c.muted} />
           <T v="small" color={c.text}>{placeLabel}</T>
+          <Ionicons name="chevron-down" size={14} color={c.muted} />
         </Tap>
         <Avatar />
       </Row>
@@ -162,68 +161,98 @@ export default function Train() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Ambient colors={[dom.train, dom.heart, dom.water]} strength={1.25} />
       {header}
-      <FlatList
-        ref={browseRef}
-        key="browse"
-        data={others}
-        keyExtractor={(p) => p.id}
-        initialNumToRender={8}
-        windowSize={7}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: bottom }}
-        ItemSeparatorComponent={Gap}
-        ListHeaderComponent={
-          <View>
-            {/* Your plan: name, this week's pips, next day, one Start (Resume while a workout runs). */}
-            {cur && (
-              <Enter>
-                <Tap onPress={() => openPlan(cur.id)} style={s.plan} scale={0.98}>
-                  <T v="label">Your plan</T>
-                  <Row gap={12}>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <T v="h2" numberOfLines={1} style={{ fontSize: 19 }}>{cur.name}</T>
-                      <T v="small" numberOfLines={1}>{`Week ${weekNo} · next: ${today.day.name}`}</T>
-                    </View>
-                    <Tap onPress={today.start} style={[s.start, { backgroundColor: c.accent }]} scale={0.94} feedback="none">
-                      <Ionicons name="play" size={16} color={c.accentInk} />
-                      <T v="h3" color={c.accentInk} style={{ fontSize: 16 }}>{today.active ? 'Resume' : 'Start'}</T>
-                    </Tap>
-                  </Row>
-                  <Row gap={6}>
-                    {Array.from({ length: n }, (_, i) => <View key={i} style={[s.pip, { backgroundColor: i < wk ? c.accent : c.line }]} />)}
-                  </Row>
-                </Tap>
-              </Enter>
-            )}
-
-            {/* Challenges: 14 to 30 days with one task a day (round 13). */}
-            <Enter i={1} style={{ marginTop: cur ? 12 : 0 }}>
-              <ChallengesDoor />
-            </Enter>
-
-            <Enter i={1}>
-              <Section title="Muscles" action="All exercises" onAction={() => router.push('/library')} style={{ marginTop: 28 }}>
-                <MuscleGrid where={where} onOpen={openMuscle} />
-              </Section>
-            </Enter>
-
-            <Enter i={2}>
-              <Section title="Other plans" style={{ marginTop: 28 }}>
-                <Segmented options={WHERE} value={where} onChange={setWhere} style={{ marginBottom: 12 }} />
-              </Section>
-            </Enter>
+      <ScrollView ref={browseRef} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: bottom }}>
+        {/* Today's workout in one row: the same pick as Home, one Start (Resume while a workout runs). */}
+        <Enter>
+          <View style={[s.plan, { borderColor: tint(dom.train, 1.6), overflow: 'hidden' }]}>
+            <LinearGradient colors={[tint(dom.train, 1.5), tint(c.accent, 0.4), c.card]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill} pointerEvents="none" />
+            <Row gap={12}>
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <T v="label">{today.active ? 'In progress' : 'Today'}</T>
+                <T v="h2" numberOfLines={1} style={{ fontSize: 19 }}>{today.active ? today.active.title : today.day.name}</T>
+                <T v="small" numberOfLines={1}>{today.active ? plural(today.active.items.length, 'exercise') : `${plural(today.day.slots.length, 'exercise')} · ${today.minutes} min`}</T>
+              </View>
+              <Tap onPress={today.start} style={[s.start, { backgroundColor: c.accent }]} scale={0.94} feedback="none">
+                <Ionicons name="play" size={16} color={c.accentInk} />
+                <T v="h3" color={c.accentInk} style={{ fontSize: 16 }}>{today.active ? 'Resume' : 'Start'}</T>
+              </Tap>
+            </Row>
           </View>
-        }
-        renderItem={({ item: p, index }) => (
-          <ListRow icon={ICON[p.category]} title={p.name} sub={index < 3 ? `${meta(p)} · ${because(profile, p)}` : meta(p)} onPress={() => openPlan(p.id)} />
+        </Enter>
+
+        {/* Short sessions: 2 to 15 minutes, picked for this person's day. */}
+        {picks.length > 0 && (
+          <Enter i={1}>
+            <Section title="Short on time" style={{ marginTop: 24 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -12 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 12 }}>
+                {picks.map((q, k) => { const col = QUICK_COLORS[k % QUICK_COLORS.length]; return (
+                  <Tap key={q.id} onPress={() => startQuick(q)} style={s.quick} scale={0.97} accessibilityLabel={`Start ${q.name}`}>
+                    <LinearGradient colors={[tint(col, 1.3), c.card]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
+                    <IconBox icon={q.icon} color={col} size={36} />
+                    <T v="h3" numberOfLines={1} style={{ fontSize: 15 }}>{q.name}</T>
+                    <T v="small" numberOfLines={1} style={{ fontSize: 12 }}>{q.sub}</T>
+                  </Tap>
+                ); })}
+              </ScrollView>
+            </Section>
+          </Enter>
         )}
-        ListEmptyComponent={<T v="small">No other plans for this place.</T>}
-      />
+
+        <Enter i={2}>
+          <Section title="By muscle" action="All exercises" onAction={() => router.push('/library')} style={{ marginTop: 24 }}>
+            <MuscleGrid where={where} onOpen={openMuscle} />
+          </Section>
+        </Enter>
+
+        <Enter i={3} style={{ marginTop: 24, gap: 8 }}>
+          <DoorCard icon="list" title="All exercises" meta={`${exercises.length.toLocaleString('en-US')} moves with demos`} onPress={() => router.push('/library')} compact />
+          <DoorCard icon="map" color={dom.streak} title="Plans and challenges" meta="Your plan, every plan, 27 challenges" onPress={() => router.navigate('/plans')} compact />
+        </Enter>
+      </ScrollView>
+      {/* Where you train: one tap swaps it everywhere (today's workout, the muscle lists, plans that fit). */}
+      <Sheet open={placeOpen} onClose={() => setPlaceOpen(false)}>
+        <View style={{ gap: 10 }}>
+          <View style={{ gap: 2 }}>
+            <T v="h2">Where are you training?</T>
+            <T v="small">Workouts and exercise lists follow this.</T>
+          </View>
+          {PLACES.map((x) => {
+            const on = profile.place === x.k;
+            return (
+              <Tap key={x.k} onPress={() => { useStore.getState().setProfile({ ...profile, place: x.k }); setPlaceOpen(false); }}
+                style={[s.placeRow, on && { borderColor: c.accent, backgroundColor: tint(c.accent, 1) }]} scale={0.98}
+                accessibilityState={{ selected: on }}>
+                <IconBox icon={x.icon} color={c.accent} size={40} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <T v="h3">{x.label}</T>
+                  <T v="small" numberOfLines={1}>{x.sub}</T>
+                </View>
+                {on && <Ionicons name="checkmark-circle" size={22} color={c.accent} />}
+              </Tap>
+            );
+          })}
+          <Tap onPress={() => { setPlaceOpen(false); router.push({ pathname: '/profile', params: { s: 'place' } }); }} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center' }} feedback="none">
+            <T v="small" color={c.accent}>Edit home equipment</T>
+          </Tap>
+        </View>
+      </Sheet>
     </View>
   );
 }
+
+// Short sessions take turns through the domain colours, so the row is not one flat tone.
+const QUICK_COLORS = [dom.kcal, dom.steps, dom.sleep, dom.heart, dom.water, dom.streak];
+
+const PLACES: { k: Profile['place']; label: string; icon: Icon; sub: string }[] = [
+  { k: 'gym', label: 'Gym', icon: 'barbell', sub: 'Machines and free weights' },
+  { k: 'home', label: 'Home', icon: 'home', sub: 'Bodyweight and the gear you have' },
+  { k: 'both', label: 'Gym and home', icon: 'swap-horizontal', sub: 'Some days each' },
+  { k: 'office', label: 'Office', icon: 'briefcase', sub: 'Short sessions at work, no equipment' },
+];
 
 const Gap = () => <View style={{ height: 8 }} />;
 
@@ -237,10 +266,11 @@ function Hit({ e }: { e: Exercise }) {
 const s = StyleSheet.create({
   clear: { width: 44, height: 44, marginRight: -12, alignItems: 'center', justifyContent: 'center' },
   browse: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, alignSelf: 'flex-start' },
-  place: { height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: c.card2, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  place: { height: 44, paddingLeft: 14, paddingRight: 10, borderRadius: 22, backgroundColor: c.card2, flexDirection: 'row', alignItems: 'center', gap: 6 },
   search: { height: 48, borderRadius: 14, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: c.line },
   input: { flex: 1, color: c.text, fontFamily: f.medium, fontSize: 16, height: 48, outlineWidth: 0 },
   plan: { gap: 12, padding: 16, borderRadius: r.xl, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   start: { height: 44, paddingHorizontal: 18, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  pip: { flex: 1, height: 6, borderRadius: 3 },
+  placeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: r.md, borderWidth: 1, borderColor: c.line },
+  quick: { overflow: 'hidden', width: 150, gap: 6, padding: 12, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
 });

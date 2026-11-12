@@ -1,7 +1,7 @@
 // Weight journey: for fat-loss and weight-gain goals, the numbers that actually move the scale.
 // Energy balance = eaten - (daily burn + workouts); 7700 kcal is roughly 1 kg of body weight.
 import { View } from 'react-native';
-import { dayKey, targets } from './calc';
+import { dayKey, goalDelta, targets } from './calc';
 import { byId } from './data/exercises';
 import { kcalPerMin } from './data/muscles';
 import type { Meal, Profile, Session } from './store';
@@ -16,7 +16,10 @@ export const sessionKcal = (s: Session, kg: number) =>
 
 export function journey(p: Profile, sessions: Session[], meals: Meal[], weights: { day: string; kg: number }[], now = Date.now()) {
   const t = targets(p);
-  const maintain = t.kcal - ({ 'lose fat': -Math.min(500, t.kcal * 0.2), 'build muscle': t.kcal * 0.09, 'get stronger': t.kcal * 0.05, 'stay fit': 0 }[p.goal] ?? 0);
+  // The goal's calorie step is taken back off the target to estimate the daily burn (close enough: the step is worked
+  // out from the target, not the burn, so it is a few kcal off for surplus goals).
+  const step = goalDelta(p.goal, t.kcal);
+  const maintain = t.kcal - (step > 0 ? step * 0.9 : step);
   const days = Array.from({ length: 7 }, (_, i) => dayKey(now - i * DAY));
   const logged = days.filter((d) => meals.some((m) => m.day === d));
   const eaten = logged.length ? Math.round(logged.reduce((a, d) => a + meals.filter((m) => m.day === d).reduce((x, m) => x + m.kcal, 0), 0) / logged.length) : null;
@@ -36,7 +39,7 @@ export function journey(p: Profile, sessions: Session[], meals: Meal[], weights:
 // Numbers as tiles, then one status line (daily balance) and one tip line (what to change, or the trend).
 export function Journey({ p, sessions, meals, weights }: { p: Profile; sessions: Session[]; meals: Meal[]; weights: { day: string; kg: number }[] }) {
   const j = journey(p, sessions, meals, weights);
-  const losing = p.goal === 'lose fat' || p.goalWeightKg < p.weightKg;
+  const losing = p.goal !== 'gain weight' && (p.goal === 'lose fat' || p.goalWeightKg < p.weightKg);
   const sign = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(1)}`;
   const onTrack = j.balance === null ? null : losing ? j.balance < -100 : j.balance > 100;
   const good = losing ? j.change < 0 : j.change > 0;

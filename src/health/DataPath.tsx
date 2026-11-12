@@ -51,7 +51,7 @@ export function DataPath({ nodes, size = 'md', link }: { nodes: PathNode[]; size
           <View key={n.label + i} style={{ alignItems: 'center', gap: 6, flex: sm ? undefined : 1, minWidth: 0 }}>
             <View style={{
               width: d, height: d, borderRadius: d / 2, alignItems: 'center', justifyContent: 'center',
-              backgroundColor: ok ? tint(col, 1.2) : c.card2, borderWidth: 1.5, borderColor: ok ? col : c.line,
+              backgroundColor: ok ? tint(col, 1.2) : c.card2, borderWidth: 1.5, borderColor: ok ? col : c.handle, // c.line vanishes on the dark sheet
             }}>
               <Ionicons name={n.icon} size={sm ? 13 : 22} color={ok ? col : c.muted} />
               {!sm && ok && (
@@ -70,12 +70,12 @@ export function DataPath({ nodes, size = 'md', link }: { nodes: PathNode[]; size
                 <>
                   <T v="small" style={{ fontSize: 11, lineHeight: 14 }} color={flowing ? c.text : c.muted}>{link}</T>
                   <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch' }}>
-                    <View style={{ flex: 1, height: 2, borderRadius: 1, backgroundColor: flowing ? c.ok : c.line }} />
-                    <Ionicons name="chevron-forward" size={14} color={flowing ? c.ok : c.dim} style={{ marginLeft: -6 }} />
+                    <View style={{ flex: 1, height: 2, borderRadius: 1, backgroundColor: flowing ? c.ok : c.handle }} />
+                    <Ionicons name="chevron-forward" size={14} color={flowing ? c.ok : c.muted} style={{ marginLeft: -6 }} />
                   </View>
                 </>
               ) : (
-                <Ionicons name="arrow-forward" size={sm ? 10 : 16} color={flowing ? c.ok : c.dim} />
+                <Ionicons name="arrow-forward" size={sm ? 10 : 16} color={flowing ? c.ok : c.muted} />
               )}
             </View>
           ),
