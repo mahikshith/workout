@@ -5,6 +5,7 @@
 // It tells the app what happened with messages: {type:'ready'} after the first picture, {type:'fail', why} otherwise.
 import * as THREE from 'three';
 import { I, mul, lerp, angleLabel, makeMoves } from './moves.js';
+import { makeDriven } from './drive.js';
 
 const say = (m) => { const s = JSON.stringify(m); try { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(s); else if (window.parent !== window) window.parent.postMessage(s, '*'); } catch (e) { /* nobody is listening */ } };
 const fail = (why) => { say({ type: 'fail', why: String(why).slice(0, 200) }); const h = document.getElementById('hint'); if (h) { h.textContent = '3D view could not start here'; h.style.opacity = 1; } };
@@ -27,21 +28,28 @@ const PARENT = { lumbar: 'pelvis', chest: 'lumbar', neck: 'chest', head: 'neck',
 const ORDER = ['pelvis', 'lumbar', 'chest', 'neck', 'head', 'Lupper', 'Lfore', 'Lhand', 'Rupper', 'Rfore', 'Rhand', 'Lthigh', 'Lshank', 'Lfoot', 'Rthigh', 'Rshank', 'Rfoot'];
 
 let segOut = {};
-const EX = makeMoves(() => segOut), name = EX[QS.get('ex')] ? QS.get('ex') : 'squat', ex = EX[name];
+// Two ways to say what to show: #ex=squat picks a hand-made move; #j=<JSON> (or #d=<base64 JSON>) carries an exercise's own movement
+// data from the app ({ pose, primary, secondary }), which drive.js turns into a 3D pose.
+const EX = makeMoves(() => segOut), name = EX[QS.get('ex')] ? QS.get('ex') : 'squat';
+const spec = QS.get('j') ? JSON.parse(QS.get('j')) : QS.get('d') ? JSON.parse(decodeURIComponent(escape(atob(QS.get('d').replace(/-/g, '+').replace(/_/g, '/'))))) : window.SPEC;
+let ex = spec ? makeDriven(spec, J, () => segOut) : EX[name];
 
 // ---- the figure. The phone's graphics chip bends it: every point follows two body segments (sk = which two, how much).
 const C = (h) => new THREE.Color(h);
 const PAL = { muscle: C('#a8736a'), body: C('#d8cfc4'), core: C('#855f58'), joint: C('#9a6b62'), fascia: C('#e4dccf'), bone: C('#e9e3d6'), tendon: C('#ece7dd') };
 const col = new Float32Array(N * 3), cls = new Float32Array(N), sk = new Float32Array(N * 4);
-meta.parts.forEach((p) => {
-  const c = PAL[p.kind] || PAL.muscle, k = p.groups.some((g) => ex.primary.includes(g)) ? 1 : p.groups.some((g) => ex.secondary.includes(g)) ? 2 : 0;
-  for (let i = p.v0; i < p.v0 + p.nv; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; cls[i] = k; }
-});
+meta.parts.forEach((p) => { const c = PAL[p.kind] || PAL.muscle; for (let i = p.v0; i < p.v0 + p.nv; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; } });
+// which muscles work in this move: 1 = main (pulsing red), 2 = helper (light red)
+function mark() {
+  meta.parts.forEach((p) => { const k = p.groups.some((g) => ex.primary.includes(g)) ? 1 : p.groups.some((g) => ex.secondary.includes(g)) ? 2 : 0; cls.fill(k, p.v0, p.v0 + p.nv); });
+  if (geo.attributes.cls) geo.attributes.cls.needsUpdate = true;
+}
 for (let i = 0; i < N; i++) { const w = W0[i] / 255; sk[i * 4] = BI[i * 2]; sk[i * 4 + 1] = BI[i * 2 + 1]; sk[i * 4 + 2] = w; sk[i * 4 + 3] = 1 - w; }
 const geo = new THREE.BufferGeometry();
 geo.setAttribute('position', new THREE.BufferAttribute(rest, 3)); geo.setIndex(new THREE.BufferAttribute(F, 1)); geo.computeVertexNormals();
 geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('fib', new THREE.BufferAttribute(FIB, 3));
 geo.setAttribute('sk', new THREE.BufferAttribute(sk, 4)); geo.setAttribute('cls', new THREE.BufferAttribute(cls, 1));
+mark();
 
 const canvas = document.getElementById('gl');
 let renderer;
@@ -95,9 +103,10 @@ function solve(pose) {
   segOut = { R, p };
 }
 // the space the whole move needs and the middle of the working muscles, measured once on every 6th point
-const box = new THREE.Box3(), focus = new THREE.Vector3();
-{
+const box = new THREE.Box3(), focus = new THREE.Vector3(), centre = new THREE.Vector3(); let radius = 1;
+function measure() {
   const q = new THREE.Vector3(), a = new THREE.Vector3(), b = new THREE.Vector3(); let n = 0;
+  box.makeEmpty(); focus.set(0, 0, 0);
   for (const t of [0, 0.5, 1]) {
     solve(ex.pose(t));
     for (let i = 0; i < N; i += 6) {
@@ -107,12 +116,18 @@ const box = new THREE.Box3(), focus = new THREE.Vector3();
     }
   }
   if (n) focus.multiplyScalar(1 / n); else box.getCenter(focus);
+  box.getCenter(centre); radius = box.getSize(new THREE.Vector3()).length() / 2;
+  // make some room for the equipment too, but keep the body large: a barbell may run a little off the picture
+  if (ex.props) {
+    solve(ex.pose(0)); const pb = new THREE.Box3().setFromObject(ex.props(ex.pose(0)));
+    if (!pb.isEmpty()) { const all = box.clone().union(pb), c2 = all.getCenter(new THREE.Vector3()), r2 = all.getSize(new THREE.Vector3()).length() / 2; centre.lerp(c2, 0.5); radius = Math.min(r2, radius * 1.25); }
+  }
+  shadow.position.set(centre.x, centre.y + 20, (meta.ground ?? 0) + 1); shadow.scale.set(1100, 900, 1);
 }
-const centre = box.getCenter(new THREE.Vector3()), radius = box.getSize(new THREE.Vector3()).length() / 2;
-shadow.position.set(centre.x, centre.y + 20, (meta.ground ?? 0) + 1); shadow.scale.set(1100, 900, 1);
+measure();
 
 // ---- camera the user steers: az and el in degrees, zoom 1 = the whole move fits
-const HOME = { az: ex.shots[0].az, el: Math.atan(ex.shots[0].el) * 180 / Math.PI, zoom: 0.9 };
+const HOME = { az: ex.shots[0].az, el: Math.atan(ex.shots[0].el) * 180 / Math.PI, zoom: 0.82 };
 const view = { ...HOME }; let goal = null; // goal: where "Reset view" glides back to
 const ov = document.getElementById('ov'), g2 = ov.getContext('2d');
 let W = 0, H = 0, DPR = 1, quality = Math.min(window.devicePixelRatio || 1, 2);
@@ -156,14 +171,21 @@ $('reset').onclick = () => { goal = { ...HOME, az: HOME.az + 360 * Math.round((v
 window.addEventListener('message', (e) => { if (e.data === 'pause') { playing = false; $('play').textContent = 'Play'; } }); // the app pauses it when it scrolls away
 
 // ---- the loop. One rep is 2 s down, a short hold, 2 s up and 1 s rest, like the clip.
-const PER = 5.44; let clock = 0, last = 0, lastT = -1, frames = 0, since = 0, told = false;
+let PER = ex.per || 5.44, clock = 0, last = 0, lastT = -1, frames = 0, since = 0, told = false;
+// for the picture sheets made by sheet.cjs: hold the move at position p and look from az, el, zoom
+const still = !!QS.get('bare'); let dirty = 3;
+window.hold = (p, az, el, zoom) => { dirty = 3; playing = false; ex.phase = () => p; if (az != null) Object.assign(view, { az, el, zoom }); goal = null; lastT = -1; };
+// show another exercise without loading the page again
+window.show = (sp) => { props.traverse((o) => o.geometry?.dispose()); props.clear(); ex = makeDriven(sp, J, () => segOut); mark(); measure(); Object.assign(HOME, { az: ex.shots[0].az, el: Math.atan(ex.shots[0].el) * 180 / Math.PI }); Object.assign(view, HOME); PER = ex.per || 5.44; clock = 0; lastT = -1; goal = null; };
+window.joints = () => Object.fromEntries(Object.entries(segOut.p).map(([k, q]) => [k, [Math.round(q.x), Math.round(q.y), Math.round(q.z)]]));
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - last) / 1000 || 0); last = now; if (document.hidden || !W) return;
+  if (still && !dirty) return; dirty = Math.max(0, dirty - 1); // picture sheets: draw only when asked
   if (playing) clock += dt * (slow ? 0.4 : 1);
-  const ph = (clock % PER) / PER, e = (x) => x * x * (3 - 2 * x), t = ph < 0.37 ? e(ph / 0.37) : ph < 0.445 ? 1 : ph < 0.815 ? 1 - e((ph - 0.445) / 0.37) : 0;
+  const ph = (clock % PER) / PER, e = (x) => x * x * (3 - 2 * x), t = ex.phase ? ex.phase(ph) : ph < 0.37 ? e(ph / 0.37) : ph < 0.445 ? 1 : ph < 0.815 ? 1 - e((ph - 0.445) / 0.37) : 0;
   const pose = ex.pose(t); solve(pose);
-  if (ex.props && t !== lastT) { props.traverse((o) => o.geometry?.dispose()); props.clear(); props.add(ex.props(pose)); }
+  if (ex.props && t !== lastT) { const g = ex.props(pose); if (g.parent !== props) { props.traverse((o) => o.geometry?.dispose()); props.clear(); props.add(g); } }
   lastT = t;
   pri.copy(DEEP).lerp(HOT, 0.5 - 0.5 * Math.cos(2 * Math.PI * now / 880));
   if (goal) { const k = 1 - Math.exp(-dt * 7); view.az = lerp(view.az, goal.az, k); view.el = lerp(view.el, goal.el, k); view.zoom = lerp(view.zoom, goal.zoom, k); if (Math.abs(view.az - goal.az) < 0.2 && Math.abs(view.zoom - goal.zoom) < 0.004) goal = null; }
@@ -171,7 +193,7 @@ function frame(now) {
   // angle read-outs, drawn on a flat layer above the figure
   g2.setTransform(DPR, 0, 0, DPR, 0, 0); g2.clearRect(0, 0, W, H);
   const U = Math.max(330, Math.min(520, Math.min(W, H) * 1.3)), proj = (v) => { const p = v.clone().project(cam); return [(p.x * 0.5 + 0.5) * W, (-p.y * 0.5 + 0.5) * H]; }, placed = [];
-  if (ex.angles) for (const [a, b, c, l, base, sub] of ex.angles(segOut.p)) angleLabel(g2, proj, U, placed, a, b, c, l, base, sub);
+  if (ex.angles && !QS.get('bare')) for (const [a, b, c, l, base, sub] of ex.angles(segOut.p)) angleLabel(g2, proj, U, placed, a, b, c, l, base, sub);
   if (!told) { told = true; say({ type: 'ready' }); }
   // a phone that cannot keep up gets a coarser picture instead of a stuttering one
   frames++; since += dt; if (since > 2) { const fps = frames / since; frames = 0; since = 0; if (fps < 20 && quality > 0.75) { quality = quality > 1 ? 1 : 0.75; size(); } }

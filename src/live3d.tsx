@@ -14,7 +14,9 @@ const PAGE = require('../assets/anatomy/live.html');
 export const LIVE_MOVES: Record<string, string> = { Bodyweight_Squat: 'squat', Butterfly: 'fly' };
 const WAIT_MS = 20000;
 
-export function Live3D({ move, onFail }: { move: string; onFail: () => void }) {
+// `move` is a hand-made move's name; `spec` is an exercise's own movement data (the same the 2D animation uses).
+export type LiveSpec = { pose: unknown; primary: string[]; secondary: string[] };
+export function Live3D({ move, spec, onFail }: { move?: string; spec?: LiveSpec; onFail: () => void }) {
   const [uri, setUri] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const frame = useRef<HTMLIFrameElement | null>(null);
@@ -32,10 +34,10 @@ export function Live3D({ move, onFail }: { move: string; onFail: () => void }) {
     const a = Asset.fromModule(PAGE);
     // on a phone the page is copied out of the app first, so the web view can open it as a local file
     (Platform.OS === 'web' ? Promise.resolve(a.uri) : a.downloadAsync().then((x) => x.localUri ?? x.uri))
-      .then((u) => { if (live) setUri(`${u}#ex=${move}&bg=${c.card2.slice(1)}&ink=${c.text.slice(1)}`); })
+      .then((u) => { if (live) setUri(`${u}#${spec ? 'j=' + encodeURIComponent(JSON.stringify(spec)) : 'ex=' + move}&bg=${c.card2.slice(1)}&ink=${c.text.slice(1)}`); })
       .catch(fail);
     return () => { live = false; };
-  }, [move]);
+  }, [move, spec]);
   useEffect(() => { if (ready) return; const t = setTimeout(fail, WAIT_MS); return () => clearTimeout(t); }, [ready]);
   useEffect(() => {
     if (Platform.OS !== 'web') return;

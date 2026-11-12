@@ -13,7 +13,7 @@
 <canvas id="gl"></canvas><canvas id="ov"></canvas>
 <div id="hint">Drag to turn · Pinch to zoom</div>
 <div id="bar"><button id="play">Pause</button><button id="slow" aria-pressed="false">Slow</button><button id="reset">Reset view</button></div>
-<script>(function () { var q = new URLSearchParams(location.hash.slice(1) || location.search.slice(1)), s = document.documentElement.style; if (/^[0-9a-f]{6}$/i.test(q.get('bg') || '')) s.setProperty('--bg', '#' + q.get('bg')); if (/^[0-9a-f]{6}$/i.test(q.get('ink') || '')) s.setProperty('--ink', '#' + q.get('ink')); })();</script>
+<script>(function () { var q = new URLSearchParams(location.hash.slice(1) || location.search.slice(1)), s = document.documentElement.style; if (/^[0-9a-f]{6}$/i.test(q.get('bg') || '')) s.setProperty('--bg', '#' + q.get('bg')); if (/^[0-9a-f]{6}$/i.test(q.get('ink') || '')) s.setProperty('--ink', '#' + q.get('ink')); if (q.get('bare')) { document.getElementById('bar').style.display = 'none'; document.getElementById('hint').style.display = 'none'; } })();</script>
 <script>window.A3D = /*DATA*/;</script>
 <script>/*CODE*/</script>
 </body></html>

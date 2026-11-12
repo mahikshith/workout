@@ -15,6 +15,6 @@ const Fq = new Uint16Array(fib.length); for (let i = 0; i < fib.length; i++) { c
 // only what the viewer reads
 const slim = { n: meta.n, joints: meta.joints, seg: meta.seg, ground: meta.ground, parts: meta.parts.map((p) => ({ kind: p.kind, groups: p.groups, v0: p.v0, nv: p.nv })) };
 const A = { meta: slim, V: b64(Vq), F: b64(F), bi: b64(bi), bw: b64(Wq), fib: b64(Fq), fibLo: lo, fibHi: hi };
-const code = esbuild.buildSync({ entryPoints: [path.join(__dirname, 'web/live.js')], bundle: true, minify: true, format: 'iife', write: false, target: 'es2019', nodePaths: [path.join(process.cwd(), 'node_modules')] }).outputFiles[0].text;
+const code = esbuild.buildSync({ entryPoints: [path.join(__dirname, 'web/live.js')], bundle: true, minify: true, format: 'iife', write: false, target: 'es2019', nodePaths: [path.join(process.cwd(), 'node_modules'), ...(process.env.NODE_PATH || '').split(path.delimiter).filter(Boolean)] }).outputFiles[0].text;
 const page = fs.readFileSync(path.join(__dirname, 'web/live.html'), 'utf8').replace('/*DATA*/', () => JSON.stringify(A)).replace('/*CODE*/', () => code.replace(/<\/script/g, '<\\/script'));
 fs.writeFileSync(out, page); console.log(out, (page.length / 1e6).toFixed(2) + ' MB');

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEvent } from 'expo';
 import { Image, type ImageProps } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type AccessibilityRole, type AccessibilityState, type StyleProp, type TextProps, type ViewProps, type ViewStyle } from 'react-native';
 import Animated, {
   cancelAnimation, Easing, FadeIn, useAnimatedProps, useReducedMotion, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
@@ -12,13 +12,14 @@ import { router, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { frames, MEDIA, origin, type Exercise } from './data/exercises';
-import { poseFor } from './data/poses';
+import { poseFor, postureMismatch } from './data/poses';
 import { Figure } from './figure';
 import { G as ArtG, Path as ArtPath } from 'react-native-svg';
 import { ART, type Art } from './data/art';
 import videos from './data/videos.json';
 import { useStore, type MediaPref } from './store';
 import { Live3D, LIVE_MOVES } from './live3d';
+import { NO_3D } from './data/no3d';
 import { useLook } from './look';
 import { c, dom, f, r, tint } from './theme';
 import { Ambient, shadow } from './glass';
@@ -336,10 +337,22 @@ const ANATOMY: Record<string, number> = {
   Butterfly: require('../assets/anatomy/Butterfly.webp'),
 };
 const KINDS: { k: MediaPref; label: string }[] = [{ k: '3d', label: '3D' }, { k: 'animated', label: 'Animated' }, { k: 'drawing', label: 'Drawing' }, { k: 'photo', label: 'Photo' }, { k: 'video', label: 'Video' }];
+// The live 3D figure is driven by the exercise's own movement data, so it is offered wherever that data can be trusted:
+// not borrowed from another movement, posture agreeing with the name and steps, and not on the list of movements that
+// looked wrong when every one was checked on picture sheets (src/data/no3d.ts).
+const live3dOk: Record<string, boolean> = {};
+export const has3d = (ex: Exercise) => (live3dOk[ex.id] ??= !ex.noImages && !poseFor(ex).pose.weak && !postureMismatch(ex) && !NO_3D.has(ex.id));
+let live3dBroken = false; // set once the live view fails to start on this device; the old views come back for this run
 // A borrowed animation of a different movement is never offered; those exercises show their photo or drawing.
-export const mediaKinds = (ex: Exercise) =>
-  KINDS.filter(({ k }) => (k === '3d' ? ex.id in ANATOMY : k === 'animated' ? !ex.noImages && !poseFor(ex).pose.weak : k === 'drawing' ? !!ex.art && ex.art in ART : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
-const CREDIT = { '3d': 'Pulsing red: working muscles · Light red: helpers · Blue: angle against the dashed baseline', drawing: 'Drawing: workout-guide by Bryl Lim, CC BY-SA 4.0, based on Everkinetic', photo: 'Photo: free-exercise-db, public domain' };
+// Where an exercise has its 3D view, that replaces the animation, photo and video; the drawing stays. If the live view
+// cannot start on this phone (`no3d`), the old views are offered again so the pane is never empty.
+export const mediaKinds = (ex: Exercise, no3d = live3dBroken) => {
+  const clip = ex.id in ANATOMY, three = clip || (!no3d && has3d(ex));
+  return KINDS.filter(({ k }) => (k === '3d' ? three : k === 'drawing' ? !!ex.art && ex.art in ART
+    : three && !no3d ? false
+    : k === 'animated' ? !ex.noImages && !poseFor(ex).pose.weak : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
+};
+const CREDIT = { '3d': 'Pulsing red: working muscles · Light red: helpers · Blue: joint angle', drawing: 'Drawing: workout-guide by Bryl Lim, CC BY-SA 4.0, based on Everkinetic', photo: 'Photo: free-exercise-db, public domain' };
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
 const NAME: Record<MediaPref, string> = { '3d': '3D view', animated: 'Animation', drawing: 'Drawing', photo: 'Photo', video: 'Video' };
 
@@ -373,6 +386,8 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
   const [online, setOnline] = useState(false); // "Needs internet" hint, shown for a moment on photo, drawing or video
   const [tries, setTries] = useState(0); // bumps to reload pictures once the internet is back
   const [live, setLive] = useState<'off' | 'on' | 'failed'>('off'); // the 3D view the user can turn; the clip is under it
+  const [no3d, setNo3d] = useState(live3dBroken);
+  const spec = useMemo(() => ({ pose: poseFor(ex).pose, primary: ex.primary, secondary: ex.secondary }), [ex.id]);
   useEffect(() => { setFailed([]); setLive('off'); }, [ex.id]);
   useEffect(() => { if (pref !== '3d') setLive((l) => (l === 'on' ? 'off' : l)); }, [pref]);
   useBackOnline(failed.length > 0, () => { setFailed([]); setTries((t) => t + 1); });
@@ -384,7 +399,7 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
     return () => clearTimeout(t);
   }, [pref, ex.id]);
   if (ex.noImages) return <Breath ex={ex} height={height} style={style} />;
-  const all = mediaKinds(ex);
+  const all = mediaKinds(ex, no3d);
   const kinds = all.filter((m) => !failed.includes(m.k));
   const kind = kinds.find((m) => m.k === pref)?.k ?? kinds[0]?.k;
   const missed = pref !== kind && failed.includes(pref) ? pref : null;
@@ -432,12 +447,17 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
                   </View>
                 )}
               </View>
+            ) : k === '3d' && !(ex.id in ANATOMY) ? (
+              // No clip for this exercise: the live figure itself is the 3D view. If it can't start, the old views return.
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2 }]}>
+                {!paused && <Live3D spec={spec} onFail={() => { live3dBroken = true; setNo3d(true); }} />}
+              </View>
             ) : k === '3d' ? (
               <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2 }]}>
                 {/* The clip is the guided tour. "Explore in 3D" opens the live figure on top; if the phone can't draw it, the clip stays. */}
                 <Image source={ANATOMY[ex.id]} contentFit="contain" autoplay={!paused && live !== 'on'} style={{ flex: 1, margin: 6 }} accessibilityLabel={`${ex.name}, 3D muscle view`} />
-                {live === 'on' && !paused && <Live3D move={LIVE_MOVES[ex.id]} onFail={() => setLive('failed')} />}
-                {ex.id in LIVE_MOVES && live !== 'failed' && (
+                {live === 'on' && !paused && <Live3D move={LIVE_MOVES[ex.id]} onFail={() => { live3dBroken = true; setNo3d(true); setLive('failed'); }} />}
+                {ex.id in LIVE_MOVES && live !== 'failed' && !no3d && (
                   <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={live === 'on' ? 'Back to the guided clip' : 'Explore in 3D: turn and zoom the figure'}
                     onPress={() => { haptic(); setLive(live === 'on' ? 'off' : 'on'); }} style={[md.live, { backgroundColor: live === 'on' ? c.card : c.accent }]}>
                     <Ionicons name={live === 'on' ? 'close' : 'cube-outline'} size={14} color={live === 'on' ? c.text : c.accentInk} />
@@ -456,6 +476,9 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
             <Ionicons name="cloud-outline" size={14} color={c.text} />
             <T v="small" color={c.text}>Needs internet once · then saved on your phone</T>
           </Animated.View>
+        )}
+        {no3d && !missed && kind && has3d(ex) && !(ex.id in ANATOMY) && (
+          <View style={md.note}><T v="small" color={c.text}>The 3D view didn’t start on this phone, so here are the earlier views.</T></View>
         )}
         {missed && kind && (
           <View style={md.note}><T v="small" color={c.text}>{`${NAME[missed]} didn’t load, so here’s the ${NAME[kind].toLowerCase()}. It switches back by itself once you’re online.`}</T></View>

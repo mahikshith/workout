@@ -39,6 +39,24 @@ bends the figure, so it costs almost no processor time. It uses the same moves a
 (`web/moves.js`). If the page cannot start (no WebGL, an error, or nothing drawn within 20 s) the app stays on the clip,
 and a phone that draws it slowly gets a coarser picture.
 
+## Every exercise in 3D
+
+The live view can show any exercise the app's 2D animation can show. `web/drive.js` runs the app's own 2D solver
+(`src/data/poses.ts`, with its limb lengths set to the 3D figure's) and turns each body segment to point the way its 2D
+bone points: side views turn about the left-right axis, front views about the front-back axis, mat views lie on the
+back. It adds the equipment the pose names (dumbbells, barbell, kettlebell, ball, plate, band or cable, pull-up and dip
+bars, bench with back pad, box, wall, treadmill, leg-press plate, bike). The app passes `{ pose, primary, secondary }`
+in the address (`#j=`).
+
+The app offers this 3D view where the movement data can be trusted (`has3d` in `src/ui.tsx`): not borrowed from another
+movement, posture agreeing with the name and steps, and not listed in `src/data/no3d.ts`. To check the movements:
+
+    node --experimental-strip-types --no-warnings scripts/anatomy3d/dump.mjs all.json   # from the repo root
+    node scripts/anatomy3d/sheet.cjs all.json assets/anatomy/live.html sheets          # start and end picture of each distinct movement
+
+On 2026-11-12 all 446 distinct movements were looked at this way. 888 exercises pass; 135 borrow a movement and keep
+their photo or drawing; 6 are listed in `no3d.ts`.
+
 ## reference/
 
 Study material only; nothing in it ships. `load.py` and `build.py` read the open BodyParts3D 4.0 model, and

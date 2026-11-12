@@ -36,5 +36,8 @@ speed with shadows, "Real glass blur" (You, off by default), drawings in long li
   "How to do it" button.
 - 3D view: Bodyweight Squat and Butterfly have a "3D" view in the demo switch. The figure is our own, made in code,
   so it needs no credit. See `scripts/anatomy3d/README.md` for how the model and a clip are made.
+- 3D on every exercise: 888 exercises now have the live 3D figure, driven by the same movement data as the 2D animation.
+  There the 3D view replaces animation, photo and video; the drawing stays. The other 155 keep their old views. If the
+  live view cannot start on a phone, the old views come back by themselves.
 - Explore in 3D: on those two exercises a button on the 3D clip opens the live figure, which can be turned, zoomed,
   slowed down and paused. It falls back to the clip if the phone cannot draw it. Not yet tried on a phone.
