@@ -5,7 +5,7 @@ import { writeFileSync } from 'node:fs';
 register('../ts-loader.mjs', import.meta.url);
 const { exercises } = await import(new URL('../../src/data/exercises.ts', import.meta.url));
 const { poseFor, postureMismatch, POSES } = await import(new URL('../../src/data/poses.ts', import.meta.url));
-const out = exercises.filter((e) => !e.noImages).map((e) => {
+const out = exercises.filter((e) => !e.noImages || POSES[e.id]?.d3).map((e) => {
   const { pose, matched } = poseFor(e);
   return { id: e.id, name: e.name, equipment: e.equipment, primary: e.primary, secondary: e.secondary, pose, own: e.id in POSES, matched, weak: !!pose.weak, mismatch: postureMismatch(e) };
 });

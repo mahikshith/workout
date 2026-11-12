@@ -65,15 +65,32 @@ stay on it while the body moves. A bar carried on the back leans with the should
 
 ### Movements only the 3D figure can show
 
-Some movements leave the flat figure's drawing plane. Five optional fields on a pose (`src/data/poses.ts`) are read
+Some movements leave the flat figure's drawing plane. Some optional fields on a pose (`src/data/poses.ts`) are read
 only here: `twist` (the upper body turns about the spine), `tilt` (a front-view movement done bent over, or lying or
 leaning chest down on a bench or the floor), `clasp` (both hands meet), `splay` (the near thigh opens to the side) and
 `swing` (the forearm turns about the upper arm). Such a pose is marked `d3`: the 3D view shows it, while the flat
 animation keeps treating it as borrowed and stays hidden. An arm that reaches across the body is swung in front of
 the chest.
 
-On 2026-11-12 all 516 distinct movements were looked at on sheets, and the 97 newly written ones one by one. 979
-exercises pass; 38 still borrow a movement and keep their photo or drawing; 6 are listed in `no3d.ts`.
+`turn` is the general tool for everything else: a list of extra turns made after the flat pose, each
+`[parts, line, start, end]` in degrees. Parts are `body`, `trunk`, `head`, or `arm`, `fore`, `hand`, `leg`, `shank`,
+`foot` (both sides as a mirror image, or one side with `R` for near and `L` for far in front). The line is `x`, `y`,
+`z` in the room, `px`, `py`, `pz` on the pelvis, `spine`, `bone` (the part's own long line), `up` (the line of the
+part above it) or `cone` (the part leans off its line and the lean goes round, for circles). Lying on the side is a
+pose made lying on the back and then rolled a quarter turn (`ON_SIDE` in poses.ts). With it go `rise`, `sway`,
+`slide` and `orbit` (where the pelvis is, when the flat pose cannot know), `tilt2` (a tilt that changes), `rest` (a
+ball or foam roller under a 3D body part), `kit` (plate held like a wheel, roller stick, machine bar at the feet,
+doorway, rolling bars, low box), `pass` (a kettlebell handed from hand to hand) and `az`, `el` (where the camera starts).
+
+Finding the sign of a turn by thought is slow; draw it. `joints.cjs` prints where every joint
+is in millimetres, which settles whether a hand is on the floor or a leg crossed to the right side.
+
+On 2026-11-12 all 516 distinct movements were looked at on sheets, and the 97 newly written ones one by one. Later
+that day the 38 that still borrowed a movement and the 6 that were held back got their own, and 7 desk and mobility
+drills that have no pictures (neck tilt, seated twist, wrist stretch, figure four, seated leg raise, hip circles,
+marching) got a 3D figure beside their timer. Every exercise with pictures now has a 3D view (1,023), and
+`src/data/no3d.ts` is empty. The other 13 drills without pictures (pelvic floor, breathing, eyes, jaw, chin tuck)
+have no body movement to show and keep the timer only.
 
 ## reference/
 

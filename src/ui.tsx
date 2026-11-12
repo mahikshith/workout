@@ -12,7 +12,7 @@ import { router, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { frames, MEDIA, origin, type Exercise } from './data/exercises';
-import { poseFor, postureMismatch } from './data/poses';
+import { POSES, poseFor, postureMismatch } from './data/poses';
 import { Figure } from './figure';
 import { G as ArtG, Path as ArtPath } from 'react-native-svg';
 import { ART, type Art } from './data/art';
@@ -341,7 +341,8 @@ const KINDS: { k: MediaPref; label: string }[] = [{ k: '3d', label: '3D' }, { k:
 // not borrowed from another movement, posture agreeing with the name and steps, and not on the list of movements that
 // looked wrong when every one was checked on picture sheets (src/data/no3d.ts).
 const live3dOk: Record<string, boolean> = {};
-export const has3d = (ex: Exercise) => (live3dOk[ex.id] ??= !ex.noImages && (poseFor(ex).pose.d3 || (!poseFor(ex).pose.weak && !postureMismatch(ex))) && !NO_3D.has(ex.id));
+// A drill without pictures (desk and mobility moves) has it only when its own movement was written for the 3D figure.
+export const has3d = (ex: Exercise) => (live3dOk[ex.id] ??= (ex.noImages ? !!POSES[ex.id]?.d3 : !!poseFor(ex).pose.d3 || (!poseFor(ex).pose.weak && !postureMismatch(ex))) && !NO_3D.has(ex.id));
 let live3dBroken = false; // set once the live view fails to start on this device; the old views come back for this run
 // A borrowed animation of a different movement is never offered; those exercises show their photo or drawing.
 // Where an exercise has its 3D view, that replaces the animation, photo and video; the drawing stays. If the live view
@@ -388,7 +389,8 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
   const [live, setLive] = useState<'off' | 'on' | 'failed'>('off'); // the 3D view the user can turn; the clip is under it
   const [no3d, setNo3d] = useState(live3dBroken);
   const spec = useMemo(() => ({ name: ex.name, pose: poseFor(ex).pose, primary: ex.primary, secondary: ex.secondary }), [ex.id]);
-  useEffect(() => { setFailed([]); setLive('off'); }, [ex.id]);
+  const [timer, setTimer] = useState(false); // drills without pictures: the timer instead of the 3D figure
+  useEffect(() => { setFailed([]); setLive('off'); setTimer(false); }, [ex.id]);
   useEffect(() => { if (pref !== '3d') setLive((l) => (l === 'on' ? 'off' : l)); }, [pref]);
   useBackOnline(failed.length > 0, () => { setFailed([]); setTries((t) => t + 1); });
   useEffect(() => { if (!prev) return; const t = setTimeout(() => setPrev(null), 250); return () => clearTimeout(t); }, [prev]);
@@ -398,7 +400,27 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
     const t = setTimeout(() => setOnline(false), 3500);
     return () => clearTimeout(t);
   }, [pref, ex.id]);
-  if (ex.noImages) return <Breath ex={ex} height={height} style={style} />;
+  if (ex.noImages) {
+    // A drill with no pictures keeps its timer. Where the 3D figure can show the move, the two share the pane with a switch.
+    if (no3d || !has3d(ex)) return <Breath ex={ex} height={height} style={style} />;
+    return (
+      <View style={style}>
+        <View style={md.switch}>
+          {([['3d', '3D view'], ['timer', 'Timer']] as const).map(([k, label]) => (
+            <Pressable key={k} hitSlop={6} accessibilityRole="button" accessibilityState={{ selected: (k === 'timer') === timer }}
+              onPress={() => { if ((k === 'timer') !== timer) { haptic(); setTimer(k === 'timer'); } }} style={[md.opt, (k === 'timer') === timer && { backgroundColor: c.accent }]}>
+              <T v="small" color={(k === 'timer') === timer ? c.accentInk : c.text}>{label}</T>
+            </Pressable>
+          ))}
+        </View>
+        {timer ? <Breath ex={ex} height={height} /> : (
+          <View style={{ height, borderRadius: r.lg, backgroundColor: c.card2, overflow: 'hidden', borderWidth: 1, borderColor: c.line }}>
+            {!paused && <Live3D spec={spec} onFail={() => { live3dBroken = true; setNo3d(true); }} />}
+          </View>
+        )}
+      </View>
+    );
+  }
   const all = mediaKinds(ex, no3d);
   const kinds = all.filter((m) => !failed.includes(m.k));
   const kind = kinds.find((m) => m.k === pref)?.k ?? kinds[0]?.k;

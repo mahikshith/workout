@@ -41,7 +41,7 @@ export function makeDriven(spec, J, seg, meta = {}) {
   // ---- hands. A hand that holds something closes around it, and turns about its own long axis until the fingers
   // wrap the way the handle runs (a barbell runs across the body, parallel bars run front to back).
   const hasFing = !!meta.curl, X0 = new THREE.Vector3(1, 0, 0), Y0 = new THREE.Vector3(0, 1, 0);
-  const holds = (s) => ['dumbbell', 'barbell', 'kettlebell', 'bar', 'band'].includes(pose.prop) && (s === 'R' || !pose.one);
+  const holds = (s) => (['dumbbell', 'barbell', 'kettlebell', 'bar', 'band'].includes(pose.prop) || pose.kit === 'wheel' || pose.kit === 'stick') && (s === 'R' || !pose.one);
   const oneBell = pose.prop === 'kettlebell' && !pose.one && pose.view !== 'front' && !/two|double|alternating|seesaw|arnold|renegade|plyo|floor press/i.test(spec.name || '');
   const together = (oneBell || pose.clasp) && !front; // both hands on one handle: the arms close in to the middle
   const dipBars = pose.prop === 'bar' && !front && b.wr0[1] > b.sh0[1];
@@ -86,6 +86,30 @@ export function makeDriven(spec, J, seg, meta = {}) {
   // means legs forward along the floor, opened as far as the 2D hips open
   const openOf = (o, n) => Math.abs(ang(o['hp' + n], o['kn' + n]) - 180);
   const floorSit = front && !mat && !pose.sit && pose.ground === 'floor' && Math.abs(pose.start.spine) < 30 && openOf(b, '0') > 40 && openOf(b, '1') > 40;
+
+  // ---- extra turns only the 3D figure can make (pose.turn): which segments a named part moves, and about which line
+  const Z0 = new THREE.Vector3(0, 0, 1);
+  const CH = { arm: ['upper', 'fore', 'hand'], fore: ['fore', 'hand'], hand: ['hand'], leg: ['thigh', 'shank', 'foot'], shank: ['shank', 'foot'], foot: ['foot'] };
+  const NEXT = { upper: ['sh', 'el'], fore: ['el', 'wr'], hand: ['wr', 'tip'], thigh: ['hip', 'knee'], shank: ['knee', 'ank'] }, UPOF = { fore: 'upper', hand: 'fore', shank: 'thigh', foot: 'shank' };
+  const chainOf = (part, a) => {
+    if (part === 'body') return [[Object.keys(a).map((k) => [k, 1]), 'pelvis', 1]];
+    if (part === 'trunk') return [[[['lumbar', 0.4], ['chest', 1], ['neck', 1], ['head', 1], ...['R', 'L'].flatMap((s) => CH.arm.map((k) => [s + k, 1]))], 'lumbar', 1]];
+    if (part === 'head') return [[[['neck', 0.5], ['head', 1]], 'head', 1]];
+    const m = /^([RL]?)(arm|fore|hand|leg|shank|foot)$/.exec(part);
+    if (!m) return [[[[part, 1]], part, 1]];
+    return (m[1] ? [m[1]] : ['R', 'L']).map((s) => [CH[m[2]].map((k) => [s + k, 1]), s + CH[m[2]][0], !m[1] && s === 'L' ? -1 : 1]); // a pair turns as a mirror image; a named side turns as written
+  };
+  const boneDir = (k, a) => {
+    const s = k[0], n = NEXT[k.slice(1)];
+    return (n && (s === 'R' || s === 'L') ? v(s + n[1]).sub(v(s + n[0])) : v('neck').sub(v('pel'))).normalize().applyMatrix4(a[n ? k : 'chest'] || I);
+  };
+  const axisOf = (axis, pivot, a) => {
+    if (axis === 'x') return X0.clone(); if (axis === 'y') return Y0.clone(); if (axis === 'z') return Z0.clone();
+    if (axis === 'px' || axis === 'py' || axis === 'pz') return (axis === 'px' ? X0 : axis === 'py' ? Y0 : Z0).clone().applyMatrix4(a.pelvis);
+    if (axis === 'spine') return v('neck').sub(v('pel')).normalize().applyMatrix4(a.lumbar);
+    if (axis === 'up') { const u = UPOF[pivot.slice(1)]; return u ? boneDir(pivot[0] + u, a) : axisOf('spine', pivot, a); }
+    return boneDir(pivot, a); // 'bone': the part's own long line
+  };
 
   function pose3(p) {
     const o = solve(pose, b, p), a = {}, curl = {};
@@ -146,15 +170,32 @@ export function makeDriven(spec, J, seg, meta = {}) {
       for (const k of ['chest', 'neck', 'Rupper', 'Rfore', 'Rhand', 'Lupper', 'Lfore', 'Lhand']) a[k] = mul(Q(1), a[k]);
       a.head = mul(Q(0.75), a.head);
     }
-    const lean = front && pose.tilt ? Rx(pose.tilt) : null, whole = lean && !pose.sit && (pose.ground === 'bench' || pose.ground === 'floor');
+    if (pose.turn) for (const [parts, axis, a0, a1] of pose.turn) for (const part of parts.split(',')) for (const [keys, pivot, sg] of chainOf(part, a)) {
+      const val = axis === 'cone' ? a0 : a0 + (a1 - a0) * p; let ax;
+      if (axis === 'cone') { // the part leans `a0` degrees off its own line and that lean goes round once per repeat
+        const d = boneDir(pivot, a), e1 = new THREE.Vector3().crossVectors(d, Math.abs(d.z) < 0.9 ? Z0 : X0).normalize(), e2 = new THREE.Vector3().crossVectors(d, e1), f = (360 * p + a1) * Math.PI / 180 * sg;
+        ax = e1.multiplyScalar(Math.cos(f)).addScaledVector(e2, Math.sin(f));
+      } else ax = axisOf(axis, pivot, a);
+      const mir = axis === 'x' || axis === 'px' || axis === 'cone' ? 1 : sg;
+      for (const [k, w] of keys) if (a[k]) a[k] = mul(new THREE.Matrix4().makeRotationAxis(ax, val * w * mir * Math.PI / 180), a[k]);
+    }
+    const tl = pose.tilt2 != null ? pose.tilt + (pose.tilt2 - pose.tilt) * p : pose.tilt;
+    const lean = front && pose.tilt ? Rx(tl) : null, whole = lean && !pose.sit && (pose.ground === 'bench' || pose.ground === 'floor');
     if (lean) for (const k in a) if (whole || !/thigh|shank|foot/.test(k)) a[k] = mul(lean, a[k]);
     if (mat) for (const k in a) a[k] = mul(lie, a[k]);
     const at = mat ? new THREE.Vector3(o.pelvis[0] * U, o.pelvis[1] * U, 118) : room(o.pelvis);
     if (floorSit) at.z = 112;
+    if (pose.rise) at.z = lerp(pose.rise) * U;
+    if (pose.slide) at.y -= lerp(pose.slide) * U;
+    if (pose.orbit) { // the hips draw a level circle while the feet stay where they are
+      const f = 2 * Math.PI * p, dx = pose.orbit * U * Math.cos(f), dy = pose.orbit * U * Math.sin(f); at.x += dx; at.y += dy;
+      for (const s of ['R', 'L']) { const d = v(s + 'ank').sub(v(s + 'hip')).applyMatrix4(a[s + 'thigh']), d2 = d.clone().sub(new THREE.Vector3(dx, dy, 0)), Q = new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(d.clone().normalize(), d2.normalize())); for (const k of ['thigh', 'shank']) a[s + k] = mul(Q, a[s + k]); }
+    }
     if (whole) { // lying or leaning chest down: flat on the floor or a flat bench, or on an incline with the feet on the floor
-      if (pose.tilt >= 80) at.set(at.x, 0, pose.ground === 'floor' ? 112 : 560);
+      if (pose.rise) { /* placed by hand */ } else if (pose.tilt >= 80) at.set(at.x, 0, pose.ground === 'floor' ? 112 : 560);
       else { const an = v('Lank'), up = v('pel').sub(new THREE.Vector3(0, an.y, an.z)); up.x = 0; at.copy(up.applyMatrix4(lean)).add(new THREE.Vector3(at.x, an.y, an.z)); }
     }
+    if (pose.sway) at.x += lerp(pose.sway) * U;
     last = { o, p };
     return { abs: a, curl, plant: false, shift: at.sub(v('pel')), hang: pose.prop === 'bar' };
   }
@@ -182,9 +223,10 @@ export function makeDriven(spec, J, seg, meta = {}) {
     movers.push(() => { const c = grip(s), d = handle(s); h.put(c.clone().addScaledVector(d, -95), c.clone().addScaledVector(d, 95)); w1.put(c.clone().addScaledVector(d, -105), c.clone().addScaledVector(d, -60)); w2.put(c.clone().addScaledVector(d, 60), c.clone().addScaledVector(d, 105)); });
   }
   // one bell held in both hands by the same handle (swings, goblet squat), unless the name says there are two
-  if (pose.prop === 'kettlebell') for (const s of oneBell ? ['R'] : hands) {
+  if (pose.prop === 'kettlebell') for (const s0 of oneBell || pose.pass ? ['R'] : hands) {
     const k = ball(92, dark), h = stick(13, dark);
     movers.push(() => {
+      const s = pose.pass && last.p > 0.5 ? 'L' : s0; // handed from one hand to the other half way
       const c = oneBell ? grip('R').add(grip('L')).multiplyScalar(0.5) : grip(s), d = foreDir(s).multiplyScalar(0.45).addScaledVector(Z, -0.9).normalize();
       const upF = Math.max(0, foreDir(s).z); k.position.copy(c).addScaledVector(d, 140 + 70 * upF); if (!oneBell) k.position.x += (s === 'L' ? 1 : -1) * 75 * upF; /* the bell hangs under the hand; with the forearm upright it rests against the outside of the wrist */
       const hd = oneBell ? grip('L').sub(grip('R')).normalize() : handle(s), w = oneBell ? Math.max(55, grip('L').distanceTo(grip('R')) / 2 + 45) : 55;
@@ -223,10 +265,32 @@ export function makeDriven(spec, J, seg, meta = {}) {
   }
   if (pose.machine === 'sled') { const s = slab(520, 30, 420, steel, 0, 0, 0); movers.push(() => { const { p, R } = seg(), m = p.Rfoot.clone().add(p.Lfoot).multiplyScalar(0.5); s.quaternion.setFromRotationMatrix(mul(R.Rfoot, Rx(90))); s.position.copy(new THREE.Vector3(0, -40, -95).applyMatrix4(R.Rfoot).add(m)); }); }
   if (pose.under) {
-    const u = pose.under, k = ball(u.r * U, soft);
+    const u = pose.under, k = u.fixed ? stick(u.r * U, soft) : ball(u.r * U, soft);
     const ux = (o) => (u.mid ? (o[u.at][0] + o[u.mid][0]) / 2 : o[u.at][0]);
     const fixedX = (ux(solve(pose, b, 0)) + ux(solve(pose, b, 1))) / 2;
-    movers.push(() => { k.position.copy(room([u.fixed ? fixedX : ux(last.o), -u.r])); });
+    movers.push(() => { const c = room([u.fixed ? fixedX : ux(last.o), -u.r]); if (u.fixed) k.put(c.clone().addScaledVector(across, -230), c.clone().addScaledVector(across, 230)); else k.position.copy(c); });
+  }
+  if (pose.rest) { // a ball or foam roller under a part of the body, wherever the 3D figure has put it
+    const u = pose.rest, k = u.roller ? stick(u.r * U, soft) : ball(u.r * U, soft); let c0 = null;
+    movers.push(() => {
+      const { p } = seg(), c = new THREE.Vector3(); u.on.forEach((n) => c.add(p[n])); c.multiplyScalar(1 / u.on.length); c.z = u.r * U; if (u.dx) c.x += u.dx * U; if (u.dy) c.y -= u.dy * U;
+      if (u.fixed) c0 = c0 || c.clone();
+      const q = c0 || c; if (u.roller) { const d = u.along ? Y : X; k.put(q.clone().addScaledVector(d, -230), q.clone().addScaledVector(d, 230)); } else k.position.copy(q);
+    });
+  }
+  if (pose.kit === 'wheel') { const d = stick(1, dark); movers.push(() => { const a = grip('R'), e = grip('L'), c = a.clone().add(e).multiplyScalar(0.5), n = foreDir('R').add(foreDir('L')).normalize(), r = a.distanceTo(e) / 2 + 12; d.put(c.clone().addScaledVector(n, -14), c.clone().addScaledVector(n, 14)); d.scale.x = d.scale.z = r; }); }
+  if (pose.kit === 'stick') { const d = stick(30, soft); movers.push(() => { const a = grip('R'), c = grip('L'), n = c.clone().sub(a).normalize(); d.put(a.addScaledVector(n, -70), c.addScaledVector(n, 70)); }); }
+  if (pose.kit === 'footbar') { // a machine's bar pushed by the soles of the feet
+    const bar = stick(14, steel), p1 = stick(215, dark), p2 = stick(215, dark);
+    movers.push(() => { const { p, R } = seg(), c = new THREE.Vector3(0, -60, -70).applyMatrix4(R.Rfoot).add(p.Rfoot.clone().add(p.Lfoot).multiplyScalar(0.5)); c.x = 0; bar.put(c.clone().addScaledVector(X, -900), c.clone().addScaledVector(X, 900)); p1.put(c.clone().addScaledVector(X, -880), c.clone().addScaledVector(X, -830)); p2.put(c.clone().addScaledVector(X, 830), c.clone().addScaledVector(X, 880)); });
+  }
+  if (pose.kit === 'rollbars') { // two short bars on the floor that roll apart under the hands
+    for (const sd of ['R', 'L']) { const bar = stick(13, steel), p1 = stick(70, dark), p2 = stick(70, dark); movers.push(() => { const c = grip(sd); c.z = 70; bar.put(c.clone().addScaledVector(Y, -330), c.clone().addScaledVector(Y, 330)); p1.put(c.clone().addScaledVector(Y, -320), c.clone().addScaledVector(Y, -280)); p2.put(c.clone().addScaledVector(Y, 280), c.clone().addScaledVector(Y, 320)); }); }
+  }
+  if (pose.kit === 'midbox') slab(24 * U, 420, 6.5 * U, padM, 0, 0, 3.25 * U); // a low box in the middle, stepped over from side to side
+  if (pose.kit === 'door') { // the two sides of a doorway, where the hands are at the start
+    const l = stick(45, wallM), r = stick(45, wallM); let done = false;
+    movers.push(() => { if (done) return; done = true; for (const [s, m] of [['R', r], ['L', l]]) { const c = grip(s); m.put(new THREE.Vector3(c.x, c.y - 30, 0), new THREE.Vector3(c.x, c.y - 30, 2050)); } });
   }
   // fixed things, placed from the start pose
   const still = [];
@@ -239,6 +303,7 @@ export function makeDriven(spec, J, seg, meta = {}) {
       return;
     }
     if (lying) { // a flat bench under the back
+      if (pose.rise) { const top = pel.z - 165; slab(420, 1950, 70, padM, 0, pel.y + 150, top - 35); slab(90, 90, Math.max(10, top - 70), steel, 0, pel.y - 500, (top - 70) / 2); slab(90, 90, Math.max(10, top - 70), steel, 0, pel.y + 800, (top - 70) / 2); return; } // lying on the side along a bench
       const mid = pel.clone().add(p.neck).multiplyScalar(0.5), top = Math.min(pel.z, p.neck.z) - 118;
       slab(320, pel.distanceTo(p.neck) + 420, 70, padM, 0, mid.y, top - 35); slab(90, 90, Math.max(10, top - 70), steel, 0, mid.y - 330, (top - 70) / 2); slab(90, 90, Math.max(10, top - 70), steel, 0, mid.y + 330, (top - 70) / 2);
       return;
@@ -270,7 +335,7 @@ export function makeDriven(spec, J, seg, meta = {}) {
     per: cycleSeconds(pose) * tempo, phase: (t) => phase(pose, t)[0], keepProps: true,
     pose: pose3,
     props: () => { if (!built) { built = true; still.forEach((f) => f()); } movers.forEach((f) => f()); return g; },
-    shots: [{ az: mat ? -20 : front ? (pose.tilt ? -52 : -16) : pose.twist || pose.splay || pose.swing ? -40 : -62, el: mat ? 1.3 : 0.2, zoom: 1, f: 0 }],
+    shots: [{ az: pose.az != null ? pose.az : mat ? -20 : front ? (pose.tilt ? -52 : -16) : pose.twist || pose.splay || pose.swing ? -40 : -62, el: pose.el != null ? pose.el : mat ? 1.3 : 0.2, zoom: 1, f: 0 }],
     angles: () => {
       const out = [];
       if (kind === 'sh') out.push([pt(nb), pt(j), pt(na).clone().sub(pt(j)), JOINT.sh, true]); // arm against the line of the body
