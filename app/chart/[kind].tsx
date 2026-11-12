@@ -155,10 +155,10 @@ function Strength() {
             </ScrollView>
           )}
           <Panel value={lastSet ? `${lastSet.weight} kg × ${lastSet.reps}` : '-'}
-            cap={`${byId[cur ?? '']?.name ?? 'Lift'} · best set last time · about ${cur ? Math.round(best[cur]) : 0} kg for one rep`}
-            empty={!topIds.length && 'Log sets with weight to see your lifts'} act={{ title: "See today's workout", onPress: toToday }}>
+            cap={`Best set last time · 1 rep ≈ ${cur ? Math.round(best[cur]) : 0} kg`}
+            empty={!topIds.length && 'No lifts logged yet'} act={{ title: "Today's workout", onPress: toToday }}>
             <Draw k={cur ?? ''}><LineChart values={curve} fmt={(v) => `${Math.round(v)} kg`} height={140} color={dom.train} /></Draw>
-            <T v="small">Estimated one-rep max · last {curve.length} session{curve.length === 1 ? '' : 's'}</T>
+            <T v="small">Est. 1-rep max · last {curve.length}</T>
           </Panel>
         </Card>
       </Animated.View>
@@ -168,7 +168,7 @@ function Strength() {
           <Section title="Top lifts">
             <View style={{ gap: 8 }}>
               {lifts.slice(0, 5).map(([id, v], i) => (
-                <ListRow key={id} icon={i === 0 ? 'trophy' : 'barbell'} title={byId[id]?.name ?? id} sub={`#${i + 1} · estimated one-rep max`}
+                <ListRow key={id} icon={i === 0 ? 'trophy' : 'barbell'} title={byId[id]?.name ?? id} sub="Est. 1-rep max"
                   onPress={() => setPick(id)} right={<T v="h3" color={dom.train}>{Math.round(v)} kg</T>} />
               ))}
             </View>
@@ -192,7 +192,7 @@ function Strength() {
                 </Row>
               ))}
             </Card>
-          ) : <ListRow icon="body-outline" title="No muscle data yet" sub="Train this month to fill it in" />}
+          ) : <ListRow icon="body-outline" title="No sets this month" />}
         </Section>
       </Animated.View>
 
@@ -200,8 +200,8 @@ function Strength() {
         <Section title="Volume">
           <Card>
             <Panel value={byReps ? Math.round(repAvg) : kgShort(volAvg)} unit={byReps ? 'reps a week' : 'kg a week'}
-              cap={byReps ? 'Bodyweight sets · average week · 12 weeks' : 'Average training week · 12 weeks'}
-              empty={!volWeeks.length && !repWeeks.length && 'Finish a workout to see volume'}>
+              cap={byReps ? 'Bodyweight · average week' : 'Average week'}
+              empty={!volWeeks.length && !repWeeks.length && 'No workouts yet'}>
               <Draw k={byReps ? 'reps' : 'vol'}>
                 <LineChart values={byReps ? repTrend : volTrend} fmt={(v) => (byReps ? `${Math.round(v)} reps` : `${kgShort(v)} kg`)} height={120} color={dom.train} />
               </Draw>
@@ -273,12 +273,11 @@ function Weight() {
               <Button title={same ? 'Logged' : 'Log'} icon={same ? 'checkmark' : undefined} style={{ height: 44, paddingHorizontal: 22 }}
                 onPress={() => { logWeight(+kg.toFixed(1)); haptic('success'); }} />
             </Row>
-            <T v="small">One entry a day · logging again replaces today's</T>
             {today !== null && (
               <Animated.View entering={FadeIn.duration(200)}>
-                <Row gap={8}>
+                <Row gap={8} accessible accessibilityLabel={`Saved, ${today.toFixed(1)} kg today. One entry a day: logging again replaces today's`}>
                   <Ionicons name="checkmark-circle" size={18} color={c.ok} />
-                  <T v="small" color={c.text}>Saved · {today.toFixed(1)} kg today</T>
+                  <T v="small" color={c.text}>Saved {today.toFixed(1)} kg · log again to replace</T>
                 </Row>
               </Animated.View>
             )}
@@ -332,7 +331,7 @@ function BodyWatch() {
   const imported = Object.values(workouts).sort((a, b) => b.start.localeCompare(a.start));
   const hasData = Object.keys(daily).length > 0 || imported.length > 0 || Object.keys(strapHrv).length > 0;
   if (!hcOn && !strap && !hasData) {
-    return <Empty icon="watch-outline" title="No watch connected yet" action="Connect a watch" onPress={toWatch} />;
+    return <Empty icon="watch-outline" title="No watch yet" action="Connect watch" onPress={toWatch} />;
   }
 
   const steps = latest(daily, 'steps', 1);
@@ -374,7 +373,7 @@ function BodyWatch() {
             </Animated.View>
           ))}
         </View>
-      ) : <Empty icon="sync-outline" title="Waiting for the next sync" />}
+      ) : <Empty icon="sync-outline" title="Waiting for sync" />}
 
       {st && (
         <Animated.View entering={enter(3)}>
@@ -420,7 +419,7 @@ function BodyWatch() {
               ))}
               {imported.length > 10 && <T v="small">Latest 10 of {imported.length}</T>}
             </View>
-          ) : <ListRow icon="watch-outline" color={c.muted} title="No imported workouts" sub="Workouts from your watch show here" />}
+          ) : <ListRow icon="watch-outline" color={c.muted} title="No watch workouts yet" />}
         </Section>
       </Animated.View>
 
@@ -486,12 +485,12 @@ function Fuel() {
             </Panel>
           )}
           {fu === 'kcal' && (
-            <Panel value={kcalAvg || '-'} unit={kcalAvg ? 'kcal' : undefined} cap={`Average logged day · target ${t.kcal}`} empty={kcalLogged.length < 2 && 'Log meals on two days to see this'}>
+            <Panel value={kcalAvg || '-'} unit={kcalAvg ? 'kcal' : undefined} cap={`Average day · target ${t.kcal}`} empty={kcalLogged.length < 2 && 'Log meals on 2+ days'}>
               <LineChart values={kcalLogged} goal={t.kcal} fmt={(v) => `${Math.round(v)}`} height={120} color={dom.kcal} />
             </Panel>
           )}
           {fu === 'meals' && (
-            <Panel value={(totalMeals / 14).toFixed(1)} cap={`Meals a day · 3+ on ${fullDays} of 14 days`} empty={!totalMeals && 'Log meals on the Fuel tab'} />
+            <Panel value={(totalMeals / 14).toFixed(1)} cap={`Meals a day · 3+ on ${fullDays}/14 days`} empty={!totalMeals && 'Log meals on the Fuel tab'} />
           )}
         </Draw>
       </Card>

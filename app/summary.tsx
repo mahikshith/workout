@@ -14,7 +14,8 @@ import { byId } from '../src/data/exercises';
 import { planById } from '../src/data/plans';
 import { FoodSheet } from '../src/foodsheet';
 import { sessionMinutes } from '../src/glance';
-import { SOURCE_LINE } from '../src/health/energy';
+import { SOURCE_LINE, type EnergySource } from '../src/health/energy';
+import { Meta, Tip } from '../src/tip';
 import { useSessionEnergy } from '../src/health/useEnergy';
 import { CountUp, EASE, EASE_POP, Empty, Header, toToday } from '../src/kit';
 import { useStore, type MealSlot, type Session } from '../src/store';
@@ -27,6 +28,8 @@ import { Button, haptic, IconBox, ListRow, Row, Section, T, Tap, Thumb } from '.
 // is one tap away from the first moment): Log a meal opens the food sheet in place and Add water counts up in place.
 
 const { width: W, height: H } = Dimensions.get('window');
+// SOURCE_LINE in one or two words, for the line under the calories (the full sentence is behind the (i)).
+const SOURCE_SHORT: Record<EnergySource, string> = { watch: 'Watch', 'heart rate': 'From heart rate', estimate: 'Estimate' };
 // Confetti colours are read at render (c.accent changes at runtime).
 function Confetti({ i, color }: { i: number; color: string }) {
   const p = useSharedValue(0);
@@ -71,14 +74,16 @@ function Burn({ s, i, gentle }: { s: Session; i: number; gentle: boolean }) {
     return (
       <Animated.View entering={FadeInDown.delay(340).duration(400).easing(EASE)} style={[s2.hr, { marginTop: 12 }]}>
         <IconBox icon="heart-outline" color={c.pink} size={32} />
-        <T v="small" style={{ flex: 1 }}>Heart rate shows once your watch syncs</T>
+        <T v="small" style={{ flex: 1 }}>Heart rate comes after sync</T>
       </Animated.View>
     );
   }
   const hrText = en.avgHr ? (en.maxHr ? `avg ${en.avgHr} bpm · max ${en.maxHr}` : `avg ${en.avgHr} bpm`) : null;
-  const title = showKcal ? `Burned ${en.source === 'watch' ? '' : 'about '}${en.kcal} kcal` : hrText;
+  const title = showKcal ? `Burned ${en.source === 'watch' ? '' : '~'}${en.kcal} kcal` : hrText;
+  // Where the numbers come from: one short word on screen, the full sentence behind the (i).
   const from = showKcal ? SOURCE_LINE[en.source] : hr?.origin === STRAP_ORIGIN ? 'Heart rate from your strap' : 'Heart rate from your watch';
-  const sub = [showKcal ? hrText : null, from, showKcal && en.source === 'watch' && waiting ? 'heart rate follows when your watch syncs' : null].filter(Boolean).join(' · ');
+  const fromShort = showKcal ? SOURCE_SHORT[en.source] : hr?.origin === STRAP_ORIGIN ? 'Strap' : 'Watch';
+  const later = showKcal && en.source === 'watch' && waiting;
   const rows = s.items.map((it, k) => ({ it, e: en.perExercise[k], peaks: hr?.sets?.length === s.items.length ? hr.sets[k] : undefined })).filter((x) => x.e);
   return (
     <Animated.View entering={FadeInDown.delay(120 + i * 60).duration(400).easing(EASE)} style={[s2.hr, { marginTop: 12, flexDirection: 'column', alignItems: 'stretch' }]}>
@@ -86,8 +91,13 @@ function Burn({ s, i, gentle }: { s: Session; i: number; gentle: boolean }) {
         <IconBox icon={showKcal ? 'flame' : 'heart'} color={showKcal ? dom.kcal : c.pink} size={32} />
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <T v="h3" numberOfLines={1} style={{ fontVariant: ['tabular-nums'] }}>{title}</T>
-          <T v="small" numberOfLines={2}>{sub}</T>
+          <Meta items={[
+            showKcal && !!hrText && { icon: 'heart-outline', text: hrText },
+            { icon: en.source === 'watch' || !showKcal ? 'watch-outline' : en.source === 'heart rate' ? 'pulse-outline' : 'calculator-outline', text: fromShort },
+            later && { icon: 'sync-outline', text: 'HR after sync' },
+          ]} />
         </View>
+        <Tip title={showKcal ? 'Calories' : 'Heart rate'} text={[from, later ? 'Heart rate follows when your watch syncs' : null].filter(Boolean).join('. ') + '.'} />
       </Row>
       {rows.length > 0 && (
         <Tap onPress={() => { setOpen(!open); haptic('light'); }} style={s2.more} feedback="none" accessibilityLabel={open ? 'Hide the split by exercise' : 'Show the split by exercise'}>
@@ -116,15 +126,15 @@ function Burn({ s, i, gentle }: { s: Session; i: number; gentle: boolean }) {
               )}
             </View>
           ))}
-          {hr?.sets?.some((r0) => r0.some(Boolean)) && <T v="small" color={c.dim}>{'The chips are each set\'s peak heart rate'}</T>}
-          {hr?.rest && <T v="small" color={c.dim}>Between sets your heart rate averaged {hr.rest.avg} bpm</T>}
-          {hr?.sparse && <T v="small" color={c.dim}>Your watch saved too few readings to show each set</T>}
+          {hr?.sets?.some((r0) => r0.some(Boolean)) && <T v="small" color={c.dim}>Chips: peak heart rate per set</T>}
+          {hr?.rest && <T v="small" color={c.dim}>Between sets: avg {hr.rest.avg} bpm</T>}
+          {hr?.sparse && <T v="small" color={c.dim}>Too few readings for each set</T>}
         </View>
       )}
       {!linked && (
         <Tap onPress={() => router.push('/watch')} style={s2.more} feedback="none" accessibilityLabel="Connect a watch for measured calories and heart rate">
           <Ionicons name="watch-outline" size={16} color={c.muted} />
-          <T v="small" style={{ flex: 1 }}>Connect a watch for measured calories and heart rate</T>
+          <T v="small" style={{ flex: 1 }}>Connect a watch</T>
           <Ionicons name="chevron-forward" size={16} color={c.muted} />
         </Tap>
       )}
@@ -176,7 +186,7 @@ export default function Summary() {
     };
   }, [s?.id]);
 
-  if (!s || !result) return <View style={{ flex: 1, backgroundColor: c.bg }}><Header title="Workout" /><Empty icon="checkmark-circle-outline" title="This page is no longer here" action="Back to Today" onPress={toToday} /></View>;
+  if (!s || !result) return <View style={{ flex: 1, backgroundColor: c.bg }}><Header title="Workout" /><Empty icon="checkmark-circle-outline" title="Workout not found" action="Today" onPress={toToday} /></View>;
   const { records, fresh, lv, lvBefore } = result;
   const gentle = profile.gentle || profile.concerns?.includes('food');
   const mins = sessionMinutes(s); // the same rounding as Progress and History
@@ -195,10 +205,10 @@ export default function Summary() {
     const day = prog?.today;
     if (!ch || !prog || !day || prog.over || !day.tasks.some((t) => t.done && t.task.kind !== 'steps' && t.task.kind !== 'protein' && t.task.kind !== 'water')) return null;
     const week = prog.weeks?.find((w) => w.from <= prog.todayIdx && prog.todayIdx <= w.to);
-    const where = week ? `${Math.min(week.have, week.need)} of ${week.need} this week` : `Day ${prog.todayIdx + 1} of ${ch.days}`;
+    const where = week ? `${Math.min(week.have, week.need)}/${week.need} this week` : `Day ${prog.todayIdx + 1}/${ch.days}`;
     if (day.done) return { done: true, title: 'Challenge day done', sub: `${ch.name} · ${where}` };
     const left = day.tasks.find((t) => !t.done);
-    return { done: false, title: `${ch.name} · workout counted`, sub: left ? `Still today: ${taskTitle(left.task, ctx)}` : where };
+    return { done: false, title: `${ch.name} · counted`, sub: left ? `Still today: ${taskTitle(left.task, ctx)}` : where };
   })();
 
   return (
@@ -241,8 +251,8 @@ export default function Summary() {
           <Animated.View entering={FadeInDown.delay(380).duration(400).easing(EASE)} style={[s2.hr, { marginTop: 12 }]}>
             <IconBox icon="calendar-outline" color={dom.train} size={32} />
             <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-              <T v="h3" numberOfLines={1}>Next time · {nextName}</T>
-              <T v="small" numberOfLines={1}>{plan!.name} moves on by itself</T>
+              <T v="h3" numberOfLines={1}>Next: {nextName}</T>
+              <T v="small" numberOfLines={1}>{plan!.name}</T>
             </View>
           </Animated.View>
         )}
@@ -275,7 +285,7 @@ export default function Summary() {
           <Row gap={10} style={{ marginTop: 32 }}>
             <Tap onPress={() => setFood(true)} style={s2.action}>
               <Ionicons name="restaurant" size={18} color={c.pink} />
-              <T v="h3">Log a meal</T>
+              <T v="h3">Log meal</T>
             </Tap>
             <Tap onPress={() => drink()} style={s2.action} accessibilityLabel={`Add ${water.glass} ml of water${water.ml ? `, ${ml(water.ml)} today` : ''}`}>
               <Ionicons name={water.ml ? 'add' : 'water'} size={18} color={c.blue} />

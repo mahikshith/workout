@@ -16,6 +16,7 @@ import { EASE, Header, useMiniBarSpace } from '../src/kit';
 import { useStore } from '../src/store';
 import { useTracker } from '../src/tracker';
 import { c, dom, r, tint } from '../src/theme';
+import { Meta, Tip } from '../src/tip';
 import { Card, IconBox, ListRow, Row, Section, T, Tap } from '../src/ui';
 
 export default function History() {
@@ -90,9 +91,14 @@ export default function History() {
         <Animated.View entering={enter(0)}>
           <View style={[s.streak, { backgroundColor: tint(dom.streak, 0.9), borderColor: tint(dom.streak, 1.6) }]}>
             <IconBox icon="flame" color={dom.streak} size={44} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <T v="h2">{st ? `${st} day streak` : sessions.length ? 'Start a new streak' : 'Your streak starts here'}</T>
-              <T v="small" numberOfLines={2}>{sessions.length ? `Best ${best} · ${sessions.length} workouts in all · 3 days off ends it` : 'Log a workout and this calendar fills in'}</T>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Row gap={4}>
+                <T v="h2" style={{ flexShrink: 1 }}>{st ? `${st} day streak` : sessions.length ? 'Start a new streak' : 'No streak yet'}</T>
+                <Tip title="Streak" text={sessions.length ? 'Counts your training days. 3 days off ends it.' : 'Log a workout and this calendar fills in. 3 days off ends a streak.'} />
+              </Row>
+              {sessions.length > 0 && (
+                <Meta items={[{ icon: 'trophy-outline', text: `Best ${best}` }, { icon: 'barbell-outline', text: `${sessions.length} total` }]} />
+              )}
             </View>
           </View>
         </Animated.View>
@@ -105,7 +111,7 @@ export default function History() {
                 <Tap onPress={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonth(d); }} scale={0.98} feedback="none"
                   accessibilityLabel={`${monthName}. Back to this month`} style={{ alignItems: 'center', minHeight: 44, justifyContent: 'center' }}>
                   <T v="h3">{monthName}</T>
-                  <T v="small" color={c.accent}>Back to today</T>
+                  <T v="small" color={c.accent}>Today</T>
                 </Tap>
               )}
               <Tap onPress={() => shift(1)} style={s.nav} accessibilityLabel="Next month"><Ionicons name="chevron-forward" size={18} color={c.text} /></Tap>
@@ -126,7 +132,7 @@ export default function History() {
               <Row gap={8} style={{ marginTop: 10, paddingHorizontal: 4 }}>
                 <Ionicons name="flame" size={16} color={dom.kcal} />
                 <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1, fontVariant: ['tabular-nums'] }}>
-                  {sum.kcalPerWeek !== undefined ? `About ${sum.kcalPerWeek.toLocaleString()} kcal a week` : `${sum.kcal!.toLocaleString()} kcal so far`}
+                  {sum.kcalPerWeek !== undefined ? `~${sum.kcalPerWeek.toLocaleString()} kcal/week` : `${sum.kcal!.toLocaleString()} kcal so far`}
                 </T>
                 {sum.kcalEst && <T v="small" color={c.dim}>{days.every((d) => !d || d.kcal === undefined || d.est) ? 'estimated' : 'part estimated'}</T>}
               </Row>
@@ -135,26 +141,29 @@ export default function History() {
             <Animated.View key={month.toISOString()} entering={still ? undefined : FadeIn.duration(220)}>
               <MonthGrid days={days} onPick={setDay} onSwipe={shift} showKcal={showKcal} />
             </Animated.View>
-            <Legend showKcal={showKcal} />
-            <T v="small" color={c.dim} style={{ marginTop: 10 }}>{showKcal ? 'The number under a day is the calories burned · tap a day for details' : 'Tap a day for details · swipe for other months'}</T>
+            {/* The colour key and how to use the grid, one tap away. */}
+            <Row gap={2} style={{ justifyContent: 'flex-end', marginTop: 4 }}>
+              <Tip title="Calendar key" label="Key" color={c.dim} size={16}>
+                <Legend showKcal={showKcal} />
+                <T v="body" color={c.soft}>{showKcal ? 'The number under a day is the calories burned. Tap a day for details; swipe for other months.' : 'Tap a day for details; swipe for other months.'}</T>
+              </Tip>
+            </Row>
           </Card>
         </Animated.View>
 
         {/* Where the watch numbers come from. */}
         <Animated.View entering={enter(2)} style={{ marginTop: 12 }}>
           {hasWatch ? (
-            <Tap onPress={() => router.push('/tracker')} style={s.watch} scale={0.98} accessibilityLabel="From your watch: open Tracker">
+            <Tap onPress={() => router.push('/tracker')} style={s.watch} scale={0.98} accessibilityLabel={`From your watch${kinds.length ? `, sends ${kinds.join(', ')}` : ''}: open Tracker`}>
               <IconBox icon="watch-outline" color={c.blue} />
               <View style={{ flex: 1, gap: 2 }}>
                 <T v="h3" numberOfLines={1}>From your watch</T>
-                <T v="small" numberOfLines={2}>{[apps.length ? apps.join(', ') : hc.connected ? 'Health Connect' : ring?.name ?? strap?.name ?? 'Your watch', lastSync ? `synced ${syncedAgo(lastSync)}` : null].filter(Boolean).join(' · ')}</T>
-                <T v="small" numberOfLines={1} color={c.dim}>{kinds.length ? `Sends ${kinds.join(', ')}` : 'Nothing synced lately'}</T>
+                <T v="small" numberOfLines={2}>{[apps.length ? apps.join(', ') : hc.connected ? 'Health Connect' : ring?.name ?? strap?.name ?? 'Your watch', lastSync ? `synced ${syncedAgo(lastSync)}` : null, kinds.length ? null : 'nothing lately'].filter(Boolean).join(' · ')}</T>
               </View>
               <Ionicons name="chevron-forward" size={18} color={c.muted} />
             </Tap>
           ) : (
-            <ListRow icon="watch-outline" color={c.blue} title="Add your watch" sub={gentle ? 'Its runs and walks show here' : 'Its runs and calories show here'}
-              onPress={() => router.push('/watch')} style={s.watch} />
+            <ListRow icon="watch-outline" color={c.blue} title="Add your watch" onPress={() => router.push('/watch')} style={s.watch} />
           )}
         </Animated.View>
 
@@ -177,7 +186,7 @@ export default function History() {
                       </Row>
                       {((!gentle && e.kcal > 0) || hr) && (
                         <Row gap={12} style={{ flexWrap: 'wrap', rowGap: 6 }}>
-                          {!gentle && e.kcal > 0 && <Row gap={6}><Ionicons name="flame" size={14} color={dom.kcal} /><T v="small" color={c.text} style={{ fontVariant: ['tabular-nums'] }}>{e.source === 'watch' ? '' : 'about '}{e.kcal} kcal</T></Row>}
+                          {!gentle && e.kcal > 0 && <Row gap={6}><Ionicons name="flame" size={14} color={dom.kcal} /><T v="small" color={c.text} style={{ fontVariant: ['tabular-nums'] }}>{e.source === 'watch' ? '' : '~'}{e.kcal} kcal</T></Row>}
                           {hr && <Row gap={6}><Ionicons name="heart" size={14} color={dom.heart} /><T v="small" color={c.text} style={{ fontVariant: ['tabular-nums'] }}>{hr}</T></Row>}
                           {!gentle && e.kcal > 0 && <SourceBadge source={e.source} />}
                         </Row>
@@ -199,7 +208,7 @@ export default function History() {
         </Animated.View>
 
         <Section title="Habits">
-          <ListRow icon="water" color={c.blue} title="Fuel and water" sub={`Water on target ${waterDays} of 14 days`} onPress={() => router.push('/chart/fuel')} />
+          <ListRow icon="water" color={c.blue} title="Fuel and water" sub={`Water goal ${waterDays}/14 days`} onPress={() => router.push('/chart/fuel')} />
         </Section>
       </ScrollView>
       <DaySheet day={day} onClose={() => setDay(null)} />

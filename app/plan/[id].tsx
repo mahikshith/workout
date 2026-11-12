@@ -12,7 +12,8 @@ import { goalWeeks, timeline } from '../../src/data/expect';
 import { Empty, Header, Segmented, openWorkout, toToday } from '../../src/kit';
 import { runSetupFinish } from '../../src/setupflow';
 import { useStore } from '../../src/store';
-import { SafetyNote } from '../../src/safety';
+import { PLAN_ICON, SafetyLink } from '../../src/plansui';
+import { Meta, Tip } from '../../src/tip';
 import { c, f, r } from '../../src/theme';
 import { Button, Card, Fold, haptic, IconBox, Row, Screen, Section, T, Tap, Thumb, Tile } from '../../src/ui';
 import { Enter, useOpenSession } from '../library';
@@ -21,7 +22,8 @@ import { Ambient } from '../../src/glass';
 type Icon = keyof typeof Ionicons.glyphMap;
 const STEPS: Icon[] = ['school-outline', 'trending-up-outline', 'shirt-outline', 'trophy-outline'];
 
-const rest = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)}${sec % 60 ? `:${String(sec % 60).padStart(2, '0')}` : ''} min rest` : `${sec}s rest`);
+const rest = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)}${sec % 60 ? `:${String(sec % 60).padStart(2, '0')}` : ''} min` : `${sec}s`);
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 // One point inside a Fold: icon, then the line.
 const Line = ({ icon, text, color = c.muted }: { icon: Icon; text: string; color?: string }) => (
@@ -45,7 +47,7 @@ export default function PlanDetail() {
   const ins = useSafeAreaInsets();
   // The schedule opens on the week you are in (for your current plan), so its sets match the workout's.
   const [wk, setWk] = useState(() => (plan && plan.id === planId ? String(planWeek(plan, planStart, sessions) % 4) : '0'));
-  if (!plan) return <View style={{ flex: 1, backgroundColor: c.bg }}><Header title="Plan" /><Empty icon="calendar-outline" title="This page is no longer here" action="Back to Today" onPress={toToday} /></View>;
+  if (!plan) return <View style={{ flex: 1, backgroundColor: c.bg }}><Header title="Plan" /><Empty icon="calendar-outline" title="No longer here" action="Back to Today" onPress={toToday} /></View>;
   const goal = goalWeeks(profile);
   // Welcome: the plan engine's top two reasons. A setup preview passes them (its answers aren't saved yet).
   const reasons = welcome ? (why ? why.split('\n') : explain(profile, plan.id)).filter(Boolean).slice(0, 2) : [];
@@ -93,10 +95,10 @@ export default function PlanDetail() {
           <T v="small" color={c.text} style={{ flex: 1 }}>{`Healthy pace: about ${goal.perWeek} kg a week, roughly ${goal.weeks} weeks. Slower is fine; steady wins.`}</T>
         </Row>
       )}
-      <T v="small">Social media shows the result, not the months behind it. Consistency gets you there.</T>
+      <T v="small">Social media shows the result, not the months behind it.</T>
       <T v="label" style={{ marginTop: 8 }}>Food and supplements</T>
       {plan.tips.map((t) => <Line key={t} icon="nutrition-outline" text={t} />)}
-      <T v="small" color={c.dim}>General advice, not medical advice. Check with your doctor if you have a health condition.</T>
+      <T v="small" color={c.dim}>Not medical advice. Health condition? Ask your doctor.</T>
     </Fold>
   );
 
@@ -107,19 +109,25 @@ export default function PlanDetail() {
       <Screen top={4}>
         {/* Summary: what the plan is, in three numbers. */}
         <Enter>
-          <T v="label" color={c.accent}>
-            {welcome ? `Your plan is ready${profile.name ? `, ${profile.name}` : ''}` : `${plan.category} · ${plan.level} · ${plan.place === 'any' ? 'anywhere' : plan.place}`}
-          </T>
+          {welcome ? (
+            <T v="label" color={c.accent}>{`Your plan is ready${profile.name ? `, ${profile.name}` : ''}`}</T>
+          ) : (
+            <Meta color={c.accent} items={[
+              { icon: PLAN_ICON[plan.category], text: plan.category },
+              { icon: 'bar-chart-outline', text: cap(plan.level) },
+              { icon: 'location-outline', text: plan.place === 'any' ? 'Anywhere' : cap(plan.place) },
+            ]} />
+          )}
           {welcome && <T v="display" style={{ marginTop: 8 }}>{plan.name}</T>}
           {isCurrent && !welcome && (
             <Row gap={8} style={[s.current, { backgroundColor: c.accent }]}>
               <Ionicons name="checkmark-circle" size={16} color={c.accentInk} />
-              <T v="small" color={c.accentInk} style={{ fontFamily: f.semi }}>Your current plan</T>
+              <T v="small" color={c.accentInk} style={{ fontFamily: f.semi }}>Your plan</T>
             </Row>
           )}
           <T v="body" color={c.muted} style={{ marginTop: 8 }}>{plan.tagline}</T>
           {!isCurrent && !welcome && (
-            <Button title={planId ? 'Switch to this plan' : 'Start this plan'} icon="checkmark" style={{ marginTop: 16 }} onPress={() => { setPlan(plan.id); leave(); }} />
+            <Button title={planId ? 'Switch plan' : 'Start plan'} icon="checkmark" style={{ marginTop: 16 }} onPress={() => { setPlan(plan.id); leave(); }} />
           )}
           {welcome && reasons.map((line) => (
             <Row key={line} gap={8} style={{ marginTop: 10 }}>
@@ -130,7 +138,7 @@ export default function PlanDetail() {
           {welcome && (
             <Row gap={8} style={{ marginTop: 12 }}>
               <Ionicons name="sparkles" size={16} color={c.accent} />
-              <T v="small" numberOfLines={1} style={{ flex: 1 }}>Picked for you · switch anytime in Plans</T>
+              <T v="small" numberOfLines={1} style={{ flex: 1 }}>Picked for you · change in Plans</T>
             </Row>
           )}
           <Row gap={12} style={{ marginTop: 20 }}>
@@ -149,12 +157,14 @@ export default function PlanDetail() {
             {plan.weeks > 4 && (
               <Row gap={8} style={{ marginTop: 12 }}>
                 <Ionicons name="repeat" size={16} color={c.muted} />
-                <T v="small">{`Then repeat heavier · ${plan.weeks} weeks total`}</T>
+                <T v="small">{`Repeats heavier · ${plan.weeks} weeks`}</T>
               </Row>
             )}
             <Card style={{ marginTop: 12 }}>
-              <T v="h3">{weekTitle}</T>
-              <T v="small" style={{ marginTop: 4 }}>{week.note}</T>
+              <Row gap={4}>
+                <T v="h3" style={{ flexShrink: 1 }}>{weekTitle}</T>
+                {week.note ? <Tip title={weekTitle} text={week.note} /> : null}
+              </Row>
               <Row gap={4} style={{ marginTop: 12 }}>
                 {week.days.map((d, i) => (
                   <View key={i} style={[s.day, { backgroundColor: d.day ? c.accent : c.card2 }]}>
@@ -177,7 +187,7 @@ export default function PlanDetail() {
                   <View style={{ flex: 1, gap: 2 }}>
                     <T v="h3" numberOfLines={1}>{d.name}</T>
                     {doneNow
-                      ? <Row gap={4}><Ionicons name="checkmark-circle" size={14} color={c.ok} /><T v="small" color={c.ok}>Done this week</T></Row>
+                      ? <Row gap={4}><Ionicons name="checkmark-circle" size={14} color={c.ok} /><T v="small" color={c.ok}>Done</T></Row>
                       : <T v="small" numberOfLines={1}>{d.focus}</T>}
                   </View>
                   <Tap onPress={() => startDay(i, d)} style={[s.go, { borderColor: c.accent }]} scale={0.94} feedback="none">
@@ -191,7 +201,9 @@ export default function PlanDetail() {
                       <Thumb ex={byId[sl.id]} size={44} />
                       <View style={{ flex: 1 }}>
                         <T v="h3" numberOfLines={1} color={recent.has(sl.id) ? c.muted : c.text}>{byId[sl.id].name}</T>
-                        <T v="small" color={recent.has(sl.id) ? c.ok : c.muted}>{recent.has(sl.id) ? doneNote(recent.get(sl.id)!).text : rest(sl.rest)}</T>
+                        {recent.has(sl.id)
+                          ? <T v="small" color={c.ok}>{doneNote(recent.get(sl.id)!).text}</T>
+                          : <Meta items={[{ icon: 'timer-outline', text: rest(sl.rest) }]} />}
                       </View>
                       {recent.has(sl.id) ? <Ionicons name="checkmark-circle" size={24} color={c.ok} /> : <T v="small" color={c.text}>{sl.sets} × {sl.reps}</T>}
                     </Tap>
@@ -204,8 +216,7 @@ export default function PlanDetail() {
 
         {/* Reading sits behind at most two folds, so the page stays a schedule, not a wall of text. */}
         <Enter i={days.length + 3}>
-          <Section title="About">
-            <View style={{ gap: 12 }}>
+          <View style={{ gap: 12, marginTop: 32 }}>
               <Fold title="About this plan" icon="flash-outline">
                 <T v="body" color={c.muted}>{plan.about}</T>
                 <T v="label" style={{ marginTop: 8 }}>Who it’s for</T>
@@ -216,17 +227,15 @@ export default function PlanDetail() {
                 {plan.benefits.map((b) => <Line key={b} icon="checkmark-circle" color={c.accent} text={b} />)}
               </Fold>
               {!welcome && expect}
-            </View>
-          </Section>
+          </View>
         </Enter>
 
-        {welcome && <T v="small" color={c.dim} style={{ textAlign: 'center', marginTop: 24 }}>You can change your plan any time in Plans</T>}
       </Screen>
       {/* Welcome: the commit button stays on screen, so setup never needs a scroll to finish. */}
       {welcome && (
         <View style={[s.bar, { paddingBottom: ins.bottom + 12 }]}>
-          <Button title={preview ? 'Use this plan' : 'Start this plan'} icon="checkmark" onPress={() => { if (preview && runSetupFinish()) return; if (!isCurrent) setPlan(plan.id); toToday(); }} />
-          <SafetyNote center />
+          <Button title={preview ? 'Use plan' : 'Start plan'} icon="checkmark" onPress={() => { if (preview && runSetupFinish()) return; if (!isCurrent) setPlan(plan.id); toToday(); }} />
+          <SafetyLink lead="Not medical advice" center />
         </View>
       )}
     </View>

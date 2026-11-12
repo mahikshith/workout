@@ -12,6 +12,7 @@ import { Hint } from '../../src/hint';
 import { CountUp, DoorCard, EASE } from '../../src/kit';
 import { askPermission } from '../../src/notify';
 import { Sheet } from '../../src/sheet';
+import { Meta, Tip } from '../../src/tip';
 import { answered, setKey } from '../../src/glance';
 import { useStore, type Meal, type MealSlot, type Profile } from '../../src/store';
 import { clock, SupplementTicks, useMySupplements } from '../../src/supps';
@@ -104,7 +105,7 @@ export default function Fuel() {
                 <T v="small" color={over ? c.danger : c.muted}>{over ? 'kcal over' : isToday ? 'kcal left' : 'kcal under'}</T>
               </Ring>
             )}
-            {!gentle && <T v="small" color={c.text} numberOfLines={1}>{`${kcal.toLocaleString('en-US')} of ${t.kcal.toLocaleString('en-US')}`}</T>}
+            {!gentle && <T v="small" color={c.text} numberOfLines={1}>{`${kcal.toLocaleString('en-US')} / ${t.kcal.toLocaleString('en-US')}`}</T>}
           </View>
           <View style={{ flex: 1, minWidth: 0, gap: 14, justifyContent: 'center' }}>
             {!gentle && <Meter icon="nutrition" color={dom.protein} label="Protein" value={`${protein}`} goal={`${t.protein} g`} progress={protein / t.protein} />}
@@ -115,7 +116,7 @@ export default function Fuel() {
 
       {/* The one primary action: logging food. Two taps for a common food: this, then its +. */}
       <Animated.View entering={enter(2)}>
-        <Button title={isToday ? 'Log food' : `Log food to ${dayLabel(day).toLowerCase()}`} icon="add" onPress={() => openFood()} style={{ marginTop: 12 }} />
+        <Button title="Log food" icon="add" onPress={() => openFood()} style={{ marginTop: 12 }} />
       </Animated.View>
 
       {/* The four meals with what's in them. + logs straight to that meal; a food opens to change or remove it. */}
@@ -125,7 +126,7 @@ export default function Fuel() {
             const items = inSlot(x.id);
             const k = items.reduce((a, m) => a + m.kcal, 0), p = items.reduce((a, m) => a + m.protein, 0);
             const first = items.map((m) => m.at ?? 0).filter(Boolean).sort((a, b) => a - b)[0];
-            const sub = !items.length ? 'Nothing yet' : [timeOf(first), `${items.length} ${items.length === 1 ? 'food' : 'foods'}`].filter(Boolean).join(' · ');
+            const sub = !items.length ? '' : [timeOf(first), `${items.length} ${items.length === 1 ? 'food' : 'foods'}`].filter(Boolean).join(' · ');
             return (
               <View key={x.id} style={i > 0 && s.sep}>
                 <View style={s.slot}>
@@ -133,7 +134,7 @@ export default function Fuel() {
                     <IconBox icon={x.icon} color={items.length ? dom.kcal : c.muted} size={36} />
                     <View style={{ flex: 1, gap: 2 }}>
                       <T v="h3" numberOfLines={1}>{x.name}</T>
-                      <T v="small" numberOfLines={1}>{sub}</T>
+                      {!!sub && <T v="small" numberOfLines={1}>{sub}</T>}
                     </View>
                     {!gentle && items.length > 0 && (
                       <View style={{ alignItems: 'flex-end' }}>
@@ -161,7 +162,7 @@ export default function Fuel() {
           })}
         </Card>
       </Animated.View>
-      {list.length > 0 && <Hint id="fuel-edit" text="Tap a food to fix its numbers, move it or remove it." style={{ marginTop: 8 }} />}
+      {list.length > 0 && <Hint id="fuel-edit" text="Tap a food to edit it." style={{ marginTop: 8 }} />}
 
       {/* Protein: what's left today and the foods that close the gap fastest for this diet. */}
       <Animated.View entering={enter(4)}>
@@ -179,10 +180,11 @@ export default function Fuel() {
           <Card style={{ marginTop: 12, gap: 12 }}>
             <Row gap={12}>
               <IconBox icon="flask" color={c.ok} size={36} />
-              <View style={{ flex: 1, gap: 2 }}>
+              <View style={{ flexShrink: 1 }}>
                 <T v="h3" numberOfLines={1}>Supplements</T>
-                {supps.length > 0 && <T v="small" numberOfLines={1}>Tick what you’ve had today</T>}
               </View>
+              <Tip title="Supplements" text="Tick what you’ve had each day. Add protein shakes, creatine, coffee or vitamins, and get a reminder at your own time." />
+              <View style={{ flex: 1 }} />
               {supps.length > 0 && (
                 <Tap onPress={() => router.push('/supplements')} style={s.link} scale={0.95} accessibilityLabel="Supplements and reminders">
                   <T v="small" color={c.accent}>Reminders</T>
@@ -191,10 +193,7 @@ export default function Fuel() {
               )}
             </Row>
             {supps.length ? <SupplementTicks items={supps} /> : (
-              <>
-                <T v="small">Protein shake, creatine, coffee, vitamins? Add what you take and get a reminder at your time.</T>
-                <Button title="Add what you take" kind="ghost" icon="add" onPress={() => router.push('/supplements')} />
-              </>
+              <Button title="Add" kind="ghost" icon="add" onPress={() => router.push('/supplements')} />
             )}
           </Card>
         </Animated.View>
@@ -204,7 +203,7 @@ export default function Fuel() {
       <Animated.View entering={enter(6)} style={{ marginTop: 24 }}>
         <Fold title="Tips for you" icon="bulb">
           <Sub title="Today's plan" first>
-            <T v="small" color={c.text}>{gentle ? plan.title : `${plan.title} · about ${Math.round(t.protein / plan.items.length)} g protein each`}</T>
+            <T v="small" color={c.text}>{gentle ? plan.title : `${plan.title} · ~${Math.round(t.protein / plan.items.length)} g protein each`}</T>
             {plan.items.map((it, n) => {
               const nth = plan.items.slice(0, n).filter((x) => x.slot === it.slot).length; // second snack of the day
               const done = inSlot(it.slot).length > nth;
@@ -250,7 +249,7 @@ export default function Fuel() {
 
       {/* History of water, protein, calories and meals lives on its own chart screen. */}
       <Animated.View entering={enter(6)} style={{ marginTop: 12 }}>
-        <DoorCard compact icon="stats-chart" color={dom.kcal} title="Trends" meta={gentle ? 'Meals and water over time' : 'Calories, protein, water and meals'} onPress={() => router.push('/chart/fuel')} />
+        <DoorCard compact icon="stats-chart" color={dom.kcal} title="Trends" meta={gentle ? 'Meals and water' : 'Calories, protein, water'} onPress={() => router.push('/chart/fuel')} />
       </Animated.View>
 
       <FoodSheet open={!!ask} onClose={() => setAsk(null)} slot={ask?.slot} tab={ask?.tab} query={ask?.query} food={ask?.food} day={day} />
@@ -303,8 +302,8 @@ function ProteinCard({ day, left, goal, gentle, diet, onPick }: {
     }
   }
   const head = gentle ? 'Protein ideas'
-    : left <= 0 ? (isToday ? 'Protein goal reached' : 'Protein goal reached that day')
-    : isToday ? `${left} g protein to go` : `${goal - left} of ${goal} g protein`;
+    : left <= 0 ? 'Protein goal reached'
+    : isToday ? `${left} g protein to go` : `${goal - left} / ${goal} g protein`;
   return (
     <Card style={{ marginTop: 12, gap: 12 }}>
       <Row gap={12}>
@@ -312,11 +311,11 @@ function ProteinCard({ day, left, goal, gentle, diet, onPick }: {
         <View style={{ flex: 1, gap: 2 }}>
           <T v="h3" numberOfLines={1}>{head}</T>
           <T v="small" numberOfLines={2}>
-            {gentle ? 'Foods that help you recover. Tap one to log it.'
-              : left <= 0 ? 'Nice work. Anything more is a bonus.'
-              : !isToday ? 'Forgot something? Tap a food to add it to that day.'
-              : pair.length ? `Try ${pair.map((x, i) => (i ? x.name.toLowerCase() : x.name)).join(' and ')}: about ${pair.reduce((a, x) => a + x.protein, 0)} g.`
-              : `Your goal is ${goal} g a day. Tap a food to log it.`}
+            {gentle ? 'Tap one to log it'
+              : left <= 0 ? 'Nice work'
+              : !isToday ? 'Tap to add to that day'
+              : pair.length ? `Try ${pair.map((x, i) => (i ? x.name.toLowerCase() : x.name)).join(' + ')} · ~${pair.reduce((a, x) => a + x.protein, 0)} g`
+              : `Goal ${goal} g a day`}
           </T>
         </View>
       </Row>
@@ -354,14 +353,17 @@ function WaterCard({ day, onSettings }: { day: string; onSettings: () => void })
         <IconBox icon="water" color={dom.water} size={36} />
         <View style={{ flex: 1, gap: 2 }}>
           <T v="h3" numberOfLines={1}>{done ? 'Water goal reached' : 'Water'}</T>
-          <T v="small" numberOfLines={1}>{`${ml(w.glass)} a tap · ${hydration.on ? `reminder every ${hydration.every} min` : 'no reminders'}`}</T>
+          <Meta items={[
+            { icon: 'add-circle-outline', text: ml(w.glass) },
+            { icon: hydration.on ? 'notifications-outline' : 'notifications-off-outline', text: hydration.on ? `${hydration.every} min` : 'Off' },
+          ]} />
         </View>
         <Tap onPress={onSettings} style={s.gear} scale={0.9} accessibilityLabel="Water goal, glass size and reminders">
           <Ionicons name="options-outline" size={20} color={c.text} />
         </Tap>
       </Row>
       <View style={{ gap: 8 }}>
-        <T v="small" color={c.muted}><T v="h2" color={c.text}>{w.ml.toLocaleString('en-US')}</T>{` of ${ml(w.goal)}`}</T>
+        <T v="small" color={c.muted}><T v="h2" color={c.text}>{w.ml.toLocaleString('en-US')}</T>{` / ${ml(w.goal)}`}</T>
         <Bar color={dom.water} progress={w.ml / w.goal} height={10} />
       </View>
       {isToday ? (
@@ -375,7 +377,7 @@ function WaterCard({ day, onSettings }: { day: string; onSettings: () => void })
           </Tap>
         </Row>
       ) : (
-        <T v="small">{`${dayLabel(day)}. Water is logged on the day you drink it.`}</T>
+        <T v="small">Water logs on the day you drink it</T>
       )}
       {undo && (
         <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(200)} style={s.toast}>
@@ -414,11 +416,11 @@ function WaterSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
             <Tap onPress={() => setGoal(w.goal + 250)} style={s.step} scale={0.9} accessibilityLabel="250 ml more"><Ionicons name="add" size={22} color={c.text} /></Tap>
           </Row>
           {w.auto ? (
-            <T v="small" style={{ textAlign: 'center' }}>From your body weight: about 35 ml per kg</T>
+            <T v="small" style={{ textAlign: 'center' }}>~35 ml per kg body weight</T>
           ) : (
             <Tap onPress={() => setPrefs({ ...prefs, goalMl: auto, auto: true })} style={s.reset} scale={0.97}>
               <Ionicons name="refresh" size={14} color={c.accent} />
-              <T v="small" color={c.accent}>{`Use my body weight (${ml(auto)})`}</T>
+              <T v="small" color={c.accent}>{`Use body weight · ${ml(auto)}`}</T>
             </Tap>
           )}
         </View>
@@ -441,14 +443,14 @@ function WaterSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
         <View style={s.rule} />
         <Row>
           <View style={{ flex: 1, gap: 2 }}>
-            <T v="h3">Remind me to drink</T>
-            <T v="small">{`Every ${hydration.every} min, ${clock(hydration.from, 0)}–${clock(hydration.to, 0)} · stops at your goal`}</T>
+            <Row gap={2}><T v="h3">Remind me to drink</T><Tip title="Drink reminders" text="Reminders stop once you reach your daily goal." /></Row>
+            <T v="small">{`Every ${hydration.every} min · ${clock(hydration.from, 0)}–${clock(hydration.to, 0)}`}</T>
           </View>
           <Switch value={hydration.on} onValueChange={remind} accessibilityLabel="Remind me to drink"
             trackColor={{ true: c.accent, false: c.line }} ios_backgroundColor={c.line} thumbColor="#FFFFFF" />
         </Row>
         <Tap onPress={() => { onClose(); setTimeout(() => router.push('/reminders'), 180); }} style={s.reset} scale={0.97}>
-          <T v="small" color={c.accent}>Change times in Reminders</T>
+          <T v="small" color={c.accent}>Change times</T>
           <Ionicons name="chevron-forward" size={14} color={c.accent} />
         </Tap>
         <Button title="Done" onPress={onClose} />

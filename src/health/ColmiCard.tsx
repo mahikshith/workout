@@ -30,7 +30,7 @@ export function ColmiCard() {
           <IconBox icon="ellipse-outline" color={c.muted} />
           <View style={{ flex: 1 }}>
             <T v="h3">Smart ring</T>
-            <T v="small" numberOfLines={1}>Needs the Android app</T>
+            <T v="small" numberOfLines={1}>Android app only</T>
           </View>
         </Row>
       </Card>
@@ -66,7 +66,7 @@ function RingCard() {
     : st.status === 'connecting' ? 'Connecting'
     : st.status === 'syncing' ? 'Syncing'
     : connected ? [ring.battery != null ? `${ring.battery}%${ring.charging ? ' charging' : ''}` : null, ago(ring.lastSync)].filter(Boolean).join(' · ')
-    : st.error ? 'Not connected · try again near the ring' : 'Not connected';
+    : st.error ? 'Not connected · move closer' : 'Not connected';
 
   return (
     <>
@@ -99,10 +99,10 @@ function RingCard() {
         <View style={{ gap: 12 }}>
           <T v="h2">Find your ring</T>
           <T v="small" numberOfLines={1}>
-            {st.status === 'scanning' ? (st.found.length ? 'Tap your ring to connect' : 'Looking for rings')
+            {st.status === 'scanning' ? (st.found.length ? 'Tap yours to connect' : 'Looking for rings')
               : st.status === 'off' ? 'Turn on Bluetooth'
               : st.status === 'denied' ? 'Allow Nearby devices to connect'
-              : st.found.length ? 'Tap your ring to connect' : 'Nothing found. Take the ring off the charger and try again'}
+              : st.found.length ? 'Tap yours to connect' : 'Nothing found. Take it off the charger'}
           </T>
           <FlatList
             data={st.found.slice(0, 12)}

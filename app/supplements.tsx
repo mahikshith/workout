@@ -10,6 +10,7 @@ import { SafetyNote } from '../src/safety';
 import { Sheet } from '../src/sheet';
 import { addSupplement, catalogue, clock, dayList, removeSupplement, SupplementTicks, useMySupplements, type MySupp } from '../src/supps';
 import { TimePicker } from '../src/timepicker';
+import { Tip } from '../src/tip';
 import { useStore, type SupplementReminder } from '../src/store';
 import { c, f, r, tint } from '../src/theme';
 import { Button, Card, IconBox, Row, T, Tap } from '../src/ui';
@@ -43,9 +44,11 @@ export default function Supplements() {
   const enter = (i: number) => (still ? undefined : FadeInDown.delay(Math.min(i, 6) * 60).duration(380).easing(EASE));
   const options = catalogue(profile).filter((x) => !mine.some((m) => m.name === x.name));
   const pregnant = pregnancyWeek(profile) !== null || postpartumWeek(profile) !== null;
+  // Short on screen; the full caution is one tap away in its Tip.
   const caution = pregnant
-    ? 'Pregnant or breastfeeding: check with your doctor before taking anything new, and keep caffeine under about 200 mg a day.'
-    : profile.age < 18 ? 'Under 18: food first. Pre-workout and creatine are left out; ask a doctor before any supplement.' : null;
+    ? { short: 'Pregnant or breastfeeding? Ask your doctor first.', full: 'Pregnant or breastfeeding: check with your doctor before taking anything new, and keep caffeine under about 200 mg a day.' }
+    : profile.age < 18 ? { short: 'Under 18: food first.', full: 'Under 18: food first. Pre-workout and creatine are left out; ask a doctor before any supplement.' } : null;
+  const about = 'Tick what you take each day. Set a reminder for anything you take daily.';
   const item = mine.find((m) => m.name === edit) ?? null;
   const add = (n: string) => { addSupplement(n); setEdit(n); };
   const addCustom = () => { const n = name.trim(); if (!n) return; setCustom(false); setName(''); setTimeout(() => add(n.charAt(0).toUpperCase() + n.slice(1)), 250); };
@@ -56,20 +59,19 @@ export default function Supplements() {
         <Ambient />
         <Header title="Supplements" />
         <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: ins.bottom + 40 + mini }} showsVerticalScrollIndicator={false}>
-          <T v="small" style={{ marginTop: 4 }}>Tick what you take each day. Set a reminder for anything you take daily.</T>
-
           {caution && (
             <Animated.View entering={enter(1)} style={[s.note, { borderColor: tint(c.pink, 2.5), backgroundColor: tint(c.pink, 0.6) }]}>
               <Ionicons name="heart" size={18} color={c.pink} />
-              <T v="small" color={c.text} style={{ flex: 1 }}>{caution}</T>
+              <T v="small" color={c.text} style={{ flex: 1 }}>{caution.short}</T>
+              <Tip title="Before you start" text={caution.full} color={c.pink} />
             </Animated.View>
           )}
 
           {!granted && mine.some((m) => m.times.some((x) => x.on)) && (
             <Animated.View entering={enter(1)} style={[s.note, { borderColor: tint(c.accent, 2.5) }]}>
               <Ionicons name="notifications-off-outline" size={18} color={c.accent} />
-              <T v="small" color={c.text} style={{ flex: 1 }}>Notifications are off, so reminders can’t ring.</T>
-              <Tap onPress={async () => { if (await askPermission()) setGranted(true); else Linking.openSettings(); }} style={s.textBtn}>
+              <T v="small" color={c.text} style={{ flex: 1 }}>Notifications off</T>
+              <Tap onPress={async () => { if (await askPermission()) setGranted(true); else Linking.openSettings(); }} style={s.textBtn} accessibilityLabel="Turn on notifications so reminders can ring">
                 <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>Turn on</T>
               </Tap>
             </Animated.View>
@@ -78,7 +80,7 @@ export default function Supplements() {
           {/* Nothing added yet: the list to add from is the whole screen. */}
           {mine.length > 0 && (
             <Animated.View entering={enter(2)}>
-              <T v="h2" style={{ marginTop: 20, marginBottom: 12 }}>Today</T>
+              <Row gap={4} style={{ marginTop: 20, marginBottom: 12 }}><T v="h2">Today</T><Tip title="Supplements" text={about} /></Row>
               <Card style={{ gap: 14 }}>
                 <SupplementTicks items={mine} />
               </Card>
@@ -105,33 +107,37 @@ export default function Supplements() {
           )}
 
           <Animated.View entering={enter(4)}>
-            <T v="h2" style={{ marginTop: mine.length ? 32 : 20, marginBottom: 12 }}>{mine.length ? 'Add more' : 'Add what you take'}</T>
+            <Row gap={4} style={{ marginTop: mine.length ? 32 : 20, marginBottom: 12 }}>
+              <T v="h2">{mine.length ? 'Add more' : 'Add what you take'}</T>
+              {!mine.length && <Tip title="Supplements" text={about} />}
+            </Row>
             <Card style={{ paddingVertical: 4 }}>
               {options.map((x, i) => (
-                <Tap key={x.name} onPress={() => add(x.name)} scale={0.99} feedback="light" style={[s.row, i > 0 && s.sep, { alignItems: 'flex-start', paddingVertical: 12 }]}
+                <Tap key={x.name} onPress={() => add(x.name)} scale={0.99} feedback="light" style={[s.row, i > 0 && s.sep]}
                   accessibilityLabel={`Add ${x.short}`}>
                   <IconBox icon={x.icon} color={c.muted} size={36} />
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <T v="h3" numberOfLines={1}>{x.short}</T>
-                    <T v="small">{x.note}</T>
-                  </View>
-                  <Ionicons name="add-circle" size={28} color={c.accent} style={{ marginTop: 4 }} />
+                  <Row gap={2} style={{ flex: 1 }}>
+                    <T v="h3" numberOfLines={1} style={{ flexShrink: 1 }}>{x.short}</T>
+                    <Tip title={x.short} text={x.note} />
+                  </Row>
+                  <Ionicons name="add-circle" size={28} color={c.accent} />
                 </Tap>
               ))}
               <Tap onPress={() => setCustom(true)} scale={0.99} style={[s.row, options.length > 0 && s.sep]} accessibilityLabel="Add something else">
                 <IconBox icon="create-outline" color={c.accent} size={36} />
                 <View style={{ flex: 1 }}>
                   <T v="h3" numberOfLines={1}>Something else</T>
-                  <T v="small" numberOfLines={1}>Iron, magnesium, a daily habit…</T>
+                  <T v="small" numberOfLines={1}>Iron, magnesium, a habit…</T>
                 </View>
                 <Ionicons name="add-circle" size={28} color={c.accent} />
               </Tap>
             </Card>
           </Animated.View>
 
-          <View style={{ marginTop: 12 }}>
-            <SafetyNote text="Supplements are your choice. Read the label, and ask a doctor first if you are pregnant, have a health condition or take medication." />
-          </View>
+          <Row gap={4} style={{ marginTop: 12, alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><SafetyNote text="Your choice. Read the label." /></View>
+            <Tip title="Supplements are your choice" text="Read the label, and ask a doctor first if you are pregnant, have a health condition or take medication." style={{ marginTop: 4 }} />
+          </Row>
         </ScrollView>
       </View>
 
@@ -228,18 +234,17 @@ function EditSheet({ item, quietFrom, onClose, onPermission }: { item: MySupp | 
                   );
                 })}
               </Row>
-              <T v="small">{t.days.length && t.days.length < 7 ? `Only on ${dayList(t.days)}` : 'No days picked means every day.'}</T>
-              {quiet && t.on && !late && <Line icon="moon-outline" text="This is inside your quiet hours. It will still ring, because you picked it." />}
-              {late && <Line icon="warning-outline" color={c.warm} text={`Caffeine this late can cost you sleep. Try before ${clock((quietFrom + 18) % 24, 0)}.`} />}
+              {quiet && t.on && !late && <Line icon="moon-outline" text="In quiet hours. Still rings." />}
+              {late && <Line icon="warning-outline" color={c.warm} text={`May cost you sleep. Try before ${clock((quietFrom + 18) % 24, 0)}.`} />}
               {m.times.length > 1 && (
-                <Tap onPress={() => removeTime(t.id)} style={s.textBtn}><T v="small" color={c.danger}>Remove this time</T></Tap>
+                <Tap onPress={() => removeTime(t.id)} style={s.textBtn}><T v="small" color={c.danger}>Remove time</T></Tap>
               )}
             </View>
           )}
           {m.times.length < MAX_TIMES && (
             <Tap onPress={addTime} style={s.addTime} scale={0.97}>
               <Ionicons name="add" size={18} color={c.accent} />
-              <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>{m.times.length ? 'Add another time' : 'Add a reminder'}</T>
+              <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>{m.times.length ? 'Add time' : 'Add reminder'}</T>
             </Tap>
           )}
         </View>

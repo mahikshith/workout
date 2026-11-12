@@ -6,7 +6,9 @@ import { cheer, challengeById, challenges, GOALS, LEVELS, type Challenge, type G
 import { Header } from '../src/kit';
 import { extraPills, goalColor, goalTint, openChallenge, Pill, TodayTasks, useRecommended, useRun, useTaskActions } from '../src/challenges/use';
 import { useStore } from '../src/store';
-import { SafetyNote } from '../src/safety';
+import { SafetyLink } from '../src/plansui';
+import { Sheet } from '../src/sheet';
+import { Tip } from '../src/tip';
 import { c, dom, f, r, tint } from '../src/theme';
 import { Button, Chip, IconBox, Ring, Row, Screen, Section, T, Tap } from '../src/ui';
 import { Enter } from './library';
@@ -22,6 +24,7 @@ export function ChallengesBody() {
   const { act, sheet } = useTaskActions();
   const [level, setLevel] = useState<Level | 'All'>('All');
   const [goal, setGoal] = useState<GoalTag | 'Any'>('Any');
+  const [pickFilter, setPickFilter] = useState<'level' | 'goal' | null>(null);
 
   const forYou = useMemo(() => new Set(recs.slice(0, 3).map((x) => x.id)), [recs]);
   const finished = useMemo(() => new Set(past.filter((x) => x.completed).map((x) => x.id)), [past]);
@@ -61,10 +64,10 @@ export function ChallengesBody() {
                 </View>
               </Row>
               {prog.over ? (
-                <Button title={prog.completed ? 'Collect your badge' : 'See how it went'} icon={prog.completed ? 'trophy' : 'arrow-forward'} onPress={() => openChallenge(mine.id)} />
+                <Button title={prog.completed ? 'Collect badge' : 'Results'} icon={prog.completed ? 'trophy' : 'arrow-forward'} onPress={() => openChallenge(mine.id)} />
               ) : (
                 <View style={s.today}>
-                  <T v="label" style={{ marginBottom: 10 }}>{`Today · day ${prog.todayIdx + 1}`}</T>
+                  <T v="label" style={{ marginBottom: 10 }}>Today</T>
                   <TodayTasks prog={prog} act={act} showMakeUp={false} />
                 </View>
               )}
@@ -77,9 +80,8 @@ export function ChallengesBody() {
               <T v="label" color={goalColor(top)}>Picked for you</T>
               <Row gap={14}>
                 <IconBox icon={top.icon} color={goalColor(top)} size={56} />
-                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <View style={{ flex: 1, minWidth: 0 }}>
                   <T v="h1" numberOfLines={2}>{top.name}</T>
-                  <T v="small" color={c.soft} numberOfLines={2}>{top.tagline}</T>
                 </View>
               </Row>
               <Row gap={6} style={{ flexWrap: 'wrap' }}>
@@ -87,9 +89,10 @@ export function ChallengesBody() {
                 <Pill icon="calendar-outline" text={`${top.days} days`} />
                 <Pill icon="time-outline" text={top.effort} />
               </Row>
-              <Button title="Start this challenge" icon="flag" onPress={() => join(top)} />
-              <Tap onPress={() => openChallenge(top.id)} style={{ height: 44, alignItems: 'center', justifyContent: 'center', marginTop: -4 }} feedback="none">
-                <T v="small" color={c.text}>See what’s involved</T>
+              <Button title="Start" icon="flag" onPress={() => join(top)} />
+              <Tap onPress={() => openChallenge(top.id)} style={{ height: 44, alignItems: 'center', justifyContent: 'center', marginTop: -4 }} feedback="none"
+                accessibilityLabel={`Details of ${top.name}`}>
+                <T v="small" color={c.text}>Details</T>
               </Tap>
             </View>
           </Enter>
@@ -98,7 +101,7 @@ export function ChallengesBody() {
         {/* Badges earned: the trophy shelf. */}
         {badges.length > 0 && (
           <Enter i={1}>
-            <Section title="Your badges">
+            <Section title="Badges">
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} style={{ marginHorizontal: -12 }}>
                 <View style={{ width: 4 }} />
                 {badges.map((b, k) => {
@@ -117,24 +120,23 @@ export function ChallengesBody() {
           </Enter>
         )}
 
-        {/* Choosing is never a lock-in: say so where people choose. */}
-        <View style={{ marginTop: 12 }}>
-          <SafetyNote text="Switch or stop any time; your done days and badges stay. General fitness ideas, not medical advice." />
-        </View>
+        {/* Choosing is never a lock-in: say so where people choose (the full line sits behind the (i)). */}
+        <Row gap={2} style={{ marginTop: 12 }}>
+          <SafetyLink lead="Stop any time" />
+          <Tip title="Stop any time" text="Switch or stop any time; your done days and badges stay. General fitness ideas, not medical advice." />
+        </Row>
 
         <Enter i={2}>
           <Section title={mine ? 'More challenges' : 'All challenges'}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }} style={{ marginHorizontal: -12 }}>
-              {(['All', ...LEVELS] as const).map((l) => <Chip key={l} label={l} on={level === l} onPress={() => setLevel(l)} />)}
-            </ScrollView>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }} style={{ marginHorizontal: -12, marginTop: 8 }}>
-              {(['Any', ...goals] as const).map((g) => (
-                <Chip key={g} label={g === 'Any' ? 'Any goal' : g} on={goal === g} onPress={() => setGoal(g)} color={g === 'Any' ? c.accent : goalTint(g)} />
-              ))}
-            </ScrollView>
+            {/* Two filter chips instead of two rows of fifteen; each opens its options in a sheet. */}
+            <Row gap={8} style={{ flexWrap: 'wrap' }}>
+              <Chip icon="speedometer-outline" label={level === 'All' ? 'Level' : level} on={level !== 'All'} onPress={() => setPickFilter('level')} />
+              <Chip icon="flag-outline" label={goal === 'Any' ? 'Goal' : goal} on={goal !== 'Any'} color={goal === 'Any' ? c.accent : goalTint(goal)} onPress={() => setPickFilter('goal')} />
+              {filtered && <Chip icon="close" label="Clear" onPress={() => { setLevel('All'); setGoal('Any'); }} />}
+            </Row>
             <View style={{ gap: 12, marginTop: 16 }}>
-              {!filtered && picks.length > 0 && <T v="h3">Recommended for you</T>}
-              {!filtered && picks.map((ch) => <ChallengeRow key={ch.id} ch={ch} running={false} done={finished.has(ch.id)} forYou={forYou.has(ch.id)} />)}
+              {!filtered && picks.length > 0 && <T v="h3">For you</T>}
+              {!filtered && picks.map((ch) => <ChallengeRow key={ch.id} ch={ch} running={false} done={finished.has(ch.id)} forYou={false} />)}
               {!filtered && groups.map(({ g, all, total }) => (
                 <View key={g} style={{ gap: 12, marginTop: 12 }}>
                   <Row gap={8}>
@@ -155,13 +157,27 @@ export function ChallengesBody() {
               ))}
               {filtered && !list.length && (
                 <View style={s.empty}>
-                  <T v="body" color={c.muted} style={{ textAlign: 'center' }}>No challenge matches both filters.</T>
+                  <T v="body" color={c.muted} style={{ textAlign: 'center' }}>No matches</T>
                   <Tap onPress={() => { setLevel('All'); setGoal('Any'); }} style={{ height: 44, justifyContent: 'center' }}><T v="h3" color={c.accent}>Show all</T></Tap>
                 </View>
               )}
             </View>
           </Section>
         </Enter>
+      <Sheet open={!!pickFilter} onClose={() => setPickFilter(null)}>
+        <View style={{ gap: 12 }}>
+          <T v="h2">{pickFilter === 'goal' ? 'Goal' : 'Level'}</T>
+          <Row gap={8} style={{ flexWrap: 'wrap' }}>
+            {pickFilter === 'goal'
+              ? (['Any', ...goals] as const).map((g) => (
+                <Chip key={g} label={g === 'Any' ? 'Any goal' : g} on={goal === g} color={g === 'Any' ? c.accent : goalTint(g)} onPress={() => { setGoal(g); setPickFilter(null); }} />
+              ))
+              : (['All', ...LEVELS] as const).map((l) => (
+                <Chip key={l} label={l === 'All' ? 'All levels' : l} on={level === l} onPress={() => { setLevel(l); setPickFilter(null); }} />
+              ))}
+          </Row>
+        </View>
+      </Sheet>
       {sheet}
     </>
   );
@@ -180,7 +196,7 @@ function ChallengeRow({ ch, running, done, forYou, grouped }: { ch: Challenge; r
   const col = goalColor(ch);
   const extra = extraPills(ch)[0];
   return (
-    <Tap onPress={() => openChallenge(ch.id)} style={s.card} scale={0.98} accessibilityLabel={`${ch.name}, ${ch.level}, ${ch.days} days`}>
+    <Tap onPress={() => openChallenge(ch.id)} style={s.card} scale={0.98} accessibilityLabel={`${ch.name}, ${ch.level}, ${ch.days} days, ${ch.goal}${running ? ', yours' : done ? ', finished' : forYou ? ', for you' : ''}`}>
       <Row gap={12} style={{ alignItems: 'flex-start' }}>
         <IconBox icon={ch.icon} color={col} size={44} />
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
@@ -188,10 +204,9 @@ function ChallengeRow({ ch, running, done, forYou, grouped }: { ch: Challenge; r
             <T v="h3" numberOfLines={1} style={{ flexShrink: 1 }}>{ch.name}</T>
             {running ? <Tag text="Yours" color={c.accent} /> : done ? <Tag text="Finished" color={c.ok} icon="checkmark" /> : forYou ? <Tag text="For you" color={col} /> : null}
           </Row>
-          <T v="small" numberOfLines={2}>{ch.tagline}</T>
           {/* One line of pills: level, days, then the goal (or, inside a goal's block, the kit / who it's for); the last
               one shrinks rather than wrapping. */}
-          <Row gap={6} style={{ marginTop: 8 }}>
+          <Row gap={6} style={{ marginTop: 6 }}>
             <Pill text={ch.level} />
             <Pill text={`${ch.days} days`} />
             {grouped

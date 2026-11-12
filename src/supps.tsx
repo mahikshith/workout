@@ -103,10 +103,10 @@ export function SupplementTicks({ items }: { items: MySupp[] }) {
           style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 12, borderRadius: r.md, backgroundColor: tint(dom.protein, 0.8), borderWidth: 1, borderColor: tint(dom.protein, 2) }}>
           <Ionicons name="nutrition" size={18} color={dom.protein} />
           <T v="small" color={c.text} style={{ flex: 1 }} numberOfLines={2}>
-            {gentle ? `Log the shake as food at ${slotName(slotNow()).toLowerCase()}?` : `Log the shake as food? +${shake.protein} g protein`}
+            {gentle ? `Log shake to ${slotName(slotNow()).toLowerCase()}?` : `Log as food? +${shake.protein} g protein`}
           </T>
           <Tap onPress={logShake} style={{ height: 44, paddingHorizontal: 14, justifyContent: 'center' }} accessibilityLabel="Log the shake as food">
-            <T v="small" color={dom.protein} style={{ fontFamily: f.semi }}>Log it</T>
+            <T v="small" color={dom.protein} style={{ fontFamily: f.semi }}>Log</T>
           </Tap>
         </Animated.View>
       )}

@@ -60,13 +60,13 @@ export default function Progress() {
 
   // Body weight glance.
   const lastW = [...weights].sort((a, b) => a.day.localeCompare(b.day)).pop();
-  const weightMeta = lastW ? `${lastW.kg.toFixed(1)} kg · goal ${profile.goalWeightKg}` : 'Log your first weigh-in';
+  const weightMeta = lastW ? `${lastW.kg.toFixed(1)} kg · goal ${profile.goalWeightKg}` : 'No weigh-ins yet';
 
   // Consistency glance.
   const now = new Date();
   const thisMonth = sessions.filter((s) => { const d = new Date(s.startedAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length;
   const st = streak(sessions);
-  const consist = sessions.length ? `${thisMonth} ${thisMonth === 1 ? 'workout' : 'workouts'} this month` : 'Fills in as you train';
+  const consist = sessions.length ? `${thisMonth} this month` : '';
 
   // Body & watch glance: sleep and resting heart rate when we have them, else steps, else the way to connect.
   const sleep = latest(daily, 'sleep', 2);
@@ -74,7 +74,7 @@ export default function Progress() {
   const steps = latest(daily, 'steps', 1);
   const parts = [sleep ? `Sleep ${hm(sleep.minutes)}` : null, rhr ? `${Math.round(rhr)} bpm` : null, !sleep && steps !== undefined ? `${steps.toLocaleString()} steps` : null].filter(Boolean);
   const hasWatch = hcOn || !!strap || Object.keys(daily).length > 0;
-  const bodyMeta = parts.length ? parts.join(' · ') : hasWatch ? 'Waiting for the next sync' : 'Connect a watch';
+  const bodyMeta = parts.length ? parts.join(' · ') : hasWatch ? 'Waiting for sync' : 'Connect a watch';
 
   // Achievements glance.
   const { lv, earned, total } = ach;
@@ -105,12 +105,9 @@ export default function Progress() {
           <LinearGradient colors={[tint(dom.train, 1.5), tint(dom.train, 0.3)]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           {/* Nothing logged ever: one encouraging line and the way to today's workout, not three zeros. */}
           {!sessions.length ? (
-            <Tap onPress={toToday} scale={0.98} style={s.first} accessibilityRole="button" accessibilityLabel="Your first workout fills this in. See today's workout">
+            <Tap onPress={toToday} scale={0.98} style={s.first} accessibilityRole="button" accessibilityLabel="Your first workout fills in this week. See today's workout">
               <Ionicons name="barbell" size={22} color={dom.train} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <T v="h3">Your first workout fills this in</T>
-                <T v="small">Start today's workout to see your week here</T>
-              </View>
+              <T v="h3" style={{ flex: 1 }}>Start your first workout</T>
               <Ionicons name="chevron-forward" size={16} color={c.accent} />
             </Tap>
           ) : tiles.map((x, i) => (
@@ -124,14 +121,13 @@ export default function Progress() {
 
         {/* The calendar: this week's days in the calendar's colours, the streak, and the way into the month. */}
         <Animated.View entering={enter(3)}>
-          <Tap onPress={() => router.push('/history')} style={s.cal} scale={0.98} accessibilityLabel={`Calendar. ${sessions.length ? streakLabel(st) : ''} ${consist}`}>
+          <Tap onPress={() => router.push('/history')} style={s.cal} scale={0.98} accessibilityLabel={`Calendar. ${sessions.length ? streakLabel(st) : ''} ${sessions.length ? `${thisMonth} ${thisMonth === 1 ? 'workout' : 'workouts'} this month` : 'Fills in as you train'}. Open`}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
               <View style={[s.calIcon, { backgroundColor: dom.streak + '22' }]}><Ionicons name="calendar" size={20} color={dom.streak} /></View>
               <View style={{ flex: 1, gap: 2 }}>
                 <T v="h3" numberOfLines={1}>{sessions.length ? (st ? streakLabel(st) : 'Calendar') : 'Calendar'}</T>
-                <T v="small" numberOfLines={1}>{consist}</T>
+                {consist ? <T v="small" numberOfLines={1}>{consist}</T> : null}
               </View>
-              <T v="small" color={c.accent}>Open</T>
               <Ionicons name="chevron-forward" size={16} color={c.accent} />
             </View>
             <WeekStrip days={week7} showKcal={!gentle && week7.some((d) => d.kcal !== undefined)} />
@@ -151,7 +147,7 @@ export default function Progress() {
 
       <Section title="Achievements">
         <Animated.View entering={enter(doors.length + 4)}>
-          <DoorCard icon="trophy" color={dom.streak} title={`Level ${lv.lvl} · ${lv.name}`} meta={`${earned} of ${total} medals`}
+          <DoorCard icon="trophy" color={dom.streak} title={`Level ${lv.lvl} · ${lv.name}`} meta={`${earned}/${total} medals`}
             onPress={() => router.push('/chart/achievements')} />
         </Animated.View>
       </Section>
@@ -173,7 +169,7 @@ function strengthGlance(sessions: Session[]) {
   const best: Record<string, number> = {};
   for (const s of sessions) for (const it of s.items) for (const x of it.sets) if (x.done && x.weight) best[it.exId] = Math.max(best[it.exId] ?? 0, e1rm(x.weight, x.reps));
   const top = Object.entries(best).sort((a, b) => b[1] - a[1])[0]?.[0];
-  let strength = 'Log sets with weight to see lifts';
+  let strength = 'No lifts logged yet';
   if (top) {
     const tops = sessions.flatMap((s) => {
       const sets = s.items.filter((it) => it.exId === top).flatMap((it) => it.sets.filter((x) => x.done && x.weight));

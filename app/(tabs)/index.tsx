@@ -11,7 +11,8 @@ import { motivation } from '../../src/data/motivation';
 import { FoodSheet } from '../../src/foodsheet';
 import { STREAK_SUFFIX } from '../../src/glance';
 import { CountUp, EASE, openWorkout, useMiniBarSpace, useScrollTopRef, useToday } from '../../src/kit';
-import { ChangeList, restLine, type ChangePick } from '../../src/restday';
+import { ChangeList, restWhen, restWhy, type ChangePick } from '../../src/restday';
+import { Meta, Tip } from '../../src/tip';
 import { Sheet } from '../../src/sheet';
 import { askPermission, hasPermission, lastReminderMin, plannedOn, reschedule } from '../../src/notify';
 import { useStore, type Excuse } from '../../src/store';
@@ -30,7 +31,7 @@ import { Avatar, Button, Chip, Ring, Row, Section, T, Tap } from '../../src/ui';
 import { explain } from '../../src/coach';
 import { useReco } from '../../src/reco/use';
 import { planById } from '../../src/data/plans';
-import { because, PlanCard } from '../../src/plansui';
+import { PlanCard } from '../../src/plansui';
 
 // Home (docs/round14/PLAN.md): one calm column. Header with + Log; the recommended workout with two short reasons;
 // today's three rings in one card; plans for you in a sideways row (all of them one tap away on the Plans tab); your
@@ -39,8 +40,9 @@ import { because, PlanCard } from '../../src/plansui';
 
 type Icon = keyof typeof Ionicons.glyphMap;
 const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const STEP_GOAL = 8000;
-const LABEL = { plan: 'Recommended for you', light: 'Lighter today', rest: 'Rest day', gentle: 'Gentle today' } as const;
+const LABEL = { plan: 'For you today', light: 'Lighter today', rest: 'Rest day', gentle: 'Gentle today' } as const;
 const EXCUSES: { id: Excuse; label: string; icon: Icon }[] = [
   { id: 'sick', label: 'Sick', icon: 'medkit-outline' }, { id: 'travel', label: 'Travelling', icon: 'airplane-outline' }, { id: 'rest', label: 'Rest', icon: 'bed-outline' },
 ];
@@ -152,8 +154,8 @@ export default function Today() {
   const PHASE = { period: 'Period', follicular: 'Energy rising', ovulation: 'Peak energy', luteal: 'Pre-period' };
   const notes: Note[] = [];
   // Only when setup was skipped before a plan was picked (finishing setup without a name is not "unfinished").
-  if (setupSkipped && !planStart && (dismissed['get-started'] || sessions.length >= 5)) notes.push({ id: 'today-setup', icon: 'sparkles', color: c.accent, text: 'Get a plan made for you', action: '1 min', onAction: () => router.push('/onboarding') });
-  if (notifOff) notes.push({ id: 'today-notif', icon: 'notifications-off', color: c.warm, text: 'Reminders are off', action: 'Allow',
+  if (setupSkipped && !planStart && (dismissed['get-started'] || sessions.length >= 5)) notes.push({ id: 'today-setup', icon: 'sparkles', color: c.accent, text: 'Get your plan', action: '1 min', onAction: () => router.push('/onboarding') });
+  if (notifOff) notes.push({ id: 'today-notif', icon: 'notifications-off', color: c.warm, text: 'Reminders off', action: 'Allow',
     onAction: async () => { if (await askPermission()) { setNotifOff(false); reschedule(); } } });
   if (pw !== null) notes.push({ id: 'today-health', icon: 'heart', color: c.pink, text: `Pregnancy · week ${pw} · plan adjusted` });
   else if (pp !== null) notes.push({ id: 'today-health', icon: 'heart', color: c.pink, text: `After birth · week ${pp} · plan adjusted` });
@@ -176,10 +178,10 @@ export default function Today() {
   const reminderOn = reminders.some((x) => x.on) || supplementReminders.some((x) => x.on);
   const noPlan = setupSkipped && !planStart; // skipped setup before picking a plan
   const firstSteps: Step[] = [
-    ...(noPlan ? [{ id: 'plan', icon: 'sparkles' as Icon, color: c.accent, text: 'Get a plan made for you', done: false, go: () => router.push('/onboarding') }] : []),
-    { id: 'workout', icon: 'play', color: dom.train, text: active ? 'Finish your first workout' : 'Start your first workout', done: sessions.length > 0, go: start },
+    ...(noPlan ? [{ id: 'plan', icon: 'sparkles' as Icon, color: c.accent, text: 'Get your plan', done: false, go: () => router.push('/onboarding') }] : []),
+    { id: 'workout', icon: 'play', color: dom.train, text: active ? 'Finish first workout' : 'First workout', done: sessions.length > 0, go: start },
     { id: 'watch', icon: 'watch', color: dom.heart, text: 'Connect a watch', done: watchOn, go: () => router.push('/watch') },
-    { id: 'reminder', icon: 'notifications', color: dom.streak, text: 'Set a workout reminder', done: reminderOn, go: () => router.push('/reminders') },
+    { id: 'reminder', icon: 'notifications', color: dom.streak, text: 'Set a reminder', done: reminderOn, go: () => router.push('/reminders') },
     { id: 'meal', icon: 'restaurant', color: dom.kcal, text: 'Log a meal', done: meals.length > 0, go: () => setFood(true) },
     { id: 'challenge', icon: 'trophy', color: dom.streak, text: 'Join a challenge', done: !!challenge || pastChallenges.length > 0, go: () => router.push('/challenges' as Href) },
   ];
@@ -200,7 +202,7 @@ export default function Today() {
               {streak > 0 && (
                 <>
                   <Pulse value={streak}><Ionicons name="flame" size={14} color={dom.streak} /></Pulse>
-                  <CountUp value={streak} suffix={STREAK_SUFFIX} style={[s.streak, { color: dom.streak }]} />
+                  <CountUp value={streak} style={[s.streak, { color: dom.streak }]} />
                 </>
               )}
             </Tap>
@@ -213,7 +215,7 @@ export default function Today() {
           </Tap>
           <Avatar />
         </Row>
-        {<Hint id="today-log" text="Tap Log to add food, water, weight or how you feel." style={{ marginTop: 12 }} />}
+        {<Hint id="today-log" text="Log food, water, weight, mood" style={{ marginTop: 12 }} />}
       </Enter>
 
       {/* 2. Hero: today's workout. Only the button acts. */}
@@ -222,24 +224,32 @@ export default function Today() {
           {/* A soft training-teal wash: the workout's domain colour. */}
           <LinearGradient colors={[tint(dom.train, 1.5), tint(c.accent, 0.4), c.card]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill} pointerEvents="none" />
-          <T v="small" color={dom.train} numberOfLines={1} style={{ fontFamily: f.semi }}>{label}</T>
+          {/* The label, and why this workout behind the (i): the engine's reasons, or the rest / lighter-day reason. */}
+          <Row gap={4} style={{ minHeight: 28 }}>
+            <T v="small" color={dom.train} numberOfLines={1} style={{ fontFamily: f.semi, flexShrink: 1 }}>{label}</T>
+            {!active && (kind === 'plan' ? why.length > 0 : !!reason) && (
+              <Tip title={rest ? label : 'Why this workout'} text={kind === 'plan' ? undefined : rest ? restWhy(reason) : reason}>
+                {kind === 'plan' && why.map((line) => (
+                  <Row key={line} gap={6} style={{ alignItems: 'flex-start' }}>
+                    <Ionicons name="checkmark-circle" size={16} color={dom.train} style={{ marginTop: 2 }} />
+                    <T v="body" color={c.soft} style={{ flex: 1 }}>{line}</T>
+                  </Row>
+                ))}
+              </Tip>
+            )}
+          </Row>
           <T v="h1" numberOfLines={2}>{active ? active.title : day.name}</T>
-          <T v="small" numberOfLines={1}>{active ? `${active.items.length} exercises` : `${day.slots.length} exercises · ${minutes} min`} · {place}</T>
+          <Meta items={[
+            { icon: 'list-outline', text: `${active ? active.items.length : day.slots.length} exercises` },
+            !active && { icon: 'time-outline', text: `${minutes} min` },
+            { icon: place === 'Home' ? 'home-outline' : place === 'Office' ? 'briefcase-outline' : 'barbell-outline', text: place },
+            // Rest day: the card shows the next workout, so only its day is added (the name is the title above).
+            !active && rest && !!restWhen(reason) && { icon: 'calendar-outline', text: cap(restWhen(reason)!) },
+          ]} />
           {!active && muscles.length > 0 && (
             <Row gap={8} style={{ flexWrap: 'wrap' }}>
               {muscles.map((m) => <View key={m} style={[s.chip, { backgroundColor: tint(dom.train, 1.1) }]}><T v="small" color={c.soft}>{m}</T></View>)}
             </Row>
-          )}
-          {!active && kind !== 'plan' && <T v="small" color={c.soft} numberOfLines={1}>{restLine(reason)}</T>}
-          {!active && kind === 'plan' && why.length > 0 && (
-            <View style={{ gap: 4 }}>
-              {why.map((line) => (
-                <Row key={line} gap={6} style={{ alignItems: 'flex-start' }}>
-                  <Ionicons name="checkmark-circle" size={15} color={dom.train} />
-                  <T v="small" color={c.soft} numberOfLines={2} style={{ flex: 1 }}>{line}</T>
-                </Row>
-              ))}
-            </View>
           )}
           {/* One primary button; Change (before a workout is open) picks something else to start instead. */}
           <Row gap={10} style={{ marginTop: 4 }}>
@@ -251,16 +261,18 @@ export default function Today() {
             )}
           </Row>
         </View>
-        {/* "Can't train today?" stays one quiet line until tapped (or once a day is excused). */}
+        {/* "Skip today" stays one quiet link until tapped (or once a day is excused); the chips say why. */}
         {showExcuse && !excused && !askExcuse && (
-          <Tap onPress={() => setAskExcuse(true)} style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 4 }} scale={0.98} feedback="none">
-            <T v="small" color={c.muted}>Can’t train today?</T>
+          <Tap onPress={() => setAskExcuse(true)} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 4 }} scale={0.98} feedback="none"
+            accessibilityLabel="Can't train today? Mark the day as sick, travelling or rest">
+            <Ionicons name="moon-outline" size={14} color={c.muted} />
+            <T v="small" color={c.muted}>Skip today</T>
           </Tap>
         )}
         {showExcuse && (!!excused || askExcuse) && (
           <Animated.View entering={FadeInDown.duration(200).easing(EASE)}>
             <Row gap={8} style={{ flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
-              {excused ? <T v="small" color={c.muted}>Excused today</T> : null}
+              {excused ? <T v="small" color={c.muted}>Excused</T> : null}
               {EXCUSES.filter((x) => !excused || x.id === excused).map((x) => (
                 <Chip key={x.id} label={x.label} icon={x.icon} on={excused === x.id} onPress={() => excuse(excused === x.id ? null : x.id)} />
               ))}
@@ -316,8 +328,8 @@ export default function Today() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 16 }}>
             {forYou.map((x, k) => {
               const yours = x.baseId === curBase || x.planId === planId;
-              return <PlanCard key={x.planId} plan={x.plan} tag={yours ? 'Your plan' : k < 4 ? `${x.fit}% match` : undefined}
-                why={x.reasons.find((y) => !/days/.test(y)) ?? because(profile, x.plan)} />;
+              // Name, days and level only; why it fits is on the plan's own page.
+              return <PlanCard key={x.planId} plan={x.plan} tag={yours ? 'Your plan' : k < 4 ? `${x.fit}% match` : undefined} />;
             })}
           </ScrollView>
         </Section>
@@ -400,14 +412,12 @@ function GetStarted({ steps, open, onToggle, onClose }: { steps: Step[]; open: b
   const next = steps.find((x) => !x.done);
   return (
     <View style={s.steps}>
-      <Tap onPress={onToggle} scale={0.99} feedback="none" style={s.stepsHead} accessibilityLabel={`Get started, ${done} of ${steps.length} done`} accessibilityState={{ expanded: open }}>
+      <Tap onPress={onToggle} scale={0.99} feedback="none" style={s.stepsHead} accessibilityLabel={`Get started, ${done} of ${steps.length} done${next ? `. Next: ${next.text}` : ''}`} accessibilityState={{ expanded: open }}>
         <Ring size={36} stroke={4} progress={done / steps.length} color={c.accent} track={c.line}>
           <T v="small" style={{ fontSize: 12, lineHeight: 15, fontFamily: f.semi }} color={c.text}>{`${done}/${steps.length}`}</T>
         </Ring>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <T v="h3" numberOfLines={1}>Get started</T>
-          <T v="small" numberOfLines={1}>{open || !next ? `${done} of ${steps.length} done` : `Next: ${next.text.toLowerCase()}`}</T>
-        </View>
+        {/* The ring already says how far along; the steps themselves are one tap away. */}
+        <T v="h3" numberOfLines={1} style={{ flex: 1, minWidth: 0 }}>Get started</T>
         <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
       </Tap>
       {open && (
@@ -424,7 +434,7 @@ function GetStarted({ steps, open, onToggle, onClose }: { steps: Step[]; open: b
             </Tap>
           ))}
           <Tap onPress={onClose} style={[s.stepRow, s.rule, { justifyContent: 'center' }]} scale={0.99} feedback="none" accessibilityLabel="Hide Get started">
-            <T v="small">Hide this list</T>
+            <T v="small">Hide</T>
           </Tap>
         </Animated.View>
       )}

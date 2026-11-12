@@ -12,6 +12,7 @@ import { gate } from '../src/engine';
 import { EASE, Empty, Header, useMiniBarSpace } from '../src/kit';
 import { useStore } from '../src/store';
 import { c, equip, EQUIP, f, r } from '../src/theme';
+import { Tip } from '../src/tip';
 import { Banner, Chip, ListRow, Row, T, Tap, Thumb } from '../src/ui';
 
 // The muscle page, pushed from Train (?muscle=chest). Without a muscle it lists every exercise, with a muscle filter.
@@ -152,7 +153,7 @@ export default function Library() {
     if (lock.locked) {
       if (again) return details(e);
       const left = lock.sessionsLeft ?? 0;
-      return setNote({ id: e.id, kind: 'locked', text: lock.safety ? lock.reason ?? 'Paused for your safety.' : `${e.name} unlocks after ${plural(left, 'more session')}.` });
+      return setNote({ id: e.id, kind: 'locked', text: lock.safety ? lock.reason ?? 'Paused for your safety' : `${e.name}: unlocks in ${plural(left, 'session')}` });
     }
     const m = fit(e, planned);
     if (m.level === 'later' && !again) return setNote({ id: e.id, kind: 'later', text: `${e.name} · ${m.reason}` });
@@ -164,7 +165,6 @@ export default function Library() {
 
   const head = (
     <View style={{ gap: 12, paddingBottom: 12 }}>
-      {g && !words.length && <Enter><T color={c.muted}>{g.does}</T></Enter>}
       <Enter i={1}>
         <View style={s.wrap}>
           {WHERE.map((w) => <Chip key={w.k} label={w.label} icon={w.icon} on={where === w.k} onPress={() => setWhere(w.k)} />)}
@@ -187,7 +187,11 @@ export default function Library() {
           ))}
         </Enter>
       )}
-      <T v="small">{plural(list.length, 'move')}</T>
+      {/* The count, and what this muscle does behind the (i) (it used to be a sentence at the top). */}
+      <Row gap={4}>
+        <T v="small">{plural(list.length, 'move')}</T>
+        {g?.does ? <Tip title={g.label} text={g.does} size={16} /> : null}
+      </Row>
     </View>
   );
 
@@ -197,7 +201,7 @@ export default function Library() {
       {/* Pinned: search, then level and equipment filters (and the muscle filter when no muscle was given). */}
       <View style={s.search}>
         <Ionicons name="search" size={18} color={c.muted} />
-        <TextInput value={q} onChangeText={setQ} placeholder={g ? `Search ${g.label.toLowerCase()} moves` : 'Search squat, dumbbell, plank'}
+        <TextInput value={q} onChangeText={setQ} placeholder={g ? `Search ${g.label.toLowerCase()}` : 'Search moves'}
           placeholderTextColor={c.dim} style={s.input} returnKeyType="search" />
         {!!q && <Tap onPress={() => setQ('')} feedback="none"><Ionicons name="close-circle" size={18} color={c.muted} /></Tap>}
       </View>
@@ -242,7 +246,7 @@ export default function Library() {
         ItemSeparatorComponent={Gap}
         ListHeaderComponent={head}
         ListEmptyComponent={
-          <Empty icon="search" title={filtered ? 'Nothing matches these filters' : words.length ? 'No moves match that search' : 'Nothing here for this place yet'}
+          <Empty icon="search" title={filtered || words.length ? 'No matches' : 'Nothing here yet'}
             action={filtered ? 'Clear filters' : undefined} onPress={() => { setLvl(ALL); setKit(ALL); setFocus(ALL); setBare(false); }} />
         }
         renderItem={({ item }) => (

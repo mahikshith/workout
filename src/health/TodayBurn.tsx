@@ -31,10 +31,10 @@ export function TodayBurn() {
 
   const apps = appList(burn.origin.filter((p) => !PHONE_ORIGINS.includes(p)));
   const n = burn.parts.length;
-  const sub = kcal === undefined ? (live !== null ? 'Live heart rate' : 'Heart rate from your watch')
-    : burn.from === 'day' ? `${apps.length ? apps.join(' and ') : 'Your watch'}${n ? ` · workout${n === 1 ? '' : 's'} included` : ' · active calories'}`
-      : burn.parts.every((q) => q.source === 'heart rate') ? `From your heart rate in today's workout${n === 1 ? '' : 's'}`
-      : burn.estimated ? `Estimated from today's workout${n === 1 ? '' : 's'}` : `Today's workout${n === 1 ? '' : 's'}, measured by your watch`;
+  const sub = kcal === undefined ? (live !== null ? 'Live' : 'From your watch')
+    : burn.from === 'day' ? `${apps.length ? apps.join(' and ') : 'Your watch'}${n ? ` · workout${n === 1 ? '' : 's'} included` : ' · active'}`
+      : burn.parts.every((q) => q.source === 'heart rate') ? 'From heart rate'
+      : burn.estimated ? `From today's workout${n === 1 ? '' : 's'}` : 'Measured by your watch';
   const said = [kcal !== undefined ? `${kcal} kcal burned today` : null, bpm !== undefined ? `${live !== null ? 'live' : 'last'} heart rate ${bpm}` : null, sub].filter(Boolean).join(', ');
 
   return (
