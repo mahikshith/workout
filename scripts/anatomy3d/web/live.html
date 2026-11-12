@@ -2,18 +2,35 @@
 <title>3D view</title>
 <style>
   :root { --bg: #f3f4f1; --ink: #1a1c1a; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); font: 600 13px system-ui, -apple-system, Roboto, sans-serif; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink); font: 600 13px system-ui, -apple-system, Roboto, sans-serif; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  body { display: flex; flex-direction: column; }
+  /* the angle read-outs live in their own strip above the figure, so no text ever covers a muscle */
+  #read { flex: none; display: flex; gap: 5px; align-items: stretch; padding: 6px 47px 2px 6px; min-height: 36px; box-sizing: content-box; }
+  #read:empty, #read.off { display: none; }
+  .chip { flex: 1 1 0; max-width: 190px; min-width: 0; box-sizing: border-box; padding: 3px 6px 4px 7px; border-radius: 10px; white-space: nowrap; overflow: hidden; background: color-mix(in srgb, var(--bg) 88%, var(--ink)); border-left: 3px solid var(--k); }
+  .chip b { display: block; font-size: 10.5px; font-weight: 600; opacity: .72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip span { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .chip i { font-style: normal; font-size: 10.5px; opacity: .72; margin-left: 4px; }
+  .chip.hit span { color: #1a9c5b; }
+  #stage { position: relative; flex: 1 1 auto; min-height: 0; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #gl { touch-action: none; cursor: grab; } #ov { pointer-events: none; }
-  #hint { position: absolute; top: 10px; left: 0; right: 0; text-align: center; color: var(--ink); opacity: .7; transition: opacity .6s; pointer-events: none; }
+  #hint { position: absolute; top: 6px; left: 0; right: 0; text-align: center; color: var(--ink); opacity: .7; transition: opacity .6s; pointer-events: none; font-size: 12px; }
   #bar { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; gap: 6px; justify-content: center; pointer-events: none; }
   button { pointer-events: auto; font: inherit; color: var(--ink); background: color-mix(in srgb, var(--bg) 82%, var(--ink)); border: 0; border-radius: 16px; min-height: 32px; padding: 0 12px; }
   button.on { background: var(--ink); color: var(--bg); }
+  /* the window button: opens the big view, and closes it again */
+  #win { position: absolute; top: 6px; right: 6px; z-index: 2; width: 36px; height: 36px; min-height: 0; padding: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+  #win svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #win .in { display: none; } body.big #win .in { display: block; } body.big #win .out { display: none; }
+  body.big #read { padding-top: 8px; gap: 8px; } body.big .chip { padding: 5px 10px 6px; } body.big .chip span { font-size: 21px; } body.big .chip b, body.big .chip i { font-size: 12px; }
 </style></head><body>
-<canvas id="gl"></canvas><canvas id="ov"></canvas>
-<div id="hint">Drag to turn · Pinch to zoom</div>
-<div id="bar"><button id="play">Pause</button><button id="slow" aria-pressed="false">Slow</button><button id="reset">Reset view</button></div>
-<script>(function () { var q = new URLSearchParams(location.hash.slice(1) || location.search.slice(1)), s = document.documentElement.style; if (/^[0-9a-f]{6}$/i.test(q.get('bg') || '')) s.setProperty('--bg', '#' + q.get('bg')); if (/^[0-9a-f]{6}$/i.test(q.get('ink') || '')) s.setProperty('--ink', '#' + q.get('ink')); if (q.get('bare')) { document.getElementById('bar').style.display = 'none'; document.getElementById('hint').style.display = 'none'; } })();</script>
+<button id="win" aria-label="Bigger view"><svg class="out" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg><svg class="in" viewBox="0 0 24 24"><path d="M20 10h-6V4M4 14h6v6M14 10l7-7M10 14l-7 7"/></svg></button>
+<div id="read"></div>
+<div id="stage"><canvas id="gl"></canvas><canvas id="ov"></canvas>
+<div id="hint">Drag to turn · Pinch to zoom · Double tap for the big view</div>
+<div id="bar"><button id="play">Pause</button><button id="slow" aria-pressed="false">Slow</button><button id="reset">Reset view</button><button id="lines" class="on" aria-pressed="true">Angles</button></div></div>
+<script>(function () { var q = new URLSearchParams(location.hash.slice(1) || location.search.slice(1)), s = document.documentElement.style; if (/^[0-9a-f]{6}$/i.test(q.get('bg') || '')) s.setProperty('--bg', '#' + q.get('bg')); if (/^[0-9a-f]{6}$/i.test(q.get('ink') || '')) s.setProperty('--ink', '#' + q.get('ink')); if (q.get('big')) { document.body.classList.add('big'); document.getElementById('win').setAttribute('aria-label', 'Back to the normal view'); document.getElementById('hint').textContent = 'Drag to turn · Pinch to zoom · Double tap to go back'; } if (q.get('bare')) { for (var id of ['bar', 'hint', 'win', 'read']) document.getElementById(id).style.display = 'none'; } })();</script>
 <script>window.A3D = /*DATA*/;</script>
 <script>/*CODE*/</script>
 </body></html>
