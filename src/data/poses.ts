@@ -60,6 +60,20 @@ export type Pose = {
   clasp?: boolean; // side view: both hands meet in the middle (one handle, palms together)
   splay?: [number, number]; // side view: the near thigh opens out to the side (fire hydrant)
   swing?: [number, number]; // side view: the near forearm turns out about the upper arm (shoulder rotation)
+  // extra turns after the flat pose is made: [parts, line, start, end] in degrees. Parts: body, trunk, head, or arm, fore, hand, leg,
+  // shank, foot (both sides, mirrored) or with R (near) / L (far) in front; several joined by commas. Line: x (left-right), y (front-back),
+  // z (up) in the room, px py pz the same on the pelvis, spine, bone (the part's own long line), up (the line of the part above it),
+  // or cone (the part leans `start` degrees off its line and that lean goes round; `end` = where on the circle it begins).
+  turn?: [string, 'x' | 'y' | 'z' | 'px' | 'py' | 'pz' | 'spine' | 'bone' | 'up' | 'cone', number, number][];
+  tilt2?: number; // tilt at the end of the move, when it changes
+  rise?: [number, number]; // height of the pelvis above the floor, when the flat pose cannot know it (lying on the side)
+  sway?: [number, number]; // the whole body shifts sideways
+  slide?: [number, number]; // the whole body shifts forward
+  rest?: { on: string[]; r: number; roller?: boolean; along?: boolean; fixed?: boolean; dx?: number; dy?: number }; // a ball or foam roller on the floor under the middle of these 3D segments
+  kit?: 'wheel' | 'stick' | 'footbar' | 'door' | 'rollbars' | 'midbox'; // a plate held like a steering wheel, a roller stick in the hands, a machine bar at the feet, a doorway
+  pass?: boolean; // one kettlebell, handed from the near hand to the far hand half way
+  orbit?: number; // the hips draw a level circle this wide while the feet stay put
+  az?: number; el?: number; // where the 3D camera starts
 };
 // Form guide: a faint alignment line through two points, and an angle arc at a joint at the key position (`at`, default the end).
 export type Guide = { joint?: 'hp0' | 'kn0' | 'an0' | 'sh0' | 'el0'; axis?: [Key, Key]; at?: 0 | 1 };
@@ -439,6 +453,9 @@ const REAR = (tilt: number, o: Partial<Pose> = {}, one = false) =>
 // shoulder rotation: elbow tucked in and bent to a right angle, the forearm sweeps like a gate
 const ROT = (a: number, b: number) => D3(side(St(0, 0, 3, 5, 90), St(0, 0, 3, 5, 90), { swing: [a, b], guide: { joint: 'el0' } }));
 const HYDRANT = D3(side(quad(), quad(), { ground: 'floor', fix: 'kn1', lock: true, pin: 'hands', splay: [0, 65], guide: { joint: 'hp0' } }));
+// lying on the side: the flat pose is made lying on the back, then the whole body rolls onto its far side (near limbs on top)
+const ON_SIDE = (start: Angles, end: Angles, o: Partial<Pose> = {}) =>
+  D3(side(start, end, { ground: 'floor', fix: 'pelvis', rise: [10, 10], az: 75, el: 0.5, ...o, turn: [...(o.turn ?? []), ['body', 'pz', 90, 90]] }));
 const INC_SHRUG = (prop: Pose['prop']) => side(A(-45, 40, 85, 0, 135, 12), A(-45, 40, 85, 0, 135, 0), { ground: 'bench', prop, guide: { axis: ['sh0', 'wr0'] } });
 export const POSES: Record<string, Pose> = {
   // legs
@@ -874,6 +891,58 @@ export const POSES: Record<string, Pose> = {
   Stomach_Vacuum: side(St(0, 0, 3, -22, 65), St(4, 0, 3, -22, 65, { curve: 9 }), { pace: 'hold' }),
   Isometric_Chest_Squeezes: side(St(0, 0, 3, 42, 100), St(0, 0, 3, 48, 95), { clasp: true, pace: 'hold' }),
   Wrist_Rotations_with_Straight_Bar: side(St(0, 0, 3, 55, 20), St(0, 0, 3, 55, 20), { prop: 'barbell', flex: [35, -35], pace: 'cycle', tempo: 0.6 }),
+  // ---- only the 3D figure can show these
+  On_Your_Side_Quad_Stretch: ON_SIDE(LYING([5, 80], [30, 90], 20, [10, 150], [10, 120]), LYING([-22, 80], [138, 90], 20, [-42, 150], [18, 120]), { pace: 'hold', guide: { joint: 'kn0' } }),
+  Quad_Stretch: ON_SIDE(LYING([5, 30], [30, 30], 20, [10, 150], [10, 120]), LYING([-22, 30], [138, 30], 20, [-42, 150], [18, 120]), { pace: 'hold', guide: { joint: 'kn0' } }),
+  Side_Lying_Groin_Stretch: ON_SIDE(LYING([20, 80], [30, 90], 20, [20, 150], [10, 120]), LYING([75, 80], [85, 90], 20, [50, 150], [35, 120]), { pace: 'hold', turn: [['Rleg', 'py', 0, 45], ['Rarm', 'py', 0, 30]] }),
+  'Iliotibial_Tract-SMR': ON_SIDE(LYING([70, 0], [80, 0], 20, [30, 0], [40, 90]), LYING([70, 0], [80, 0], 20, [30, 0], [40, 90]), { rise: [15, 15], slide: [-4, 4], pace: 'cycle', tempo: 1.2, rest: { on: ['Lthigh', 'Lshank'], r: 5, roller: true, fixed: true }, turn: [['trunk', 'py', -42, -42], ['Larm', 'py', -48, -48], ['Rleg', 'py', -20, -20]] }),
+  'Peroneals-SMR': ON_SIDE(LYING([70, 0], [80, 0], 20, [30, 0], [40, 90]), LYING([70, 0], [80, 0], 20, [30, 0], [40, 90]), { rise: [14, 14], slide: [-4, 4], pace: 'cycle', tempo: 1.2, rest: { on: ['Lshank', 'Lfoot'], r: 5, roller: true, fixed: true }, turn: [['trunk', 'py', -42, -42], ['Larm', 'py', -48, -48], ['Rleg', 'py', -20, -20]] }),
+  'Brachialis-SMR': ON_SIDE(LYING([10, 0], [15, 5], 20, [20, 90], [30, 20]), LYING([10, 0], [15, 5], 20, [20, 90], [30, 20]), { rise: [12, 12.6], pace: 'hold', rest: { on: ['Lupper', 'Lfore'], r: 4, roller: true, along: true }, turn: [['trunk', 'py', -32, -32], ['Larm', 'spine', 18, 18]] }),
+  'Latissimus_Dorsi-SMR': ON_SIDE(LYING([35, 20], [60, 40], 20, [20, 170], [60, 10]), LYING([35, 20], [60, 40], 20, [20, 170], [60, 10]), { rise: [11, 11], slide: [-2.5, 2.5], pace: 'cycle', tempo: 1.2, rest: { on: ['Lupper'], r: 4.5, roller: true, fixed: true, dy: 5 }, turn: [['trunk', 'py', -14, -14]] }),
+  Adductor: D3(front(A(0, [75, 5], [85, 0], 0, 70, 115), A(0, [75, 5], [85, 0], 0, 70, 115), { ground: 'floor', tilt: 90, rise: [9, 9], sway: [-3, 3], az: -30, el: 0.9, pace: 'cycle', tempo: 1.2, rest: { on: ['Rthigh', 'Rshank'], r: 5, roller: true, along: true, fixed: true } })),
+  External_Rotation: ON_SIDE(LYING(15, 25, 20, [5, 150], [90, 120]), LYING(15, 25, 20, [5, 150], [90, 120]), { ground: 'bench', rise: [42, 42], prop: 'dumbbell', one: true, swing: [-50, 55], guide: { joint: 'el0' } }),
+  Dumbbell_Lying_Supination: ON_SIDE(LYING(15, 25, 20, [5, 150], [90, 120]), LYING(15, 25, 20, [5, 150], [90, 120]), { ground: 'bench', rise: [42, 42], prop: 'dumbbell', one: true, az: 35, turn: [['Rhand', 'up', -70, 70]], guide: { joint: 'el0' } }),
+  Dumbbell_Lying_Pronation: D3(front(A(0, 4, 0, 0, [88, 15], [88, 10]), A(0, 4, 0, 0, [88, 15], [88, 10]), { ground: 'bench', tilt: 90, prop: 'dumbbell', one: true, el: 0.5, turn: [['Rfore', 'up', -90, -90], ['Rhand', 'up', -70, 70]] })),
+  Wrist_Circles: D3(front(A(0, 3, 0, 0, 88, 0), A(0, 3, 0, 0, 88, 0), { pace: 'spin', tempo: 1.3, turn: [['hand', 'cone', 38, 0]] })),
+  Car_Drivers: D3(side(St(0, 0, 3, [108, 76], 5), St(0, 0, 3, [76, 108], 5), { kit: 'wheel', pace: 'cycle', tempo: 0.9 })),
+  Kettlebell_Pass_Between_The_Legs: D3(front(A(0, 24, 6, 0, [34, -6], 5), A(0, 24, 6, 0, [-6, 34], 5), { prop: 'kettlebell', pass: true, tilt: 52, pace: 'cycle', tempo: 0.8, turn: [['arm', 'x', -35, -35]] })),
+  Kettlebell_Figure_8: D3(front(A(0, 28, 6, 0, [38, -6], 5), A(0, 28, 6, 0, [-6, 38], 5), { prop: 'kettlebell', pass: true, tilt: 58, pace: 'cycle', tempo: 0.8, turn: [['arm', 'x', -40, -40]] })),
+  Bent_Press: D3(front(A(0, 8, 0, 0, [25, 8], [150, 5]), A(50, [-38, 62], [0, 20], 0, [130, 50], 0), { prop: 'kettlebell', one: true, guide: { joint: 'el0' } })),
+  Windmills: D3(front(A(-90, 0, 0, 0, 90, 0), A(-90, 0, 0, 0, 90, 0), { ground: 'mat', pace: 'cycle', tempo: 0.9, turn: [['Lleg', 'px', 0, 112], ['Lleg', 'spine', 0, 62]] })),
+  Iron_Crosses_stretch: D3(front(A(0, 4, 0, 0, 90, 0), A(0, [-35, 4], 0, 0, 90, 0), { ground: 'floor', tilt: 90, el: 0.7, pace: 'cycle', tempo: 0.9, turn: [['Rshank', 'px', 0, 80], ['pelvis,Rleg,Lleg', 'spine', 0, 35], ['lumbar', 'spine', 0, 15]] })),
+  Lying_Glute: D3(side(LYING([90, 0], [90, 0], 20, 20, 10), LYING([95, 0], [90, 0], 20, 20, 10), { ground: 'floor', pace: 'hold', az: -60, el: 0.6, turn: [['Rleg', 'bone', 0, 55]] })),
+  Adductor_Groin: D3(side(LYING(88, 0, 20, -5, 10), LYING(88, 0, 20, -5, 10), { ground: 'floor', pace: 'hold', az: -30, turn: [['leg', 'spine', 8, 42]] })),
+  'wg_hip-airplane': D3(side(A(72, [72, 0], [12, 5], [-12, 20], 0, 0), A(72, [72, 0], [12, 5], [-12, 20], 0, 0), { fix: 'an0', pace: 'cycle', tempo: 1.4, turn: [['Rarm', 'py', 85, 85], ['Larm', 'py', -85, -85], ['pelvis,lumbar,chest,neck,head,Rarm,Larm,Lleg', 'spine', -32, 32]] })),
+  'wg_prone-t-raise': D3(front(A(0, 4, 0, 0, 90, 0), A(0, 4, 0, 0, 90, 0), { ground: 'floor', tilt: 90, el: 0.6, turn: [['arm', 'z', 0, -22]], guide: { joint: 'sh0' } })),
+  'wg_doorway-chest-stretch': D3(front(A(0, 3, 0, 0, 90, 90), A(0, 3, 0, 0, 90, 90), { kit: 'door', tilt: 1, tilt2: 11, pace: 'hold', turn: [['arm', 'z', 0, 18]] })),
+  Seated_Front_Deltoid: D3(side(A(0, 130, 115, 0, 0, 0), A(0, 130, 115, 0, 0, 0), { ground: 'floor', fix: 'pelvis', pace: 'hold', turn: [['arm', 'py', 85, 85], ['arm', 'spine', 0, 32]] })),
+  Chest_Stretch_on_Stability_Ball: D3(side(A(92, 92, 90, 90, [90, 90], [0, 10]), A(102, 100, 90, 90, [90, 75], [0, 70]), { ground: 'floor', fix: 'kn1', pace: 'hold', az: -50, el: 0.6, rest: { on: ['Rfore'], r: 13 }, turn: [['Rarm', 'spine', -80, -100]] })),
+  Hug_A_Ball: D3(side(St(12, 122, 138, 50, 30), St(20, 128, 140, 56, 38, { curve: 14 }), { ground: 'floor', pace: 'hold', under: { at: 'kn0', r: 16 }, turn: [['leg', 'z', 30, 30], ['arm', 'z', 22, 22]] })),
+  Pyramid: D3(side(A(122, 82, 12, 20, 168, 8), A(125, 90, 0, 20, 173, 0), { ground: 'floor', pace: 'hold', under: { at: 'pelvis', r: 16 } })),
+  'Piriformis-SMR': D3(side(A(-55, [95, 55], [100, 115], 0, -62, 25), A(-55, [95, 55], [100, 115], 0, -62, 25), { ground: 'floor', rise: [15.5, 15.5], slide: [-2, 2], pace: 'cycle', tempo: 1.2, under: { at: 'pelvis', r: 4.5, fixed: true }, turn: [['Rleg', 'bone', 70, 70]] })),
+  'Neck-SMR': D3(front(A(0, 3, 0, 0, 110, 150), A(0, 3, 0, 0, 110, 150), { kit: 'stick', pace: 'cycle', tempo: 1.4, az: -150, turn: [['arm', 'z', -25, -25], ['head', 'z', -35, 35]] })),
+  Rack_Delivery: D3(side(St(0, 0, 3, 0, 0), St(0, 0, 3, 75, 150), { prop: 'barbell', turn: [['arm', 'py', 85, 10], ['fore', 'py', -110, 0]] })),
+  Tate_Press: D3(benchP(90, 5, 90, 115, { prop: 'dumbbell', turn: [['arm', 'spine', -30, -30], ['fore', 'up', -90, -90]] })),
+  Bodyweight_Flyes: D3(front(A(0, 3, 0, 0, 0, 0), A(0, 3, 0, 0, 0, 0), { ground: 'floor', tilt: 64, tilt2: 72, kit: 'rollbars', con: 'back', turn: [['arm', 'x', -64, -72], ['arm', 'z', 4, 45]] })),
+  Isometric_Wipers: D3(front(A(0, 3, 0, 0, 0, 0), A(0, 3, 0, 0, 0, 0), { ground: 'floor', tilt: 65, sway: [-6, 6], pace: 'cycle', tempo: 1.1, turn: [['arm', 'x', -65, -65], ['Rarm,Larm', 'z', 11, -11]] })),
+  Smith_Machine_Hip_Raise: D3(side(A(-90, 90, 0, -10, -5, 5), A(-112, 68, 0, -10, 17, 5, { curve: 10 }), { ground: 'bench', fix: 'sh0', kit: 'footbar', guide: { joint: 'hp0' } })),
+  Dumbbell_Seated_Box_Jump: D3(side(A(8, 90, 90, 8, 35, 135), St(12, 35, 35, 35, 135), { ground: 'bench', pad: false, prop: 'dumbbell', one: true, clasp: true, lift: 20, land: 34, rise: [30, 66], pace: 'cycle', tempo: 0.7, guide: { joint: 'kn0' } })),
+  Side_to_Side_Box_Shuffle: D3(front(A(0, [8, 40], [0, 45], 0, [14, 28], 25), A(0, [40, 8], [45, 0], 0, [28, 14], 25), { fix: 'pelvis', sway: [-19, 19], hop: 5, kit: 'midbox', pace: 'cycle', tempo: 0.5 })),
+  Weighted_Ball_Side_Bend: D3(front(A(60, 0, 0, 0, 150, 140), A(30, [30, -30], 0, 0, 150, 140), { under: { at: 'pelvis', r: 13.5 } })),
+  'On-Your-Back_Quad_Stretch': D3(side(A(-90, [-15, -10], [80, 95], [20, -15], [-15, 0], [5, 0]), A(-90, [-28, -10], [128, 95], [20, -15], [-38, 0], [12, 0]), { ground: 'bench', pace: 'hold', turn: [['Rleg', 'spine', 14, 14], ['Rarm', 'spine', 14, 14]], guide: { joint: 'kn0' } })),
+  Desk_Neck_Tilt: D3(front(A(0, 20, 0, 0, 8, 10, { neck: -28 }), A(0, 20, 0, 0, 8, 10, { neck: 28 }), { ground: 'bench', sit: true, pace: 'cycle', tempo: 1.6 })),
+  Desk_Seated_Twist: D3(side(A(0, 90, 90, 0, [35, -30], [30, 20]), A(0, 90, 90, 0, [35, -30], [30, 20]), { ground: 'bench', pad: false, twist: [0, -50], pace: 'hold' })),
+  Desk_Wrist_Stretch: D3(side(A(0, 90, 90, 0, [80, 68], [0, 28]), A(0, 90, 90, 0, [80, 68], [0, 28]), { ground: 'bench', pad: false, clasp: true, pace: 'hold', turn: [['Rhand', 'x', 0, 65]] })),
+  Desk_Figure_Four: D3(side(A(0, 90, [95, 90], 0, 25, 40), A(18, 106, [95, 90], 0, 30, 45, { curve: 5 }), { ground: 'bench', pad: false, pace: 'hold', turn: [['Rleg', 'bone', 75, 75]] })),
+  Desk_Seated_Leg_Raise: D3(side(A(0, 90, 90, 0, -5, 10), A(0, 90, [5, 90], 0, -5, 10), { ground: 'bench', pad: false, guide: { joint: 'kn0' } })),
+  Gentle_Hip_Circles: D3(side(St(0, 0, 6, -22, 75), St(0, 0, 6, -22, 75), { pace: 'spin', tempo: 1.6, orbit: 5, turn: [['leg', 'py', 8, 8]] })),
+  March_In_Place: D3(side(A(0, [65, 0], [75, 0], [10, 0], [-20, 25], 30), A(0, [0, 65], [0, 75], [0, 10], [25, -20], 30), { fix: 'pelvis', pace: 'cycle', tempo: 0.6 })),
+  wg_swimming: D3(side(A(90, [10, -6], [6, 18], 60, [172, 5], [5, 25]), A(90, [-6, 10], [18, 6], 60, [5, 172], [25, 5]), { ground: 'floor', fix: 'pelvis', rise: [22, 22], pace: 'cycle', tempo: 0.7 })),
+  Skating: front(A(-12, [30, -5], [10, 60], 0, [35, -20], 30), A(12, [-5, 30], [60, 10], 0, [-20, 35], 30), { hop: 4, pace: 'cycle', tempo: 0.6, tilt: 22 }),
+  Cable_Incline_Pushdown: side(A(-45, 40, 85, 0, 150, 5), A(-45, 40, 85, 0, 15, 5), { ground: 'bench', prop: 'band', line: [-28, -22], guide: { joint: 'sh0' } }),
+  Sled_Row: side(St(-8, 8, 18, 80, 0), St(-8, 8, 18, -25, 100), { prop: 'band', line: [55, 22], guide: { joint: 'el0' } }),
+  Suspended_Row: LEAN_ROW({ prop: 'band', line: [14, -75], guide: { joint: 'el0' } }),
+  Bodyweight_Mid_Row: LEAN_ROW({ prop: 'band', line: [14, -75], guide: { joint: 'el0' } }),
   'wg_scapular-push-up': side(A(73, 0, 0, 15, 73, 0), A(74.5, 0, 0, 14, 74.5, 0), { ground: 'floor', fix: 'toe0', pin: 'hands', guide: { axis: ['an0', 'sh0'] } }),
 };
 
