@@ -63,6 +63,27 @@ Weights sit at the middle of the closed hand. A kettlebell hangs under the hand,
 wrist when the forearm is upright; a two-handed kettlebell move brings both hands to one handle. Hands on a fixed bar
 stay on it while the body moves. A bar carried on the back leans with the shoulders.
 
+### Read-outs, axes and the big view
+
+The angle numbers no longer sit on the body. A strip above the figure shows each coached angle live with the number to
+aim for ("Elbow bend 83°, aim 115°"), and the figure itself carries only a thin arc at the joint plus dashed horizontal
+and vertical axes through it, so the muscle stays visible. The Angles button hides both. The window button in the
+corner, or a double tap on the figure, opens the same figure in a window over the screen (`Pane3D` in `src/ui.tsx`);
+the same button, a double tap, a tap outside or Back closes it. Only one figure is drawn at a time.
+
+### Cables, bands and equipment
+
+`poseFor` passes every pose through `tune` and `cordFor` (`src/data/poses.ts`), which add 3D-only fields by exercise
+name: `cord` (a cable with pulley and post, a band, rope ends, V bar, straight bar, ankle cuff, loop round knees or
+ankles, skipping rope, sled straps), `decline` (the body and a board tip head-down; negative for head-up leg raises),
+`rack` `'front' | 'zercher' | 'straddle'`, and `kit` for things that are not a bar or bell: `preacher` pad, `landmine`
+and `tbar` (bar pinned to the floor), `abwheel`, `smallbar`, `hammer`, `tire`, `backplate`, `prowler`, `seatbox`.
+A dumbbell with `clasp` is one dumbbell in both hands. Plates and bells are drawn lighter on a dark background.
+Every changed exercise was drawn at both ends beside its photo or drawing and compared.
+
+To change only the code of the page without the figure data: `node pack.cjs ../../assets/anatomy/live.html` repacks
+`web/*.js` into the existing page.
+
 ### Movements only the 3D figure can show
 
 Some movements leave the flat figure's drawing plane. Some optional fields on a pose (`src/data/poses.ts`) are read
