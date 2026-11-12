@@ -47,7 +47,7 @@ export type MealSlot = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 export type Reminder = { id: string; kind: 'workout' | 'meal' | 'custom'; hour: number; minute: number; days: number[]; on: boolean; label?: string };
 export type Interval = { on: boolean; every: number; from: number; to: number }; // every N minutes between hours from..to
 export type NudgePrefs = { missed: boolean; streak: boolean; recap: boolean; quietFrom: number; quietTo: number };
-export type MediaPref = 'animated' | 'drawing' | 'photo' | 'video';
+export type MediaPref = '3d' | 'animated' | 'drawing' | 'photo' | 'video';
 
 export type SetLog = { reps: number; weight: number; done: boolean };
 // up: kg added to last time's weight because every set last time reached the target ("Go heavier", round 13).

@@ -328,13 +328,19 @@ export function Ring({ size = 120, stroke = 10, progress, color = c.accent, trac
 }
 
 const VIDEOS: Record<string, { url: string; author: string }> = videos;
-const KINDS: { k: MediaPref; label: string }[] = [{ k: 'animated', label: 'Animated' }, { k: 'drawing', label: 'Drawing' }, { k: 'photo', label: 'Photo' }, { k: 'video', label: 'Video' }];
+// 3D anatomy clips (a trial on two exercises): the muscle and bone model is BodyParts3D, posed and rendered by
+// scripts/anatomy3d. They are bundled, so they play offline. Working muscles are red, helpers are light red.
+const ANATOMY: Record<string, number> = {
+  Bodyweight_Squat: require('../assets/anatomy/Bodyweight_Squat.webp'),
+  Butterfly: require('../assets/anatomy/Butterfly.webp'),
+};
+const KINDS: { k: MediaPref; label: string }[] = [{ k: '3d', label: '3D' }, { k: 'animated', label: 'Animated' }, { k: 'drawing', label: 'Drawing' }, { k: 'photo', label: 'Photo' }, { k: 'video', label: 'Video' }];
 // A borrowed animation of a different movement is never offered; those exercises show their photo or drawing.
 export const mediaKinds = (ex: Exercise) =>
-  KINDS.filter(({ k }) => (k === 'animated' ? !ex.noImages && !poseFor(ex).pose.weak : k === 'drawing' ? !!ex.art && ex.art in ART : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
-const CREDIT = { drawing: 'Drawing: workout-guide by Bryl Lim, CC BY-SA 4.0, based on Everkinetic', photo: 'Photo: free-exercise-db, public domain' };
+  KINDS.filter(({ k }) => (k === '3d' ? ex.id in ANATOMY : k === 'animated' ? !ex.noImages && !poseFor(ex).pose.weak : k === 'drawing' ? !!ex.art && ex.art in ART : k === 'photo' ? !(ex.noPhoto || ex.noImages) : !!VIDEOS[ex.id]));
+const CREDIT = { '3d': 'Red: working muscles · Light red: helpers · Model: BodyParts3D, © DBCLS, CC BY 4.0', drawing: 'Drawing: workout-guide by Bryl Lim, CC BY-SA 4.0, based on Everkinetic', photo: 'Photo: free-exercise-db, public domain' };
 const EASE = Easing.bezier(0.32, 0.72, 0, 1);
-const NAME: Record<MediaPref, string> = { animated: 'Animation', drawing: 'Drawing', photo: 'Photo', video: 'Video' };
+const NAME: Record<MediaPref, string> = { '3d': '3D view', animated: 'Animation', drawing: 'Drawing', photo: 'Photo', video: 'Video' };
 
 // Pictures and videos that failed (usually no internet) wait here. One shared check asks the media host every 5 s, and
 // when the app comes back to the front, whether it answers; any answer means we are online, and every waiting picture
@@ -369,7 +375,7 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
   useBackOnline(failed.length > 0, () => { setFailed([]); setTries((t) => t + 1); });
   useEffect(() => { if (!prev) return; const t = setTimeout(() => setPrev(null), 250); return () => clearTimeout(t); }, [prev]);
   useEffect(() => {
-    if (pref === 'animated' || pref === 'drawing') return; // both are inside the app
+    if (pref === 'animated' || pref === 'drawing' || pref === '3d') return; // all three are inside the app
     setOnline(true);
     const t = setTimeout(() => setOnline(false), 3500);
     return () => clearTimeout(t);
@@ -398,7 +404,7 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
                 setPref(k);
               }}
               style={[md.opt, k === kind && { backgroundColor: c.accent }]}>
-              {k !== 'animated' && k !== 'drawing' && <Ionicons name={failed.includes(k) ? 'cloud-offline-outline' : 'cloud-outline'} size={12} color={k === kind ? c.accentInk : c.muted} />}
+              {k !== 'animated' && k !== 'drawing' && k !== '3d' && <Ionicons name={failed.includes(k) ? 'cloud-offline-outline' : 'cloud-outline'} size={12} color={k === kind ? c.accentInk : c.muted} />}
               <T v="small" color={k === kind ? c.accentInk : failed.includes(k) ? c.muted : c.text}>{label}</T>
             </Pressable>
           ))}
@@ -423,12 +429,16 @@ export function Demo({ ex, height = 240, style, credit, paused }: { ex: Exercise
                   </View>
                 )}
               </View>
+            ) : k === '3d' ? (
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: c.card2 }]}>
+                <Image source={ANATOMY[ex.id]} contentFit="contain" autoplay={!paused} style={{ flex: 1, margin: 6 }} accessibilityLabel={`${ex.name}, 3D muscle view`} />
+              </View>
             ) : k === 'video' ? <Clip id={ex.id} onFail={() => fail('video')} />
               : k === 'drawing' ? <Drawing slug={ex.art!} />
               : <Loop uris={frames(ex.id)} solid onFail={() => fail(k)} />}
           </Animated.View>
         ))}
-        {online && kind && kind !== 'animated' && kind !== 'drawing' && (
+        {online && kind && kind !== 'animated' && kind !== 'drawing' && kind !== '3d' && (
           <Animated.View entering={FadeIn.duration(200)} style={md.hint}>
             <Ionicons name="cloud-outline" size={14} color={c.text} />
             <T v="small" color={c.text}>Needs internet once · then saved on your phone</T>

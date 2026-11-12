@@ -28,3 +28,11 @@ speed with shadows, "Real glass blur" (You, off by default), drawings in long li
 - 3D anatomy-style exercise animation (owner's idea): test on two exercises with an openly licensed muscle model.
 - `src/journey.tsx` still uses its older calorie estimate; point it at `energyOf` for one number everywhere.
 - `app/recovery.tsx` zone and sleep-stage colours are hard-coded rather than domain tokens.
+
+## Added after the PR opened
+
+- Workout screen: the clock in the header counts the whole workout, so it keeps running from one exercise to the
+  next. It now says "WHOLE WORKOUT" under the time. The "i" button beside the exercise name is a labelled
+  "How to do it" button.
+- 3D anatomy trial: Bodyweight Squat and Butterfly have a "3D" view in the demo switch. See `scripts/anatomy3d/README.md`
+  for the model, its licence and how a clip is made.

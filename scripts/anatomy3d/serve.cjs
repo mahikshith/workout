@@ -1,0 +1,2 @@
+const http=require('http'),fs=require('fs'),path=require('path');const root=__dirname;const T={'.html':'text/html','.js':'text/javascript','.json':'application/json','.bin':'application/octet-stream'};
+http.createServer((q,s)=>{const p=path.join(root,decodeURIComponent(q.url.split('?')[0]));if(!p.startsWith(root)||!fs.existsSync(p)||fs.statSync(p).isDirectory()){s.writeHead(404);return s.end();}s.writeHead(200,{'content-type':T[path.extname(p)]||'application/octet-stream'});fs.createReadStream(p).pipe(s);}).listen(8090);
