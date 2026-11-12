@@ -6,6 +6,27 @@ export const Rx = (d) => new THREE.Matrix4().makeRotationX(d * Math.PI / 180), R
 export const mul = (...m) => m.reduce((a, b) => a.clone().multiply(b));
 export const I = new THREE.Matrix4();
 export const lerp = (a, b, t) => a + (b - a) * t, ease = (t) => t * t * (3 - 2 * t);
+// One measured angle, drawn without any text: a thin arc at the joint, its two arms, and (for an angle measured against
+// the upright or the floor) the dashed line it is measured from. Returns the angle in whole degrees.
+// a, b, c: the angle sits at b between b->a and b->c; with `base`, c is a direction (not a point).
+export function angleMark(g2, proj, SIZE, a, b, c, base, sub, colour = '#1f6feb', draw = true) {
+  if (base) c = b.clone().add(c.clone().normalize().multiplyScalar(120));
+  const u = a.clone().sub(b).normalize(), w = c.clone().sub(b).normalize(); let deg = Math.round(Math.acos(Math.max(-1, Math.min(1, u.dot(w)))) * 180 / Math.PI);
+  if (sub) deg = Math.abs(sub - deg);
+  if (!draw) return deg;
+  g2.strokeStyle = colour; g2.fillStyle = colour;
+  if (base) { const [x0, y0] = proj(b.clone().addScaledVector(w, -150)), [x1, y1] = proj(b.clone().addScaledVector(w, 330)); g2.globalAlpha = 0.6; g2.lineWidth = SIZE / 300; g2.setLineDash([SIZE / 60, SIZE / 90]); g2.beginPath(); g2.moveTo(x0, y0); g2.lineTo(x1, y1); g2.stroke(); g2.setLineDash([]); }
+  const [bx, by] = proj(b), [ax, ay] = proj(b.clone().addScaledVector(u, 150)), [cx, cy] = proj(b.clone().addScaledVector(w, 150));
+  const a0 = Math.atan2(ay - by, ax - bx), a1 = Math.atan2(cy - by, cx - bx); let d = a1 - a0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+  const R = SIZE * 0.05;
+  g2.lineWidth = SIZE / 240;
+  g2.globalAlpha = 0.16; g2.beginPath(); g2.moveTo(bx, by); g2.arc(bx, by, R, a0, a0 + d, d < 0); g2.closePath(); g2.fill();
+  g2.globalAlpha = 1; g2.beginPath(); g2.arc(bx, by, R, a0, a0 + d, d < 0); g2.stroke();
+  g2.globalAlpha = 0.8; g2.beginPath(); g2.moveTo(ax, ay); g2.lineTo(bx, by); if (!base) g2.lineTo(cx, cy); g2.stroke();
+  g2.globalAlpha = 1; g2.beginPath(); g2.arc(bx, by, SIZE / 150, 0, 7); g2.fill();
+  return deg;
+}
+// The clip renderer (main.js) still writes the number beside the arc.
 export function angleLabel(g2, proj, SIZE, placed, a, b, c, label, base, sub) {
   // base: c is a direction (not a point); the baseline is drawn through b as a long dashed reference line
   if (base) c = b.clone().add(c.clone().normalize().multiplyScalar(120));
@@ -72,6 +93,8 @@ const flat = (v) => new THREE.Vector3(v.x, v.y, 0);
 // measured against baselines: the floor (horizontal) and upright (vertical)
 EX.squat.angles = (p) => [[p.Lthigh, p.Lshank, flat(p.Lthigh.clone().sub(p.Lshank)), 'Thigh to floor', true], [p.Lupper, p.Lthigh, new THREE.Vector3(0, 0, 1), 'Back from upright', true]];
 EX.fly.angles = (p) => [[p.Lfore, p.Lupper, p.Lupper.clone().sub(p.Rupper), 'Arm from shoulder line', true], [p.Lupper, p.Lfore, p.Lhand, 'Elbow bend', false, 180]];
+const asReads = (f) => () => f(seg().p).map((x, i) => ({ label: x[3], pts: () => { const q = f(seg().p)[i]; return [q[0], q[1], q[2]]; }, base: !!x[4], sub: x[5] }));
+EX.squat.reads = asReads(EX.squat.angles); EX.fly.reads = asReads(EX.fly.angles);
 EX.squat.shots = [{ az: 49, el: 0.22, zoom: 1, f: 0 }, { az: 88, el: 0.1, zoom: 0.96, f: 0 }, { az: 30, el: 0.3, zoom: 0.62, f: 0.8 }];
 EX.fly.shots = [{ az: 32, el: 0.26, zoom: 1, f: 0 }, { az: 0, el: 0.16, zoom: 0.94, f: 0 }, { az: 24, el: 0.42, zoom: 0.56, f: 0.9 }];
 return EX;

@@ -325,10 +325,35 @@ export function makeDriven(spec, J, seg, meta = {}) {
   if (pose.machine === 'bike') still.push(() => { const { p } = seg(), c = p.Rfoot.clone().add(p.Lfoot).multiplyScalar(0.5); const s = stick(22, steel); s.put(new THREE.Vector3(0, p.pelvis.y + 40, p.pelvis.z - 150), new THREE.Vector3(0, c.y, c.z)); const s2 = stick(22, steel); s2.put(new THREE.Vector3(0, c.y, c.z), new THREE.Vector3(0, c.y, 0)); slab(120, 900, 40, steel, 0, (c.y + p.pelvis.y) / 2, 20); const ring = stick(95, dark); ring.put(new THREE.Vector3(-25, c.y, c.z), new THREE.Vector3(25, c.y, c.z)); });
   let built = false;
 
-  const gd = guideOf(pose, b), j = gd.label.j, kind = j.slice(0, 2), [na, nb] = NB[j];
+  // ---- what is measured. No number sits on the figure: live.js draws a thin arc at each joint and shows the moving
+  // numbers in a strip beside it. Three at most: the joint that does the work, the joint or limb that goes with it,
+  // and the posture of the trunk against the upright or the floor.
+  const gd = guideOf(pose, b), j = gd.label.j, kind = j.slice(0, 2);
   const P3 = { pelvis: 'pelvis', neck: 'neck', hp: 'thigh', kn: 'shank', an: 'foot', sh: 'upper', el: 'fore', wr: 'hand' };
   const pt = (k) => { const { p } = seg(); if (k === 'pelvis') return p.pelvis; if (k === 'neck') return p.neck; if (k.startsWith('toe')) return new THREE.Vector3(0, -150, -60).applyMatrix4(seg().R.Rfoot).add(p.Rfoot); return p['R' + P3[k.slice(0, 2)]]; };
-  const tall = !front && !mat && Math.abs(pose.start.spine) < 35 && (pose.ground ?? 'stand') === 'stand' && Math.abs(pose.end.spine - pose.start.spine) > 12;
+  const level = (d) => { const f = new THREE.Vector3(d.x, d.y, 0); return f.lengthSq() > 1 ? f : across.clone().cross(Z); }; // the same line laid flat on the floor
+  const READ = {
+    kn: { label: 'Knee bend', pts: () => [pt('hp0'), pt('kn0'), pt('an0')], sub: 180 },
+    el: { label: 'Elbow bend', pts: () => [pt('sh0'), pt('el0'), pt('wr0')], sub: 180 },
+    hp: { label: 'Hip bend', pts: () => [pt('kn0'), pt('hp0'), pt('neck')], sub: 180 },
+    sh: { label: 'Arm from body', pts: () => [pt('el0'), pt('sh0'), seg().p.pelvis.clone().sub(seg().p.neck)], base: true }, // against the line of the trunk
+    an: { label: 'Ankle', pts: () => [pt('kn0'), pt('an0'), pt('toe0')], sub: 180 },
+    thigh: { label: 'Thigh to floor', pts: () => [pt('hp0'), pt('kn0'), level(pt('hp0').clone().sub(pt('kn0')))], base: true },
+    fore: { label: 'Forearm tilt', pts: () => [pt('wr0'), pt('el0'), Z.clone().multiplyScalar(pt('wr0').z >= pt('el0').z ? 1 : -1)], base: true },
+    upright: { label: front ? 'Side lean' : 'Back lean', pts: () => [seg().p.neck, seg().p.pelvis, Z], base: true },
+    floor: { label: 'Body to floor', pts: () => [seg().p.neck, seg().p.pelvis, level(seg().p.neck.clone().sub(seg().p.pelvis))], base: true, flat: true },
+  };
+  const JK = { hp: 'hip', kn: 'knee', an: 'ankle', sh: 'shoulder', el: 'elbow' }, moves = (k) => Math.abs(pose.end[JK[k]][0] - pose.start[JK[k]][0]);
+  // called by live.js once, with the figure standing in the key position of the move
+  const reads = () => {
+    const out = [READ[kind]], d = seg().p.neck.clone().sub(seg().p.pelvis).normalize(), standing = (pose.ground ?? 'stand') === 'stand';
+    const squat = kind === 'kn' && standing && d.z > 0.5 && moves('kn') > 40;
+    const other = Object.keys(JK).filter((k) => k !== kind && k !== 'an').sort((x, y) => moves(y) - moves(x))[0];
+    out.push(squat ? READ.thigh : READ[moves(other) > 12 ? other : { kn: 'hp', hp: 'kn', el: 'sh', sh: 'el', an: 'kn' }[kind]]);
+    if (!mat && d.z > 0.5) out.push(READ.upright); else if (!mat && d.z > -0.5) out.push(READ.floor);
+    if (kind === 'el' && d.z <= 0.5) out.push(READ.fore); // lying presses: the forearm stays upright under the weight
+    return out;
+  };
 
   return {
     primary: groups(spec.primary), secondary: groups(spec.secondary).filter((x) => !groups(spec.primary).includes(x)),
@@ -336,12 +361,6 @@ export function makeDriven(spec, J, seg, meta = {}) {
     pose: pose3,
     props: () => { if (!built) { built = true; still.forEach((f) => f()); } movers.forEach((f) => f()); return g; },
     shots: [{ az: pose.az != null ? pose.az : mat ? -20 : front ? (pose.tilt ? -52 : -16) : pose.twist || pose.splay || pose.swing ? -40 : -62, el: pose.el != null ? pose.el : mat ? 1.3 : 0.2, zoom: 1, f: 0 }],
-    angles: () => {
-      const out = [];
-      if (kind === 'sh') out.push([pt(nb), pt(j), pt(na).clone().sub(pt(j)), JOINT.sh, true]); // arm against the line of the body
-      else out.push([pt(na), pt(j), pt(nb), JOINT[kind], false, 180]);
-      if (tall) out.push([seg().p.neck, seg().p.pelvis, Z, 'Back from upright', true]);
-      return out;
-    },
+    reads, key: gd.label.key, level: across.clone().cross(Z), // the level line in the plane the body moves in
   };
 }

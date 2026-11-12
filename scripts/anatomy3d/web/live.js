@@ -1,10 +1,12 @@
 // Live 3D viewer for the app. pack.cjs bundles this file, three.js and the figure's data into one HTML page
 // (assets/anatomy/live.html), which the app shows in a web view. The figure repeats the move while the user
 // drags to look around, pinches to zoom, slows it down or pauses it.
-// The page reads its settings from the address: #ex=squat&bg=f3f4f1&ink=1a1c1a
-// It tells the app what happened with messages: {type:'ready'} after the first picture, {type:'fail', why} otherwise.
+// The page reads its settings from the address: #ex=squat&bg=f3f4f1&ink=1a1c1a (&big=1 in the big view)
+// It tells the app what happened with messages: {type:'ready'} after the first picture, {type:'fail', why} otherwise,
+// {type:'expand'} when the user asks for the big view (the window button, or a double tap) and {type:'close'} to leave it.
+// The measured angles are shown as moving numbers in a strip above the figure ("Aim for"), never on the muscles.
 import * as THREE from 'three';
-import { I, mul, lerp, angleLabel, makeMoves } from './moves.js';
+import { I, mul, lerp, angleMark, makeMoves } from './moves.js';
 import { makeDriven } from './drive.js';
 
 const say = (m) => { const s = JSON.stringify(m); try { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(s); else if (window.parent !== window) window.parent.postMessage(s, '*'); } catch (e) { /* nobody is listening */ } };
@@ -114,7 +116,7 @@ function solve(pose) {
   segOut = { R, p };
 }
 // the space the whole move needs and the middle of the working muscles, measured once on every 6th point
-const box = new THREE.Box3(), focus = new THREE.Vector3(), centre = new THREE.Vector3(); let radius = 1;
+const box = new THREE.Box3(), focus = new THREE.Vector3(), centre = new THREE.Vector3(); let radius = 1, halfH = 1, rxy = 1, fitBox = null; // fitBox: half the size of the space the move needs
 function measure() {
   const q = new THREE.Vector3(), a = new THREE.Vector3(), b = new THREE.Vector3(); let n = 0;
   box.makeEmpty(); focus.set(0, 0, 0);
@@ -127,47 +129,92 @@ function measure() {
     }
   }
   if (n) focus.multiplyScalar(1 / n); else box.getCenter(focus);
-  box.getCenter(centre); { const sz = box.getSize(new THREE.Vector3()); radius = Math.max(sz.length() / 2, sz.z / 1.5); } // a tall narrow move must still fit top to bottom
+  // the picture is fitted to an upright drum around the move (its half height and its radius), so a standing figure
+  // fills a tall pane from top to bottom whichever way the user turns it
+  const fitTo = (bx) => { const sz = bx.getSize(new THREE.Vector3()); bx.getCenter(centre); fitBox = sz.clone().multiplyScalar(0.5); halfH = sz.z / 2; rxy = Math.hypot(sz.x, sz.y) / 2; radius = Math.max(sz.length() / 2, sz.z / 1.5); };
+  fitTo(box);
   // make some room for the equipment too, but keep the body large: a barbell may run a little off the picture
   if (ex.props) {
     solve(ex.pose(0)); const pb = new THREE.Box3().setFromObject(ex.props(ex.pose(0)));
-    if (!pb.isEmpty()) { const all = box.clone().union(pb), c2 = all.getCenter(new THREE.Vector3()), r2 = all.getSize(new THREE.Vector3()).length() / 2; centre.lerp(c2, 0.5); radius = Math.min(r2, radius * 1.25); }
+    if (!pb.isEmpty()) { const f0 = fitBox.clone(), c0 = centre.clone(); fitTo(box.clone().union(pb)); centre.lerp(c0, 0.5); fitBox.set(Math.min(fitBox.x, f0.x * 1.3), Math.min(fitBox.y, f0.y * 1.3), Math.min(fitBox.z, f0.z * 1.2)); }
   }
   shadow.position.set(centre.x, centre.y + 20, (meta.ground ?? 0) + 1); shadow.scale.set(1100, 900, 1);
+  readsFor();
+}
+
+// ---- the angles this move is judged by. Each has its own colour: a thin arc on the figure and a chip in the strip
+// above it, where the number moves with the body and "aim" is the angle at the key position of the move.
+const COLOURS = ['#1f6feb', '#0a9396', '#c77700', '#7b5ad6'], strip = document.getElementById('read');
+let reads = [], showLines = true;
+function readsFor() {
+  reads = []; strip.textContent = '';
+  if (!ex.reads || QS.get('bare')) return;
+  const key = ex.key ?? 1, proj0 = null;
+  solve(ex.pose(key)); const list = ex.reads().slice(0, 3);
+  const val = (r) => { const [a, b, c] = r.pts(); return angleMark(null, proj0, 1, a, b, c, r.base, r.sub, '', false); };
+  const aim = list.map(val); solve(ex.pose(1 - key)); const other = list.map(val);
+  list.forEach((r, i) => {
+    if (r.flat && aim[i] < 6 && other[i] < 6) return; // lying flat: nothing to read
+    const el = document.createElement('div'), k = COLOURS[reads.length % COLOURS.length]; el.className = 'chip'; el.style.setProperty('--k', k);
+    const held = Math.abs(aim[i] - other[i]) < 4; // an angle that stays the same through the move is one to hold
+    el.innerHTML = `<b></b><span>${aim[i]}°</span><i>${held ? 'hold' : 'aim'} ${aim[i]}°</i>`; el.firstChild.textContent = r.label;
+    strip.appendChild(el); reads.push({ ...r, k, aim: aim[i], el, num: el.children[1], shown: null });
+  });
 }
 measure();
 
 // ---- camera the user steers: az and el in degrees, zoom 1 = the whole move fits
-const HOME = { az: ex.shots[0].az, el: Math.atan(ex.shots[0].el) * 180 / Math.PI, zoom: 0.82 };
+const HOME = { az: ex.shots[0].az, el: Math.atan(ex.shots[0].el) * 180 / Math.PI, zoom: 1 };
 const view = { ...HOME }; let goal = null; // goal: where "Reset view" glides back to
-const ov = document.getElementById('ov'), g2 = ov.getContext('2d');
+const ov = document.getElementById('ov'), g2 = ov.getContext('2d'), stage = document.getElementById('stage');
+let dirty = 3; // picture sheets draw only when something changed
 let W = 0, H = 0, DPR = 1, quality = Math.min(window.devicePixelRatio || 1, 2);
 function size() {
   W = canvas.clientWidth; H = canvas.clientHeight; if (!W || !H) return;
   renderer.setPixelRatio(quality); renderer.setSize(W, H, false); cam.aspect = W / H;
-  DPR = Math.min(window.devicePixelRatio || 1, 2); ov.width = W * DPR; ov.height = H * DPR;
+  DPR = Math.min(window.devicePixelRatio || 1, 2); ov.width = W * DPR; ov.height = H * DPR; dirty = 3;
 }
 window.addEventListener('resize', size); size();
+if (window.ResizeObserver) new ResizeObserver(size).observe(stage); // the strip of numbers above can change the room left for the figure
 function aim() {
   const a = view.az * Math.PI / 180, e = view.el * Math.PI / 180, dir = new THREE.Vector3(Math.sin(a) * Math.cos(e), -Math.cos(a) * Math.cos(e), Math.sin(e));
   // zoomed in, the camera turns towards the working muscles
   const tgt = centre.clone().lerp(focus, Math.min(1, Math.max(0, (1 - view.zoom) / 0.5)) * 0.9);
-  const fit = radius / Math.sin(cam.fov * Math.PI / 360) / Math.min(1, cam.aspect);
-  tgt.z -= radius * 0.1 * view.zoom; // leaves room for the buttons under the feet
-  cam.position.copy(tgt).addScaledVector(dir, fit * view.zoom); cam.lookAt(tgt); cam.updateProjectionMatrix(); cam.updateMatrixWorld();
+  // the room the figure may use: the whole pane less the buttons under it and a little air. The camera stands just
+  // far enough back for every corner of the space the move needs to fall inside that room, from wherever it looks.
+  const bare = !!QS.get('bare'), top = bare ? 4 : 14, bottom = bare ? 4 : 60, side = 8, th = Math.tan(cam.fov * Math.PI / 360);
+  const useH = Math.max(0.3, (H - top - bottom) / H), useW = Math.max(0.3, (W - 2 * side) / W);
+  const right = new THREE.Vector3(Math.cos(a), Math.sin(a), 0), upV = new THREE.Vector3().crossVectors(dir, right).negate();
+  let fit = 1; const q = new THREE.Vector3();
+  for (let i = 0; i < 8; i++) {
+    q.set(i & 1 ? rxy : -rxy, i & 2 ? rxy : -rxy, i & 4 ? halfH : -halfH); if (fitBox) q.set(i & 1 ? fitBox.x : -fitBox.x, i & 2 ? fitBox.y : -fitBox.y, i & 4 ? fitBox.z : -fitBox.z);
+    const z = q.dot(dir); fit = Math.max(fit, z + Math.abs(q.dot(right)) / (th * cam.aspect * useW), z + Math.abs(q.dot(upV)) / (th * useH));
+  }
+  const d = fit * view.zoom;
+  tgt.addScaledVector(upV, -((bottom - top) / H) * d * th * Math.min(1, view.zoom)); // lifts the figure clear of the buttons
+  cam.position.copy(tgt).addScaledVector(dir, d); cam.lookAt(tgt); cam.updateProjectionMatrix(); cam.updateMatrixWorld();
   key.position.copy(cam.position).add(new THREE.Vector3(-900, -300, 1600)); rim.position.set(-dir.x * 1000 + 600, 1500, 900);
 }
 
 // ---- touch: one finger turns, two fingers zoom, the mouse wheel zooms too
 const touches = new Map(); let pinch = 0;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-canvas.addEventListener('pointerdown', (e) => { canvas.setPointerCapture(e.pointerId); touches.set(e.pointerId, [e.clientX, e.clientY]); goal = null; pinch = 0; hideHint(); });
+// a double tap (two quick taps that do not drag) opens the big view, or closes it
+let tapAt = 0, tapXY = [0, 0], downXY = null, moved = false;
+const big = !!QS.get('big'), toggleBig = () => say({ type: big ? 'close' : 'expand' });
+canvas.addEventListener('pointerdown', (e) => { canvas.setPointerCapture(e.pointerId); touches.set(e.pointerId, [e.clientX, e.clientY]); goal = null; pinch = 0; hideHint(); if (touches.size === 1) { downXY = [e.clientX, e.clientY]; moved = false; } else downXY = null; });
 canvas.addEventListener('pointermove', (e) => {
   const was = touches.get(e.pointerId); if (!was) return; touches.set(e.pointerId, [e.clientX, e.clientY]);
+  if (downXY && Math.hypot(e.clientX - downXY[0], e.clientY - downXY[1]) > 10) moved = true;
   if (touches.size === 1) { view.az -= (e.clientX - was[0]) * 0.45; view.el = clamp(view.el + (e.clientY - was[1]) * 0.3, -8, 80); }
   else if (touches.size === 2) { const [a, b] = [...touches.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) view.zoom = clamp(view.zoom * pinch / d, 0.22, 1.25); pinch = d; }
 });
-const up = (e) => { touches.delete(e.pointerId); pinch = 0; };
+const up = (e) => {
+  const one = touches.size === 1 && touches.has(e.pointerId); touches.delete(e.pointerId); pinch = 0;
+  if (!one || !downXY || moved || e.type !== 'pointerup') { if (moved) tapAt = 0; return; }
+  const now = performance.now();
+  if (now - tapAt < 320 && Math.hypot(e.clientX - tapXY[0], e.clientY - tapXY[1]) < 40) { tapAt = 0; toggleBig(); } else { tapAt = now; tapXY = [e.clientX, e.clientY]; }
+};
 canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); goal = null; view.zoom = clamp(view.zoom * Math.exp(e.deltaY * 0.0012), 0.22, 1.25); hideHint(); }, { passive: false });
 
@@ -179,16 +226,18 @@ setTimeout(hideHint, 4500);
 $('play').onclick = () => { playing = !playing; $('play').textContent = playing ? 'Pause' : 'Play'; };
 $('slow').onclick = () => { slow = !slow; $('slow').classList.toggle('on', slow); $('slow').setAttribute('aria-pressed', slow); };
 $('reset').onclick = () => { goal = { ...HOME, az: HOME.az + 360 * Math.round((view.az - HOME.az) / 360) }; };
+$('lines').onclick = () => { showLines = !showLines; $('lines').classList.toggle('on', showLines); $('lines').setAttribute('aria-pressed', showLines); strip.classList.toggle('off', !showLines); };
+$('win').onclick = toggleBig;
 window.addEventListener('message', (e) => { if (e.data === 'pause') { playing = false; $('play').textContent = 'Play'; } }); // the app pauses it when it scrolls away
 
 // ---- the loop. One rep is 2 s down, a short hold, 2 s up and 1 s rest, like the clip.
 let PER = ex.per || 5.44, clock = 0, last = 0, lastT = -1, frames = 0, since = 0, told = false;
 // for the picture sheets made by sheet.cjs: hold the move at position p and look from az, el, zoom
-const still = !!QS.get('bare'); let dirty = 3;
+const still = !!QS.get('bare');
 window.hold = (p, az, el, zoom) => { dirty = 3; playing = false; ex.phase = () => p; if (az != null) Object.assign(view, { az, el, zoom }); goal = null; lastT = -1; };
 // show another exercise without loading the page again
 window.show = (sp) => { props.traverse((o) => o.geometry?.dispose()); props.clear(); ex = makeDriven(sp, J, () => segOut, meta); mark(); measure(); Object.assign(HOME, { az: ex.shots[0].az, el: Math.atan(ex.shots[0].el) * 180 / Math.PI }); Object.assign(view, HOME); PER = ex.per || 5.44; clock = 0; lastT = -1; goal = null; };
-window.look = (j, r) => { centre.copy(segOut.p[j]); radius = r; dirty = 3; };
+window.look = (j, r) => { centre.copy(segOut.p[j]); radius = r; fitBox = new THREE.Vector3(r, r, r).multiplyScalar(0.6); dirty = 3; };
 window.joints = () => Object.fromEntries(Object.entries(segOut.p).map(([k, q]) => [k, [Math.round(q.x), Math.round(q.y), Math.round(q.z)]]));
 function frame(now) {
   requestAnimationFrame(frame);
@@ -202,10 +251,20 @@ function frame(now) {
   pri.copy(DEEP).lerp(HOT, 0.5 - 0.5 * Math.cos(2 * Math.PI * now / 880));
   if (goal) { const k = 1 - Math.exp(-dt * 7); view.az = lerp(view.az, goal.az, k); view.el = lerp(view.el, goal.el, k); view.zoom = lerp(view.zoom, goal.zoom, k); if (Math.abs(view.az - goal.az) < 0.2 && Math.abs(view.zoom - goal.zoom) < 0.004) goal = null; }
   aim(); renderer.render(scene, cam);
-  // angle read-outs, drawn on a flat layer above the figure
+  // the measured angles: thin arcs and their upright or level lines on a flat layer above the figure (no text there),
+  // and the moving numbers in the strip above
   g2.setTransform(DPR, 0, 0, DPR, 0, 0); g2.clearRect(0, 0, W, H);
-  const U = Math.max(330, Math.min(520, Math.min(W, H) * 1.3)), proj = (v) => { const p = v.clone().project(cam); return [(p.x * 0.5 + 0.5) * W, (-p.y * 0.5 + 0.5) * H]; }, placed = [];
-  if (ex.angles && !QS.get('bare')) for (const [a, b, c, l, base, sub] of ex.angles(segOut.p)) angleLabel(g2, proj, U, placed, a, b, c, l, base, sub);
+  const U = Math.max(330, Math.min(520, Math.min(W, H) * 1.3)), proj = (v) => { const p = v.clone().project(cam); return [(p.x * 0.5 + 0.5) * W, (-p.y * 0.5 + 0.5) * H]; };
+  reads.forEach((r, i) => {
+    const [a, b, c] = r.pts();
+    if (i === 0 && showLines) { // the upright and the level line through the working joint: the two axes every angle is read against
+      g2.strokeStyle = r.k; g2.globalAlpha = 0.38; g2.lineWidth = U / 330; g2.setLineDash([U / 70, U / 70]);
+      for (const d of [new THREE.Vector3(0, 0, 1), ex.level || new THREE.Vector3(0, -1, 0)]) { const [x0, y0] = proj(b.clone().addScaledVector(d, -260)), [x1, y1] = proj(b.clone().addScaledVector(d, 260)); g2.beginPath(); g2.moveTo(x0, y0); g2.lineTo(x1, y1); g2.stroke(); }
+      g2.setLineDash([]); g2.globalAlpha = 1;
+    }
+    const deg = angleMark(g2, proj, U, a, b, c, r.base, r.sub, r.k, showLines);
+    if (deg !== r.shown) { r.shown = deg; r.num.textContent = deg + '°'; r.el.classList.toggle('hit', Math.abs(deg - r.aim) <= 4); }
+  });
   if (!told) { told = true; say({ type: 'ready' }); }
   // a phone that cannot keep up gets a coarser picture instead of a stuttering one
   frames++; since += dt; if (since > 2) { const fps = frames / since; frames = 0; since = 0; if (fps < 20 && quality > 0.75) { quality = quality > 1 ? 1 : 0.75; size(); } }
