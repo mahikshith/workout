@@ -34,5 +34,5 @@ speed with shadows, "Real glass blur" (You, off by default), drawings in long li
 - Workout screen: the clock in the header counts the whole workout, so it keeps running from one exercise to the
   next. It now says "WHOLE WORKOUT" under the time. The "i" button beside the exercise name is a labelled
   "How to do it" button.
-- 3D anatomy trial: Bodyweight Squat and Butterfly have a "3D" view in the demo switch. See `scripts/anatomy3d/README.md`
-  for the model, its licence and how a clip is made.
+- 3D view: Bodyweight Squat and Butterfly have a "3D" view in the demo switch. The figure is our own, made in code,
+  so it needs no credit. See `scripts/anatomy3d/README.md` for how the model and a clip are made.
