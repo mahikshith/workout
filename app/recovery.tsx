@@ -14,6 +14,7 @@ import { c, r } from '../src/theme';
 import { dayKey } from '../src/calc';
 import { Button, Ring, T } from '../src/ui';
 import { Ambient } from '../src/glass';
+import { Meta, Tip } from '../src/tip';
 
 const FACTOR_ICON: Record<Factor['key'], keyof typeof Ionicons.glyphMap> = { hrv: 'pulse', rhr: 'heart', sleep: 'moon', regular: 'time-outline' };
 const WD = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -51,15 +52,20 @@ export default function Recovery() {
             ) : (
               <View style={{ alignItems: 'center', paddingHorizontal: 18 }}>
                 <Ionicons name="hourglass-outline" size={26} color={c.muted} />
-                <T v="small" style={{ textAlign: 'center' }}>{noData ? 'No watch data yet' : `${Math.max(0, MIN_NIGHTS - rd.nights)} more nights`}</T>
+                <T v="small" style={{ textAlign: 'center' }}>{noData ? 'No data yet' : `${Math.max(0, MIN_NIGHTS - rd.nights)} more nights`}</T>
               </View>
             )}
           </Ring>
-          <T v="h2" color={rd.level ? col : c.text}>{rd.level ? LEVEL_WORD[rd.level] : noData ? 'Connect a watch' : 'Learning your baseline'}</T>
-          <T v="small" style={{ textAlign: 'center' }}>
-            {advice ?? (rd.level ? 'Your body is about where it usually is' : noData ? 'Readiness needs HRV or resting HR from a watch' : 'Wear your watch to bed a few more nights')}
-          </T>
-          {noData && <Button title="Connect your watch" icon="watch-outline" onPress={() => router.push({ pathname: '/watch', params: { connect: '1' } })} style={{ alignSelf: 'stretch' }} />}
+          {/* The level word says it once; today's advice, what the score needs and how it is made sit behind the (i). */}
+          <View style={[s.row, { gap: 4 }]}>
+            <T v="h2" color={rd.level ? col : c.text}>{rd.level ? LEVEL_WORD[rd.level] : noData ? 'No watch yet' : 'Learning your baseline'}</T>
+            <Tip title="Readiness" text={[
+              advice ?? (rd.level ? 'Your body is about where it usually is.' : noData ? 'Readiness needs HRV or resting HR from a watch.' : 'Wear your watch to bed a few more nights.'),
+              'Our own score from last night\'s HRV and resting heart rate against your own 28-day usual, plus how long you slept and how regular your sleep times were. 50 is your usual; 80+ is clearly better than usual.',
+              'Not medical advice.',
+            ].join('\n\n')} />
+          </View>
+          {noData && <Button title="Connect watch" icon="watch-outline" onPress={() => router.push({ pathname: '/watch', params: { connect: '1' } })} style={{ alignSelf: 'stretch' }} />}
         </Animated.View>
 
         {rd.flags.map((f) => (
@@ -110,15 +116,18 @@ export default function Recovery() {
                   ))}
                 </View>
               </>
-            ) : <T v="small">No sleep stages from this watch</T>}
+            ) : <T v="small">No stages from this watch</T>}
           </Animated.View>
         )}
 
         {/* Effort */}
         <Animated.View entering={enter(3)} style={s.card}>
           <View style={s.row}>
-            <T v="h3" style={{ flex: 1 }}>Effort</T>
-            <T v="small">{effort.load.trend === 'up' ? 'Higher than usual this week' : effort.load.trend === 'down' ? 'Lighter than usual this week' : effort.load.trend === 'steady' ? 'Usual week' : 'Last 7 days'}</T>
+            <View style={[s.row, { flex: 1, gap: 4 }]}>
+              <T v="h3">Effort</T>
+              <Tip title="Effort" text={'Each workout scores 0 (easy) to 100 (all out), from its average heart rate, its length and your heart-rate reserve. Workouts without heart rate get a small estimate from time.\n\nThe bars are the last 7 days. The coloured strip shows sets by heart-rate zone, 1 easy to 5 max.'} />
+            </View>
+            <T v="small">{effort.load.trend === 'up' ? 'Above usual' : effort.load.trend === 'down' ? 'Below usual' : effort.load.trend === 'steady' ? 'Usual week' : '7 days'}</T>
           </View>
           {effort.load.week.some((t) => t > 0) && <Bars items={effort.load.week.map((t, k) => ({ label: WD[new Date(`${dayBefore(today, 6 - k)}T12:00:00`).getDay()], value: effortScore(t) }))} height={90} color={c.pink} />}
           {effort.last ? (
@@ -126,22 +135,22 @@ export default function Recovery() {
               <View style={s.row}>
                 <Ionicons name={/run|walk|bik|cycl|swim|hik/i.test(effort.last.title) ? 'walk-outline' : 'barbell-outline'} size={18} color={c.muted} />
                 <T v="body" numberOfLines={1} style={{ flex: 1 }}>{effort.last.title}</T>
-                <T v="small">Effort</T>
                 <T v="body" color={c.text}>{effort.last.score}<T v="small"> / 100</T></T>
               </View>
-              <T v="small">
-                {effort.last.minutes} min · {effort.last.avgHr ? `avg ${Math.round(effort.last.avgHr)} bpm` : 'no heart rate, estimated'}
-              </T>
+              <Meta items={[
+                { icon: 'time-outline', text: `${effort.last.minutes} min` },
+                effort.last.avgHr ? { icon: 'heart-outline', text: `avg ${Math.round(effort.last.avgHr)} bpm` } : { icon: 'calculator-outline', text: 'Estimated' },
+              ]} />
               {effort.last.zones.some((z) => z > 0) && (
                 <>
                   <View style={s.stageBar}>
                     {effort.last.zones.map((z, k) => (z > 0 ? <View key={k} style={{ flex: z, backgroundColor: ZONE_COLORS[k] }} /> : null))}
                   </View>
-                  <T v="small">Sets by heart-rate zone, 1 easy to 5 max</T>
+                  <T v="small" accessibilityLabel="Sets by heart-rate zone, 1 easy to 5 max">HR zones 1–5</T>
                 </>
               )}
             </View>
-          ) : <T v="small">Finish a workout and its effort shows here, from 0 (easy) to 100 (all out)</T>}
+          ) : <T v="small">No workouts yet</T>}
         </Animated.View>
 
         {/* Trend */}
@@ -156,10 +165,9 @@ export default function Recovery() {
         )}
 
         <Animated.View entering={enter(5)}>
-          <DoorCard icon="stats-chart" color={c.blue} title="Body & watch" meta="HRV, resting HR and sleep over time"
+          <DoorCard icon="stats-chart" color={c.blue} title="Body & watch" meta="HRV, resting HR, sleep"
             onPress={() => router.push({ pathname: '/chart/[kind]', params: { kind: 'body' } })} />
         </Animated.View>
-        <T v="small" style={{ paddingHorizontal: 4 }}>Our own score from your HRV, resting HR and sleep. Not medical advice</T>
       </ScrollView>
     </View>
   );

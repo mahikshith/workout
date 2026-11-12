@@ -44,13 +44,13 @@ export function Journey({ p, sessions, meals, weights }: { p: Profile; sessions:
   const onTrack = j.balance === null ? null : losing ? j.balance < -100 : j.balance > 100;
   const good = losing ? j.change < 0 : j.change > 0;
   const status = j.balance === null
-    ? 'Log meals to see your daily balance'
-    : `${sign(j.balance).replace('.0', '')} kcal a day · ${sign((j.balance * 7) / 7700)} kg a week`;
+    ? 'Log meals to see your balance'
+    : `${sign(j.balance).replace('.0', '')} kcal/day · ${sign((j.balance * 7) / 7700)} kg/week`;
   const tip = onTrack === false
-    ? (losing ? 'Aim for 300-500 kcal under your burn' : 'Aim for about 300 kcal over your burn')
+    ? (losing ? 'Eat 300-500 kcal under burn' : 'Eat ~300 kcal over burn')
     : j.perWeek === null
       ? 'Weigh in weekly, same day and time'
-      : `Trend ${sign(j.perWeek)} kg a week${j.weeksLeft ? ` · ${j.weeksLeft} weeks to goal` : ''}`;
+      : `Trend ${sign(j.perWeek)} kg/week${j.weeksLeft ? ` · ${j.weeksLeft} weeks to goal` : ''}`;
   return (
     <Section title={losing ? 'Weight loss' : 'Weight gain'}>
       <Row gap={12}>

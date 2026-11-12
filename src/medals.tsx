@@ -66,7 +66,7 @@ export function Achievements({ lv, badges }: { lv: Level; badges: Badge[] }) {
       <Gauge lv={lv} />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <T v="label">Medals</T>
-        <T v="small">{earned} of {list.length}</T>
+        <T v="small" accessibilityLabel={`${earned} of ${list.length} earned`}>{earned}/{list.length}</T>
       </View>
       {shown && (
         <View style={{ padding: 12, borderRadius: 12, backgroundColor: c.card2, gap: 2 }}>
@@ -74,7 +74,7 @@ export function Achievements({ lv, badges }: { lv: Level; badges: Badge[] }) {
             {shown.got ? `Earned · ${TIER_NAME[TIER[shown.id] ?? 'bronze']}` : shown === next ? 'Next medal' : 'Locked'}
           </T>
           <T v="h3" numberOfLines={1}>{shown.title}</T>
-          <T v="small" numberOfLines={1}>{shown.how}{shown.got ? '' : ` · ${shown.have.toLocaleString()} of ${shown.need.toLocaleString()}`}</T>
+          <T v="small" numberOfLines={1}>{shown.how}{shown.got ? '' : ` · ${shown.have.toLocaleString()}/${shown.need.toLocaleString()}`}</T>
         </View>
       )}
       <ScrollView ref={ref} horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }}
@@ -161,7 +161,7 @@ function Medal({ b, isNext, fresh, picked, onPress }: { b: Badge; isNext: boolea
   const g = 'm' + b.id; // gradient / clip ids, unique per medal
 
   return (
-    <Tap onPress={onPress} scale={0.92} style={{ width: ITEM, alignItems: 'center', gap: 4, paddingVertical: 4 }}>
+    <Tap onPress={onPress} scale={0.92} accessibilityLabel={`${b.title}, ${b.got ? `earned, ${TIER_NAME[tier]}` : isNext ? `next, ${b.have} of ${b.need}` : 'locked'}`} style={{ width: ITEM, alignItems: 'center', gap: 4, paddingVertical: 4 }}>
       <Animated.View style={[{ width: MS, height: MS, alignItems: 'center', justifyContent: 'center' }, popStyle]}>
         <Svg width={MS} height={MS} style={{ position: 'absolute' }}>
           <Defs>
@@ -202,7 +202,7 @@ function Medal({ b, isNext, fresh, picked, onPress }: { b: Badge; isNext: boolea
       <T v="small" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
         color={picked ? c.text : b.got ? c.soft : c.muted} style={{ textAlign: 'center' }}>{b.title}</T>
       <T v="label" numberOfLines={1} color={isNext ? c.accent : b.got ? c.muted : c.dim} style={{ fontSize: 11, lineHeight: 14, textAlign: 'center' }}>
-        {isNext ? `${b.have.toLocaleString()} of ${b.need.toLocaleString()}` : TIER_NAME[tier]}
+        {isNext ? `${b.have.toLocaleString()}/${b.need.toLocaleString()}` : TIER_NAME[tier]}
       </T>
     </Tap>
   );

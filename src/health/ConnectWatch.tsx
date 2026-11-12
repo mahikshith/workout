@@ -87,6 +87,24 @@ function Step({ n, done, title, sub, children }: { n: number; done: boolean; tit
   );
 }
 
+// The (i) for inside this sheet: Tip opens a sheet of its own and only one sheet is ever open, so here the
+// explanation unfolds in place under the heading instead.
+function Info({ title, text, children }: { title: string; text: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={{ gap: 6 }}>
+      <View style={[s.row, { gap: 4 }]}>
+        {children}
+        <Tap onPress={() => setOpen(!open)} feedback="none" scale={0.9} hitSlop={10} accessibilityLabel={`About ${title}`}
+          accessibilityState={{ expanded: open }} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name={open ? 'close-circle-outline' : 'information-circle-outline'} size={18} color={c.muted} />
+        </Tap>
+      </View>
+      {open && <T v="small">{text}</T>}
+    </View>
+  );
+}
+
 function Line({ icon, color, text }: { icon: keyof typeof Ionicons.glyphMap; color: string; text: string }) {
   return (
     <View style={[s.row, { alignItems: 'flex-start' }]}>
@@ -120,14 +138,14 @@ export function GetsTable({ g, arrived }: { g: Guide; arrived: Metric[] }) {
             );
           })}
         </View>
-      ) : <T v="small">Whatever your watch's app shares shows up here with a tick</T>}
+      ) : <T v="small" accessibilityLabel="Whatever your watch's app shares shows up here with a tick">Shared data shows here</T>}
       <View style={[s.row, { flexWrap: 'wrap', columnGap: 14, rowGap: 4 }]}>
-        <Key icon="checkmark-circle" color={c.ok} text="Received this week" />
-        <Key icon="ellipse-outline" color={c.muted} text="Not here yet" />
-        {rows.some((m) => unsure.includes(m) && !arrived.includes(m)) && <Key icon="help-circle-outline" color={c.muted} text="Depends on plan or model" />}
-        {rows.some((m) => NOT_READ.includes(m)) && <Key icon="remove-circle-outline" color={c.muted} text="We can't read it yet" />}
+        <Key icon="checkmark-circle" color={c.ok} text="This week" />
+        <Key icon="ellipse-outline" color={c.muted} text="Not yet" />
+        {rows.some((m) => unsure.includes(m) && !arrived.includes(m)) && <Key icon="help-circle-outline" color={c.muted} text="Plan or model" />}
+        {rows.some((m) => NOT_READ.includes(m)) && <Key icon="remove-circle-outline" color={c.muted} text="Can't read yet" />}
       </View>
-      {notShared.length > 0 && <T v="small">{g.direct ? 'The ring' : app} doesn't send {listOf(notShared.map((m) => METRIC_LABEL[m]))}</T>}
+      {notShared.length > 0 && <T v="small" accessibilityLabel={`${g.direct ? 'The ring' : app} doesn't send ${listOf(notShared.map((m) => METRIC_LABEL[m]))}`}>Not sent: {listOf(notShared.map((m) => METRIC_LABEL[m]))}</T>}
     </View>
   );
 }
@@ -218,16 +236,17 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
   const androidNote = !ANDROID && (
     <View style={s.note}>
       <Ionicons name="phone-portrait-outline" size={18} color={c.blue} />
-      <T v="small" color={c.text} style={{ flex: 1 }}>Connecting needs the Android app. Here you can read the steps</T>
+      <T v="small" color={c.text} style={{ flex: 1 }}>Connect in the Android app</T>
     </View>
   );
 
   // --- Pick the brand
   const pickView = (
     <ScrollView style={{ maxHeight: scrollMax }} contentContainerStyle={{ gap: 14, paddingBottom: 4 }} showsVerticalScrollIndicator={false}>
-      <T v="h2">Connect your watch</T>
+      <Info title="Connect your watch" text={`Watches don't pair with ${APP_NAME} directly. Your watch's own app passes its data on through Health Connect.`}>
+        <T v="h2">Connect your watch</T>
+      </Info>
       <DataPath nodes={hcPath({ app: firstApp, seen: !!firstApp, allowed: hcConnected })} />
-      <T v="small">Watches don't pair with {APP_NAME} directly. Your watch's own app passes its data on through Health Connect</T>
       {androidNote}
       <T v="label">Pick yours</T>
       <View style={s.tiles}>
@@ -267,14 +286,14 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
   const cur: 1 | 2 | 3 | 'check' | 'done' = seen && hcConnected ? 'done' : hcConnected ? 'check' : !done1 ? 1 : !done2 ? 2 : 3;
   const kind = (k: typeof cur) => (k === cur ? 'primary' as const : 'ghost' as const);
   const status1 = !g ? '' : g.direct
-    ? (ringOn ? 'Connected over Bluetooth' : ringSaved ? `${ringSaved.name} saved · connects when it's near` : 'Not connected yet')
-    : !hcConnected ? 'Not connected yet'
-      : seen ? `Last data ${lastWord(b.st?.last)} from ${src} · ${syncedAgo(lastSync)}` : `Health Connect is on · waiting for data from ${src}`;
+    ? (ringOn ? 'Connected' : ringSaved ? `${ringSaved.name} · connects when near` : 'Not connected')
+    : !hcConnected ? 'Not connected'
+      : seen ? `From ${src} ${lastWord(b.st?.last)} · ${syncedAgo(lastSync)}` : `Waiting for ${src} data`;
 
   const hcSteps = g && !g.direct && (
     <View style={{ gap: 18 }}>
       <Step n={1} done={done1} title={g.hc ? (g.app ? `Get ${app}` : "Get your watch's app") : 'Get Gadgetbridge'}
-        sub={g.id === 'other' ? "The app you paired your watch with" : g.hc ? `Sign in and pair ${deviceOf(g).replace('Your', 'your')} in it` : 'Pair your watch in it instead of Huawei Health'}>
+        sub={g.id === 'other' ? 'The app your watch pairs with' : g.hc ? `Sign in, pair ${deviceOf(g).replace('Your', 'your')}` : 'Pair your watch there instead'}>
         {g.app ? <Button kind={kind(1)} title={`Get ${app}`} icon="download-outline" onPress={() => { tap('get'); openPlay(g.app!.pkg); }} style={s.btn} />
           : !g.hc ? <Button kind={kind(1)} title="Get Gadgetbridge" icon="download-outline" onPress={() => { tap('get'); Linking.openURL(GADGETBRIDGE.url).catch(() => {}); }} style={s.btn} />
             : <Button kind={kind(1)} title="I have it" icon="checkmark" onPress={() => tap('get')} style={s.btn} />}
@@ -299,11 +318,11 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
       </Step>
       {hcConnected && (
         <View style={{ gap: 10 }}>
-          {checking ? <T v="small">Checking for data…</T>
-            : seen ? <Line icon="checkmark-circle" color={c.ok} text={`Data is arriving from ${src}. See what below`} />
+          {checking ? <T v="small">Checking…</T>
+            : seen ? <Line icon="checkmark-circle" color={c.ok} text={`Data arriving from ${src}`} />
               : (
                 <>
-                  <Line icon="alert-circle-outline" color={c.warm} text={result?.granted === 0 ? 'Access is off. Turn it on in Health Connect, under App permissions' : `Nothing from ${src} yet`} />
+                  <Line icon="alert-circle-outline" color={c.warm} text={result?.granted === 0 ? 'Access off: Health Connect › App permissions' : `Nothing from ${src} yet`} />
                   <T v="small" style={{ paddingLeft: 28 }}>{g.fix}</T>
                   {(result?.sources ?? []).filter((x) => !PHONE_ORIGINS.includes(x.origin)).map((x) => (
                     <Line key={x.origin} icon="checkmark-circle-outline" color={c.ok} text={`${cap(listOf(x.types))} from ${originName(x.origin)}`} />
@@ -314,7 +333,7 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
             <View style={[s.row, { alignItems: 'flex-start' }]}>
               <Ionicons name="time-outline" size={18} color={c.muted} style={{ marginTop: 1 }} />
               <View style={{ flex: 1, gap: 4 }}>
-                <T v="small">We read the last 30 days. Want older history too?</T>
+                <T v="small">Reading the last 30 days</T>
                 <Tap onPress={async () => { if (await requestHistory()) sync(365).catch(() => {}); }} style={s.link} scale={0.97} accessibilityLabel="Allow older history" disabled={!ANDROID}>
                   <T v="small" color={c.blue}>Allow older history</T>
                 </Tap>
@@ -331,9 +350,9 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
 
   const ringSteps = g?.direct && (
     <View style={{ gap: 18 }}>
-      <Step n={1} done={!!ringSaved} title="Charge the ring" sub="Keep it near your phone, off the charger" />
-      <Step n={2} done={ringOn} title="Find it on the Smart ring card" sub="We connect over Bluetooth. No other app needed">
-        <Button title="Go to ring card" icon="bluetooth" onPress={() => alt('ring')} style={s.btn} />
+      <Step n={1} done={!!ringSaved} title="Charge the ring" sub="Then off the charger, near your phone" />
+      <Step n={2} done={ringOn} title="Find it on the Smart ring card" sub="Bluetooth, no other app">
+        <Button title="Ring card" icon="bluetooth" onPress={() => alt('ring')} style={s.btn} />
       </Step>
     </View>
   );
@@ -347,18 +366,18 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
         </View>
       </Tap>
       <View style={{ gap: 4 }}>
-        <T v="h2">{g.name}</T>
+        {g.direct || !g.hc ? <T v="h2">{g.name}</T> : (
+          <Info title={g.name} text={`${deviceOf(g)} only pairs with ${g.app ? `the ${app} app` : 'its own app'}${src !== app ? ` (the ${src} app's new name)` : ''}. It shares your data with Health Connect, and ${APP_NAME} reads it from there.`}>
+            <T v="h2" style={{ flexShrink: 1 }}>{g.name}</T>
+          </Info>
+        )}
         <T v="small" color={seen || ringOn ? c.ok : c.muted}>{status1}</T>
       </View>
       <View style={s.diagram}>
         {g.direct
           ? <DataPath nodes={directPath({ device: deviceOf(g), deviceIcon: 'ellipse-outline', ok: ringOn })} link="Bluetooth" />
           : <DataPath nodes={hcPath({ device: deviceOf(g), deviceIcon: deviceIcon(g), app, seen, allowed: hcConnected })} />}
-        <T v="small">
-          {g.direct ? `The ring talks to ${APP_NAME} itself`
-            : g.hc ? `${deviceOf(g)} only pairs with ${g.app ? `the ${app} app` : 'its own app'}${src !== app ? ` (the ${src} app's new name)` : ''}. It shares your data with Health Connect, and ${APP_NAME} reads it from there`
-              : `Huawei Health doesn't share. Gadgetbridge can take its place`}
-        </T>
+        {g.direct ? null : !g.hc ? <T v="small">Huawei Health doesn’t share. Use Gadgetbridge</T> : null}
       </View>
       {androidNote}
       {hcSteps}
@@ -368,8 +387,9 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
 
       {g.live && (
         <View style={s.block} onLayout={(e) => { liveY.current = e.nativeEvent.layout.y; }}>
-          <T v="h3">Live heart rate in workouts</T>
-          <T v="small">The one thing your {g.live.short} can send {APP_NAME} directly, over Bluetooth</T>
+          <Info title="Live heart rate" text={`The one thing your ${g.live.short} can send ${APP_NAME} directly, over Bluetooth, for live heart rate in workouts.`}>
+            <T v="h3">Live heart rate</T>
+          </Info>
           <DataPath nodes={directPath({ device: deviceOf(g), deviceIcon: deviceIcon(g), ok: b.liveNow || !!b.strap })} link="Bluetooth" />
           {b.liveNow && <Line icon="heart" color={c.pink} text={b.bpm ? `${b.bpm} bpm now` : 'Connected'} />}
           {g.live.devices.map((d) => (
@@ -417,8 +437,8 @@ export function ConnectWatch({ open, onClose, onAlt, brand }: { open: boolean; o
 }
 
 const IMPORT_LINE: Record<string, string> = {
-  fitbit: 'Your Fitbit history as a Google Takeout zip',
-  garmin: 'A Garmin export zip or .FIT file',
+  fitbit: 'Fitbit Google Takeout zip',
+  garmin: 'Garmin export zip or .FIT file',
 };
 
 function AltBlock({ a, g, onPick }: { a: Alt; g: Guide; onPick: (a: Alt) => void }) {
@@ -426,7 +446,7 @@ function AltBlock({ a, g, onPick }: { a: Alt; g: Guide; onPick: (a: Alt) => void
     return (
       <View style={s.block}>
         <T v="h3">Or use Gadgetbridge</T>
-        <T v="small">A free app that pairs with many watches itself, then shares to Health Connect</T>
+        <T v="small">Free app, pairs with many watches</T>
         <Button kind="ghost" title="Get Gadgetbridge" icon="open-outline" onPress={() => Linking.openURL(GADGETBRIDGE.url).catch(() => {})} />
       </View>
     );
@@ -436,7 +456,7 @@ function AltBlock({ a, g, onPick }: { a: Alt; g: Guide; onPick: (a: Alt) => void
       <View style={s.block}>
         <T v="h3">Heart-rate strap</T>
         <DataPath nodes={directPath({ device: 'Your strap', ok: false })} link="Bluetooth" />
-        <T v="small">{g.strapHint ?? 'Chest straps and watches in broadcast mode connect directly for live heart rate'}</T>
+        <T v="small">{g.strapHint ?? 'Live heart rate over Bluetooth'}</T>
         <Button kind="ghost" title="Pair a strap" icon="pulse" onPress={() => onPick('strap')} disabled={!ANDROID} />
       </View>
     );

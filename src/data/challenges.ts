@@ -37,7 +37,7 @@ export type ChDay = { tasks: Task[]; rest?: boolean }; // rest with tasks: no tr
 
 export type Challenge = {
   id: string; name: string; tagline: string; why: string; level: Level; goal: GoalTag; days: number;
-  effort: string; // how long a day takes, e.g. "12–20 min a day"
+  effort: string; // how long a day takes, e.g. "12–20 min/day"
   icon: Icon; badge: string; // the finisher badge's name
   free: number; // missed days forgiven (missed weeks for weekly challenges)
   weekly?: number; // weekly challenge: this many workouts in each 7-day block, any days
@@ -158,19 +158,19 @@ const plus = (t: Task, d: ChDay): ChDay => ({ tasks: [...d.tasks, t], rest: d.re
 export const challenges: Challenge[] = [
   {
     id: 'kickstart-21', name: '21-day Kickstart', tagline: 'Build the habit in three weeks, one small step a day.', level: 'Beginner', goal: 'Consistency', days: 21,
-    effort: '10–45 min a day', icon: 'rocket', badge: 'Kickstarter', free: 2,
+    effort: '10–45 min/day', icon: 'rocket', badge: 'Kickstarter', free: 2,
     why: 'Three workouts from your plan each week, a 10-minute starter and a walk. Short enough to fit any day, long enough to stick.',
     day: every([[W], [S(C['ch-starter'])], [], [W], [STEPS(6000)], [W], []]),
   },
   {
     id: 'weightloss-28', name: 'Weight loss 28', tagline: 'Move every day, eat your protein, watch it add up.', level: 'Beginner', goal: 'Weight loss', days: 28,
-    effort: '20–40 min a day', icon: 'flame', badge: 'Lean machine', free: 3,
+    effort: '20–40 min/day', icon: 'flame', badge: 'Lean machine', free: 3,
     why: 'Circuits and cardio burn energy, 8,000 steps keep you moving on the days between, and protein keeps the weight you lose fat, not muscle.',
     day: (i) => plus(P, every([[S(C['ch-fatburn'])], [STEPS(8000)], [CARD(20)], [W], [STEPS(8000)], [CARD(20)], []])(i)),
   },
   {
     id: 'muscle-30', name: 'Muscle gain 30', tagline: 'Four workouts a week and your protein, every single day.', level: 'Intermediate', goal: 'Muscle gain', days: 30,
-    effort: '45–60 min, 4 days a week', icon: 'barbell', badge: 'Builder', free: 3,
+    effort: '45–60 min · 4×/wk', icon: 'barbell', badge: 'Builder', free: 3,
     why: 'Muscle grows from hard sets plus enough protein, repeated. Thirty days is long enough to see it in the mirror and in your numbers.',
     day: (i) => {
       const train = [true, true, false, true, true, false, false][i % 7];
@@ -179,7 +179,7 @@ export const challenges: Challenge[] = [
   },
   {
     id: 'hiit-21', name: 'HIIT 21', tagline: 'Short, sweaty intervals that level up every week.', level: 'Intermediate', goal: 'HIIT', days: 21,
-    effort: '10–20 min a day', icon: 'flash', badge: 'Spark plug', free: 2,
+    effort: '10–20 min/day', icon: 'flash', badge: 'Spark plug', free: 2,
     why: 'Three interval sessions a week, a harder one each week, with mobility days between so your legs keep up.',
     day: (i) => {
       const h = S(C[`ch-hiit-${Math.min(3, Math.floor(i / 7) + 1)}`]);
@@ -188,37 +188,37 @@ export const challenges: Challenge[] = [
   },
   {
     id: 'strength-28', name: 'Advanced strength 28', tagline: 'Heavy fives on the big lifts, four days a week.', level: 'Advanced', goal: 'Strength', days: 28,
-    effort: '50 min, 4 days a week', icon: 'trophy', badge: 'Iron will', free: 2, gear: 'gym',
+    effort: '50 min · 4×/wk', icon: 'trophy', badge: 'Iron will', free: 2, gear: 'gym',
     why: 'Squat, bench, row, deadlift, press and pull-ups at five reps. Add a little weight each week when every rep is clean.',
     day: every([[S(C['ch-strength-a'])], [], [S(C['ch-strength-b'])], [], [S(C['ch-strength-a'])], [S(C['ch-strength-b'])], []]),
   },
   {
     id: 'shred-21', name: 'Shred 21', tagline: 'Lift, sprint, walk and eat clean. For when you’re ready to go hard.', level: 'Advanced', goal: 'Weight loss', days: 21,
-    effort: '20–60 min a day', icon: 'speedometer', badge: 'Shredded', free: 1,
+    effort: '20–60 min/day', icon: 'speedometer', badge: 'Shredded', free: 1,
     why: 'Three strength workouts, two hard HIIT days, 10,000 steps and protein every day. One rest day a week, and you’ll want it.',
     day: (i) => plus(P, every([[W], [S(C['ch-hiit-3'])], [W], [STEPS(10000)], [W], [CARD(25)], []])(i)),
   },
   {
     id: 'core-14', name: 'Core 14', tagline: 'Ten minutes a day for a stronger middle.', level: 'Intermediate', goal: 'Core', days: 14,
-    effort: '10–12 min a day', icon: 'body', badge: 'Rock solid', free: 1,
+    effort: '10–12 min/day', icon: 'body', badge: 'Rock solid', free: 1,
     why: 'Week one builds the basics, week two holds longer and adds anti-rotation. A strong core makes every lift and run feel better.',
     day: (i) => (i % 7 === 6 ? { tasks: [] } : { tasks: [S(i < 7 ? quickById.core : C['ch-core-2'])] }),
   },
   {
     id: 'pushup-30', name: 'Push-up 30', tagline: 'From a few good push-ups to sixty in one session.', level: 'Intermediate', goal: 'Strength', days: 30,
-    effort: '5–11 min a day', icon: 'fitness', badge: 'Push-up pro', free: 3,
+    effort: '5–11 min/day', icon: 'fitness', badge: 'Push-up pro', free: 3,
     why: 'Two days on, one off. The sets grow every week, so your chest, shoulders and arms keep adapting.',
     day: (i) => (i % 3 === 2 ? { tasks: [] } : { tasks: [S(C[`ch-push-${Math.min(4, Math.floor(i / 7) + 1)}`])] }),
   },
   {
     id: 'mobility-14', name: 'Mobility 14', tagline: 'Loosen hips, back and shoulders in ten minutes a day.', level: 'Beginner', goal: 'Mobility', days: 14,
-    effort: '10–12 min a day', icon: 'leaf', badge: 'Bendy', free: 2,
+    effort: '10–12 min/day', icon: 'leaf', badge: 'Bendy', free: 2,
     why: 'Two gentle flows on alternate days. Great after a desk day, and your squats will thank you.',
     day: (i) => ({ tasks: [S(i % 2 ? C['ch-hips'] : quickById.mobility)] }),
   },
   {
     id: 'steps-21', name: '10k steps 21', tagline: 'Walk 10,000 steps a day for three weeks.', level: 'Beginner', goal: 'Steps', days: 21,
-    effort: 'About 90 min of walking', icon: 'footsteps', badge: 'Trailblazer', free: 3,
+    effort: 'About 90 min walking', icon: 'footsteps', badge: 'Trailblazer', free: 3,
     why: 'Walking is the easiest fat burner there is. Split it up: a walk after each meal gets you most of the way.',
     day: () => ({ tasks: [STEPS(10000)] }),
   },
@@ -230,7 +230,7 @@ export const challenges: Challenge[] = [
   },
   {
     id: 'consistency-30', name: 'Consistency 30', tagline: 'Three workouts a week, any days you like.', level: 'Beginner', goal: 'Consistency', days: 30,
-    effort: '3 workouts a week', icon: 'calendar', badge: 'Never miss a week', free: 1, weekly: 3,
+    effort: '3 workouts/wk', icon: 'calendar', badge: 'Never miss a week', free: 1, weekly: 3,
     why: 'Results come from showing up week after week. Pick your days; any workout counts, from the app or your watch.',
     day: () => ({ tasks: [W] }),
   },
@@ -239,55 +239,55 @@ export const challenges: Challenge[] = [
   // enough to finish: rest days built in, free misses, and the session grows by week instead of by day.
   {
     id: 'squat-30', name: 'Squat 30', tagline: 'From 36 squats a session to 100, in four weeks.', level: 'Beginner', goal: 'Strength', days: 30,
-    effort: '6–12 min a day', icon: 'body', badge: 'Squat squad', free: 3,
+    effort: '6–12 min/day', icon: 'body', badge: 'Squat squad', free: 3,
     why: 'The classic 30-day squat challenge, with a rest every fourth day. Strong legs make stairs, runs and every lift easier.',
     day: (i) => (i % 4 === 3 ? { tasks: [] } : { tasks: [S(C[`ch-squat-${Math.min(4, Math.floor(i / 7) + 1)}`])] }),
   },
   {
     id: 'plank-30', name: 'Plank 30', tagline: 'Hold a 20-second plank today, a full minute by week four.', level: 'Beginner', goal: 'Core', days: 30,
-    effort: '5–10 min a day', icon: 'timer', badge: 'Plank boss', free: 3,
+    effort: '5–10 min/day', icon: 'timer', badge: 'Plank boss', free: 3,
     why: 'The hold grows a little each week, with a rest day every week. Side planks and bird dogs train the rest of your core.',
     day: (i) => (i % 7 === 5 ? { tasks: [] } : { tasks: [S(C[`ch-plank-${Math.min(4, Math.floor(i / 7) + 1)}`])] }),
   },
   {
     id: 'walk-run-28', name: 'Walk to run 28', tagline: 'Your first runs: jog a minute, walk, repeat.', level: 'Beginner', goal: 'Cardio', days: 28,
-    effort: '25–30 min, 3 days a week', icon: 'walk', badge: 'Up and running', free: 2, impact: true,
+    effort: '25–30 min · 3×/wk', icon: 'walk', badge: 'Up and running', free: 2, impact: true,
     why: 'Like the first four weeks of Couch to 5K: three run-walks a week with a rest day between, and the jogs get longer each week.',
     day: (i) => { const r = [S(C[`ch-run-${Math.min(4, Math.floor(i / 7) + 1)}`])]; return every([r, [], r, [], r, [], []])(i); },
   },
   {
     id: 'balance-28', name: 'Steady and strong 28', tagline: 'Leg strength and balance for 55 and over.', level: 'Beginner', goal: 'Mobility', days: 28,
-    effort: '15–20 min, 5 days a week', icon: 'accessibility', badge: 'Steady', free: 3, who: '55+',
+    effort: '15–20 min · 5×/wk', icon: 'accessibility', badge: 'Steady', free: 3, who: '55+',
     why: 'Health guidelines for older adults ask for strength, balance and walking every week. Three short sessions and two walks do all three. Keep a chair close.',
     day: (i) => { const b = [S(C[i < 14 ? 'ch-balance-1' : 'ch-balance-2'])]; return every([b, [CARD(20)], [], b, [CARD(20)], b, []])(i); },
   },
   {
     id: 'desk-14', name: 'Desk 14', tagline: 'Five minutes at your desk, every workday.', level: 'Beginner', goal: 'Mobility', days: 14,
-    effort: '5–6 min a day', icon: 'desktop', badge: 'Desk hero', free: 2,
+    effort: '5–6 min/day', icon: 'desktop', badge: 'Desk hero', free: 2,
     why: 'Long sitting stiffens your neck, back and hips. Two short routines, swapped each day, with weekends off.',
     day: every([[S(quickById.desk)], [S(C['ch-desk-move'])], [S(quickById.desk)], [S(C['ch-desk-move'])], [S(quickById.desk)], [], []]),
   },
   {
     id: 'postnatal-core-28', name: 'Gentle core after birth', tagline: 'Breathing and pelvic floor first. No planks, no crunches.', level: 'Beginner', goal: 'Core', days: 28,
-    effort: '10–12 min, 5 days a week', icon: 'flower', badge: 'Strong mama', free: 4, who: 'after birth',
+    effort: '10–12 min · 5×/wk', icon: 'flower', badge: 'Strong mama', free: 4, who: 'after birth',
     why: 'Start after your postnatal check (often about 6 weeks, longer after a C-section). Stop if you feel pain, leaking or heaviness, or your belly domes, and ask your doctor or a pelvic health physio.',
     day: (i) => { const g = [S(C[i < 14 ? 'ch-pp-1' : 'ch-pp-2'])]; return every([g, g, [], g, g, g, []])(i); },
   },
   {
     id: 'glutes-28', name: 'Glutes 28', tagline: 'Four bodyweight glute sessions a week, harder from week three.', level: 'Intermediate', goal: 'Muscle gain', days: 28,
-    effort: '15–20 min, 4 days a week', icon: 'flame', badge: 'Peach power', free: 3,
+    effort: '15–20 min · 4×/wk', icon: 'flame', badge: 'Peach power', free: 3,
     why: 'Bridges, kicks and lunges from every angle. Two rest days a week let the muscle grow. Add a dumbbell on your hips when it gets easy.',
     day: (i) => { const g = [S(C[i < 14 ? 'ch-glute-1' : 'ch-glute-2'])]; return every([g, [], g, [], g, g, []])(i); },
   },
   {
     id: 'burpee-30', name: 'Burpee 30', tagline: 'Half burpees on day one, fifty full ones by the end.', level: 'Intermediate', goal: 'HIIT', days: 30,
-    effort: '6–11 min a day', icon: 'flash', badge: 'Burpee beast', free: 3, impact: true,
+    effort: '6–11 min/day', icon: 'flash', badge: 'Burpee beast', free: 3, impact: true,
     why: 'Two days on, one off. The count grows every week, so your heart and legs keep up. Step back instead of jumping any time.',
     day: (i) => (i % 3 === 2 ? { tasks: [] } : { tasks: [S(C[`ch-burpee-${Math.min(4, Math.floor(i / 7) + 1)}`])] }),
   },
   {
     id: 'dumbbell-28', name: 'Dumbbell 28', tagline: 'One pair of dumbbells, three full-body workouts a week.', level: 'Intermediate', goal: 'Muscle gain', days: 28,
-    effort: '35 min, 3 days a week', icon: 'barbell', badge: 'Dumbbell devotee', free: 2, needs: ['dumbbell'],
+    effort: '35 min · 3×/wk', icon: 'barbell', badge: 'Dumbbell devotee', free: 2, needs: ['dumbbell'],
     why: 'Two workouts, A and B, take turns. Add a rep each session; when you hit the top of the range, go heavier.',
     day: (i) => {
       const k = [0, -1, 1, -1, 2, -1, -1][i % 7];
@@ -296,37 +296,37 @@ export const challenges: Challenge[] = [
   },
   {
     id: 'kettlebell-21', name: 'Kettlebell 21', tagline: 'Swings, squats and steps. One bell, big burn.', level: 'Intermediate', goal: 'Weight loss', days: 21,
-    effort: '20–25 min, 3 days a week', icon: 'barbell', badge: 'Swing king', free: 2, needs: ['kettlebells'],
+    effort: '20–25 min · 3×/wk', icon: 'barbell', badge: 'Swing king', free: 2, needs: ['kettlebells'],
     why: 'Swings work your whole back side and get your heart up. Three bell days and two walking days a week burn energy without wrecking your legs.',
     day: (i) => { const kb = [S(C[i < 7 ? 'ch-kb-1' : 'ch-kb-2'])]; return every([kb, [STEPS(8000)], kb, [], kb, [STEPS(8000)], []])(i); },
   },
   {
     id: 'pullup-28', name: 'First pull-up 28', tagline: 'Hang, lower slowly, then pull. Your first pull-up in four weeks.', level: 'Intermediate', goal: 'Strength', days: 28,
-    effort: '15–20 min, 3 days a week', icon: 'trending-up', badge: 'Bar raiser', free: 2, needs: ['pull-up bar'],
+    effort: '15–20 min · 3×/wk', icon: 'trending-up', badge: 'Bar raiser', free: 2, needs: ['pull-up bar'],
     why: 'Dead hangs build grip and shoulders, slow negatives build the pulling strength. Rest days between, because tendons adapt slower than muscle.',
     day: (i) => { const s = [S(C[`ch-pull-${Math.min(4, Math.floor(i / 7) + 1)}`])]; return every([s, [], s, [], s, [], []])(i); },
   },
   {
     id: 'zone2-28', name: 'Zone 2 28', tagline: 'Easy cardio you can talk through, a little longer each week.', level: 'Intermediate', goal: 'Cardio', days: 28,
-    effort: '30–45 min, 4 days a week', icon: 'heart', badge: 'Big engine', free: 3,
+    effort: '30–45 min · 4×/wk', icon: 'heart', badge: 'Big engine', free: 3,
     why: 'Walk briskly, ride or jog at a pace where you can still talk. Four sessions a week, 30 minutes growing to 45: about 150 minutes, the weekly amount health guidelines ask for.',
     day: (i) => { const c = [CARD(30 + 5 * Math.min(3, Math.floor(i / 7)))]; return every([c, [], c, [], c, c, []])(i); },
   },
   {
     id: 'soft-30', name: 'Soft 30', tagline: 'Move, drink your water, eat well. Every day for a month.', level: 'Intermediate', goal: 'Habits', days: 30,
-    effort: '45 min a day, plus water and food', icon: 'sparkles', badge: 'Soft but strong', free: 3,
+    effort: '45 min/day + water, food', icon: 'sparkles', badge: 'Soft but strong', free: 3,
     why: 'Inspired by 75 Soft: a workout six days a week and an active walk on the seventh, your water goal and your protein every day. Missed a day? Keep going, nothing resets.',
     day: (i) => plus(H2O, plus(P, every([[W], [W], [W], [W], [W], [W], [STEPS(7000)]])(i))),
   },
   {
     id: 'calisthenics-28', name: 'Calisthenics 28', tagline: 'Bodyweight strength: pull-ups, pistols and more.', level: 'Advanced', goal: 'Muscle gain', days: 28,
-    effort: '35 min, 4 days a week', icon: 'medal', badge: 'Bodyweight boss', free: 2, needs: ['pull-up bar'],
+    effort: '35 min · 4×/wk', icon: 'medal', badge: 'Bodyweight boss', free: 2, needs: ['pull-up bar'],
     why: 'Hard bodyweight moves build real muscle when the reps stay low and clean. Push and legs, then pull and core, twice a week.',
     day: every([[S(C['ch-cali-push'])], [S(C['ch-cali-pull'])], [], [S(C['ch-cali-push'])], [S(C['ch-cali-pull'])], [], []]),
   },
   {
     id: 'hybrid-28', name: 'Hybrid 28', tagline: 'Lift three days, run or ride three. Strong and fit at once.', level: 'Advanced', goal: 'Cardio', days: 28,
-    effort: '40–60 min, 6 days a week', icon: 'infinite', badge: 'Hybrid athlete', free: 2, impact: true,
+    effort: '40–60 min · 6×/wk', icon: 'infinite', badge: 'Hybrid athlete', free: 2, impact: true,
     why: 'Three workouts from your plan, one hard HIIT day, a 40-minute and a 60-minute easy cardio session each week. One full rest day.',
     day: every([[W], [CARD(40)], [W], [S(C['ch-hiit-3'])], [W], [CARD(60)], []]),
   },

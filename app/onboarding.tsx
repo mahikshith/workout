@@ -14,22 +14,28 @@ import { setSetupFinish } from '../src/setupflow';
 import { hasPermission, reschedule } from '../src/notify';
 import { useStore, type Goal, type Profile } from '../src/store';
 import { c, f, r, tint } from '../src/theme';
+import { Meta, Tip } from '../src/tip';
 import { Button, IconBox, Row, T, Tap } from '../src/ui';
 
 // The page's blocks, top to bottom. ?step= scrolls to one (the old step names still work).
 type Sec = 'goal' | 'level' | 'place' | 'days' | 'about' | 'name';
 const SECTIONS: Sec[] = ['goal', 'level', 'place', 'days', 'about', 'name'];
 
+// Round 15: titles carry the meaning; a caption stays only where the title alone is unclear.
 const PLACES: Opt<Profile['place']>[] = [
-  ['gym', 'Gym', 'barbell', 'Machines and free weights'],
-  ['home', 'Home', 'home', 'Bodyweight and your gear'],
-  ['both', 'Both', 'swap-horizontal', 'Some days each'],
-  ['office', 'Office', 'briefcase', 'Short sessions at work'],
+  ['gym', 'Gym', 'barbell'],
+  ['home', 'Home', 'home'],
+  ['both', 'Both', 'swap-horizontal', 'Gym + home'],
+  ['office', 'Office', 'briefcase', 'Short sessions'],
 ];
+// Goals without their subtitles; experience keeps a 2-3 word span because the titles alone overlap.
+const GOAL_OPTS: Opt<Goal>[] = GOALS.map(([k, label, icon]) => [k, label, icon]);
+const SPAN: Record<Profile['level'], string> = { beginner: 'Under 6 months', intermediate: '6 mo – 2 yrs', advanced: '2+ years' };
+const LEVEL_OPTS: Opt<Profile['level']>[] = LEVELS.map(([k, label, icon]) => [k, label, icon, SPAN[k]]);
 const DAYS: [number, string][] = [[2, 'An easy start'], [3, 'Most popular'], [4, 'Steady progress'], [5, 'Serious'], [6, 'All in']];
 const DIETS: [Profile['diet'], string][] = [['vegetarian', 'Veg'], ['vegan', 'Vegan'], ['eggetarian', 'Egg'], ['pescatarian', 'Fish'], ['non-veg', 'Non-veg']];
 const GENDERS: { k: Profile['gender']; label: string }[] = [{ k: 'female', label: 'Female' }, { k: 'male', label: 'Male' }, { k: 'other', label: 'Other' }];
-const SAFETY = 'General fitness ideas, not medical advice. You train at your own risk.';
+const SAFETY = 'Not medical advice.';
 
 const num = (t: string | null) => parseFloat((t ?? '').replace(',', '.'));
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
@@ -49,7 +55,7 @@ function Choice({ icon, label, sub, on, onPress, still, wide }: {
 }) {
   return (
     <Tap onPress={onPress} scale={0.97} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={sub ? `${label}. ${sub}` : label}
-      style={[s.choice, wide && { minHeight: 64, paddingVertical: 10 }, { borderColor: on ? c.accent : c.line }]}>
+      style={[s.choice, !sub && { minHeight: 60 }, wide && { minHeight: 64, paddingVertical: 10 }, { borderColor: on ? c.accent : c.line }]}>
       <Fill on={on} still={still} radius={r.md - 1} />
       <View style={[s.choiceIcon, { backgroundColor: on ? 'transparent' : tint(c.accent, 1.2) }]}>
         <Ionicons name={icon} size={20} color={on ? c.accentInk : c.accent} />
@@ -204,12 +210,16 @@ export default function Onboarding() {
   const head = firstRun ? { t: 'Set up your Gym Buddy', sub: 'A minute of answers and the plan fits you. Skip anything, change it all later.' }
     : redo ? { t: 'Answer again', sub: 'Change what is different now. You get a fresh plan pick at the end.' }
     : { t: 'Your answers', sub: 'Change anything and save. Your current plan stays as it is.' };
+  // Round 15: no sentence under a heading. A line that holds real information opens from the (i) instead.
   let i = 0; // stagger of the blocks rising in
   const rise = () => (still ? undefined : FadeInDown.delay(60 * i++).duration(380).easing(EASE));
-  const block = (k: Sec, t: string, sub: string | null, children: ReactNode) => (
+  const block = (k: Sec, t: string, tip: string | null, children: ReactNode, sub?: string | null) => (
     <Animated.View key={k} entering={rise()} onLayout={(e) => placed(k, e.nativeEvent.layout.y)} style={s.block}>
       <View style={{ gap: 2 }}>
-        <T v="h2" accessibilityRole="header">{t}</T>
+        <Row gap={4}>
+          <T v="h2" accessibilityRole="header" style={{ flexShrink: 1 }}>{t}</T>
+          {tip ? <Tip title={t} text={tip} /> : null}
+        </Row>
         {sub ? <T v="small">{sub}</T> : null}
       </View>
       {children}
@@ -225,7 +235,9 @@ export default function Onboarding() {
         {firstRun ? (
           <View style={{ flex: 1, gap: 6 }}>
             <Progress value={answered / SECTIONS.length} still={still} />
-            <T v="small" style={{ fontSize: 13, lineHeight: 16 }}>{answered ? `${answered} of ${SECTIONS.length} answered` : 'Nothing is required'}</T>
+            <T v="small" style={{ fontSize: 13, lineHeight: 16 }} accessibilityLabel={answered ? `${answered} of ${SECTIONS.length} answered` : 'Nothing is required'}>
+              {answered ? `${answered}/${SECTIONS.length}` : 'All optional'}
+            </T>
           </View>
         ) : <View style={{ flex: 1 }} />}
         {firstRun ? (
@@ -237,16 +249,18 @@ export default function Onboarding() {
 
       <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={s.page} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}>
-        <Animated.View entering={rise()} style={{ gap: 6 }}>
-          <T v="display" accessibilityRole="header">{head.t}</T>
-          <T v="body" color={c.soft}>{head.sub}</T>
+        <Animated.View entering={rise()}>
+          <Row gap={4} style={{ alignItems: 'flex-start' }}>
+            <T v="display" accessibilityRole="header" style={{ flexShrink: 1 }}>{head.t}</T>
+            <Tip title={head.t} text={head.sub} style={{ marginTop: 6 }} />
+          </Row>
         </Animated.View>
 
-        {block('goal', 'What do you want most?', 'Pick the one that matters now.',
-          <Grid<Goal> opts={GOALS} cols={2} on={(k) => mine('goal') && p.goal === k} onPick={(goal) => up('goal', { goal })} still={still} />)}
+        {block('goal', 'What do you want most?', null,
+          <Grid<Goal> opts={GOAL_OPTS} cols={2} on={(k) => mine('goal') && p.goal === k} onPick={(goal) => up('goal', { goal })} still={still} />)}
 
         {block('level', 'How much have you trained?', 'Sets how hard the first weeks are.',
-          <Grid<Profile['level']> opts={LEVELS} cols={1} on={(k) => mine('level') && p.level === k} onPick={(level) => up('level', { level })} still={still} />)}
+          <Grid<Profile['level']> opts={LEVEL_OPTS} cols={1} on={(k) => mine('level') && p.level === k} onPick={(level) => up('level', { level })} still={still} />)}
 
         {block('place', 'Where will you work out?', null, <>
           <Grid<Profile['place']> opts={PLACES} cols={2} on={(k) => mine('place') && p.place === k} onPick={(place) => up('place', { place })} still={still} />
@@ -259,12 +273,12 @@ export default function Onboarding() {
                   return <Pill key={g} label={title(g)} on={on} onPress={() => up('place', { gear: on ? p.gear.filter((x) => x !== g) : [...p.gear, g] })} />;
                 })}
               </View>
-              <T v="small">None is fine. Bodyweight works.</T>
+              <T v="small">None? Bodyweight works.</T>
             </Animated.View>
           )}
         </>)}
 
-        {block('days', 'How many days a week?', dayNote ? `${p.daysPerWeek} days · ${dayNote}` : 'Pick what you can keep up, not the most.',
+        {block('days', 'How many days a week?', 'Pick what you can keep up, not the most.',
           <View style={s.days} accessibilityRole="radiogroup">
             {DAYS.map(([d]) => {
               const on = mine('days') && p.daysPerWeek === d;
@@ -276,7 +290,7 @@ export default function Onboarding() {
                 </Tap>
               );
             })}
-          </View>)}
+          </View>, dayNote)}
 
         {block('about', 'About you', 'Height and weight size your plan and food targets.', <>
           <Segmented options={GENDERS} value={p.gender} onChange={(gender) => up('about', { gender })} />
@@ -286,7 +300,10 @@ export default function Onboarding() {
           </Row>
           <Row gap={10} style={{ alignItems: 'flex-end' }}>
             <NumField label="Age" value={p.age} onChange={(age) => up('about', { age })} min={13} max={100} step={1} unit="y" onFocus={() => reveal('about', 140)} />
-            <View style={s.aside}><T v="small" style={{ fontSize: 13, lineHeight: 17 }}>Tap a number to type it.</T></View>
+            <View style={[s.aside, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+              <Ionicons name="create-outline" size={16} color={c.muted} />
+              <T v="small" style={{ fontSize: 13, lineHeight: 17 }}>Tap to type</T>
+            </View>
           </Row>
           <View style={{ gap: 10, marginTop: 4 }}>
             <T v="h3">How do you eat?</T>
@@ -296,7 +313,7 @@ export default function Onboarding() {
           </View>
         </>)}
 
-        {block('name', 'What should we call you?', 'Optional. Just for a friendlier hello.',
+        {block('name', 'What should we call you?', null,
           <TextInput value={p.name} onChangeText={(name) => setP((x) => ({ ...x, name }))} placeholder="Your first name" placeholderTextColor={c.dim}
             style={s.input} returnKeyType="done" maxLength={24} autoCapitalize="words" autoCorrect={false} accessibilityLabel="Your first name"
             onFocus={() => reveal('name')} />)}
@@ -306,9 +323,13 @@ export default function Onboarding() {
             <Tap onPress={preview} scale={0.98} style={s.match} accessibilityLabel={`Best match so far: ${planInfo.name}. Preview the plan`}>
               <IconBox icon="sparkles" color={c.accent} size={40} />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>Best match so far · tap to preview</T>
+                <T v="small" color={c.accent} style={{ fontFamily: f.semi }}>Best match</T>
                 <T v="h3" numberOfLines={2}>{planInfo.name}</T>
-                <T v="small" numberOfLines={2}>{perWeek(planInfo)} days a week · {title(planInfo.level)} · {planInfo.place === 'any' ? 'Anywhere' : title(planInfo.place)}</T>
+                <Meta style={{ marginTop: 2 }} items={[
+                  { icon: 'calendar-outline', text: `${perWeek(planInfo)}×/wk` },
+                  { icon: 'bar-chart-outline', text: title(planInfo.level) },
+                  { icon: 'location-outline', text: planInfo.place === 'any' ? 'Anywhere' : title(planInfo.place) },
+                ]} />
               </View>
               <Ionicons name="chevron-forward" size={18} color={c.muted} />
             </Tap>
@@ -318,7 +339,7 @@ export default function Onboarding() {
 
       {!typing && (
         <View style={[s.bar, { paddingBottom: ins.bottom + (fresh ? 4 : 12) }]}>
-          <Button title={fresh ? 'Show my plan' : 'Save changes'} icon={fresh ? 'arrow-forward' : 'checkmark'} onPress={() => finish()} />
+          <Button title={fresh ? 'My plan' : 'Save'} icon={fresh ? 'arrow-forward' : 'checkmark'} onPress={() => finish()} />
           {fresh && <SafetyNote text={SAFETY} center />}
         </View>
       )}

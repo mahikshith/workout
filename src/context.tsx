@@ -5,6 +5,7 @@ import { dayKey, postpartumWeek, pregnancyWeek } from './calc';
 import type { Body, Concern, Goal, Lifestyle, Profile, Women } from './store';
 import { c, f } from './theme';
 import { Row, Stepper, T, Tap } from './ui';
+import { Meta, Tip } from './tip';
 
 const DAY = 86400000;
 // value, label, icon, optional short subtitle
@@ -113,15 +114,17 @@ export function ContextFields({ p, up }: { p: Profile; up: (patch: Partial<Profi
 
   return (
     <View style={{ gap: 10 }}>
-      <T v="h3">What does a normal day look like?</T>
+      <Row gap={2}><T v="h3">Your normal day</T><Tip title="Your normal day" text="We suggest 2 to 15 minute sessions that fit your day: desk, eye and Kegel breaks for sitters, recovery for people on their feet, hotel-room workouts for travellers." /></Row>
       <Tiles<Lifestyle> opts={LIFE} on={(k) => p.lifestyle === k} onPick={(k) => up({ lifestyle: p.lifestyle === k ? undefined : k })} />
-      <T v="small">We suggest 2 to 15 minute sessions that fit your day: desk, eye and Kegel breaks for sitters, recovery for people on their feet, hotel-room workouts for travellers.</T>
 
-      <T v="h3" style={{ marginTop: 14 }}>What's going on for you right now?</T>
-      <T v="small">Optional. It helps us be kinder and safer. It stays on your phone.</T>
+      <Row gap={2} style={{ marginTop: 14 }}>
+        <T v="h3" style={{ flexShrink: 1 }}>How you feel lately</T>
+        <Tip title="How you feel lately" text="Optional. It helps us be kinder and safer. It stays on your phone." />
+      </Row>
+      <Meta items={[{ icon: 'lock-closed-outline', text: 'Optional · private' }]} />
       <Tiles<Concern> opts={CONCERNS} on={(k) => concerns.includes(k)} onPick={toggle} />
       {concerns.includes('food') && (
-        <T v="small" color={c.text}>We'll hide calories, weight and BMI, and focus on regular meals and feeling strong.</T>
+        <T v="small" color={c.text}>Gentle mode on: no calories, weight or BMI.</T>
       )}
 
       {p.gender === 'female' && (
@@ -157,7 +160,7 @@ export function ContextFields({ p, up }: { p: Profile; up: (patch: Partial<Profi
             </Row>
           )}
           {(w.mode === 'pregnant' || w.mode === 'postpartum') && (
-            <T v="small" color={c.warm}>We only suggest moves that are usually safe. Follow your doctor or midwife where their advice differs.</T>
+            <T v="small" color={c.warm}>Only moves that are usually safe. Your doctor or midwife comes first.</T>
           )}
         </>
       )}

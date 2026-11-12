@@ -21,6 +21,7 @@ import { WatchGives } from '../src/health/WatchGives';
 import { c, dom, r, tint } from '../src/theme';
 import { useTracker, type DailyMetrics, type ImportedWorkout } from '../src/tracker';
 import { Button, IconBox, T, Tap } from '../src/ui';
+import { Tip } from '../src/tip';
 
 type Icon = keyof typeof Ionicons.glyphMap;
 const ANDROID = Platform.OS === 'android';
@@ -87,7 +88,7 @@ export default function Tracker() {
   const cells = useMemo<Cell[]>(() => {
     const keys = Object.keys(daily).sort().reverse();
     const ever = (f: keyof DailyMetrics) => keys.some((k) => daily[k][f] !== undefined);
-    const why = (f: keyof DailyMetrics) => (ever(f) ? 'Nothing today yet' : app ? `Not shared by ${app}` : 'Not shared by your watch app');
+    const why = (f: keyof DailyMetrics) => (ever(f) ? 'None today' : app ? `Not shared by ${app}` : 'Not shared');
     // Today, else yesterday or the day before (labelled), else why not.
     const pick = (f: keyof DailyMetrics, days = 2): { v?: number; sub?: string } => {
       for (const k of keys.slice(0, 5)) {
@@ -124,7 +125,7 @@ export default function Tracker() {
     const w = pick('weightKg', 7);
     // Skin temperature only when we have it: Health Connect can't hand it to us yet, and an always-empty tile read
     // like an error. Connect › What Gym Buddy gets still lists it as "We can't read it yet".
-    if (temp.v !== undefined) out.push({ key: 'temp', icon: 'thermometer-outline', color: dom.kcal, label: 'Skin temp', value: `${temp.v > 0 ? '+' : ''}${temp.v.toFixed(1)}`, unit: '°C', sub: temp.sub ?? 'Against your usual' });
+    if (temp.v !== undefined) out.push({ key: 'temp', icon: 'thermometer-outline', color: dom.kcal, label: 'Skin temp', value: `${temp.v > 0 ? '+' : ''}${temp.v.toFixed(1)}`, unit: '°C', sub: temp.sub ?? 'vs your usual' });
     if (vo2.v !== undefined) out.push({ key: 'vo2', icon: 'speedometer-outline', color: dom.train, label: 'VO2 max', value: vo2.v.toFixed(1), sub: vo2.sub });
     if (w.v !== undefined) out.push({ key: 'w', icon: 'scale-outline', color: dom.weight, label: 'Weight', value: w.v.toFixed(1), unit: 'kg', sub: w.sub });
     return out;
@@ -146,11 +147,11 @@ export default function Tracker() {
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: ins.bottom + 40 + mini, gap: 12 }} showsVerticalScrollIndicator={false}>
           <Animated.View entering={enter(0)} style={[s.card, { gap: 16 }]}>
             <DataPath nodes={hcPath({ seen: false, allowed: false })} />
-            <View style={{ gap: 6 }}>
-              <T v="h2">Bring your watch's numbers here</T>
-              <T v="small">Heart rate, sleep, steps, calories, HRV and your watch workouts. Your watch's own app passes them to {APP_NAME} through Health Connect</T>
+            <View style={[s.row, { gap: 4 }]}>
+              <T v="h2" style={{ flexShrink: 1 }}>Bring your watch’s numbers</T>
+              <Tip title="Your watch's numbers" text={`Heart rate, sleep, steps, calories, HRV and your watch workouts. Your watch's own app passes them to ${APP_NAME} through Health Connect.`} />
             </View>
-            <Button title="Connect your watch" icon="watch-outline" onPress={() => router.push({ pathname: '/watch', params: { connect: '1' } })} />
+            <Button title="Connect watch" icon="watch-outline" onPress={() => router.push({ pathname: '/watch', params: { connect: '1' } })} />
           </Animated.View>
           <Animated.View entering={enter(1)}><WatchGives /></Animated.View>
           <Animated.View entering={enter(1)}>
@@ -158,7 +159,7 @@ export default function Tracker() {
               <DataPath nodes={directPath({ device: 'Strap', ok: false })} size="sm" />
               <View style={{ flex: 1 }}>
                 <T v="h3">Strap or ring?</T>
-                <T v="small" numberOfLines={3}>Straps and Colmi rings connect over Bluetooth</T>
+                <T v="small" numberOfLines={1} accessibilityLabel="Straps and Colmi rings connect over Bluetooth">Over Bluetooth</T>
               </View>
               <Ionicons name="chevron-forward" size={18} color={c.muted} />
             </Tap>
@@ -185,9 +186,9 @@ export default function Tracker() {
               <View style={{ flex: 1 }}>
                 <T v="h3">Live heart rate</T>
                 <T v="small" numberOfLines={2}>
-                  {link.strap ? `${link.strap.name} · connects when you start a workout`
-                    : link.ring ? `${link.ring.name} · live in workouts when it's near`
-                      : 'Pair a strap, or turn on heart-rate broadcast on your watch'}
+                  {link.strap ? `${link.strap.name} · on in workouts`
+                    : link.ring ? `${link.ring.name} · live in workouts`
+                      : 'Pair a strap or watch broadcast'}
                 </T>
               </View>
               <Ionicons name="chevron-forward" size={18} color={c.muted} />
@@ -200,11 +201,11 @@ export default function Tracker() {
           <DataPath nodes={hcPath({ app: app ?? 'Watch app', seen: link.seen, allowed: link.allowed })} />
           <View style={s.row}>
             <View style={{ flex: 1 }}>
-              <T v="small" color={c.text} numberOfLines={2}>{link.allowed ? (link.seen ? `From ${link.apps.join(', ')}` : 'Health Connect is on, no watch data yet') : 'Health Connect not connected'}</T>
-              <T v="small">{link.allowed ? cap(syncedAgo(link.lastSync)) : link.ring ? `Ring: ${link.ring.name}` : 'Connect to fill this in'}</T>
+              <T v="small" color={c.text} numberOfLines={2}>{link.allowed ? (link.seen ? `From ${link.apps.join(', ')}` : 'No watch data yet') : 'Health Connect off'}</T>
+              {link.allowed || link.ring ? <T v="small">{link.allowed ? cap(syncedAgo(link.lastSync)) : `Ring: ${link.ring!.name}`}</T> : null}
             </View>
             {link.allowed
-              ? <Button kind="ghost" title={syncing ? 'Syncing' : 'Sync now'} icon="refresh" onPress={runSync} disabled={syncing || !ANDROID} style={{ height: 44, paddingHorizontal: 16 }} />
+              ? <Button kind="ghost" title={syncing ? 'Syncing' : 'Sync'} icon="refresh" onPress={runSync} disabled={syncing || !ANDROID} style={{ height: 44, paddingHorizontal: 16 }} />
               : <Button kind="ghost" title="Connect" icon="watch-outline" onPress={() => router.push({ pathname: '/watch', params: { connect: '1' } })} style={{ height: 44, paddingHorizontal: 16 }} />}
           </View>
         </Animated.View>
@@ -214,7 +215,10 @@ export default function Tracker() {
 
         {/* Today's numbers */}
         <Animated.View entering={enter(2)} style={{ gap: 10, marginTop: 12 }}>
-          <T v="h2" style={{ paddingHorizontal: 4 }}>Today</T>
+          <View style={[s.row, { gap: 4, paddingHorizontal: 4 }]}>
+            <T v="h2">Today</T>
+            <Tip title="Today" text={'Numbers come only from your devices. A dash means nothing came in today, or your watch app doesn\'t share it; a day name means the latest reading is from then.\n\nNot medical advice.'} />
+          </View>
           <View style={s.grid}>
             {cells.map((x) => (
               <View key={x.key} style={s.tile} accessible accessibilityLabel={`${x.label}: ${x.value ? `${x.value} ${x.unit ?? ''}` : 'no data'}. ${x.sub ?? ''}`}>
@@ -249,8 +253,8 @@ export default function Tracker() {
             </>
           ) : (
             <T v="small">
-              {daily[today]?.avgHr !== undefined ? `Average ${daily[today].avgHr} bpm. Sync again to see the line`
-                : link.allowed ? (app ? `Not shared by ${app}` : 'No heart rate from your watch app yet') : 'Shows once your watch shares heart rate'}
+              {daily[today]?.avgHr !== undefined ? `Avg ${daily[today].avgHr} bpm · sync for the line`
+                : link.allowed ? (app ? `Not shared by ${app}` : 'None yet') : 'Not shared yet'}
             </T>
           )}
         </Animated.View>
@@ -259,14 +263,13 @@ export default function Tracker() {
         <Animated.View entering={enter(4)} style={{ gap: 10, marginTop: 12 }}>
           <T v="h2" style={{ paddingHorizontal: 4 }}>From your watch</T>
           {list.length ? list.slice(0, 12).map((w) => <WorkoutRow key={w.id} w={w} />) : (
-            <View style={s.card}><T v="small">No workouts from your watch in the last 2 weeks. Ones you record on it show up here</T></View>
+            <View style={s.card}><T v="small" accessibilityLabel="No workouts from your watch in the last 2 weeks. Ones you record on it show up here">None in the last 2 weeks</T></View>
           )}
           {mergedCount > 0 && (
-            <T v="small" style={{ paddingHorizontal: 4 }}>{mergedCount === 1 ? '1 more was' : `${mergedCount} more were`} added to workouts you logged here</T>
+            <T v="small" style={{ paddingHorizontal: 4 }}>+{mergedCount} merged into workouts you logged</T>
           )}
         </Animated.View>
 
-        <T v="small" style={{ paddingHorizontal: 4, marginTop: 8 }}>Numbers come only from your devices. Not medical advice</T>
       </ScrollView>
     </View>
   );
@@ -278,7 +281,7 @@ function WebNote() {
   return (
     <View style={[s.note, { borderColor: c.blue + '55' }]}>
       <Ionicons name="phone-portrait-outline" size={18} color={c.blue} />
-      <T v="small" color={c.text} style={{ flex: 1 }}>Health Connect and Bluetooth work in the Android app. Here you see what's saved</T>
+      <T v="small" color={c.text} style={{ flex: 1 }}>Syncing needs the Android app</T>
     </View>
   );
 }
@@ -368,7 +371,7 @@ function Zones({ minutes }: { minutes: number[] }) {
   const cols = zoneColors();
   const z = minutes.slice(1);
   const total = z.reduce((a, b) => a + b, 0);
-  if (total < 1) return <T v="small">No time in heart-rate zones yet today</T>;
+  if (total < 1) return <T v="small">No zone time yet</T>;
   return (
     <View style={{ gap: 8 }}>
       <View style={s.bar}>

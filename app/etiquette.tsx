@@ -9,20 +9,20 @@ import { IconBox, T, Tap } from '../src/ui';
 
 // Plain gym manners: what regulars expect, so a first visit feels less awkward.
 const RULES: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] = [
-  { icon: 'hourglass', title: 'Be patient for equipment', body: 'If someone is using what you need, ask how many sets they have left, or work on something else and come back.' },
-  { icon: 'people', title: 'Share between sets', body: 'Offer to "work in" on a machine or bench: you alternate sets while they rest. Most people say yes.' },
-  { icon: 'phone-portrait', title: "Don't camp on a machine", body: 'Scroll your phone between sets somewhere else, not sitting on a machine others are waiting for.' },
-  { icon: 'repeat', title: 'Put weights back', body: 'Re-rack plates and dumbbells where you found them. Nobody likes stripping your bar.' },
-  { icon: 'water', title: 'Wipe down after use', body: 'Wipe benches, seats and handles with the spray and towel provided, especially where you sweated.' },
-  { icon: 'resize', title: 'Respect personal space', body: 'Leave room around people lifting, and never walk right in front of the mirror someone is using to check their form.' },
-  { icon: 'chatbubbles', title: 'Ask before helping', body: 'Offer a spot or a tip only if someone looks stuck or asks. "Want a spot?" is always welcome.' },
-  { icon: 'volume-low', title: 'Keep the noise down', body: 'A grunt on a heavy rep is fine. Dropping weights, shouting and loud phone calls are not.' },
-  { icon: 'camera', title: 'Film only yourself', body: "Make sure strangers aren't in your videos or photos without asking them first." },
-  { icon: 'shirt', title: 'Come clean and ready', body: 'Fresh clothes, deodorant, closed shoes and a small towel. Your future gym friends thank you.' },
-  { icon: 'heart', title: 'Be kind to beginners', body: 'Everyone was new once. A smile or a nod makes someone come back tomorrow.' },
+  { icon: 'hourglass', title: 'Be patient for equipment', body: 'Ask how many sets are left, or train something else and come back.' },
+  { icon: 'people', title: 'Share between sets', body: 'Ask to "work in": you swap sets while they rest. Most say yes.' },
+  { icon: 'phone-portrait', title: "Don't camp on a machine", body: 'Scroll your phone away from a machine others are waiting for.' },
+  { icon: 'repeat', title: 'Put weights back', body: 'Re-rack plates and dumbbells where you found them.' },
+  { icon: 'water', title: 'Wipe down after use', body: 'Spray and wipe benches, seats and handles, especially where you sweated.' },
+  { icon: 'resize', title: 'Respect personal space', body: "Leave room around lifters, and don't block the mirror someone is using." },
+  { icon: 'chatbubbles', title: 'Ask before helping', body: 'Help only if someone looks stuck or asks. "Want a spot?" is always welcome.' },
+  { icon: 'volume-low', title: 'Keep the noise down', body: 'A grunt on a heavy rep is fine. Dropping weights, shouting and loud calls are not.' },
+  { icon: 'camera', title: 'Film only yourself', body: "Keep strangers out of your photos and videos unless they agree." },
+  { icon: 'shirt', title: 'Come clean and ready', body: 'Fresh clothes, deodorant, closed shoes and a small towel.' },
+  { icon: 'heart', title: 'Be kind to beginners', body: 'Everyone was new once. A smile or nod goes a long way.' },
 ];
 
-// One grouped list of short titles; tap a rule to read the one-line why.
+// One grouped list of short titles; tap a rule to read the one-line why. Round 15: no line under the header.
 export default function Etiquette() {
   const ins = useSafeAreaInsets();
   const mini = useMiniBarSpace(); // room for the workout mini bar while it shows
@@ -32,7 +32,6 @@ export default function Etiquette() {
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Header title="Gym etiquette" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 4, paddingBottom: ins.bottom + 40 + mini, gap: 12 }} showsVerticalScrollIndicator={false}>
-        <T v="small">The unwritten rules regulars follow</T>
         <Animated.View entering={still ? undefined : FadeInDown.duration(380).easing(EASE)} style={s.group}>
           {RULES.map((x, i) => {
             const on = open === x.title;

@@ -21,6 +21,7 @@ import { Sheet } from '../src/sheet';
 import { c, dom, r } from '../src/theme';
 import { latest, useTracker } from '../src/tracker';
 import { Button, Fold, IconBox, T, Tap } from '../src/ui';
+import { Tip } from '../src/tip';
 
 const ANDROID = Platform.OS === 'android';
 
@@ -55,12 +56,12 @@ function DisconnectHc({ disabled }: { disabled: boolean }) {
   };
   return (
     <>
-      <Button kind="danger" title="Disconnect Health Connect" icon="close" onPress={() => setOpen(true)} disabled={disabled} style={{ height: 48 }} />
+      <Button kind="danger" title="Disconnect" icon="close" onPress={() => setOpen(true)} disabled={disabled} style={{ height: 48 }} />
       <Sheet open={open} onClose={() => !busy && setOpen(false)}>
         <View style={{ gap: 12 }}>
           <T v="h2">Disconnect Health Connect</T>
-          <T v="small">Keep the workouts we saved there, or remove them</T>
-          <Button kind="ghost" title="Keep my workouts" onPress={() => go(false)} disabled={busy} />
+          <T v="small">Workouts we saved there:</T>
+          <Button kind="ghost" title="Keep them" onPress={() => go(false)} disabled={busy} />
           <Button kind="danger" title="Remove them" onPress={() => go(true)} disabled={busy} />
         </View>
       </Sheet>
@@ -149,12 +150,12 @@ export default function Watch() {
   ].filter(Boolean).join(' · ');
 
   const strapLine =
-    ble.status === 'connected' ? (bpm ? 'Live now' : 'Connected · waiting for a beat')
+    ble.status === 'connected' ? (bpm ? 'Live now' : 'Waiting for a beat')
       : ble.status === 'connecting' ? 'Connecting'
-        : ble.status === 'no-hr' ? 'No heart rate. Its broadcast mode is probably off'
+        : ble.status === 'no-hr' ? 'No heart rate. Broadcast off?'
           : ble.status === 'off' ? 'Turn on Bluetooth'
             : ble.status === 'denied' ? 'Allow Nearby devices to pair'
-              : strap ? `${strap.name} · reconnects on its own` : 'Chest straps, and watches in heart-rate broadcast mode';
+              : strap ? `${strap.name} · auto-reconnects` : '';
 
   const enter = (i: number) => (still ? undefined : FadeInDown.delay(i * 60).duration(380).easing(EASE));
 
@@ -165,7 +166,7 @@ export default function Watch() {
         {!ANDROID && (
           <View style={[s.note, { borderColor: c.blue + '55' }]}>
             <Ionicons name="phone-portrait-outline" size={18} color={c.blue} />
-            <T v="body" style={{ flex: 1 }}>Connect on your Android phone</T>
+            <T v="body" style={{ flex: 1 }}>Connect on Android</T>
           </View>
         )}
 
@@ -176,9 +177,10 @@ export default function Watch() {
             <View style={{ flex: 1 }}>
               <T v="h3">Your watch</T>
               <T v="small" numberOfLines={2} color={link.seen && hc.connected ? c.ok : undefined}>
-                {!hc.connected ? 'Not connected' : link.seen ? `From ${link.apps.join(', ')} · ${syncedAgo(hc.lastSync)}` : `Health Connect on · no watch data yet`}
+                {!hc.connected ? 'Not connected' : link.seen ? `From ${link.apps.join(', ')} · ${syncedAgo(hc.lastSync)}` : 'No watch data yet'}
               </T>
             </View>
+            <Tip title="How your watch connects" text={"Your watch pairs with its own app (Fitbit's Google Health app, WHOOP, Samsung Health…). That app shares to Health Connect, and we read it from there."} />
           </View>
           {syncing ? (
             <View style={{ gap: 8 }}>
@@ -190,16 +192,17 @@ export default function Watch() {
           )}
           {hc.connected ? (
             <>
-              <T v="small">{on.length ? `${on.length} kinds of data allowed · what arrived is in Tracker` : 'No data types allowed. Tap Add a watch'}</T>
+              <T v="small" accessibilityLabel={on.length ? `${on.length} kinds of data allowed. What arrived is in Tracker` : 'No data types allowed. Tap Add watch'}>
+                {on.length ? `${on.length} data types allowed` : 'No data types allowed'}
+              </T>
               <View style={s.row}>
-                <Button kind="ghost" title="Sync now" icon="refresh" onPress={runSync} disabled={syncing || !ANDROID} style={{ flex: 1, height: 48, paddingHorizontal: 12 }} />
-                <Button kind="ghost" title="Add a watch" icon="add" onPress={() => openFlow()} style={{ flex: 1, height: 48, paddingHorizontal: 12 }} />
+                <Button kind="ghost" title="Sync" icon="refresh" onPress={runSync} disabled={syncing || !ANDROID} style={{ flex: 1, height: 48, paddingHorizontal: 12 }} />
+                <Button kind="ghost" title="Add watch" icon="add" onPress={() => openFlow()} style={{ flex: 1, height: 48, paddingHorizontal: 12 }} />
               </View>
             </>
           ) : (
             <>
-              <T v="small">Your watch pairs with its own app (Fitbit's Google Health app, WHOOP, Samsung Health…). That app shares to Health Connect, and we read it from there</T>
-              <Button title="Connect your watch" icon="watch-outline" onPress={() => openFlow()} />
+              <Button title="Connect watch" icon="watch-outline" onPress={() => openFlow()} />
             </>
           )}
         </Animated.View>
@@ -209,7 +212,7 @@ export default function Watch() {
 
         {/* The Tracker: every number your watch shares, live heart rate, watch workouts */}
         <Animated.View entering={enter(1)}>
-          <DoorCard icon="pulse" color={dom.heart} title="Tracker" meta={bpm !== null ? `${bpm} bpm live now` : glance || 'Live heart rate, today\'s numbers, workouts'}
+          <DoorCard icon="pulse" color={dom.heart} title="Tracker" meta={bpm !== null ? `${bpm} bpm live now` : glance || 'Heart rate, steps, workouts'}
             onPress={() => router.push('/tracker')} />
         </Animated.View>
 
@@ -225,7 +228,7 @@ export default function Watch() {
         {/* History over weeks lives in Progress › Body & watch */}
         {hc.connected && (
           <Animated.View entering={enter(1)}>
-            <DoorCard icon="stats-chart" color={c.blue} title="Body & watch" meta="HRV, resting HR and sleep over time"
+            <DoorCard icon="stats-chart" color={c.blue} title="Body & watch" meta="HRV, resting HR, sleep"
               onPress={() => (fromChart ? goBack() : router.push({ pathname: '/chart/[kind]', params: { kind: 'body', from: 'watch' } }))} />
           </Animated.View>
         )}
@@ -239,8 +242,11 @@ export default function Watch() {
           <View style={s.row}>
             <IconBox icon="pulse" color={c.pink} />
             <View style={{ flex: 1 }}>
-              <T v="h3">Heart-rate strap</T>
-              <T v="small" numberOfLines={2} color={ble.status === 'no-hr' ? c.warm : undefined}>{strapLine}</T>
+              <View style={[s.row, { gap: 4 }]}>
+                <T v="h3">Heart-rate strap</T>
+                <Tip title="Heart-rate strap" text="Chest straps, and watches in heart-rate broadcast mode, connect over Bluetooth for live heart rate in workouts. Once paired it reconnects on its own. No heart rate? Its broadcast mode is probably off." />
+              </View>
+              {strapLine ? <T v="small" numberOfLines={2} color={ble.status === 'no-hr' ? c.warm : undefined}>{strapLine}</T> : null}
             </View>
             {ble.status === 'connected' && bpm !== null ? (
               <View style={s.bpm}>
@@ -279,10 +285,10 @@ export default function Watch() {
         <Animated.View entering={enter(6)}>
           <Fold title="Using Gadgetbridge?" icon="information-circle-outline">
             <T v="small" color={c.text}>Turn on all three in Gadgetbridge</T>
-            <T v="small">1. Health Connect export on, in its settings</T>
-            <T v="small">2. Your watch ticked under Select devices</T>
+            <T v="small">1. Health Connect export (settings)</T>
+            <T v="small">2. Your watch, under Select devices</T>
             <T v="small">3. Sync after device sync</T>
-            <T v="small">Data shows up about 10 s after the watch syncs. NOOP, OpenStrap, openScale: turn on Health Connect sync</T>
+            <T v="small">Data arrives ~10 s after a watch sync. NOOP, OpenStrap, openScale: turn on Health Connect sync</T>
           </Fold>
         </Animated.View>
 
@@ -299,7 +305,7 @@ export default function Watch() {
         <View style={{ gap: 12 }}>
           <T v="h2">Pair a strap</T>
           <T v="small">
-            {ble.status === 'scanning' ? 'Looking for heart-rate sensors' : ble.status === 'off' ? 'Turn on Bluetooth' : ble.status === 'denied' ? 'Allow Nearby devices to pair' : ble.found.length ? 'Tap one to connect' : 'Nothing found. Wake the strap and try again'}
+            {ble.status === 'scanning' ? 'Looking for sensors' : ble.status === 'off' ? 'Turn on Bluetooth' : ble.status === 'denied' ? 'Allow Nearby devices to pair' : ble.found.length ? 'Tap one to connect' : 'Nothing found. Wake the strap'}
           </T>
           {ble.status === 'scanning' && ble.found.length === 0 && <View style={{ gap: 8 }}>{[0, 1].map((i) => <Shimmer key={i} height={56} />)}</View>}
           {ble.found.slice(0, 12).map((d) => (
@@ -309,7 +315,7 @@ export default function Watch() {
               <Signal rssi={d.rssi} />
             </Tap>
           ))}
-          {ble.status !== 'scanning' && ble.found.length === 0 && <T v="small">Only straps and watches in broadcast mode show here</T>}
+          {ble.status !== 'scanning' && ble.found.length === 0 && <T v="small">Straps and broadcasting watches only</T>}
           {ble.status !== 'scanning' && <Button kind="ghost" title="Scan again" icon="refresh" onPress={() => startScan()} />}
         </View>
       </Sheet>
@@ -352,10 +358,10 @@ export default function Watch() {
 }
 
 const FORMATS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
-  { icon: 'watch-outline', label: 'Garmin .FIT file or Garmin export zip' },
+  { icon: 'watch-outline', label: 'Garmin .FIT or export zip' },
   { icon: 'archive-outline', label: 'Fitbit Google Takeout zip' },
-  { icon: 'map-outline', label: 'GPX or TCX from Gadgetbridge, OpenTracks and others' },
-  { icon: 'barbell-outline', label: 'Strong, Hevy or FitNotes CSV export' },
+  { icon: 'map-outline', label: 'GPX or TCX (Gadgetbridge, OpenTracks…)' },
+  { icon: 'barbell-outline', label: 'Strong, Hevy or FitNotes CSV' },
 ];
 
 const s = StyleSheet.create({

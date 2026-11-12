@@ -12,6 +12,7 @@ import { DoorCard, openWorkout, Segmented, useMiniBarSpace, useToday } from '../
 import { asDay } from '../../src/data/quick';
 import { quickPicks, type QuickPick } from '../../src/restday';
 import { Ambient } from '../../src/glass';
+import { Meta, Tip } from '../../src/tip';
 import { useStore, type Profile } from '../../src/store';
 import { c, dom, equip, f, r, tint } from '../../src/theme';
 import { Sheet } from '../../src/sheet';
@@ -114,7 +115,7 @@ export default function Train() {
       </Row>
       <View style={s.search}>
         <Ionicons name="search" size={18} color={c.muted} />
-        <TextInput value={q} onChangeText={setQ} placeholder={`Search ${exercises.length.toLocaleString('en-US')} exercises and plans`} placeholderTextColor={c.dim}
+        <TextInput value={q} onChangeText={setQ} placeholder="Search exercises and plans" placeholderTextColor={c.dim}
           style={s.input} returnKeyType="search" autoCorrect={false} />
         {!!q && <Tap onPress={() => setQ('')} feedback="none" style={s.clear} accessibilityLabel="Clear search"><Ionicons name="close-circle" size={18} color={c.muted} /></Tap>}
       </View>
@@ -146,9 +147,9 @@ export default function Train() {
           }
           ListEmptyComponent={planHits.length ? null : (
             <View style={{ gap: 4, marginTop: 8 }}>
-              <T v="small">Nothing matches. Try a muscle or a piece of kit.</T>
-              <Tap onPress={() => { setQ(''); router.push('/library'); }} style={s.browse} scale={0.97}>
-                <T v="h3" color={c.accent}>Browse all exercises</T>
+              <T v="small">No matches</T>
+              <Tap onPress={() => { setQ(''); router.push('/library'); }} style={s.browse} scale={0.97} accessibilityLabel="Browse all exercises">
+                <T v="h3" color={c.accent}>All exercises</T>
                 <Ionicons name="chevron-forward" size={16} color={c.accent} />
               </Tap>
             </View>
@@ -174,7 +175,10 @@ export default function Train() {
               <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                 <T v="label">{today.active ? 'In progress' : 'Today'}</T>
                 <T v="h2" numberOfLines={1} style={{ fontSize: 19 }}>{today.active ? today.active.title : today.day.name}</T>
-                <T v="small" numberOfLines={1}>{today.active ? plural(today.active.items.length, 'exercise') : `${plural(today.day.slots.length, 'exercise')} · ${today.minutes} min`}</T>
+                <Meta items={[
+                  { icon: 'list-outline', text: plural(today.active ? today.active.items.length : today.day.slots.length, 'exercise') },
+                  !today.active && { icon: 'time-outline', text: `${today.minutes} min` },
+                ]} />
               </View>
               <Tap onPress={today.start} style={[s.start, { backgroundColor: c.accent }]} scale={0.94} feedback="none">
                 <Ionicons name="play" size={16} color={c.accentInk} />
@@ -190,11 +194,11 @@ export default function Train() {
             <Section title="Short on time" style={{ marginTop: 24 }}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -12 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 12 }}>
                 {picks.map((q, k) => { const col = QUICK_COLORS[k % QUICK_COLORS.length]; return (
-                  <Tap key={q.id} onPress={() => startQuick(q)} style={s.quick} scale={0.97} accessibilityLabel={`Start ${q.name}`}>
+                  <Tap key={q.id} onPress={() => startQuick(q)} style={s.quick} scale={0.97} accessibilityLabel={`Start ${q.name}, ${q.about}`}>
                     <LinearGradient colors={[tint(col, 1.3), c.card]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
                     <IconBox icon={q.icon} color={col} size={36} />
                     <T v="h3" numberOfLines={1} style={{ fontSize: 15 }}>{q.name}</T>
-                    <T v="small" numberOfLines={1} style={{ fontSize: 12 }}>{q.sub}</T>
+                    <Meta items={[{ icon: 'time-outline', text: q.sub }]} />
                   </Tap>
                 ); })}
               </ScrollView>
@@ -209,34 +213,33 @@ export default function Train() {
         </Enter>
 
         <Enter i={3} style={{ marginTop: 24, gap: 8 }}>
-          <DoorCard icon="list" title="All exercises" meta={`${exercises.length.toLocaleString('en-US')} moves with demos`} onPress={() => router.push('/library')} compact />
-          <DoorCard icon="map" color={dom.streak} title="Plans and challenges" meta="Your plan, every plan, 27 challenges" onPress={() => router.navigate('/plans')} compact />
+          <DoorCard icon="list" title="All exercises" meta={`${exercises.length.toLocaleString('en-US')} moves`} onPress={() => router.push('/library')} compact />
+          <DoorCard icon="map" color={dom.streak} title="Plans and challenges" onPress={() => router.navigate('/plans')} compact />
         </Enter>
       </ScrollView>
       {/* Where you train: one tap swaps it everywhere (today's workout, the muscle lists, plans that fit). */}
       <Sheet open={placeOpen} onClose={() => setPlaceOpen(false)}>
         <View style={{ gap: 10 }}>
-          <View style={{ gap: 2 }}>
-            <T v="h2">Where are you training?</T>
-            <T v="small">Workouts and exercise lists follow this.</T>
-          </View>
+          <Row gap={4}>
+            <T v="h2" style={{ flex: 1 }}>Where do you train?</T>
+            <Tip title="Where you train" text="Workouts and exercise lists follow this.">
+              {PLACES.map((x) => <T key={x.k} v="body" color={c.soft}>{`${x.label}: ${x.sub.toLowerCase()}`}</T>)}
+            </Tip>
+          </Row>
           {PLACES.map((x) => {
             const on = profile.place === x.k;
             return (
               <Tap key={x.k} onPress={() => { useStore.getState().setProfile({ ...profile, place: x.k }); setPlaceOpen(false); }}
                 style={[s.placeRow, on && { borderColor: c.accent, backgroundColor: tint(c.accent, 1) }]} scale={0.98}
-                accessibilityState={{ selected: on }}>
+                accessibilityState={{ selected: on }} accessibilityLabel={`${x.label}. ${x.sub}`}>
                 <IconBox icon={x.icon} color={c.accent} size={40} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <T v="h3">{x.label}</T>
-                  <T v="small" numberOfLines={1}>{x.sub}</T>
-                </View>
+                <T v="h3" style={{ flex: 1, minWidth: 0 }}>{x.label}</T>
                 {on && <Ionicons name="checkmark-circle" size={22} color={c.accent} />}
               </Tap>
             );
           })}
           <Tap onPress={() => { setPlaceOpen(false); router.push({ pathname: '/profile', params: { s: 'place' } }); }} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center' }} feedback="none">
-            <T v="small" color={c.accent}>Edit home equipment</T>
+            <T v="small" color={c.accent}>Home equipment</T>
           </Tap>
         </View>
       </Sheet>

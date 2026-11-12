@@ -6,12 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReco } from '../../src/reco/use';
 import { CATEGORIES, perWeek, planById, plans, type Plan } from '../../src/data/plans';
 import { Segmented, useMiniBarSpace, useScrollTopRef, useToday } from '../../src/kit';
-import { because, openPlan, PLAN_COLOR, PLAN_ICON, PlanCard, planFits, planMeta, type Where } from '../../src/plansui';
+import { because, openPlan, PLAN_COLOR, PLAN_ICON, PlanCard, planFits, PlanRow, type Where } from '../../src/plansui';
+import { Meta } from '../../src/tip';
 import { Ambient } from '../../src/glass';
 import { useStore } from '../../src/store';
 import { c, dom, r, tint } from '../../src/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Avatar, IconBox, ListRow, Row, Section, T, Tap } from '../../src/ui';
+import { Avatar, IconBox, Row, Section, T, Tap } from '../../src/ui';
 import { ChallengeCard } from '../../src/challenges/Card';
 import { ChallengesBody } from '../challenges';
 import { Enter } from '../library';
@@ -86,14 +87,14 @@ function PlansList() {
         <T v="label" style={{ marginBottom: 8 }}>Doing now</T>
         <View style={{ gap: 8 }}>
           {cur && (
-            <Tap onPress={() => openPlan(cur.id)} style={[s.plan, { borderColor: tint(PLAN_COLOR[cur.category], 1.6) }]} scale={0.98}>
+            <Tap onPress={() => openPlan(cur.id)} accessibilityLabel={`${cur.name}, week ${weekNo} of ${cur.weeks}, next ${today.day.name}, ${wk} of ${n} done this week`} style={[s.plan, { borderColor: tint(PLAN_COLOR[cur.category], 1.6) }]} scale={0.98}>
               <LinearGradient colors={[tint(PLAN_COLOR[cur.category], 1.5), tint(c.accent, 0.4), c.card]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill} pointerEvents="none" />
               <Row gap={12}>
                 <IconBox icon={PLAN_ICON[cur.category]} color={PLAN_COLOR[cur.category]} size={44} />
                 <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                   <T v="h2" numberOfLines={2} style={{ fontSize: 18, lineHeight: 22 }}>{cur.name}</T>
-                  <T v="small" numberOfLines={1}>{`Week ${weekNo} of ${cur.weeks} · next: ${today.day.name}`}</T>
+                  <Meta items={[{ icon: 'flag-outline', text: `Week ${weekNo}/${cur.weeks}` }, { icon: 'arrow-forward', text: today.day.name }]} />
                 </View>
                 <Tap onPress={today.start} style={[s.start, { backgroundColor: c.accent }]} scale={0.94} feedback="none">
                   <Ionicons name="play" size={16} color={c.accentInk} />
@@ -103,7 +104,7 @@ function PlansList() {
               <Row gap={6}>
                 {Array.from({ length: n }, (_, i) => <View key={i} style={[s.pip, { backgroundColor: i < wk ? c.accent : c.line }]} />)}
               </Row>
-              <T v="small" numberOfLines={1}>{`${wk} of ${n} done this week`}</T>
+              <T v="small" numberOfLines={1}>{`${wk}/${n} this week`}</T>
             </Tap>
           )}
           <ChallengeCard />
@@ -112,9 +113,10 @@ function PlansList() {
 
       {best.length > 0 && (
         <Enter i={1}>
-          <Section title="Recommended for you" style={{ marginTop: 28 }}>
+          <Section title="For you" style={{ marginTop: 28 }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -12 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 12 }}>
-              {best.map((x) => <PlanCard key={x.planId} plan={x.plan} tag={`${x.fit}% match`} why={x.reasons.find((y) => !/days/.test(y)) ?? because(profile, x.plan)} />)}
+              {/* Names and facts only; the plan's story and reasons live on its page (rules 6). */}
+              {best.map((x) => <PlanCard key={x.planId} plan={x.plan} tag={`${x.fit}% match`} />)}
             </ScrollView>
           </Section>
         </Enter>
@@ -132,13 +134,13 @@ function PlansList() {
               <T v="small">{list.length}</T>
             </Row>
             {list.map((p) => (
-              <ListRow key={p.id} icon={PLAN_ICON[p.category]} color={PLAN_COLOR[p.category]} title={p.name}
-                sub={p.id === curBase ? `${planMeta(p)} · Your plan` : bestIds.has(p.id) ? `${planMeta(p)} · ${because(profile, p)}` : planMeta(p)}
-                onPress={() => openPlan(p.id)} />
+              <PlanRow key={p.id} plan={p} onPress={() => openPlan(p.id)}
+                extra={p.id === curBase ? { icon: 'checkmark-circle', text: 'Yours', color: c.accent }
+                  : bestIds.has(p.id) ? { icon: 'sparkles', text: because(profile, p) === 'Beginner friendly' ? 'For you' : because(profile, p), color: c.accent } : null} />
             ))}
           </View>
         ))}
-        {!groups.length && <T v="small" style={{ marginTop: 12 }}>No plans for this place.</T>}
+        {!groups.length && <T v="small" style={{ marginTop: 12 }}>No plans here</T>}
       </Enter>
     </View>
   );

@@ -13,6 +13,7 @@ import { drink, ml, useWater } from './water';
 import { Sheet } from './sheet';
 import { useStore, type Mood } from './store';
 import { c, dom, r, tint } from './theme';
+import { Tip } from './tip';
 import { haptic, IconBox, Stepper, T, Tap } from './ui';
 
 type Icon = keyof typeof Ionicons.glyphMap;
@@ -84,16 +85,18 @@ function Body({ onClose, openFood }: { onClose: () => void; openFood: () => void
 
   return (
     <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 10, paddingBottom: 4 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-      <T v="h2">Quick log</T>
-      <T v="small" style={{ marginTop: -6, marginBottom: 2 }}>Everything is saved as you tap.</T>
+      <View style={s.line}>
+        <T v="h2" style={{ flex: 1 }}>Quick log</T>
+        <Tip title="Quick log" text="Everything is saved as you tap." />
+      </View>
 
       {/* Food: the full food sheet (search, recipes, your own). */}
       <Item icon="restaurant" color={dom.kcal} title="Food"
-        sub={todays.length ? (gentle ? `${todays.length} logged today` : `${Math.round(kcal).toLocaleString('en-US')} kcal · ${Math.round(protein)} g protein today`) : 'Nothing logged yet today'}
+        sub={todays.length ? (gentle ? `${todays.length} today` : `${Math.round(kcal).toLocaleString('en-US')} kcal · ${Math.round(protein)} g protein`) : 'Nothing yet today'}
         onPress={openFood} right={<Ionicons name="chevron-forward" size={18} color={c.muted} />} />
 
       {/* Water: one tap, right here. */}
-      <Item icon="water" color={dom.water} title="Water" sub={`${water.ml.toLocaleString('en-US')} of ${ml(water.goal)}`}
+      <Item icon="water" color={dom.water} title="Water" sub={`${water.ml.toLocaleString('en-US')} / ${ml(water.goal)}`}
         right={(
           <View style={s.line}>
             {undo && (
@@ -115,8 +118,9 @@ function Body({ onClose, openFood }: { onClose: () => void; openFood: () => void
             <IconBox icon="scale" color={dom.weight} size={36} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <T v="h3">Weight</T>
-              <T v="small" numberOfLines={1}>{todayKg !== undefined ? `Logged today: ${todayKg} kg` : 'Weigh in at the same time each day'}</T>
+              {todayKg !== undefined && <T v="small" numberOfLines={1}>{`Today: ${todayKg} kg`}</T>}
             </View>
+            <Tip title="Weight" text="Weigh in at the same time each day." />
           </View>
           <View style={[s.line, { justifyContent: 'space-between', marginTop: 8 }]}>
             <Stepper value={kg} step={0.1} min={30} onChange={(n) => setKg(Math.min(250, n))} suffix=" kg" />
@@ -135,7 +139,7 @@ function Body({ onClose, openFood }: { onClose: () => void; openFood: () => void
             <IconBox icon="medkit" color={dom.steps} size={36} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <T v="h3">Supplements</T>
-              <T v="small" numberOfLines={1}>{taken.filter((x) => picked.includes(x)).length} of {picked.length} taken today</T>
+              <T v="small" numberOfLines={1}>{taken.filter((x) => picked.includes(x)).length}/{picked.length} today</T>
             </View>
             <Tap onPress={() => goTo(onClose, '/supplements' as Href)} style={s.ghost} scale={0.95} accessibilityLabel="Edit supplements and reminders">
               <T v="small" color={c.accent}>Edit</T>
@@ -156,7 +160,7 @@ function Body({ onClose, openFood }: { onClose: () => void; openFood: () => void
           </View>
         </View>
       ) : (
-        <Item icon="medkit" color={dom.steps} title="Supplements" sub="Pick what you take, get a reminder"
+        <Item icon="medkit" color={dom.steps} title="Supplements" sub="Add yours"
           onPress={() => goTo(onClose, '/supplements' as Href)} right={<Ionicons name="chevron-forward" size={18} color={c.muted} />} />
       )}
 
@@ -166,8 +170,8 @@ function Body({ onClose, openFood }: { onClose: () => void; openFood: () => void
           <IconBox icon="happy" color={dom.streak} size={36} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <T v="h3">How do you feel?</T>
-            <T v="small" numberOfLines={1}>Today's workout adjusts to it</T>
           </View>
+          <Tip title="How you feel" text="Today's workout adjusts to it. Drained means a lighter day." />
         </View>
         <View style={[s.line, { gap: 8, marginTop: 10 }]}>
           {MOODS.map((x) => {

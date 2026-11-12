@@ -14,6 +14,7 @@ import { c } from '../src/theme';
 import { Button, Card, Chip, IconBox, Row, T, Tap } from '../src/ui';
 import { ml, useWater } from '../src/water';
 import { Ambient } from '../src/glass';
+import { Meta, Tip } from '../src/tip';
 
 const WEEK = [1, 2, 3, 4, 5, 6, 0]; // Monday first; the store counts 0 = Sunday
 const SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -77,7 +78,7 @@ export default function Reminders() {
 
   const workouts = reminders.filter((r) => r.kind === 'workout');
   const suppOn = supps.flatMap((x) => x.times.filter((t) => t.on).map((t) => `${x.short} ${hm(t.hour, t.minute)}`));
-  const suppLine = suppOn.length ? suppOn.join(' · ') : supps.length ? `${supps.map((x) => x.short).join(', ')} · no reminders on` : 'Protein shake, creatine, coffee… at your own times';
+  const suppLine = suppOn.length ? suppOn.join(' · ') : supps.length ? `${supps.map((x) => x.short).join(', ')} · off` : 'Shake, creatine, coffee…';
   const meals = MEALS.map(([label, hour, minute]): Reminder =>
     reminders.find((r) => r.kind === 'meal' && r.label === label) ?? { id: `meal-${label.toLowerCase()}`, kind: 'meal', hour, minute, days: [], on: false, label });
 
@@ -87,38 +88,39 @@ export default function Reminders() {
         <Ambient />
         <Header title="Reminders" />
         <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: ins.bottom + 40 + mini }} showsVerticalScrollIndicator={false}>
-        <T v="small" style={{ marginTop: 4 }}>Set on this phone, so they work offline. Changes save at once.</T>
+        {/* Round 15: was "Set on this phone, so they work offline. Changes save at once." */}
+        <Meta style={{ marginTop: 4, paddingHorizontal: 4 }} items={[{ icon: 'cloud-offline-outline', text: 'Works offline' }, { icon: 'checkmark-done-outline', text: 'Saves at once' }]} />
 
         {!granted && (
           <Section i={1}>
             <Row gap={10}>
               <Ionicons name="notifications-off-outline" size={20} color={c.accent} />
-              <T v="h3" style={{ flex: 1 }}>Notifications are off</T>
+              <T v="h3" style={{ flex: 1 }}>Notifications off</T>
             </Row>
             <T v="small">
-              {web ? 'Reminders ring in the phone app. The browser version cannot send them.'
-                : tried ? 'Notifications are turned off for this app. You can turn them on in your phone settings.'
-                : 'Reminders need your permission to show up. Nothing is sent anywhere.'}
+              {web ? 'They ring in the phone app only.'
+                : tried ? 'Blocked in phone settings.'
+                : 'Needs your OK. Nothing is sent.'}
             </T>
-            {!web && <Button title={tried ? 'Open settings' : 'Allow notifications'} onPress={grant} />}
+            {!web && <Button title={tried ? 'Open settings' : 'Allow'} onPress={grant} />}
           </Section>
         )}
 
         <Group title="Training" />
         <Section i={2}>
           <T v="h2">Workouts</T>
-          {!workouts.length && <T v="small">None yet. Add up to five.</T>}
+          {!workouts.length && <T v="small">None yet · up to 5</T>}
           {workouts.map((r) => <Line key={r.id} r={r} sub={dayList(r.days)} onOpen={() => show(r)} onToggle={(on) => toggle(r, on)} />)}
-          {workouts.length < 5 && <Button title="Add reminder" kind="ghost" icon="add" onPress={add} />}
+          {workouts.length < 5 && <Button title="Add" kind="ghost" icon="add" onPress={add} />}
         </Section>
 
         <Section i={3}>
-          <Toggle title="Missed workout nudge" sub="Two hours after a missed reminder, a short session"
+          <Toggle title="Missed workout nudge" sub="2 h later, a short session"
             value={nudges.missed} onChange={(missed) => setN({ missed })} />
           <View style={s.rule} />
-          <Toggle title="Streak alert" sub="After two days without a workout" value={nudges.streak} onChange={(streak) => setN({ streak })} />
+          <Toggle title="Streak alert" sub="After 2 days off" value={nudges.streak} onChange={(streak) => setN({ streak })} />
           <View style={s.rule} />
-          <Toggle title="Weekly recap" sub="Sundays at 7:00 pm" value={nudges.recap} onChange={(recap) => setN({ recap })} />
+          <Toggle title="Weekly recap" sub="Sun 7:00 pm" value={nudges.recap} onChange={(recap) => setN({ recap })} />
         </Section>
 
         <Group title="Food and drink" />
@@ -129,7 +131,7 @@ export default function Reminders() {
 
         <Section i={5}>
           <Toggle title="Water"
-            sub={hydration.on ? `Every ${hydration.every} min, ${clock(hydration.from, 0)}–${clock(hydration.to, 0)} · stops at your ${ml(water.goal)}` : 'Gentle reminders to drink'}
+            sub={hydration.on ? `Stops at your ${ml(water.goal)}` : undefined}
             value={hydration.on} onChange={(on) => { st.setHydration({ ...hydration, on }); turnedOn(on); }} />
           {hydration.on && <Hours value={hydration} set={st.setHydration} opts={[[60, '60 min'], [90, '90 min'], [120, '120 min']]} />}
         </Section>
@@ -147,21 +149,24 @@ export default function Reminders() {
 
         <Group title="Through the day" />
         <Section i={7}>
-          <Toggle title="Motivation and tips" sub="Every few hours, a line or a food tip"
+          <Toggle title="Motivation and tips"
             value={motivation.on} onChange={(on) => { st.setMotivation({ ...motivation, on }); turnedOn(on); }} />
           {motivation.on && <Hours value={motivation} set={st.setMotivation} opts={[[120, '2 h'], [180, '3 h'], [240, '4 h']]} />}
         </Section>
 
         <Section i={8}>
-          <Toggle title="Desk and eye breaks" sub="Weekdays: stand up, rest your eyes"
+          <Toggle title="Desk and eye breaks" sub="Weekdays"
             value={breaks.on} onChange={(on) => { st.setBreaks({ ...breaks, on }); turnedOn(on); }} />
           {breaks.on && <Hours value={breaks} set={st.setBreaks} opts={[[45, '45 min'], [60, '60 min'], [90, '90 min']]} labels={['Work starts', 'Work ends']} />}
         </Section>
 
         <Section i={9}>
           <View style={{ gap: 2 }}>
-            <T v="h3">Quiet hours</T>
-            <T v="small">{nudges.quietFrom === nudges.quietTo ? 'Off while both times match' : 'Automatic nudges stay silent · times you set yourself still ring'}</T>
+            <Row gap={4}>
+              <T v="h3">Quiet hours</T>
+              <Tip title="Quiet hours" text="Automatic nudges stay silent. Times you set yourself still ring. Set both times the same to turn quiet hours off." />
+            </Row>
+            {nudges.quietFrom === nudges.quietTo && <T v="small">Off (same times)</T>}
           </View>
           <Row style={{ justifyContent: 'space-between' }}>
             <T v="body">From</T>
@@ -203,7 +208,7 @@ export default function Reminders() {
                     );
                   })}
                 </Row>
-                <T v="small">{edit.days.length ? dayList(edit.days) : 'No days picked means every day.'}</T>
+                <T v="small">{dayList(edit.days)}</T>
               </View>
             )}
             <Row gap={10}>
@@ -233,12 +238,12 @@ const On = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => voi
   <Switch value={value} onValueChange={onChange} trackColor={{ true: c.accent, false: c.card2 }} thumbColor="#FFFFFF" ios_backgroundColor={c.card2} />
 );
 
-function Toggle({ title, sub, value, onChange }: { title: string; sub: string; value: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ title, sub, value, onChange }: { title: string; sub?: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
     <Row>
       <View style={{ flex: 1, gap: 2 }}>
         <T v="h3">{title}</T>
-        <T v="small">{sub}</T>
+        {sub ? <T v="small">{sub}</T> : null}
       </View>
       <On value={value} onChange={onChange} />
     </Row>

@@ -18,16 +18,17 @@ import { useStore, type MediaPref } from '../src/store';
 import { ACCENTS, accentHex, c, dom, r, tint, type AccentId, type Mode } from '../src/theme';
 import { useWatchLink } from '../src/health/DataPath';
 import { useTracker } from '../src/tracker';
-import { Button, IconBox, T, Tap } from '../src/ui';
+import { Meta } from '../src/tip';
+import { Button, IconBox, Row, T, Tap } from '../src/ui';
 
 type Icon = keyof typeof Ionicons.glyphMap;
 const clock12 = (h: number, m: number) => `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
 const MODES: { k: Mode; label: string }[] = [{ k: 'system', label: 'System' }, { k: 'light', label: 'Light' }, { k: 'dark', label: 'Dark' }];
 const DEMOS: { k: MediaPref; label: string; sub: string; icon: Icon }[] = [
-  { k: 'animated', label: 'Animated', sub: 'Moving figure, works offline', icon: 'walk' },
-  { k: 'drawing', label: 'Drawing', sub: 'Step-by-step drawings', icon: 'brush' },
-  { k: 'photo', label: 'Photo', sub: 'Real photos, needs internet', icon: 'image' },
-  { k: 'video', label: 'Video', sub: 'Short clips where we have them', icon: 'videocam' },
+  { k: 'animated', label: 'Animated', sub: 'Works offline', icon: 'walk' },
+  { k: 'drawing', label: 'Drawing', sub: 'Step by step', icon: 'brush' },
+  { k: 'photo', label: 'Photo', sub: 'Needs internet', icon: 'image' },
+  { k: 'video', label: 'Video', sub: 'Where available', icon: 'videocam' },
 ];
 const web = Platform.OS === 'web';
 // A theme change remounts the app (or reloads the page). This brings the theme sheet back afterwards.
@@ -137,19 +138,19 @@ export default function You() {
   // Your watch: connecting Fitbit, WHOOP and the rest is the main way data gets in, so it comes first.
   const devices: RowT[] = [
     { icon: 'watch', color: dom.heart, t: connected ? 'Connected watch' : 'Connect a watch', v: connected ? (link.apps.join(', ') || link.strap?.name || 'Health Connect') : 'Fitbit, WHOOP…', go: () => router.push('/watch') },
-    { icon: 'pulse', color: dom.heart, t: 'Tracker', v: 'Heart rate, today', go: () => router.push('/tracker' as Href) },
-    { icon: 'battery-charging', color: dom.sleep, t: 'Recovery', v: 'Readiness, sleep', go: () => router.push('/recovery') },
+    { icon: 'pulse', color: dom.heart, t: 'Tracker', v: 'Heart rate', go: () => router.push('/tracker' as Href) },
+    { icon: 'battery-charging', color: dom.sleep, t: 'Recovery', v: 'Readiness', go: () => router.push('/recovery') },
   ];
   const goals: RowT[] = [
     { icon: 'trophy', color: dom.streak, t: 'Challenges', v: challenge ? 'In progress' : 'Join one', go: () => router.push('/challenges' as Href) },
-    { icon: 'flag', color: dom.train, t: 'Plan and goal', v: optLabel(GOALS, profile.goal), go: () => router.push({ pathname: '/profile', params: { s: 'plan' } }) },
+    { icon: 'flag', color: dom.train, t: 'Plan and goal', v: planById[planId]?.name ?? optLabel(GOALS, profile.goal), go: () => router.push({ pathname: '/profile', params: { s: 'plan' } }) },
     { icon: 'location', color: dom.steps, t: 'Where you train', v: place, go: () => router.push({ pathname: '/profile', params: { s: 'place' } }) },
   ];
   const nudges: RowT[] = [
     { icon: 'barbell', color: dom.train, t: 'Workout', v: next ? clock12(next.hour, next.minute) : 'Off', go: () => router.push('/reminders') },
     { icon: 'water', color: dom.water, t: 'Meals and water', v: ([mealReminders ? `${mealReminders} meal${mealReminders > 1 ? 's' : ''}` : '', hydration.on ? 'water' : ''].filter(Boolean).join(' and ') || '').replace(/^./, (x) => x.toUpperCase()).replace(/^(.+)$/, '$1 on') || 'Off',
       go: () => router.push('/reminders') },
-    { icon: 'medkit', color: dom.steps, t: 'Supplements', v: supplements ? `${supplements} picked${suppReminders ? ', reminders on' : ''}` : 'Add yours', go: () => router.push('/supplements' as Href) },
+    { icon: 'medkit', color: dom.steps, t: 'Supplements', v: supplements ? `${supplements} picked${suppReminders ? ' · on' : ''}` : 'Add', go: () => router.push('/supplements' as Href) },
   ];
   const more: RowT[] = [
     { icon: 'person', color: dom.weight, t: 'About you', v: about, go: () => router.push({ pathname: '/profile', params: { s: 'about' } }) },
@@ -157,7 +158,7 @@ export default function You() {
       v: last ? `${inPeriod ? 'Started' : 'Last'} ${dayLabel(last.start)}` : 'Today', go: () => logPeriod(inPeriod ? 'end' : 'start'), act: true }] : []),
     { icon: 'people', color: dom.sleep, t: 'Gym etiquette', go: () => router.push('/etiquette') },
     { icon: 'server', color: c.muted, t: 'Your data', v: 'On this phone', go: () => setSheet('data') },
-    { icon: 'shield-checkmark', color: c.muted, t: 'Safety and disclaimer', go: () => router.push('/safety' as Href) },
+    { icon: 'shield-checkmark', color: c.muted, t: 'Safety', v: 'Not medical advice', go: () => router.push('/safety' as Href) },
   ];
   const enter = (i: number) => (still ? undefined : FadeInDown.delay(i * 60).duration(380).easing(EASE));
   const group = (list: RowT[]) => list.map((x, i) => (
@@ -185,7 +186,10 @@ export default function You() {
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <T v="h2" numberOfLines={1}>{profile.name || 'Guest'}</T>
-              <T v="small" numberOfLines={1}>{optLabel(GOALS, profile.goal)} · {profile.daysPerWeek} days a week</T>
+              <Meta style={{ marginTop: 2 }} items={[
+                { icon: 'flag-outline', text: optLabel(GOALS, profile.goal) },
+                { icon: 'calendar-outline', text: `${profile.daysPerWeek}×/wk` },
+              ]} />
             </View>
             <Ionicons name="chevron-forward" size={18} color={c.muted} />
           </Tap>
@@ -197,12 +201,6 @@ export default function You() {
             <View style={s.group}>{group(list as RowT[])}</View>
           </Animated.View>
         ))}
-
-        <Animated.View entering={enter(6)}>
-          <T v="small" color={c.muted} style={{ textAlign: 'center' }}>
-            {planById[planId] ? `Plan: ${planById[planId].name} · ` : ''}Not medical advice
-          </T>
-        </Animated.View>
       </ScrollView>
 
       {/* Theme and colours: light, dark or the phone's setting, and the accent. */}
@@ -212,7 +210,7 @@ export default function You() {
           <View style={{ gap: 8 }}>
             <T v="h3">Theme</T>
             <Segmented options={MODES} value={mode} onChange={(m) => pickLook({ mode: m })} />
-            <T v="small">{mode === 'system' ? 'Follows your phone: light by day if your phone is set that way' : mode === 'light' ? 'Always light' : 'Always dark'}</T>
+            {mode === 'system' && <T v="small">Matches your phone</T>}
           </View>
           <View style={{ gap: 8 }}>
             <T v="h3">Accent colour</T>
@@ -234,7 +232,7 @@ export default function You() {
             </View>
           </View>
           <View style={{ gap: 8 }}>
-            <T v="h3">Colours for each part of your day</T>
+            <T v="h3">Colour key</T>
             <View style={s.legend}>
               {([['train', 'barbell', 'Training'], ['heart', 'heart', 'Heart'], ['sleep', 'moon', 'Sleep'], ['kcal', 'flame', 'Food'],
                 ['protein', 'nutrition', 'Protein'], ['water', 'water', 'Water'], ['weight', 'scale', 'Weight'], ['streak', 'trophy', 'Streak']] as const).map(([k, icon, label]) => (
@@ -272,18 +270,21 @@ export default function You() {
       <Sheet open={sheet === 'data'} onClose={closeData}>
         <View style={{ gap: 12 }}>
           <T v="h3">Your data</T>
-          <T v="small">Everything stays on this phone. Nothing is uploaded.</T>
+          <Row gap={6}>
+            <Ionicons name="lock-closed-outline" size={14} color={c.muted} />
+            <T v="small" accessibilityLabel="Everything stays on this phone. Nothing is uploaded.">On this phone only</T>
+          </Row>
           {confirm ? (
             <>
-              <T v="body" color={c.danger}>This deletes your profile, workouts, meals, weights and watch data on this phone.</T>
-              <Button title="Yes, erase everything" kind="danger" onPress={erase} />
+              <T v="body" color={c.danger}>Deletes your profile, workouts, meals, weights and watch data.</T>
+              <Button title="Yes, erase" kind="danger" onPress={erase} />
               <Button title="Cancel" kind="ghost" onPress={() => setConfirm(false)} />
             </>
           ) : (
             <>
               <Button title="Export data" kind="ghost" icon="download-outline" onPress={exportData} />
               <Button title="Export sets (CSV)" kind="ghost" icon="grid-outline" onPress={exportSets} disabled={!hasSets} />
-              <Button title="Erase all data" kind="danger" icon="trash-outline" onPress={() => setConfirm(true)} />
+              <Button title="Erase all" kind="danger" icon="trash-outline" onPress={() => setConfirm(true)} />
             </>
           )}
         </View>

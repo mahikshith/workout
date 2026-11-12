@@ -14,10 +14,13 @@ import { openWorkout } from './kit';
 import { Sheet } from './sheet';
 import { useStore, type Profile, type Session } from './store';
 import { c, r } from './theme';
+import { Meta, Tip } from './tip';
 import { Button, Chip, haptic, Row, T, Tap } from './ui';
 
 type Icon = keyof typeof Ionicons.glyphMap;
-export type QuickPick = { id: string; name: string; minutes: number; icon: Icon; sub: string; place: Place; q: Quick };
+// sub: the short line a list shows (minutes, plus "Cardio" for the cardio ladder); about: the longer description,
+// read out by screen readers (lists show names, the workout itself shows the moves).
+export type QuickPick = { id: string; name: string; minutes: number; icon: Icon; sub: string; about: string; place: Place; q: Quick };
 
 export const placeOf = (p: Profile): Place => (p.place === 'home' || p.place === 'office' ? 'home' : 'gym');
 
@@ -27,10 +30,10 @@ export function quickPicks(p: Profile, sessions: Session[], now = Date.now()): Q
   const home = placeOf(p);
   const quick = quickFor(p, now).filter((q) => q.minutes >= 10 && (home === 'gym' ? true : !q.where.includes('gym')))
     .sort((a, b) => Math.abs(a.minutes - 20) - Math.abs(b.minutes - 20)).slice(0, 1)
-    .map((q): QuickPick => ({ id: q.id, name: q.name, minutes: q.minutes, icon: q.icon, sub: `${q.minutes} min · ${q.blurb}`, place: home, q }));
+    .map((q): QuickPick => ({ id: q.id, name: q.name, minutes: q.minutes, icon: q.icon, sub: `${q.minutes} min`, about: `${q.minutes} min. ${q.blurb}`, place: home, q }));
   const ladder = cardioFor(p, sessions);
   const cardio = ladder.picks.slice(0, 2).map((q): QuickPick => ({
-    id: q.id, name: q.name, minutes: q.minutes, icon: q.icon, sub: `${q.minutes} min · Cardio, ${ladder.name.toLowerCase()} stage`,
+    id: q.id, name: q.name, minutes: q.minutes, icon: q.icon, sub: `${q.minutes} min · Cardio`, about: `${q.minutes} min. Cardio, ${ladder.name.toLowerCase()} stage`,
     place: q.at === 'gym' ? 'gym' : q.at === 'home' ? 'home' : home, q,
   }));
   return [...quick, ...cardio].slice(0, 3);
@@ -71,14 +74,16 @@ export function RestDaySheet({ open, onClose }: { open: boolean; onClose: () => 
     <Sheet open={open} onClose={onClose}>
       {opts && (
         <View style={{ gap: 12 }}>
-          <View style={{ gap: 2 }}>
-            <T v="h2">{opts.next.reason.startsWith('Done') ? 'Done for today' : 'Rest day'}</T>
-            <T v="small" numberOfLines={2}>{restLine(opts.next.reason)}</T>
-          </View>
+          {/* Title once; the next workout's name is on the button, so only its day is said here. */}
+          <Row gap={4}>
+            <T v="h2" style={{ flex: 1 }}>{opts.next.reason.startsWith('Done') ? 'Done for today' : 'Rest day'}</T>
+            {restWhen(opts.next.reason) && <Meta items={[{ icon: 'calendar-outline', text: `Next: ${restWhen(opts.next.reason)}` }]} />}
+            <Tip title="Rest day" text={restWhy(opts.next.reason)} />
+          </Row>
           <Button title={`Train anyway · ${opts.next.day.name}`} icon="play" onPress={trainAnyway} />
           {opts.picks.length > 0 && <T v="small" color={c.label} style={{ marginTop: 4 }}>Short on time</T>}
           {opts.picks.map((q) => (
-            <Tap key={q.id} onPress={() => startQuick(q)} style={s.row} scale={0.98}>
+            <Tap key={q.id} onPress={() => startQuick(q)} style={s.row} scale={0.98} accessibilityLabel={`${q.name}, ${q.about}`}>
               <View style={[s.icon, { backgroundColor: c.accent + '22' }]}><Ionicons name={q.icon} size={20} color={c.accent} /></View>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <T v="h3" numberOfLines={1}>{q.name}</T>
@@ -101,12 +106,24 @@ export function RestDaySheet({ open, onClose }: { open: boolean; onClose: () => 
   );
 }
 
-// The engine's reason as one short line under a "Done for today" / "Rest day" title, without saying "Done for today"
-// twice: "Done for today · next: Full Body B Fri. Rest helps…" → "Next: Full Body B on Fri".
+// The engine's reason as one short line under a "Done for today" / "Rest day" title, without saying the title twice:
+// "Done for today · next: Full Body B Fri. Rest helps…" → "Next: Full Body B on Fri" (same for "Rest day · next: …").
 export function restLine(reason: string) {
   const first = (reason.match(/^[^.]*\./)?.[0] ?? reason).trim().replace(/\.$/, '');
-  return first.replace(/^Done for today · next: /, 'Next: ').replace(/^(Next: .+) (Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/, '$1 on $2');
+  return first.replace(/^(Done for today|Rest day) · next: /, 'Next: ').replace(/^(Next: .+) (Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/, '$1 on $2');
 }
+
+// Just the day of the next workout from a rest reason ("Tomorrow", "Fri"), for screens that already show its name.
+export function restWhen(reason: string): string | null {
+  const m = restLine(reason).match(/^Next: .+? (tomorrow|on (Mon|Tue|Wed|Thu|Fri|Sat|Sun))$/);
+  return m ? (m[1] === 'tomorrow' ? 'tomorrow' : m[2]) : null;
+}
+
+// The whole reason, for the (i) beside a rest title: "Next: Full Body B on Fri. Muscles grow on rest."
+export const restWhy = (reason: string) => {
+  const rest = reason.replace(/^[^.]*\.\s*/, '').trim();
+  return [restLine(reason), rest].filter(Boolean).join('. ').replace(/\.?$/, '.');
+};
 
 // Change workout (the workout's ⋯ sheet, and Change next to Start on Today): another day of the current plan, a quick
 // session around 20 minutes, or a one-muscle focus day. The caller decides what a pick does (start it, or replace the
@@ -132,7 +149,7 @@ export function ChangeList({ place, current, note, onPick }: {
     <View style={{ gap: 10 }}>
       <View style={{ gap: 2 }}>
         <T v="h2">Change workout</T>
-        <T v="small" numberOfLines={1}>{note ?? 'Pick what you want to do instead'}</T>
+        {note ? <T v="small" numberOfLines={1}>{note}</T> : null}
       </View>
       <ScrollView style={{ maxHeight: 500 }} contentContainerStyle={{ gap: 8, paddingBottom: 4 }} showsVerticalScrollIndicator={false}>
         {plan && <T v="small" color={c.label} style={{ marginTop: 4 }} numberOfLines={1}>{plan.name}</T>}
@@ -152,7 +169,7 @@ export function ChangeList({ place, current, note, onPick }: {
         })}
         {picks.length > 0 && <T v="small" color={c.label} style={{ marginTop: 8 }}>Short on time</T>}
         {picks.map((q) => (
-          <Tap key={q.id} onPress={() => pick({ day: asDay(q.q), place: q.place })} style={s.row} scale={0.98} accessibilityLabel={`Change to ${q.name}`}>
+          <Tap key={q.id} onPress={() => pick({ day: asDay(q.q), place: q.place })} style={s.row} scale={0.98} accessibilityLabel={`Change to ${q.name}, ${q.about}`}>
             <View style={[s.icon, { backgroundColor: c.accent + '22' }]}><Ionicons name={q.icon} size={20} color={c.accent} /></View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <T v="h3" numberOfLines={1}>{q.name}</T>
@@ -161,7 +178,7 @@ export function ChangeList({ place, current, note, onPick }: {
             <Ionicons name="chevron-forward" size={18} color={c.muted} />
           </Tap>
         ))}
-        <T v="small" color={c.label} style={{ marginTop: 8 }}>Different focus</T>
+        <T v="small" color={c.label} style={{ marginTop: 8 }}>Focus</T>
         <View style={s.chips}>
           {focus.map((x) => (
             <Chip key={x.planId} label={x.label} on={current?.planId === x.planId}

@@ -10,8 +10,9 @@ import { swapFor } from '../src/data/swaps';
 import { FoodPicker, isGentle, servings, slotName, slotNow, SLOTS } from '../src/foodsheet';
 import { EASE, goBack, Header, useMiniBarSpace } from '../src/kit';
 import { useStore, type MealSlot } from '../src/store';
-import { c, r } from '../src/theme';
-import { Banner, Button, Card, haptic, Row, Section, Stepper, T, Tap, Tile } from '../src/ui';
+import { c, dom, r } from '../src/theme';
+import { Meta as MetaLine, Tip } from '../src/tip';
+import { Button, Card, haptic, Row, Section, Stepper, T, Tap, Tile } from '../src/ui';
 
 type Icon = keyof typeof Ionicons.glyphMap;
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
@@ -78,13 +79,17 @@ function RecipePage({ rc, slot: slotParam }: { rc: Recipe; slot?: MealSlot }) {
           {!gentle && <T v="small" style={{ marginTop: 12 }}>{rc.why}</T>}
           {rc.group === 'Pregnancy-friendly' && (
             <View style={{ marginTop: 16 }}>
-              <Banner icon="heart" color={c.pink} title="Pregnancy-safe: cooked through and pasteurised. Ask your doctor about your needs." />
+              <Row gap={8} style={s.preg}>
+                <Ionicons name="heart" size={18} color={c.pink} />
+                <T v="body" color={c.text} style={{ flex: 1 }}>Pregnancy-safe</T>
+                <Tip title="Pregnancy-safe" text="Cooked through and pasteurised. Ask your doctor about your needs." />
+              </Row>
             </View>
           )}
           {!gentle && (
             <Row style={{ marginTop: 16 }}>
               <Tile icon="flame" color={c.warm} value={per.kcal} unit="kcal" label="Per serving" />
-              <Tile icon="nutrition" color={c.pink} value={per.protein} unit="g" label="Protein per serving" />
+              <Tile icon="nutrition" color={c.pink} value={per.protein} unit="g" label="Protein" />
             </Row>
           )}
         </Animated.View>
@@ -103,8 +108,8 @@ function RecipePage({ rc, slot: slotParam }: { rc: Recipe; slot?: MealSlot }) {
                       </View>
                       {!gentle && (
                         <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                          <Pill color={c.warm} text={`${k} kcal`} />
-                          <Pill color={c.pink} text={`${p} g protein`} />
+                          <Pill color={c.warm} icon="flame" text={`${k} kcal`} />
+                          <Pill color={c.pink} icon="nutrition" text={`${p} g`} />
                         </View>
                       )}
                     </Row>
@@ -122,7 +127,7 @@ function RecipePage({ rc, slot: slotParam }: { rc: Recipe; slot?: MealSlot }) {
                   <T v="h3" numberOfLines={1}>Whole recipe</T>
                   <T v="small" numberOfLines={1}>Makes {plural(rc.serves)}</T>
                 </View>
-                {!gentle && <T v="small" color={c.text} numberOfLines={1}>{whole.kcal} kcal · {whole.protein} g</T>}
+                {!gentle && <MetaLine color={c.text} items={[{ icon: 'flame', text: `${whole.kcal} kcal`, color: c.warm }, { icon: 'nutrition', text: `${whole.protein} g`, color: c.pink }]} />}
               </Row>
             </Card>
           </Section>
@@ -142,9 +147,9 @@ function RecipePage({ rc, slot: slotParam }: { rc: Recipe; slot?: MealSlot }) {
         </Animated.View>
 
         <Animated.View entering={enter(3)}>
-          <Section title="More detail">
+          <Section title="More">
             <Card style={{ paddingVertical: 4 }}>
-              <LinkRow icon="search" text="Search this recipe" url={`https://www.google.com/search?q=${encodeURIComponent(rc.name + ' recipe')}`} />
+              <LinkRow icon="search" text="Search the web" url={`https://www.google.com/search?q=${encodeURIComponent(rc.name + ' recipe')}`} />
               <View style={s.sep} />
               <LinkRow icon="logo-youtube" text="Watch a video" url={`https://www.youtube.com/results?search_query=${encodeURIComponent('how to make ' + rc.name)}`} />
             </Card>
@@ -158,18 +163,20 @@ function RecipePage({ rc, slot: slotParam }: { rc: Recipe; slot?: MealSlot }) {
           <Row>
             <Row gap={6} style={{ flex: 1 }}>
               <Ionicons name="checkmark-circle" size={20} color={c.ok} />
-              <T v="small" color={c.text} style={{ flex: 1 }}>{`Logged today${already.slot ? ` at ${slotName(already.slot).toLowerCase()}` : ''}`}</T>
+              <T v="small" color={c.text} style={{ flex: 1 }}>{`Logged${already.slot ? ` · ${slotName(already.slot)}` : ' today'}`}</T>
             </Row>
             <Button title="Remove" icon="trash-outline" kind="ghost" onPress={() => removeMeal(already.id)} style={{ height: 48, paddingHorizontal: 16 }} />
           </Row>
         ) : (
           <>
-            <T v="small" numberOfLines={1} style={{ marginBottom: 8 }}>
-              {gentle ? `${plural(serv)} · to ${slotName(slot).toLowerCase()}` : `${plural(serv)}: ${Math.round(per.kcal * serv)} kcal · ${Math.round(per.protein * serv)} g protein · to ${slotName(slot).toLowerCase()}`}
-            </T>
+            <MetaLine style={{ marginBottom: 8 }} items={[
+              { icon: SLOTS.find((x) => x.id === slot)!.icon, text: slotName(slot) },
+              !gentle && { icon: 'flame', text: `${Math.round(per.kcal * serv)} kcal`, color: dom.kcal },
+              !gentle && { icon: 'nutrition', text: `${Math.round(per.protein * serv)} g protein`, color: dom.protein },
+            ]} />
             <Row>
               <Stepper value={serv} onChange={setServ} step={0.5} min={0.5} />
-              <Button title="Log this" icon="add" onPress={logIt} style={{ flex: 1, height: 52, paddingHorizontal: 12 }} />
+              <Button title="Log" icon="add" onPress={logIt} style={{ flex: 1, height: 52, paddingHorizontal: 12 }} />
             </Row>
           </>
         )}
@@ -190,13 +197,14 @@ const Meta = ({ icon, text }: { icon: Icon; text: string }) => (
   <Row gap={6}><Ionicons name={icon} size={16} color={c.muted} /><T v="small" color={c.text}>{text}</T></Row>
 );
 
-const Pill = ({ color, text }: { color: string; text: string }) => (
-  <View style={[s.pill, { backgroundColor: color + '22' }]}><T v="small" color={color} numberOfLines={1}>{text}</T></View>
+const Pill = ({ color, icon, text }: { color: string; icon: Icon; text: string }) => (
+  <Row gap={4} style={[s.pill, { backgroundColor: color + '22' }]}><Ionicons name={icon} size={12} color={color} /><T v="small" color={color} numberOfLines={1}>{text}</T></Row>
 );
 
 const s = StyleSheet.create({
   ing: { paddingVertical: 12 },
   sep: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
+  preg: { minHeight: 52, paddingLeft: 14, paddingRight: 6, borderRadius: r.md, borderWidth: 1, borderColor: c.pink + '55', backgroundColor: c.card },
   pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   num: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   link: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52 },

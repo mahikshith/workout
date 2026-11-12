@@ -226,7 +226,7 @@ export function Legend({ showKcal }: { showKcal: boolean }) {
     { label: 'Excused', sw: { backgroundColor: c.card2 }, icon: 'medkit-outline' },
     { label: 'Missed', sw: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.danger + '80' } },
     { label: 'Planned', sw: { borderWidth: 1.5, borderColor: dom.train + '99' } },
-    ...(showKcal ? [{ label: 'kcal burned that day', sw: {}, bar: true }] : []),
+    ...(showKcal ? [{ label: 'kcal burned', sw: {}, bar: true }] : []),
   ];
   return (
     <View style={s.legend}>
@@ -292,8 +292,8 @@ function DayBody({ k }: { k: string }) {
   const origins = appList(dm?.origin ?? []);
 
   const title = k === today ? 'Today' : date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
-  const status = ours.length || watch.length ? null : why ? EXCUSE[why].label : k > today ? (planned ? 'Planned workout day' : 'Nothing planned')
-    : k === today ? (planned ? 'Workout planned today' : 'Nothing logged yet') : planned ? 'Planned, no workout logged' : 'Rest day';
+  const status = ours.length || watch.length ? null : why ? EXCUSE[why].label : k > today ? (planned ? 'Planned' : 'Nothing planned')
+    : k === today ? (planned ? 'Planned' : 'Nothing logged yet') : planned ? 'Planned · not logged' : 'Rest day';
 
   const remove = (id: string) => {
     if (confirm !== id) { setConfirm(id); haptic('light'); return; }
@@ -320,14 +320,14 @@ function DayBody({ k }: { k: string }) {
             <View style={{ flex: 1 }}>
               <T v="num">{cal.kcal.toLocaleString()} <T v="small">kcal burned</T></T>
               <T v="small" numberOfLines={2}>
-                {cal.from === 'day' ? `Active calories from ${origins.length ? origins.join(' and ') : 'your watch'}`
-                  : cal.estimated ? `Your workout${cal.parts.length === 1 ? '' : 's'} added up · includes an estimate` : `Your workout${cal.parts.length === 1 ? '' : 's'} added up, measured by your watch`}
+                {cal.from === 'day' ? `Active · ${origins.length ? origins.join(' and ') : 'your watch'}`
+                  : cal.estimated ? `Workout${cal.parts.length === 1 ? '' : 's'} added up · part estimated` : `Workout${cal.parts.length === 1 ? '' : 's'} added up · by watch`}
               </T>
             </View>
           </Row>
           {cal.parts.length > 0 && (
             <View style={{ gap: 4 }}>
-              <T v="small" color={c.soft}>{cal.from === 'day' ? 'Already counted in that total' : 'Made up of'}</T>
+              <T v="small" color={c.soft}>{cal.from === 'day' ? 'Included above' : 'Made up of'}</T>
               {cal.parts.map((w) => (
                 <Row key={w.id} gap={8}>
                   <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1 }}>{partName(w.id)}</T>
@@ -336,8 +336,8 @@ function DayBody({ k }: { k: string }) {
               ))}
             </View>
           )}
-          {cal.from === 'workouts' && dm?.activeKcal !== undefined && <T v="small">Your watch counted {Math.round(dm.activeKcal).toLocaleString()} active kcal this day, less than the workout, so it was likely off your wrist.</T>}
-          {dm?.totalKcal !== undefined && <T v="small">With resting calories: {Math.round(dm.totalKcal).toLocaleString()} kcal</T>}
+          {cal.from === 'workouts' && dm?.activeKcal !== undefined && <T v="small">Watch: only {Math.round(dm.activeKcal).toLocaleString()} active kcal, likely off your wrist</T>}
+          {dm?.totalKcal !== undefined && <T v="small">With resting: {Math.round(dm.totalKcal).toLocaleString()} kcal</T>}
         </View>
       )}
 
@@ -449,8 +449,9 @@ function DayBody({ k }: { k: string }) {
         </View>
       )}
 
-      {nothing && k <= today && (
-        <T v="body" color={c.muted}>{k === today ? 'Nothing logged yet today.' : 'Nothing logged or synced this day.'}</T>
+      {/* Said once: today's status line already says "Nothing logged yet" when nothing was planned. */}
+      {nothing && k <= today && !status?.startsWith('Nothing') && (
+        <T v="body" color={c.muted}>{k === today ? 'Nothing logged yet' : 'Nothing logged or synced'}</T>
       )}
 
       {/* Excuse a day: the missed-workout nudge skips it and the calendar shows why. */}
@@ -467,7 +468,7 @@ function DayBody({ k }: { k: string }) {
       )}
       {k === today && !ours.length && (
         <Tap onPress={() => router.navigate('/')} style={s.link}>
-          <T v="h3" color={c.accent}>Go to today's workout</T>
+          <T v="h3" color={c.accent}>Today’s workout</T>
           <Ionicons name="chevron-forward" size={16} color={c.accent} />
         </Tap>
       )}

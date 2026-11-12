@@ -21,11 +21,11 @@ export function ChallengeCard() {
     const top = recs[0];
     if (!top) return null;
     return (
-      <Tap onPress={() => router.push('/challenges')} style={s.card} scale={0.98} accessibilityLabel={`Try a challenge: ${top.name}`}>
+      <Tap onPress={() => router.push('/challenges')} style={s.card} scale={0.98} accessibilityLabel={`Try a ${top.days}-day challenge picked for you: ${top.name}`}>
         <IconBox icon="trophy" color={dom.streak} size={44} />
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-          <T v="h3" numberOfLines={1}>{`Try a ${top.days}-day challenge`}</T>
-          <T v="small" numberOfLines={1}>{`${top.name} · picked for you`}</T>
+          <T v="h3" numberOfLines={1}>{top.name}</T>
+          <T v="small" numberOfLines={1}>Challenge for you</T>
         </View>
         <Ionicons name="chevron-forward" size={18} color={c.muted} />
       </Tap>
@@ -41,8 +41,8 @@ export function ChallengeCard() {
   const star = newMilestone(prog, hints);
   const steps = !next && !!todo && !day?.done && !prog.over; // only things the app can't start (steps): a tick instead
   const sub = prog.over
-    ? (prog.completed ? 'Finished! Collect your badge' : `Challenge over · ${prog.done} of ${prog.required}`)
-    : star ? `${star.label}! Tap to see your stars`
+    ? (prog.completed ? 'Finished! Get your badge' : `Over · ${prog.done}/${prog.required}`)
+    : star ? `${star.label}!`
     : makeUp && prog.makeUp ? `make up day ${prog.makeUp.i + 1}`
     : !day?.tasks.length ? 'rest day'
     : day.done ? 'done for today'
@@ -58,7 +58,7 @@ export function ChallengeCard() {
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <T v="h3" numberOfLines={1}>{ch.name}</T>
           <T v="small" numberOfLines={1} color={star ? dom.streak : makeUp ? c.warm : day?.done || (prog.over && prog.completed) ? c.ok : c.muted}>
-            {prog.over || star ? sub : `Day ${prog.todayIdx + 1} of ${ch.days} · ${sub}`}
+            {prog.over || star ? sub : `Day ${prog.todayIdx + 1}/${ch.days} · ${sub}`}
           </T>
         </View>
         {next ? (
@@ -91,7 +91,7 @@ const s = StyleSheet.create({
 export function ChallengesDoor() {
   const { ch, prog } = useRun();
   const meta = ch && prog
-    ? (prog.over ? `${ch.name} · finished` : `${ch.name} · day ${prog.todayIdx + 1} of ${ch.days}`)
-    : `${challenges.length} challenges · 14 to 30 days`;
+    ? (prog.over ? `${ch.name} · finished` : `${ch.name} · day ${prog.todayIdx + 1}/${ch.days}`)
+    : `${challenges.length} challenges`;
   return <DoorCard icon="trophy" color={dom.streak} title="Challenges" meta={meta} onPress={() => router.push('/challenges')} />;
 }

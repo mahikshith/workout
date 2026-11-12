@@ -7,7 +7,8 @@ import { postpartumWeek, pregnancyWeek } from './calc';
 import { perWeek, type Category, type Plan } from './data/plans';
 import type { Profile } from './store';
 import { c, dom, r, tint } from './theme';
-import { IconBox, Row, T, Tap } from './ui';
+import { Meta, type MetaItem } from './tip';
+import { IconBox, Row, st, T, Tap } from './ui';
 
 type Icon = keyof typeof Ionicons.glyphMap;
 export type Where = 'gym' | 'home' | 'office';
@@ -23,6 +24,11 @@ export const PLAN_COLOR: Record<Category, string> = {
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export const planMeta = (p: Plan) => `${plural(perWeek(p), 'day')} a week · ${cap(p.level)}`;
+// The same facts as icon + value (docs/round15/less-text.md): calendar 3×/wk, bar-chart Beginner.
+export const planMetaItems = (p: Plan): MetaItem[] => [
+  { icon: 'calendar-outline', text: `${perWeek(p)}×/wk` },
+  { icon: 'bar-chart-outline', text: cap(p.level) },
+];
 export const openPlan = (id: string) => router.push({ pathname: '/plan/[id]', params: { id } });
 
 // Office shows recovery and desk-friendly plans only; gym and home hide desk-only plans.
@@ -45,7 +51,7 @@ export function because(p: Profile, plan: Plan) {
 export function PlanCard({ plan, why, tag, width = 220 }: { plan: Plan; why?: string; tag?: string; width?: number }) {
   const col = PLAN_COLOR[plan.category];
   return (
-    <Tap onPress={() => openPlan(plan.id)} style={[s.card, { width, borderColor: tint(col, 1.4) }]} scale={0.97} accessibilityLabel={`${plan.name}, ${planMeta(plan)}`}>
+    <Tap onPress={() => openPlan(plan.id)} style={[s.card, { width, borderColor: tint(col, 1.4) }]} scale={0.97} accessibilityLabel={`${plan.name}, ${planMeta(plan)}${tag ? `, ${tag}` : ''}${why ? `, ${why}` : ''}`}>
       {/* A soft wash of the plan's own colour, so a row of plans reads as different kinds at a glance. */}
       <LinearGradient colors={[tint(col, 1.3), c.card]} locations={[0, 0.75]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
       <Row gap={8}>
@@ -54,7 +60,7 @@ export function PlanCard({ plan, why, tag, width = 220 }: { plan: Plan; why?: st
         {tag ? <View style={[s.tag, { backgroundColor: tint(c.accent, 1.3) }]}><T v="small" color={c.accent} style={{ fontSize: 12, lineHeight: 15 }}>{tag}</T></View> : null}
       </Row>
       <T v="h3" numberOfLines={2} style={{ minHeight: 44 }}>{plan.name}</T>
-      <T v="small" numberOfLines={1}>{planMeta(plan)}</T>
+      <Meta items={planMetaItems(plan)} />
       {why ? (
         <Row gap={4} style={{ marginTop: 2 }}>
           <Ionicons name="checkmark-circle" size={14} color={col} />
@@ -69,3 +75,31 @@ const s = StyleSheet.create({
   card: { overflow: 'hidden', gap: 6, padding: 14, borderRadius: r.lg, backgroundColor: c.card, borderWidth: 1, borderColor: c.line },
   tag: { height: 22, paddingHorizontal: 8, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
 });
+
+// A plan in the full list: icon, name, then icon + value facts (and a mark for yours or a pick for you).
+export function PlanRow({ plan, extra, onPress }: { plan: Plan; extra?: MetaItem | false | null; onPress: () => void }) {
+  return (
+    <Tap onPress={onPress} scale={0.98} style={st.listRow}
+      accessibilityLabel={`${plan.name}, ${planMeta(plan)}${extra ? `, ${extra.text}` : ''}`}>
+      <IconBox icon={PLAN_ICON[plan.category]} color={PLAN_COLOR[plan.category]} />
+      <View style={{ flex: 1, gap: 4 }}>
+        <T v="h3" numberOfLines={2}>{plan.name}</T>
+        <Meta items={[...planMetaItems(plan), extra]} />
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={c.muted} />
+    </Tap>
+  );
+}
+
+// The disclaimer as one link (shield + "Safety"), with an optional short lead and an (i) for a longer note.
+export function SafetyLink({ lead, center }: { lead?: string; center?: boolean }) {
+  return (
+    <Tap onPress={() => router.push('/safety')} scale={0.99} feedback="none" accessibilityRole="link"
+      accessibilityLabel={`${lead ? `${lead}. ` : ''}General fitness ideas, not medical advice. Safety and disclaimer`}
+      style={{ flexDirection: 'row', gap: 6, alignItems: 'center', minHeight: 36, justifyContent: center ? 'center' : 'flex-start' }}>
+      <Ionicons name="shield-checkmark-outline" size={15} color={c.muted} />
+      {lead ? <T v="small" color={c.muted} numberOfLines={1} style={{ fontSize: 13 }}>{`${lead} ·`}</T> : null}
+      <T v="small" color={c.accent} style={{ fontSize: 13 }}>Safety ›</T>
+    </Tap>
+  );
+}

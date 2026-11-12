@@ -9,6 +9,7 @@ import { useStore } from '../store';
 import { c, dom, r, tint } from '../theme';
 import { useTracker } from '../tracker';
 import { Row, T, Tap } from '../ui';
+import { Tip } from '../tip';
 import { APP_NAME } from './DataPath';
 import { SOURCE_LABEL } from './energy';
 import { energyFor, useEnergyData } from './useEnergy';
@@ -54,9 +55,21 @@ export function WatchGives() {
       !gentle && last.e.kcal > 0 ? SOURCE_LABEL[last.e.source].toLowerCase() : null].filter(Boolean).join(' · ')
     : null;
 
+  // Where each number goes, and why a watch matters even though it can't see sets, live behind the (i).
+  const about = [
+    items.map((x) => `${x.label}: ${x.to}`).join('\n'),
+    gentle ? 'Your watch cannot see sets and reps. Every workout you log here gets its heart rate attached by itself.'
+      : 'Your watch cannot see sets and reps. Every workout you log here gets its calories and heart rate attached by itself.',
+    !linked ? 'Until a watch is connected, workouts show an estimate from your sets and weight.' : null,
+    'A tick means that number arrived in the last 7 days.',
+  ].filter(Boolean).join('\n\n');
+
   return (
     <View style={s.card}>
-      <T v="h3">What comes into {APP_NAME}</T>
+      <Row gap={4}>
+        <T v="h3">What comes in</T>
+        <Tip title={`What comes into ${APP_NAME}`} text={about} />
+      </Row>
       <View style={s.grid}>
         {items.map((x) => (
           <View key={x.key} style={s.item} accessible accessibilityLabel={`${x.label}${got[x.key] ? ', arriving' : ''}: goes to ${x.to}`}>
@@ -64,22 +77,10 @@ export function WatchGives() {
               <Ionicons name={x.icon} size={16} color={x.color} />
               {got[x.key] && <View style={[s.tick, { backgroundColor: c.ok }]}><Ionicons name="checkmark" size={10} color={c.accentInk} /></View>}
             </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <T v="small" color={c.text} numberOfLines={1}>{x.label}</T>
-              <T v="small" numberOfLines={1} style={{ fontSize: 12, lineHeight: 16 }}>{x.to}</T>
-            </View>
+            <T v="small" color={c.text} numberOfLines={1} style={{ flex: 1, minWidth: 0 }}>{x.label}</T>
           </View>
         ))}
       </View>
-      <Row gap={10} style={s.flow}>
-        <Ionicons name="watch-outline" size={16} color={c.muted} />
-        <Ionicons name="arrow-forward" size={12} color={c.muted} />
-        <Ionicons name="barbell" size={16} color={c.accent} />
-        <T v="small" color={c.text} style={{ flex: 1 }}>
-          {gentle ? 'Your watch cannot see sets and reps. Every workout you log here gets its heart rate attached by itself'
-            : 'Your watch cannot see sets and reps. Every workout you log here gets its calories and heart rate attached by itself'}
-        </T>
-      </Row>
       {lastLine && (
         <Tap onPress={() => router.push('/history')} style={s.last} feedback="none" accessibilityLabel={`Last workout: ${lastLine}. Open the calendar`}>
           <View style={{ flex: 1, minWidth: 0 }}>
@@ -89,8 +90,19 @@ export function WatchGives() {
           <Ionicons name="chevron-forward" size={16} color={c.muted} />
         </Tap>
       )}
-      {denied && <T v="small">Calories are switched off for {APP_NAME} in Health Connect, so workouts show an estimate. Allow them under Health Connect › App permissions</T>}
-      {!linked && !lastLine && <T v="small">Until a watch is connected, workouts show an estimate from your sets and weight</T>}
+      {denied && (
+        <Row gap={8}>
+          <Ionicons name="alert-circle-outline" size={16} color={c.warm} />
+          <T v="small" style={{ flex: 1 }}>Calories off · estimated</T>
+          <Tip title="Calories are off" text={`Calories are switched off for ${APP_NAME} in Health Connect, so workouts show an estimate. Allow them under Health Connect › App permissions.`} />
+        </Row>
+      )}
+      {!linked && !lastLine && (
+        <Row gap={8} accessible accessibilityLabel="Until a watch is connected, workouts show an estimate from your sets and weight">
+          <Ionicons name="calculator-outline" size={16} color={c.muted} />
+          <T v="small" style={{ flex: 1 }}>Estimated until connected</T>
+        </Row>
+      )}
     </View>
   );
 }
@@ -101,6 +113,5 @@ const s = StyleSheet.create({
   item: { width: '50%', flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 8 },
   dot: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   tick: { position: 'absolute', right: -3, top: -3, width: 14, height: 14, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
-  flow: { paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line },
   last: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 12, paddingVertical: 8, borderRadius: r.md, backgroundColor: c.card2 },
 });

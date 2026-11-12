@@ -15,6 +15,7 @@ import { fits, foods, type Food } from './data/foods';
 import { GROUPS, groupFor, perServing, recipesFor, type Recipe } from './data/recipes';
 import { EASE, Segmented } from './kit';
 import { Sheet } from './sheet';
+import { Meta, type MetaItem } from './tip';
 import { useStore, type Meal, type MealSlot } from './store';
 import { c, dom, f, r, tint } from './theme';
 import { Button, haptic, IconBox, Row, T, Tap } from './ui';
@@ -120,6 +121,11 @@ export const findFood = (name: string) => ALL.find((x) => x.name.toLowerCase() =
 export const servings = (n: number) => { const w = Math.floor(n), half = n - w >= 0.5 ? '½' : ''; return w ? `${w}${half}` : half || '0'; };
 const servWord = (n: number) => `${servings(n)} serving${n === 1 ? '' : 's'}`;
 const SERVINGS = [0.5, 1, 1.5, 2, 3];
+// kcal and protein as icon + number (flame, and the protein leaf in its pink), for list rows.
+const kp = (kcal: number, protein: number, about = ''): MetaItem[] => [
+  { icon: 'flame', text: `${about}${kcal} kcal`, color: dom.kcal },
+  { icon: 'nutrition', text: `${about}${protein} g`, color: dom.protein },
+];
 
 // Days: logging something forgotten files it under that day, at the same clock time.
 const DAY_MS = 86400000;
@@ -134,7 +140,7 @@ const atFor = (d: string) => { const [y, m, dd] = d.split('-').map(Number); cons
 export const timeOf = (at?: number) => { if (!at) return ''; const d = new Date(at); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
 type Pick = { name: string; serving: string; kcal: number; protein: number; icon: Icon };
-type RowItem = { key: string; icon: Icon; title: string; sub?: string; log: () => void; open?: () => void; kind?: 'own' | 'recipe' | 'food'; divider?: string; name?: string };
+type RowItem = { key: string; icon: Icon; title: string; sub?: string; meta?: MetaItem[]; said?: string; log: () => void; open?: () => void; kind?: 'own' | 'recipe' | 'food'; divider?: string; name?: string };
 
 // Which meal this goes to. Defaults to the meal that fits the time of day.
 export function SlotPicker({ value, onChange }: { value: MealSlot; onChange: (s: MealSlot) => void }) {
@@ -222,14 +228,16 @@ export function FoodPicker({ slot: slot0, tab: tab0 = 'foods', query: q0 = '', f
     const p = perServing(x);
     return {
       key: 'r:' + x.id, kind: 'recipe', icon: KIND_ICON[x.kind], title: x.name, open: () => onRecipe(x.id, slot),
-      sub: gentle ? `Recipe · ${x.minutes} min` : `Recipe · ${x.minutes} min · ${p.kcal} kcal · ${p.protein} g protein`,
+      meta: [{ icon: 'time-outline', text: `${x.minutes} min` }, ...(gentle ? [] : kp(p.kcal, p.protein))],
+      said: gentle ? `${x.minutes} minutes` : `${x.minutes} minutes, ${p.kcal} kcal, ${p.protein} grams protein`,
       log: () => log('r:' + x.id, x.name, p.kcal, p.protein),
     };
   };
   const recipes = recipesFor(profile).filter((x) => x.name.toLowerCase().includes(needle)).sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group));
   const foodRow = (x: Food): RowItem => ({
     key: 'f:' + x.name, kind: 'food', icon: x.icon, title: x.name, open: () => setPick(x),
-    sub: gentle ? undefined : `${x.serving} · ${x.kcal} kcal · ${x.protein} g protein`,
+    sub: gentle ? undefined : x.serving, meta: gentle ? undefined : kp(x.kcal, x.protein),
+    said: gentle ? undefined : `${x.serving}, ${x.kcal} kcal, ${x.protein} grams protein`,
     log: () => log('f:' + x.name, x.name, x.kcal, x.protein),
   });
   const matching = ALL.filter((x) => x.name.toLowerCase().includes(needle));
@@ -241,7 +249,8 @@ export function FoodPicker({ slot: slot0, tab: tab0 = 'foods', query: q0 = '', f
   const est = searching ? estimate(q) : null;
   const ownRow: RowItem | null = searching ? {
     key: 'own', kind: 'own', icon: 'create', title: `Log "${q.trim()}"`, name: `"${q.trim()}"`,
-    sub: gentle ? `As your own meal · ${meal}` : est ? `About ${est.kcal} kcal · ${est.protein} g protein` : 'As your own meal · add calories if you know them',
+    sub: gentle || !est ? 'Your own meal' : undefined, meta: !gentle && est ? kp(est.kcal, est.protein, '~') : undefined,
+    said: gentle ? 'as your own meal' : est ? `about ${est.kcal} kcal, ${est.protein} grams protein` : 'as your own meal, calories optional',
     log: () => log('own', cap(q.trim()), est?.kcal ?? 0, est?.protein ?? 0),
     open: () => { setForm({ ...EMPTY, name: cap(q.trim()) }); setQ(''); setTab('custom'); },
   } : null;
@@ -280,11 +289,16 @@ export function FoodPicker({ slot: slot0, tab: tab0 = 'foods', query: q0 = '', f
       <Animated.View entering={!still && index < 6 ? FadeInDown.delay(index * 50).duration(320).easing(EASE) : undefined}
         style={[s.row, own && { backgroundColor: tint(c.accent, 0.8), borderColor: tint(c.accent, 2.5) }]}>
         <Tap onPress={item.open ?? item.log} feedback="none" scale={0.98} style={s.rowMain}
-          accessibilityLabel={own ? `Edit ${item.name} before logging` : item.kind === 'recipe' ? `${item.title}, open recipe` : `${item.title}, choose servings`}>
+          accessibilityLabel={`${own ? `Edit ${item.name} before logging` : item.kind === 'recipe' ? `${item.title}, open recipe` : `${item.title}, choose servings`}${item.said ? `. ${item.said}` : ''}`}>
           <IconBox icon={item.icon} color={tone} size={36} />
           <View style={{ flex: 1, gap: 2 }}>
             <T v="h3" numberOfLines={1} style={{ fontSize: 16 }}>{item.title}</T>
-            {item.sub ? <T v="small" numberOfLines={1}>{item.sub}</T> : null}
+            {item.sub || item.meta ? (
+              <Row gap={12}>
+                {item.sub ? <T v="small" numberOfLines={1} style={{ flexShrink: 1 }}>{item.sub}</T> : null}
+                {item.meta ? <Meta items={item.meta} style={{ flexWrap: 'nowrap' }} /> : null}
+              </Row>
+            ) : null}
           </View>
         </Tap>
         <Tap onPress={item.log} feedback="none" scale={0.85} style={s.plus} accessibilityLabel={`Log ${item.name ?? item.title} to ${where}`}>
@@ -301,7 +315,7 @@ export function FoodPicker({ slot: slot0, tab: tab0 = 'foods', query: q0 = '', f
       {!pick && tab !== 'custom' && (
         <View style={s.search}>
           <Ionicons name="search" size={18} color={c.muted} />
-          <TextInput value={q} onChangeText={setQ} placeholder="Search, or type what you ate" maxLength={60} accessibilityLabel="Search foods"
+          <TextInput value={q} onChangeText={setQ} placeholder="Search or type a meal" maxLength={60} accessibilityLabel="Search foods"
             placeholderTextColor={c.muted} style={s.searchInput} autoCorrect={false} returnKeyType="done"
             onSubmitEditing={() => { if (ownRow && !mineFoods.length && !recipes.length) ownRow.log(); }} />
           {q ? <Tap onPress={() => setQ('')} feedback="none" style={s.clear} accessibilityLabel="Clear search"><Ionicons name="close-circle" size={18} color={c.muted} /></Tap> : null}
@@ -316,14 +330,13 @@ export function FoodPicker({ slot: slot0, tab: tab0 = 'foods', query: q0 = '', f
         ) : tab === 'custom' && !searching ? (
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <Animated.View entering={FadeIn.duration(200)} style={{ gap: 8 }}>
-              <T v="small">Anything not in the list. A name is enough.</T>
-              <TextInput value={form.name} onChangeText={(name) => setForm({ ...form, name })} placeholder="What did you eat? e.g. 2 roti, dal and rice" maxLength={60}
-                placeholderTextColor={c.muted} style={s.input} autoFocus={false} />
+              <TextInput value={form.name} onChangeText={(name) => setForm({ ...form, name })} placeholder="e.g. 2 roti, dal and rice" maxLength={60}
+                placeholderTextColor={c.muted} style={s.input} autoFocus={false} accessibilityLabel="What did you eat? A name is enough" />
               {!gentle && formEst && (
                 <Row gap={8} style={s.estimate}>
                   <Ionicons name="sparkles" size={16} color={dom.kcal} />
                   <T v="small" color={c.text} style={{ flex: 1 }} numberOfLines={2}>
-                    About {formEst.kcal} kcal · {formEst.protein} g protein ({formEst.from.join(', ')})
+                    ~{formEst.kcal} kcal · {formEst.protein} g protein · {formEst.from.join(', ')}
                   </T>
                 </Row>
               )}
@@ -331,15 +344,15 @@ export function FoodPicker({ slot: slot0, tab: tab0 = 'foods', query: q0 = '', f
                 <>
                   <Row gap={8}>
                     <TextInput value={form.kcal} onChangeText={(v) => setForm({ ...form, kcal: digits(v) })} keyboardType="number-pad"
-                      placeholder={formEst ? `${formEst.kcal} kcal` : 'kcal (optional)'} maxLength={4} placeholderTextColor={c.muted} style={[s.input, { flex: 1, minWidth: 0 }]} />
+                      placeholder={formEst ? `${formEst.kcal} kcal` : 'kcal'} maxLength={4} placeholderTextColor={c.muted} style={[s.input, { flex: 1, minWidth: 0 }]} accessibilityLabel="kcal, optional" />
                     <TextInput value={form.protein} onChangeText={(v) => setForm({ ...form, protein: digits(v) })} keyboardType="number-pad"
-                      placeholder={formEst ? `${formEst.protein} g protein` : 'Protein g (optional)'} maxLength={3} placeholderTextColor={c.muted} style={[s.input, { flex: 1, minWidth: 0 }]} />
+                      placeholder={formEst ? `${formEst.protein} g protein` : 'Protein g'} maxLength={3} placeholderTextColor={c.muted} style={[s.input, { flex: 1, minWidth: 0 }]} accessibilityLabel="Protein in grams, optional" />
                   </Row>
                   <Row gap={8}>
                     <TextInput value={form.carbs} onChangeText={(v) => setForm({ ...form, carbs: digits(v) })} keyboardType="number-pad"
-                      placeholder="Carbs g (optional)" maxLength={3} placeholderTextColor={c.muted} style={[s.input, { flex: 1, minWidth: 0 }]} />
+                      placeholder="Carbs g" maxLength={3} placeholderTextColor={c.muted} style={[s.input, { flex: 1, minWidth: 0 }]} accessibilityLabel="Carbs in grams, optional" />
                     <TextInput value={form.fat} onChangeText={(v) => setForm({ ...form, fat: digits(v) })} keyboardType="number-pad"
-                      placeholder="Fat g (optional)" maxLength={3} placeholderTextColor={c.muted} style={[s.input, { flex: 1, minWidth: 0 }]} />
+                      placeholder="Fat g" maxLength={3} placeholderTextColor={c.muted} style={[s.input, { flex: 1, minWidth: 0 }]} accessibilityLabel="Fat in grams, optional" />
                   </Row>
                 </>
               )}
@@ -373,7 +386,7 @@ export function FoodPicker({ slot: slot0, tab: tab0 = 'foods', query: q0 = '', f
                 <T v="label" style={{ marginTop: 8 }}>{profile.diet === 'non-veg' ? 'Foods' : 'Foods for your diet'}</T>
               </View>
             ) : null}
-            ListEmptyComponent={<T v="small" style={{ marginTop: 8 }}>{tab === 'recipes' ? 'No recipes for your diet yet.' : 'Nothing here yet.'}</T>}
+            ListEmptyComponent={<T v="small" style={{ marginTop: 8 }}>{tab === 'recipes' ? 'No recipes yet' : 'Nothing here yet'}</T>}
           />
         )}
         {added && (
@@ -405,7 +418,7 @@ function Servings({ pick, gentle, where, onBack, onLog }: {
           <IconBox icon={pick.icon} color={dom.kcal} size={36} />
           <View style={{ flex: 1, gap: 2 }}>
             <T v="h3" numberOfLines={1}>{pick.name}</T>
-            <T v="small" numberOfLines={1}>{gentle ? 'Pick how much you had' : `1 serving = ${pick.serving}`}</T>
+            <T v="small" numberOfLines={1}>{gentle ? 'How much?' : `1 serving = ${pick.serving}`}</T>
           </View>
         </Row>
         <View style={s.panel}>
@@ -443,12 +456,12 @@ function Servings({ pick, gentle, where, onBack, onLog }: {
               placeholderTextColor={c.muted} style={[s.input, { flex: 1, minWidth: 0 }]} accessibilityLabel="Fat in grams, optional" />
           </Row>
         ) : (
-          <Tap onPress={() => setMore(true)} style={s.more} scale={0.98}>
+          <Tap onPress={() => setMore(true)} style={s.more} scale={0.98} accessibilityLabel="Add carbs and fat, optional">
             <Ionicons name="add" size={16} color={c.accent} />
-            <T v="small" color={c.accent}>Add carbs and fat (optional)</T>
+            <T v="small" color={c.accent}>Carbs and fat</T>
           </Tap>
         ))}
-        <Button title={`Log ${servWord(n)} to ${where}`} icon="add" onPress={() => onLog(n, { carbs: opt(carbs), fat: opt(fat) })} />
+        <Button title={`Log to ${where}`} icon="add" onPress={() => onLog(n, { carbs: opt(carbs), fat: opt(fat) })} />
       </Animated.View>
     </ScrollView>
   );

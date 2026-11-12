@@ -3,7 +3,7 @@ import { type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BODIES, ContextFields, GOALS, LEVELS, Pill, Tiles } from '../src/context';
+import { BODIES, ContextFields, GOALS, LEVELS, Pill, Tiles, type Opt } from '../src/context';
 import { HOME_GEAR, title } from '../src/data/exercises';
 import { perWeek, planById } from '../src/data/plans';
 import { UNLOCK } from '../src/engine';
@@ -14,12 +14,20 @@ import { answered, setKey, type Answerable } from '../src/glance';
 import { SafetyNote } from '../src/safety';
 import { useStore, type Body, type Goal, type Profile } from '../src/store';
 import { c, f, r } from '../src/theme';
+import { Tip } from '../src/tip';
 import { Button, Row, Stepper, T } from '../src/ui';
 
 const DIETS: [Profile['diet'], string][] = [['vegetarian', 'Veg'], ['vegan', 'Vegan'], ['eggetarian', 'Egg'], ['pescatarian', 'Fish'], ['non-veg', 'Non-veg']];
 const PLACES: { k: Profile['place']; label: string }[] = [{ k: 'gym', label: 'Gym' }, { k: 'home', label: 'Home' }, { k: 'both', label: 'Both' }, { k: 'office', label: 'Office' }];
 const DAYS = ['2', '3', '4', '5', '6'].map((k) => ({ k, label: k }));
 const GENDERS: { k: Profile['gender']; label: string }[] = [{ k: 'female', label: 'Female' }, { k: 'male', label: 'Male' }, { k: 'other', label: 'Other' }];
+// Round 15: option tiles show their titles only. Experience keeps a short span (the titles alone overlap); what each
+// body type means opens from the (i) beside the question.
+const bare = <K extends string>(o: Opt<K>[]): Opt<K>[] => o.map(([k, label, icon]) => [k, label, icon]);
+const GOAL_OPTS = bare(GOALS);
+const BODY_OPTS = bare(BODIES);
+const SPAN: Record<Profile['level'], string> = { beginner: 'Under 6 months', intermediate: '6 mo – 2 yrs', advanced: '2+ years' };
+const LEVEL_OPTS: Opt<Profile['level']>[] = LEVELS.map(([k, label, icon]) => [k, label, icon, SPAN[k]]);
 const TITLES = { plan: 'Plan and goal', about: 'About you', place: 'Where you train' } as const;
 type Part = keyof typeof TITLES;
 
@@ -54,16 +62,16 @@ export default function ProfilePage() {
   const plan = (
     <>
       <Block i={0} label="Goal">
-        <Tiles<Goal> opts={GOALS} on={(k) => p.goal === k} onPick={(goal) => save({ goal })} />
+        <Tiles<Goal> opts={GOAL_OPTS} on={(k) => p.goal === k} onPick={(goal) => save({ goal })} />
       </Block>
       <Block i={1} label="Days a week">
         <Segmented options={DAYS} value={String(p.daysPerWeek)} onChange={(d) => save({ daysPerWeek: Number(d) })} />
       </Block>
       <Block i={2} label="Experience">
-        <Tiles<Profile['level']> opts={LEVELS} on={(k) => p.level === k} onPick={(level) => save({ level })} />
+        <Tiles<Profile['level']> opts={LEVEL_OPTS} on={(k) => p.level === k} onPick={(level) => save({ level })} />
         <T v="small">
-          {p.level === 'beginner' ? `Harder moves open after ${UNLOCK.intermediate} sessions`
-            : p.level === 'intermediate' ? `Expert moves open after ${UNLOCK.expert} sessions` : 'Everything is open'}
+          {p.level === 'beginner' ? `Harder moves: after ${UNLOCK.intermediate} sessions`
+            : p.level === 'intermediate' ? `Expert moves: after ${UNLOCK.expert} sessions` : 'All moves open'}
         </T>
       </Block>
       <Block i={3} label="Your plan">
@@ -73,13 +81,13 @@ export default function ProfilePage() {
             ? <Row gap={12}>
                 <View style={{ flex: 1, gap: 2 }}>
                   <T v="body" numberOfLines={1}>{planById[better].name}</T>
-                  <T v="small" numberOfLines={1}>{pick.reasons[0] ?? `Fits your ${p.daysPerWeek} days`}</T>
+                  <T v="small" numberOfLines={1}>{pick.reasons[0] ?? `Fits ${p.daysPerWeek} days`}</T>
                 </View>
                 <Button title="Switch" kind="ghost" onPress={() => useStore.getState().setPlan(better)} />
               </Row>
-            : <T v="small">Built for {fitDays} days a week</T>
+            : <T v="small">Built for {fitDays}×/wk</T>
         )}
-        <Button title="Find a new plan" kind="ghost" icon="sparkles-outline"
+        <Button title="New plan" kind="ghost" icon="sparkles-outline"
           onPress={() => router.replace({ pathname: '/onboarding', params: { redo: '1' } })} />
       </Block>
     </>
@@ -101,8 +109,15 @@ export default function ProfilePage() {
         {!gentle && (
           <Field label="Weight" unset={!isSet('weightKg')}><Stepper value={p.weightKg} step={0.5} min={30} onChange={logWeight} suffix=" kg" /></Field>
         )}
-        <T v="small" style={{ marginTop: 6 }}>How would you describe your body right now?</T>
-        <Tiles<Body> opts={BODIES} on={(k) => p.body === k} onPick={(k) => save({ body: p.body === k ? undefined : k })} />
+        <Row gap={4} style={{ marginTop: 6 }}>
+          <T v="small" style={{ flexShrink: 1 }}>Your body right now</T>
+          <Tip title="Your body right now">
+            {BODIES.map(([k, label, , sub]) => (
+              <T key={k} v="small"><T v="small" color={c.text}>{label}</T>{sub ? `: ${sub}` : ''}</T>
+            ))}
+          </Tip>
+        </Row>
+        <Tiles<Body> opts={BODY_OPTS} on={(k) => p.body === k} onPick={(k) => save({ body: p.body === k ? undefined : k })} />
         <View style={s.wrap}><Pill label="Prefer not to say" on={!p.body} onPress={() => save({ body: undefined })} /></View>
       </Block>
       <Block i={2} label="How you eat">
@@ -115,7 +130,7 @@ export default function ProfilePage() {
         <Row gap={12}>
           <View style={{ flex: 1, gap: 2 }}>
             <T v="h3">Gentle mode</T>
-            <T v="small">Hide calories, weight and BMI</T>
+            <T v="small">Hides calories, weight, BMI</T>
           </View>
           <Switch value={gentle} trackColor={{ true: c.accent, false: c.card2 }} thumbColor="#FFFFFF" ios_backgroundColor={c.card2}
             onValueChange={(on) => save({ gentle: on, concerns: on ? p.concerns : p.concerns?.filter((x) => x !== 'food') })} />
@@ -131,7 +146,7 @@ export default function ProfilePage() {
     <>
       <Block i={0} label="Where you train">
         <Segmented options={PLACES} value={p.place} onChange={(v) => save({ place: v })} />
-        <T v="small">{p.place === 'office' ? 'Short sessions at work, no equipment' : p.place === 'gym' ? 'Full gym equipment' : 'Workouts fit the gear you have'}</T>
+        <T v="small">{p.place === 'office' ? 'Short, no equipment' : p.place === 'gym' ? 'Full gym equipment' : 'Fits your gear'}</T>
       </Block>
       {(p.place === 'home' || p.place === 'both') && (
         <Block i={1} label="Home equipment">
